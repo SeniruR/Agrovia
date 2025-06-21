@@ -1,0 +1,12 @@
+:root{
+    --background-color: white;
+    --login-button-color: springgreen;
+    --login-button-hover-color: rgb(72, 255, 163);
+    --login-button-text-color: white;
+    --background-white:white;
+    --background-black: black;
+
+    --green-for-hover: springgreen;
+    --hover-transparent-white: rgba(110, 110, 110);
+    --transparent-white: rgba(255, 255, 255, 0.5);
+}

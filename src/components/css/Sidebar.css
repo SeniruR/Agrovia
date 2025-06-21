@@ -1,0 +1,107 @@
+.sidebar {
+    position: fixed;
+}
+
+.ListItem:hover, .ListItem.main-item:hover {
+    background-color: var(--hover-transparent-white);
+}
+
+.ListItem {
+    border-radius: 14px;
+    width: auto !important;
+}
+
+.MuiList-root{
+    position: unset !important;
+}
+
+.main-component-div {
+    width: 240px;
+    justify-content: space-between;
+    height: 100vh;
+    background-color: transparent;
+}
+
+.under-login-div {
+    padding: 16px;
+    bottom: 0px;
+    margin-top: auto;
+    width: 208px;
+}
+
+.sub-item {
+  position: relative;
+  margin-left: 48px;
+  padding-left: 0px;
+}
+
+.connector-line {
+  position: absolute;
+  left: -20px;
+  top: 0;
+  width: 20px;
+  height: 100%;
+}
+
+.connector-line::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
+  background-color: var(--hover-transparent-white);
+}
+
+.connector-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 16px;
+    height: 20px;   
+    border-left: 2px solid var(--hover-transparent-white);
+    border-bottom: 2px solid var(--hover-transparent-white);
+    border-bottom-left-radius: 15px;
+    background: none;
+}
+
+
+.last-sub-item .connector-line::before {
+    height: 15%;
+}
+
+.subcategory-text{
+    padding-left: 8px !important;
+}
+
+.ExpandMore, .ExpandLess{
+    margin: 0 10px;
+}
+
+.ListItemText {
+    width: max-content;
+}
+
+.MuiBackdrop-root {
+    margin-top: 64px !important;
+}
+
+@media (min-width: 348px) and (max-width: 600px) {
+    .MuiBackdrop-root {
+        margin-top: 56px !important;
+    }
+}
+
+@media (min-width: 100px) and (max-width: 348px) {
+    .MuiBackdrop-root {
+        margin-top: 62px !important;
+    }
+}
+
+.MuiDrawer-paper {
+    margin: 74px 0px 10px 10px !important;
+    padding: 10px;
+    border-radius: 17px;
+    height: auto !important;
+}
