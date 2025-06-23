@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const Login = () => {
     const navigate = useNavigate();
@@ -61,9 +62,9 @@ const Login = () => {
                 </form>
                 <p className="text-sm text-center text-gray-600 mt-6">
                     Don't have an account?{" "}
-                    <span className="text-green-700 font-semibold cursor-pointer hover:underline">
+                    <Link to="/signup"><span className="text-green-700 font-semibold cursor-pointer hover:underline">
                         Sign up
-                    </span>
+                    </span></Link>
                 </p>
             </div>
         </div>

@@ -3,7 +3,12 @@ import { Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Users from "./pages/Users";
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
+import FarmerSignup from "./pages/FarmerSignup";
+// import ShopOwnerSignup from "./pages/ShopOwnerSignup";
+// import ModeratorSignup from "./pages/ModeratorSignup";
+// import TransporterSignup from "./pages/TransporterSignup";
 
 const App = () => {
   return (
@@ -26,6 +31,20 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/signup" element={
+          <Layout>
+            <Signup />
+          </Layout>
+        }
+      />
+
+      <Route path="/signup/farmer" element={
+        <Layout>
+          <FarmerSignup />
+        </Layout>} />
+{/* <Route path="/signup/shop-owner" element={<ShopOwnerSignup />} />
+<Route path="/signup/moderator" element={<ModeratorSignup />} />
+<Route path="/signup/transporter" element={<TransporterSignup />} /> */}
     </Routes>
   );
 };

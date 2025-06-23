@@ -5,6 +5,7 @@ import ContactMailOutlinedIcon from '@mui/icons-material/ContactMailOutlined';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import MenuIcon from '@mui/icons-material/Menu';
+import {Link} from 'react-router-dom';
 
 const menuItems = [
   {
@@ -118,14 +119,14 @@ const Sidebar = ({ open, toggleDrawer }) => {
           </List>
 
           <div className="p-4">
-            <button
+            <Link to="/login"><button
               variant="contained"
               fullWidth
               className="accept-button bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-5 rounded-lg transition"
               style={{ padding: '8px 14px', margin: '0 10px', width: '90%' }}
             >
               Log In
-            </button>
+            </button></Link>
             <p className="text-[10px] mx-[10px] text-gray-700">Login to access all functionalities.</p>
           </div>
         </div>
