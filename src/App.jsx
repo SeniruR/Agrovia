@@ -5,6 +5,7 @@ import Users from "./pages/Users";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
+import ForgotPassword from "./pages/ForgotPassword";
 import FarmerSignup from "./pages/FarmerSignup";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -37,7 +38,6 @@ const App = () => {
           </Layout>
         }
       />
-
       <Route path="/signup/farmer" element={
         <Layout>
           <FarmerSignup />
@@ -45,6 +45,13 @@ const App = () => {
 {/* <Route path="/signup/shop-owner" element={<ShopOwnerSignup />} />
 <Route path="/signup/moderator" element={<ModeratorSignup />} />
 <Route path="/signup/transporter" element={<TransporterSignup />} /> */}
+
+      <Route path="/forgotpassword" element={
+          <Layout>
+            <ForgotPassword />
+          </Layout>
+        }
+      />
     </Routes>
   );
 };
