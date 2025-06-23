@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Users from "./pages/Users";
+import Login from "./pages/Login";
 import Layout from "./components/Layout";
 
 const App = () => {
@@ -19,7 +20,12 @@ const App = () => {
           </Layout>
         }
       />
-      
+      <Route path="/login" element={
+          <Layout>
+            <Login />
+          </Layout>
+        }
+      />
     </Routes>
   );
 };
