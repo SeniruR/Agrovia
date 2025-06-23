@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import ForgotPassword from "./pages/ForgotPassword";
+import SupportForm from "./pages/contact-us/SupportForm";
 import FarmerSignup from "./pages/FarmerSignup";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -49,6 +50,12 @@ const App = () => {
       <Route path="/forgotpassword" element={
           <Layout>
             <ForgotPassword />
+          </Layout>
+        }
+      />
+      <Route path="/contact-us/support" element={
+          <Layout>
+            <SupportForm />
           </Layout>
         }
       />
