@@ -22,9 +22,9 @@ const Navigation = () => {
             <MenuIcon className="!w-[18px] !h-[18px]" />
           </button>
 
-          <button className="accept-button text-white font-bold py-2 px-5 rounded-lg transition" style={{padding: '8px 14px',margin:'0 10px'}}>
+          <Link to="/login"><button className="accept-button text-white font-bold py-2 px-5 rounded-lg transition" style={{padding: '8px 14px',margin:'0 10px'}}>
             LOG IN
-          </button>
+          </button></Link>
         </div>
       </div>
     </nav>

@@ -1,23 +1,32 @@
 import React, { useState } from 'react';
-import {Drawer,List,ListItem,ListItemText,Button,ListItemIcon,IconButton,Box} from '@mui/material';
+import {Drawer,List,ListItem,ListItemText,ListItemIcon,IconButton,Box} from '@mui/material';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import ContactMailOutlinedIcon from '@mui/icons-material/ContactMailOutlined';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import MenuIcon from '@mui/icons-material/Menu';
+import {Link} from 'react-router-dom';
 
 const menuItems = [
   {
     label: 'Knowledge Hub',
     icon: <MenuBookOutlinedIcon />,
-    subcategories: ['Articles', 'Tutorials', 'FAQs'],
+    subcategories: [
+      { name: 'Articles', path: '/knowledge-hub/articles' },
+      { name: 'Tutorials', path: '/knowledge-hub/tutorials' },
+      { name: 'FAQs', path: '/knowledge-hub/faqs' },
+    ],
   },
   {
     label: 'Contact Us',
     icon: <ContactMailOutlinedIcon />,
-    subcategories: ['Support', 'Feedback'],
+    subcategories: [
+      { name: 'Support', path: '/contact-us/support' },
+      { name: 'Feedback', path: '/contact-us/feedback' },
+    ],
   },
 ];
+
 
 const Sidebar = ({ open, toggleDrawer }) => {
   const [expandedIndex, setExpandedIndex] = useState(null);
@@ -92,25 +101,37 @@ const Sidebar = ({ open, toggleDrawer }) => {
                   item.subcategories.map((sub, subIndex) => {
                     const isLast = subIndex === item.subcategories.length - 1;
                     return (
-                      <ListItem
+                      <Link
+                        to={sub.path}
                         key={subIndex}
-                        className={`relative ml-10 py-1 pl-2 ${
-                          isLast ? 'last-sub-item' : ''
-                        }`} style={{marginLeft: '46px', width: 'auto'}}
+                        style={{ textDecoration: 'none' }}
+                        onClick={toggleDrawer} // 👈 Add this line
                       >
-                        {!isLast && (
-                          <div className="sidebarcurves absolute left-[-20px] top-0 w-[20px] h-full z-10">
-                            <div className="sidebarlines absolute top-0 left-0 w-[2px] h-full bg-gray-400 z-10" />
+                        <ListItem
+                          button
+                          className={`relative ml-10 py-1 pl-2 ${isLast ? 'last-sub-item' : ''}`}
+                          style={{
+                            marginLeft: '46px',
+                            width: 'auto',
+                            borderRadius: '10px',
+                            padding: '8px 12px',
+                            color: 'black'
+                          }}
+                        >
+                          {!isLast && (
+                            <div className="sidebarcurves absolute left-[-20px] top-0 w-[20px] h-full z-10">
+                              <div className="sidebarlines absolute top-0 left-0 w-[2px] h-full bg-gray-400 z-10" />
+                            </div>
+                          )}
+                          <div className="sidebarcurves absolute left-[-20px] top-0 w-[20px] h-full text-gray-400 z-20">
+                            <div className="sidebarcurves absolute top-0 left-0 w-[16px] h-[20px] border-l-[2px] border-b-[2px] border-black-400 rounded-bl-[15px]" />
                           </div>
-                        )}
-                        <div className="sidebarcurves absolute left-[-20px] top-0 w-[20px] h-full text-gray-400 z-20">
-                          <div className="sidebarcurves absolute top-0 left-0 w-[16px] h-[20px] border-l-[2px] border-b-[2px] border-black-400 rounded-bl-[15px]" />
-                        </div>
-                        <ListItemText
-                          primary={sub}
-                          className="pl-2 text-sm text-gray-700"
-                        />
-                      </ListItem>
+                          <ListItemText
+                            primary={sub.name}
+                            className="pl-2 text-sm text-gray-700"
+                          />
+                        </ListItem>
+                      </Link>
                     );
                   })}
               </React.Fragment>
@@ -118,14 +139,14 @@ const Sidebar = ({ open, toggleDrawer }) => {
           </List>
 
           <div className="p-4">
-            <button
+            <Link to="/login"><button
               variant="contained"
               fullWidth
               className="accept-button bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-5 rounded-lg transition"
               style={{ padding: '8px 14px', margin: '0 10px', width: '90%' }}
             >
               Log In
-            </button>
+            </button></Link>
             <p className="text-[10px] mx-[10px] text-gray-700">Login to access all functionalities.</p>
           </div>
         </div>

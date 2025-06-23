@@ -9,6 +9,11 @@ const Layout = ({ children }) => {
   const location = useLocation();
 
   const isLoginPage = location.pathname === "/login";
+  const isForgotPasswordPage = location.pathname === "/forgotpassword";
+  const isSignupPage = location.pathname === "/signup";
+  const isSignupPages = location.pathname.startsWith("/signup/");
+  const isContactusPages = location.pathname.startsWith("/contact-us/");
+  
 
   return (
     <div className="flex flex-col min-h-screen font-sans w-full" style={{ width: '100vw' }}>
@@ -16,7 +21,7 @@ const Layout = ({ children }) => {
       <div className="flex flex-col mt-20 h-[calc(100vh-80px)]">
         <div className="flex-1 p-8 bg-gray-100 flex" style={{ backgroundColor: 'white' }}>
           <Sidebar open={open} toggleDrawer={toggleDrawer} />
-          {isLoginPage ? (
+          {(isLoginPage||isSignupPage||isSignupPages||isForgotPasswordPage||isContactusPages) ? (
             <div className="w-full" style={{ color: 'black' }}>
               {children}
             </div>
