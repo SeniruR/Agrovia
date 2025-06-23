@@ -67,7 +67,7 @@ const Login = () => {
                     </span></Link>
                     <br/>
                     Forgot your Password?{" "}
-                    <Link to="/forgotpassword"><span className="text-green-700 font-semibold cursor-pointer hover:underline" onClick={() => navigate("/login")}>
+                    <Link to="/forgotpassword"><span className="text-green-700 font-semibold cursor-pointer hover:underline">
                         Reset Password
                     </span></Link>
                 </p>
