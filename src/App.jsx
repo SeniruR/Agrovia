@@ -6,7 +6,11 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import ForgotPassword from "./pages/ForgotPassword";
+import SupportForm from "./pages/contact-us/SupportForm";
+import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
+import CropListings from "./pages/CropListing";
+import Profile from "./pages/Profile";
 import Footer from "./components/pages/Footer";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -53,6 +57,60 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/contact-us/support" element={
+          <Layout>
+            <SupportForm />
+          </Layout>
+        }
+      />
+      <Route path="/contact-us/feedback" element={
+          <Layout>
+            <FeedbackForm />
+         </Layout>
+        }
+      />
+
+      <Route path="/cropListings" element={
+          <Layout>
+            <CropListings />
+
+         </Layout>
+        }
+      />
+      <Route path="/profile" element={
+          <Layout>
+            <Profile />
+
+         </Layout>
+        }
+      />
+      <Route path="/contact-us/support" element={
+          <Layout>
+            <SupportForm />
+          </Layout>
+        }
+      />
+      <Route path="/contact-us/feedback" element={
+          <Layout>
+            <FeedbackForm />
+         </Layout>
+        }
+      />
+
+      <Route path="/cropListings" element={
+          <Layout>
+            <CropListings />
+
+         </Layout>
+        }
+      />
+      <Route path="/profile" element={
+          <Layout>
+            <Profile />
+
+         </Layout>
+        }
+      />
 
       <Route path="/footer" element={
           <Layout>
@@ -61,6 +119,7 @@ const App = () => {
         }
       />
     </Routes>
+    
   );
 };
 
