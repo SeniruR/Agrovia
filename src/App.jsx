@@ -10,6 +10,7 @@ import SupportForm from "./pages/contact-us/SupportForm";
 import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
+import KHubCon from "./pages/KHubCon";
 
 const App = () => {
   return (
@@ -67,6 +68,12 @@ const App = () => {
        <Route path="/knowledge-hub" element={
           <Layout>
             <KnowledgeHubHome/>
+          </Layout>
+        }
+      />
+        <Route path="/hubContent" element={
+          <Layout>
+            <KHubCon/>
           </Layout>
         }
       />

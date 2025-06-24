@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { Search, ChevronDown, ChevronRight, ArrowRight, Clock, User, Filter, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+
 
 const KnowledgeHubHome = () => {
+  const navigate = useNavigate();
   const [expandedFilters, setExpandedFilters] = useState({
     timeDuration: true,
     topic: true
@@ -435,7 +439,8 @@ const KnowledgeHubHome = () => {
                     </div>
                     
                     <div className="text-center">
-                      <button className="inline-flex items-center space-x-1 text-green-600 hover:text-green-700 font-medium text-sm transition-all group-hover:translate-x-1">
+                      <button  
+                      onClick={() => navigate('/hubContent')} className="inline-flex items-center space-x-1 text-green-600 hover:text-green-700 font-medium text-sm transition-all group-hover:translate-x-1">
                         <span>Explore more</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
