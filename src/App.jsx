@@ -16,6 +16,7 @@ import FarmerSignup from "./pages/FarmerSignup";
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import CropListings from "./pages/CropListing";
 import Profile from "./pages/Profile";
+import Footer from "./components/pages/Footer";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -93,6 +94,40 @@ const App = () => {
             <Profile />
 
          </Layout>
+        }
+      />
+      <Route path="/contact-us/support" element={
+          <Layout>
+            <SupportForm />
+          </Layout>
+        }
+      />
+      <Route path="/contact-us/feedback" element={
+          <Layout>
+            <FeedbackForm />
+         </Layout>
+        }
+      />
+
+      <Route path="/cropListings" element={
+          <Layout>
+            <CropListings />
+
+         </Layout>
+        }
+      />
+      <Route path="/profile" element={
+          <Layout>
+            <Profile />
+
+         </Layout>
+        }
+      />
+
+      <Route path="/footer" element={
+          <Layout>
+            <Footer />
+          </Layout>
         }
       />
     </Routes>
