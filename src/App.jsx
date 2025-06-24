@@ -12,7 +12,10 @@ import ForgotPassword from "./pages/ForgotPassword";
 import SupportForm from "./pages/contact-us/SupportForm";
 import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
+
 import BuyersMarketplace from "./pages/ByersMarketPlace";
+import CropListings from "./pages/CropListing";
+import Profile from "./pages/Profile";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -74,10 +77,26 @@ const App = () => {
       <Route path="/contact-us/feedback" element={
           <Layout>
             <FeedbackForm />
-          </Layout>
+         </Layout>
+        }
+      />
+
+      <Route path="/cropListings" element={
+          <Layout>
+            <CropListings />
+
+         </Layout>
+        }
+      />
+      <Route path="/profile" element={
+          <Layout>
+            <Profile />
+
+         </Layout>
         }
       />
     </Routes>
+    
   );
 };
 
