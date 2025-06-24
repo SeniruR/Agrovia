@@ -48,7 +48,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
       >
         <IconButton
           onClick={toggleDrawer}
-          className="bg-white/50 backdrop-blur-md text-black hover:bg-green-400 shadow-md"
+          className="bg-white text-black hover:bg-green-400 shadow-md" style={{backgroundColor:'white'}}
         >
           <MenuIcon />
         </IconButton>
