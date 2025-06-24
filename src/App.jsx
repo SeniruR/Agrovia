@@ -7,6 +7,7 @@ import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import ForgotPassword from "./pages/ForgotPassword";
 import FarmerSignup from "./pages/FarmerSignup";
+import Footer from "./components/pages/Footer";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -49,6 +50,13 @@ const App = () => {
       <Route path="/forgotpassword" element={
           <Layout>
             <ForgotPassword />
+          </Layout>
+        }
+      />
+
+      <Route path="/footer" element={
+          <Layout>
+            <Footer />
           </Layout>
         }
       />
