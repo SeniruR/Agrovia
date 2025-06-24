@@ -7,6 +7,7 @@ import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import ForgotPassword from "./pages/ForgotPassword";
 import SupportForm from "./pages/contact-us/SupportForm";
+import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
 import CropListings from "./pages/CropListing";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -60,10 +61,18 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/contact-us/feedback" element={
+          <Layout>
+            <FeedbackForm />
+         </Layout>
+        }
+      />
+
       <Route path="/cropListings" element={
           <Layout>
             <CropListings />
-          </Layout>
+
+         </Layout>
         }
       />
     </Routes>
