@@ -75,14 +75,14 @@ const FarmerSignup = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-100 to-green-300">
+        <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 80px)' }}>
             <div className="p-10 rounded-2xl shadow-2xl w-[40%] max-w-sm flex flex-col items-center" style={{ border: '2px solid springgreen', borderRadius: '17px', padding: '30px', width: '-webkit-fill-available', maxWidth: '340px', marginTop:'30px' }}>
-                <h2 className="text-3xl font-extrabold mb-8 text-green-700 text-center">Farmer Sign Up</h2>
+                <h2 className="text-3xl mb-8 text-green-700 text-center mb-[10px]">Farmer Sign Up</h2>
                 <form onSubmit={step === 1 ? handleNext : handleSubmit} className="w-full space-y-6">
                     {step === 1 ? (
                         <>
                             {["name", "NIC", "address"].map((field) => (
-                                <div key={field}>
+                                <div key={field} style={{marginTop:'10px'}}>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">
                                         {field.charAt(0).toUpperCase() + field.slice(1)}
                                     </label>
@@ -93,11 +93,11 @@ const FarmerSignup = () => {
                                         onChange={handleChange}
                                         required
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none transition"
-                                        style={{ backgroundColor: 'white', padding: '10px', width: '-webkit-fill-available', borderRadius: '10px', margin: '8px 0', color: 'black' }}
+                                        style={{ backgroundColor: 'white', padding: '10px', width: '-webkit-fill-available', borderRadius: '10px', margin: '4px 0', color: 'black' }}
                                     />
                                 </div>
                             ))}
-                            <div>
+                            <div style={{marginTop:'10px'}}>
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">Location</label>
                                 <select
                                     name="location"
@@ -105,7 +105,7 @@ const FarmerSignup = () => {
                                     onChange={handleChange}
                                     required
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none transition"
-                                    style={{ backgroundColor: 'white', padding: '10px', width: '-webkit-fill-available', borderRadius: '10px', margin: '8px 0', color: 'black' }}
+                                    style={{ backgroundColor: 'white', padding: '10px', width: '-webkit-fill-available', borderRadius: '10px', margin: '4px 0', color: 'black' }}
                                 >
                                     <option value="">Select District</option>
                                     {districts.map((district) => (
