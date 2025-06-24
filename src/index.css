@@ -4,6 +4,7 @@
 :root {
   --login-button-bg:springgreen;
   --login-button-hover-bg:limegreen;
+  --green: #90EE90;
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -29,14 +30,14 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
+  /* display: flex; */
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: 3.0em;
   line-height: 1.1;
 }
 

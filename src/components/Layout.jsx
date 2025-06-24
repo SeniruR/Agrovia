@@ -19,7 +19,7 @@ const Layout = ({ children }) => {
     <div className="flex flex-col min-h-screen font-sans w-full" style={{ width: '100vw' }}>
       <Navigation />
       <div className="flex flex-col mt-20 h-[calc(100vh-80px)]">
-        <div className="flex-1 p-8 bg-gray-100 flex" style={{ backgroundColor: 'white' }}>
+        <div className="flex-1 bg-gray-100 flex" style={{ backgroundColor: 'white' }}>
           <Sidebar open={open} toggleDrawer={toggleDrawer} />
           {(isLoginPage||isSignupPage||isSignupPages||isForgotPasswordPage||isContactusPages) ? (
             <div className="w-full" style={{ color: 'black' }}>
