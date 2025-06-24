@@ -1,6 +1,7 @@
 import React from 'react';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
+import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import logo from '../../assets/images/agrovia.png';
 import {Link} from 'react-router-dom';
 
@@ -14,6 +15,10 @@ const Navigation = () => {
         </div>
 
         <div className="flex items-center lg:gap-4 md:gap-2">
+          <Link to="/profile"><button className="icon text-black hover:text-green-600 transition" style={{padding: '8px 14px', margin:'0 10px',backgroundColor:'white', color:'black'}}>
+            <PersonOutlined className="!w-[18px] !h-[18px]" />
+          </button></Link>
+
           <button className="icon text-black hover:text-green-600 transition" style={{padding: '8px 14px', margin:'0 10px',backgroundColor:'white', color:'black'}}>
             <ShoppingCartOutlinedIcon className="!w-[18px] !h-[18px]" />
           </button>
