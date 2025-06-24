@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import Navigation from "./pages/Navigation";
 import Sidebar from "./pages/Sidebar";
 
+
 const Layout = ({ children }) => {
   const [open, setOpen] = useState(false);
   const toggleDrawer = () => setOpen(!open);

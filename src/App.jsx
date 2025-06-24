@@ -5,14 +5,19 @@ import Users from "./pages/Users";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
+import './index.css'; // or wherever you have Tailwind directives
+
+
 import ForgotPassword from "./pages/ForgotPassword";
 import FarmerSignup from "./pages/FarmerSignup";
+import BuyersMarketplace from "./pages/ByersMarketPlace";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
 
 const App = () => {
   return (
+    
     <Routes>
       <Route path="/" element={
           <Layout>
@@ -49,6 +54,12 @@ const App = () => {
       <Route path="/forgotpassword" element={
           <Layout>
             <ForgotPassword />
+          </Layout>
+        }
+      />
+      <Route path="/byersmarket" element={
+          <Layout>
+            <BuyersMarketplace />
           </Layout>
         }
       />
