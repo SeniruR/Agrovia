@@ -28,167 +28,182 @@ const BuyersMarketplace = () => {
   const categories = [
     { id: 'all', name: 'All Products', icon: '🌾' },
     { id: 'rice', name: 'Rice', icon: '🍚' },
-    { id: 'vegetables', name: 'Vegetables', icon: '🥬' },
-    { id: 'fruits', name: 'Fruits', icon: '🍎' },
-    { id: 'spices', name: 'Spices', icon: '🌶' },
-    { id: 'coconut', name: 'Coconut', icon: '🥥' },
-    { id: 'tea', name: 'Tea', icon: '🍃' }
+    { id: 'vegetables', name: 'Vegetables', icon: '🥬' }
   ];
 
-  const products = [
-    {
-      id: 1,
-      name: 'Premium Basmati Rice',
-      farmer: 'Kamal Perera',
-      location: 'Anuradhapura',
-      price: 180,
-      unit: 'kg',
-      minOrder: 500,
-      available: 2000,
-      rating: 4.8,
-      reviews: 124,
-      image: 'https://images.pexels.com/photos/33783/rice-grains-seeds-raw.jpg?auto=compress&cs=tinysrgb&w=400',
-      category: 'rice',
-      organic: true,
-      harvest: '2025-01-15',
-      description: 'High-quality basmati rice with excellent aroma and texture. Perfect for premium restaurants and bulk buyers.',
-      certifications: ['Organic', 'Fair Trade', 'Export Quality'],
-      discount: 15
-    },
-    {
-      id: 2,
-      name: 'Fresh Mountain Carrots',
-      farmer: 'Nimal Silva',
-      location: 'Nuwara Eliya',
-      price: 120,
-      unit: 'kg',
-      minOrder: 100,
-      available: 800,
-      rating: 4.6,
-      reviews: 89,
-      image: 'https://images.pexels.com/photos/143133/pexels-photo-143133.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'vegetables',
-      organic: false,
-      harvest: '2025-01-20',
-      description: 'Fresh, crunchy carrots from highland farms. Perfect for bulk orders and processing.',
-      certifications: ['GAP Certified'],
-      discount: 10
-    },
-    {
-      id: 3,
-      name: 'King Coconut Premium',
-      farmer: 'Saman Jayawardena',
-      location: 'Kurunegala',
-      price: 45,
-      unit: 'piece',
-      minOrder: 1000,
-      available: 5000,
-      rating: 4.9,
-      reviews: 156,
-      image: 'https://images.pexels.com/photos/1037235/pexels-photo-1037235.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'coconut',
-      organic: true,
-      harvest: '2025-01-10',
-      description: 'Fresh king coconuts direct from farm. Sweet and nutritious, perfect for juice production.',
-      certifications: ['Organic', 'Export Quality'],
-      discount: 20
-    },
-    {
-      id: 4,
-      name: 'Ceylon Cinnamon Bark',
-      farmer: 'Ravi Wickramasinghe',
-      location: 'Galle',
-      price: 2500,
-      unit: 'kg',
-      minOrder: 50,
-      available: 200,
-      rating: 4.7,
-      reviews: 78,
-      image: 'https://images.pexels.com/photos/4198170/pexels-photo-4198170.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'spices',
-      organic: true,
-      harvest: '2024-12-15',
-      description: 'Authentic Ceylon cinnamon with premium quality. World-renowned for its sweet flavor and aroma.',
-      certifications: ['Organic', 'GI Tagged', 'Export Quality'],
-      discount: 8
-    },
-    {
-      id: 5,
-      name: 'Sweet Ripe Bananas',
-      farmer: 'Lasith Fernando',
-      location: 'Matale',
-      price: 80,
-      unit: 'kg',
-      minOrder: 200,
-      available: 1500,
-      rating: 4.5,
-      reviews: 92,
-      image: 'https://images.pexels.com/photos/5945935/pexels-photo-5945935.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'fruits',
-      organic: false,
-      harvest: '2025-01-18',
-      description: 'Sweet and ripe bananas perfect for retail and processing. Consistent quality guaranteed.',
-      certifications: ['GAP Certified'],
-      discount: 12
-    },
-    {
-      id: 6,
-      name: 'Fresh Green Cabbage',
-      farmer: 'Chamara Rathnayake',
-      location: 'Badulla',
-      price: 60,
-      unit: 'kg',
-      minOrder: 300,
-      available: 1200,
-      rating: 4.4,
-      reviews: 67,
-      image: 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'vegetables',
-      organic: true,
-      harvest: '2025-01-22',
-      description: 'Fresh green cabbage from highland farms. Crisp texture and excellent for cooking.',
-      certifications: ['Organic'],
-      discount: 5
-    },
-    {
-      id: 7,
-      name: 'Red Onions Premium',
-      farmer: 'Sunil Bandara',
-      location: 'Polonnaruwa',
-      price: 150,
-      unit: 'kg',
-      minOrder: 250,
-      available: 900,
-      rating: 4.3,
-      reviews: 54,
-      image: 'https://images.pexels.com/photos/144248/onions-food-vegetable-healthy-144248.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'vegetables',
-      organic: false,
-      harvest: '2025-01-25',
-      description: 'High-quality red onions with excellent storage life. Perfect for bulk buyers.',
-      certifications: ['GAP Certified'],
-      discount: 7
-    },
-    {
-      id: 8,
-      name: 'Black Pepper Whole',
-      farmer: 'Mahinda Gunawardena',
-      location: 'Matale',
-      price: 1200,
-      unit: 'kg',
-      minOrder: 25,
-      available: 150,
-      rating: 4.8,
-      reviews: 43,
-      image: 'https://images.pexels.com/photos/4198427/pexels-photo-4198427.jpeg?auto=compress&cs=tinysrgb&w=400',
-      category: 'spices',
-      organic: true,
-      harvest: '2024-12-20',
-      description: 'Premium black pepper with strong aroma and pungent taste. Export quality guaranteed.',
-      certifications: ['Organic', 'Export Quality'],
-      discount: 0
-    }
-  ];
+ const products = [
+  {
+    id: 1,
+    name: 'Premium Basmati Rice',
+    farmer: 'Kamal Perera',
+    location: 'Anuradhapura',
+    price: 180,
+    unit: 'kg',
+    minOrder: 500,
+    available: 2000,
+    rating: 4.8,
+    reviews: 124,
+    image: 'https://i.pinimg.com/736x/d3/a5/60/d3a5604bcd9b4397d8b9f3365dbe2581.jpg',
+    category: 'rice',
+    organic: true,
+    harvest: '2025-01-15',
+    description: 'High-quality basmati rice with excellent aroma and texture. Perfect for premium restaurants and bulk buyers.',
+    certifications: ['Organic', 'Fair Trade', 'Export Quality'],
+    discount: 15
+  },
+  {
+    id: 2,
+    name: 'White Jasmine Rice',
+    farmer: 'Sunil Bandara',
+    location: 'Polonnaruwa',
+    price: 145,
+    unit: 'kg',
+    minOrder: 300,
+    available: 1800,
+    rating: 4.6,
+    reviews: 89,
+    image: 'https://i.pinimg.com/736x/11/3e/ae/113eae72dd9b982bca13381d8b6575b7.jpg',
+    category: 'rice',
+    organic: false,
+    harvest: '2025-01-20',
+    description: 'Fragrant jasmine rice with soft texture. Ideal for restaurants and food processing.',
+    certifications: ['GAP Certified', 'Export Quality'],
+    discount: 10
+  },
+  {
+    id: 3,
+    name: 'Red Rice Traditional',
+    farmer: 'Nimal Silva',
+    location: 'Kurunegala',
+    price: 220,
+    unit: 'kg',
+    minOrder: 200,
+    available: 1200,
+    rating: 4.9,
+    reviews: 156,
+    image: 'https://images.pexels.com/photos/4110253/pexels-photo-4110253.jpeg?auto=compress&cs=tinysrgb&w=400',
+    category: 'rice',
+    organic: true,
+    harvest: '2025-01-10',
+    description: 'Traditional red rice with high nutritional value. Perfect for health-conscious consumers.',
+    certifications: ['Organic', 'Traditional Variety'],
+    discount: 8
+  },
+  {
+    id: 4,
+    name: 'Samba Rice Premium',
+    farmer: 'Ravi Wickramasinghe',
+    location: 'Hambantota',
+    price: 165,
+    unit: 'kg',
+    minOrder: 400,
+    available: 1500,
+    rating: 4.7,
+    reviews: 78,
+    image: 'https://i.pinimg.com/736x/72/03/25/720325c56313ca3277094c61092cff8b.jpg',
+    category: 'rice',
+    organic: false,
+    harvest: '2024-12-15',
+    description: 'Traditional Samba rice variety with excellent taste and cooking properties.',
+    certifications: ['GAP Certified', 'Local Variety'],
+    discount: 12
+  },
+  {
+    id: 5,
+    name: 'Fresh Mountain Carrots',
+    farmer: 'Lasith Fernando',
+    location: 'Nuwara Eliya',
+    price: 120,
+    unit: 'kg',
+    minOrder: 100,
+    available: 800,
+    rating: 4.5,
+    reviews: 92,
+    image: 'https://images.pexels.com/photos/65174/pexels-photo-65174.jpeg?auto=compress&cs=tinysrgb&w=400',
+    category: 'vegetables',
+    organic: false,
+    harvest: '2025-01-18',
+    description: 'Fresh, crunchy carrots from highland farms. Perfect for bulk orders and processing.',
+    certifications: ['GAP Certified'],
+    discount: 10
+  },
+  {
+    id: 6,
+    name: 'Fresh Green Cabbage',
+    farmer: 'Chamara Rathnayake',
+    location: 'Badulla',
+    price: 60,
+    unit: 'kg',
+    minOrder: 300,
+    available: 1200,
+    rating: 4.4,
+    reviews: 67,
+    image: 'https://i.pinimg.com/736x/c2/4f/f7/c24ff7271bd7257ea1484607a68bbfc4.jpg',
+    category: 'vegetables',
+    organic: true,
+    harvest: '2025-01-22',
+    description: 'Fresh green cabbage from highland farms. Crisp texture and excellent for cooking.',
+    certifications: ['Organic'],
+    discount: 5
+  },
+  {
+    id: 7,
+    name: 'Red Onions Premium',
+    farmer: 'Mahinda Gunawardena',
+    location: 'Polonnaruwa',
+    price: 150,
+    unit: 'kg',
+    minOrder: 250,
+    available: 900,
+    rating: 4.3,
+    reviews: 54,
+    image: 'https://i.pinimg.com/736x/07/34/d1/0734d130bb1b84f341302eb063130a35.jpg',
+    category: 'vegetables',
+    organic: false,
+    harvest: '2025-01-25',
+    description: 'High-quality red onions with excellent storage life. Perfect for bulk buyers.',
+    certifications: ['GAP Certified'],
+    discount: 7
+  },
+  {
+    id: 8,
+    name: 'Fresh Tomatoes',
+    farmer: 'Priyantha Jayasinghe',
+    location: 'Matale',
+    price: 180,
+    unit: 'kg',
+    minOrder: 150,
+    available: 600,
+    rating: 4.6,
+    reviews: 43,
+    image: 'https://i.pinimg.com/736x/e4/62/bc/e462bc43c9a3619a338eeac9f7e4eb72.jpg',
+    category: 'vegetables',
+    organic: true,
+    harvest: '2025-01-28',
+    description: 'Fresh, juicy tomatoes perfect for restaurants and food processing.',
+    certifications: ['Organic', 'GAP Certified'],
+    discount: 15
+  },
+  {
+    id: 9,
+    name: 'Green Bell Peppers',
+    farmer: 'Saman Kumara',
+    location: 'Kandy',
+    price: 200,
+    unit: 'kg',
+    minOrder: 100,
+    available: 450,
+    rating: 4.7,
+    reviews: 38,
+    image: 'https://i.pinimg.com/736x/9f/21/60/9f21601664b4dcec7a5ac3e69665a081.jpg',
+    category: 'vegetables',
+    organic: false,
+    harvest: '2025-01-30',
+    description: 'Fresh green bell peppers with crisp texture. Ideal for cooking and processing.',
+    certifications: ['GAP Certified'],
+    discount: 8
+  }
+];
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -344,7 +359,7 @@ const BuyersMarketplace = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+  <div className="min-h-screen bg-gradient-to-br from-green-100 to-green-200">
       {/* Header */}
       <header className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -354,12 +369,12 @@ const BuyersMarketplace = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Hero Section */}
-        <div className="text-center mb-8">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Fresh Produce from Sri Lankan Farmers
+        <div className="text-center mb-8 bg-gradient-to-r from-green-600 to-green-800 py-4 text-white">
+          <h2 className="text-4xl font-bold text-white mb-4">
+            Rice & Vegetables from Sri Lankan Farmers
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Connect directly with certified farmers and access premium quality agricultural products for your business needs
+          <p className="text-xl text-white max-w-3xl mx-auto">
+            Connect directly with certified farmers for premium quality rice grains and fresh vegetables for your business needs
           </p>
         </div>
 
