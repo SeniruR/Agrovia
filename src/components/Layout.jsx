@@ -26,7 +26,7 @@ const Layout = ({ children }) => {
               {children}
             </div>
           ) : (
-            <div className="mt-[64px] w-full" style={{ color: 'black' }}>
+            <div className=" w-full" style={{ color: 'black' }}>
               {children}
             </div>
           )}

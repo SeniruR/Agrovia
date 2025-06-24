@@ -8,9 +8,7 @@ import Layout from "./components/Layout";
 import ForgotPassword from "./pages/ForgotPassword";
 import SupportForm from "./pages/contact-us/SupportForm";
 import FarmerSignup from "./pages/FarmerSignup";
-// import ShopOwnerSignup from "./pages/ShopOwnerSignup";
-// import ModeratorSignup from "./pages/ModeratorSignup";
-// import TransporterSignup from "./pages/TransporterSignup";
+import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 
 const App = () => {
   return (
@@ -56,6 +54,13 @@ const App = () => {
       <Route path="/contact-us/support" element={
           <Layout>
             <SupportForm />
+          </Layout>
+        }
+      />
+      
+      <Route path="/knowledge-hub" element={
+          <Layout>
+            <KnowledgeHubHome />
           </Layout>
         }
       />
