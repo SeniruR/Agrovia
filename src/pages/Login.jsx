@@ -22,9 +22,9 @@ const Login = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-100 to-green-300">
+        <div className="flex items-center justify-center" style={{height:'calc(100vh - 80px)'}}>
             <div className="p-10 rounded-2xl shadow-2xl w-[40%] max-w-sm flex flex-col items-center" style={{ border: '2px solid springgreen', borderRadius: '17px', padding: '30px' , width:'-webkit-fill-available', maxWidth:'340px'}}>
-                <h2 className="text-3xl font-extrabold mb-8 text-green-700 text-center">Welcome</h2>
+                <h2 className="text-3xl mb-8 text-center">Welcome</h2>
                 <form onSubmit={handleSubmit} className="w-full space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
@@ -39,7 +39,7 @@ const Login = () => {
                             style={{backgroundColor:'white',padding: '10px',width: '-webkit-fill-available',borderRadius: '10px',margin: '8px 0', color: 'black'}}
                         />
                     </div>
-                    <div>
+                    <div style={{marginTop:'10px'}}>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
                         <input
                             type="password"
