@@ -9,6 +9,8 @@ import './index.css'; // or wherever you have Tailwind directives
 
 
 import ForgotPassword from "./pages/ForgotPassword";
+import SupportForm from "./pages/contact-us/SupportForm";
+import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -60,6 +62,18 @@ const App = () => {
       <Route path="/byersmarket" element={
           <Layout>
             <BuyersMarketplace />
+          </Layout>
+        }
+      />
+      <Route path="/contact-us/support" element={
+          <Layout>
+            <SupportForm />
+          </Layout>
+        }
+      />
+      <Route path="/contact-us/feedback" element={
+          <Layout>
+            <FeedbackForm />
           </Layout>
         }
       />
