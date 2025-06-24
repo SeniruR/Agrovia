@@ -64,6 +64,12 @@ const App = () => {
           </Layout>
         }
       />
+       <Route path="/knowledge-hub" element={
+          <Layout>
+            <KnowledgeHubHome/>
+          </Layout>
+        }
+      />
     </Routes>
   );
 };
