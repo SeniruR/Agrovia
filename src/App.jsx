@@ -141,16 +141,6 @@ const App = () => {
          </Layout>
         }
       />
-      <Route path="/profile" element={
-          <Layout>
-            <Profile />
-
-
-         </Layout>
-        }
-      />
-
-
       <Route path="/footer" element={
           <Layout>
             <Footer />
