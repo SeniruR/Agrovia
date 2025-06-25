@@ -15,8 +15,8 @@ import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
 
 import BuyersMarketplace from "./pages/ByersMarketPlace";
-import AgriShopMarketplace from "./pages/AgriShopMarketplace";
-import ShopProductView from "./pages/ShopProductView";
+import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
+import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
 import Profile from "./pages/Profile";
 import Footer from "./components/pages/Footer";
