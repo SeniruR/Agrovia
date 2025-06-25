@@ -20,7 +20,8 @@ import ShopProductView from "./pages/ShopProductView";
 import CropListings from "./pages/CropListing";
 import Profile from "./pages/Profile";
 import Footer from "./components/pages/Footer";
-import DriversMyList from "./pages/DriversMyList"
+import DriversMyList from "./pages/DriversMyList";
+import MyOrderCrops from "./pages/MyOrderCrops"
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -160,6 +161,14 @@ const App = () => {
           </Layout>
         }
       />
+
+       <Route path="/myorderedcroplist" element={
+          <Layout>
+            <MyOrderCrops />
+          </Layout>
+        }
+      />
+
 
     </Routes>
     
