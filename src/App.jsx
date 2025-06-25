@@ -5,15 +5,35 @@ import Users from "./pages/Users";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
+import FarmerCropViews from "./pages/Farmer/AllCropsViews";
+import './index.css'; // or wherever you have Tailwind directives
+
+import ItemPostedForm from "./pages/shop/ItemPostedForm";
 import ForgotPassword from "./pages/ForgotPassword";
 import SupportForm from "./pages/contact-us/SupportForm";
+import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
+
+import BuyersMarketplace from "./pages/ByersMarketPlace";
+import AgriShopMarketplace from "./pages/AgriShopMarketplace";
+import ShopProductView from "./pages/ShopProductView";
+import CropListings from "./pages/CropListing";
+import Profile from "./pages/Profile";
+import Footer from "./components/pages/Footer";
+import DriversMyList from "./pages/DriversMyList";
+import MyOrderCrops from "./pages/MyOrderCrops"
+
+import CropPostForm from "./components/pages/farmer/CropPostForm";
+
+import FarmerReviews from "./pages/farmer/FarmersReviews";
+
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
 
 const App = () => {
   return (
+    
     <Routes>
       <Route path="/" element={
           <Layout>
@@ -53,12 +73,125 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/byersmarket" element={
+          <Layout>
+            <BuyersMarketplace />
+          </Layout>
+        }
+      />
+      <Route path="/agrishop" element={
+          <Layout>
+            <AgriShopMarketplace />
+          </Layout>
+        }
+      />
+      <Route path="/shop" element={
+          <Layout>
+            <ShopProductView />
+          </Layout>
+        }
+      />
       <Route path="/contact-us/support" element={
           <Layout>
             <SupportForm />
           </Layout>
         }
       />
+      <Route path="/contact-us/feedback" element={
+          <Layout>
+            <FeedbackForm />
+         </Layout>
+        }
+      />
+
+      <Route path="/cropListings" element={
+          <Layout>
+            <CropListings />
+
+         </Layout>
+        }
+      />
+      <Route path="/profile" element={
+          <Layout>
+            <Profile />
+
+         </Layout>
+        }
+      />
+
+      <Route path="/farmviewAllCrops" element={
+          <Layout>
+
+            <FarmerCropView />
+          </Layout>
+        }
+      />
+
+            <FarmerCropViews />
+            </Layout>
+      }
+
+/>
+      <Route path="/contact-us/support" element={
+          <Layout>
+            <SupportForm />
+          </Layout>
+        }
+      />
+      <Route path="/contact-us/feedback" element={
+          <Layout>
+            <FeedbackForm />
+         </Layout>
+        }
+      />
+
+      <Route path="/cropListings" element={
+          <Layout>
+            <CropListings />
+
+         </Layout>
+        }
+      />
+
+      <Route path="/footer" element={
+          <Layout>
+            <Footer />
+          </Layout>
+        }
+      />
+      <Route path="/driversmylist" element={
+          <Layout>
+            <DriversMyList />
+          </Layout>
+        }
+      />
+      <Route path="/myorderedcroplist" element={
+          <Layout>
+            <MyOrderCrops />
+          </Layout>
+        }
+      />
+      <Route path="/CropPostForm" element={
+          <Layout>
+            <CropPostForm />
+          </Layout>
+        }
+      />
+
+      <Route path="/itempostedForm" element={
+          <Layout>
+            <ItemPostedForm />
+          </Layout>
+        }
+      />
+       <Route path="/farmerreviews" element={
+          <Layout>
+            <FarmerReviews />
+          </Layout>
+        }
+      />
+
+
     </Routes>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {Drawer,List,ListItem,ListItemText,ListItemIcon,IconButton,Box} from '@mui/material';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
+import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined';
 import ContactMailOutlinedIcon from '@mui/icons-material/ContactMailOutlined';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -8,6 +9,13 @@ import MenuIcon from '@mui/icons-material/Menu';
 import {Link} from 'react-router-dom';
 
 const menuItems = [
+  {
+    label: 'Marketplace',
+    icon: <StorefrontOutlined />,
+    subcategories: [
+      { name: 'Shops', path: '/agrishop' },
+    ],
+  },
   {
     label: 'Knowledge Hub',
     icon: <MenuBookOutlinedIcon />,
@@ -40,7 +48,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
       <Box
         sx={{
           position: 'fixed',
-          top: '80px',
+          top: '90px',
           left: open ? '282px' : '10px',
           zIndex: 1000,
           transition: 'left 0.3s ease-in-out',
@@ -48,7 +56,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
       >
         <IconButton
           onClick={toggleDrawer}
-          className="bg-white/50 backdrop-blur-md text-black hover:bg-green-400 shadow-md"
+          className="bg-white text-black hover:bg-green-400 shadow-md" style={{backgroundColor:'white'}}
         >
           <MenuIcon />
         </IconButton>
@@ -67,9 +75,9 @@ const Sidebar = ({ open, toggleDrawer }) => {
             height: 'auto',
           },
           '& .MuiBackdrop-root': {
-            marginTop: '60px !important',
+            marginTop: '80px !important',
           },'& .MuiPaper-root':{
-            margin: '74px 0px 10px 10px',
+            margin: '92px 0px 10px 10px',
             height: 'calc(100vh - 104px)',
           }
         }}
@@ -105,7 +113,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
                         to={sub.path}
                         key={subIndex}
                         style={{ textDecoration: 'none' }}
-                        onClick={toggleDrawer} // 👈 Add this line
+                        onClick={toggleDrawer}
                       >
                         <ListItem
                           button
@@ -119,12 +127,12 @@ const Sidebar = ({ open, toggleDrawer }) => {
                           }}
                         >
                           {!isLast && (
-                            <div className="sidebarcurves absolute left-[-20px] top-0 w-[20px] h-full z-10">
-                              <div className="sidebarlines absolute top-0 left-0 w-[2px] h-full bg-gray-400 z-10" />
+                            <div className=" absolute left-[-20px] top-0 w-[20px] h-full z-10">
+                              <div className=" absolute top-0 left-0 w-[2px] h-full bg-black z-10" />
                             </div>
                           )}
-                          <div className="sidebarcurves absolute left-[-20px] top-0 w-[20px] h-full text-gray-400 z-20">
-                            <div className="sidebarcurves absolute top-0 left-0 w-[16px] h-[20px] border-l-[2px] border-b-[2px] border-black-400 rounded-bl-[15px]" />
+                          <div className="absolute left-[-20px] top-0 w-[20px] h-full text-gray-400 z-20">
+                            <div className="absolute top-0 left-0 w-[16px] h-[20px] border-black border-l-[2px] border-b-[2px] border-black-400 rounded-bl-[15px]" />
                           </div>
                           <ListItemText
                             primary={sub.name}
@@ -143,7 +151,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
               variant="contained"
               fullWidth
               className="accept-button bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-5 rounded-lg transition"
-              style={{ padding: '8px 14px', margin: '0 10px', width: '90%' }}
+              style={{ padding: '8px 14px', width: '100%' }}
             >
               Log In
             </button></Link>
