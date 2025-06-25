@@ -1,8 +1,10 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import {BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Users from "./pages/Users";
 import Login from "./pages/Login";
+import BuyerDashboard from "./components/dashboards/BuyerDashboard";
+import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -44,6 +46,9 @@ const App = () => {
         <Layout>
           <FarmerSignup />
         </Layout>} />
+        {/* Dashboard Routes - No Layout */}
+      <Route path="/dashboard/farmer" element={<FarmerDashboard />} />
+      <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
 {/* <Route path="/signup/shop-owner" element={<ShopOwnerSignup />} />
 <Route path="/signup/moderator" element={<ModeratorSignup />} />
 <Route path="/signup/transporter" element={<TransporterSignup />} /> */}
