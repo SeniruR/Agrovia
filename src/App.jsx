@@ -117,7 +117,10 @@ const App = () => {
       <Route path="/farmviewAllCrops" element={
           <Layout>
             <FarmerCropView />
+            </Layout>
+      }
 
+/>
       <Route path="/contact-us/support" element={
           <Layout>
             <SupportForm />
