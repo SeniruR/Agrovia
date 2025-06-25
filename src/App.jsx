@@ -8,7 +8,7 @@ import Layout from "./components/Layout";
 import FarmerCropView from "./pages/Farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 
-
+import ItemPostedForm from "./pages/shop/ItemPostedForm";
 import ForgotPassword from "./pages/ForgotPassword";
 import SupportForm from "./pages/contact-us/SupportForm";
 import FeedbackForm from "./pages/contact-us/FeedbackForm";
@@ -171,7 +171,12 @@ const App = () => {
           </Layout>
         }
       />
-
+      <Route path="/itempostedForm" element={
+          <Layout>
+            <ItemPostedForm />
+          </Layout>
+        }
+      />
 
     </Routes>
     
