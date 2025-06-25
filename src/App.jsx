@@ -121,17 +121,12 @@ const App = () => {
 
       <Route path="/farmviewAllCrops" element={
           <Layout>
-
-            <FarmerCropView />
+            <FarmerCropViews />
           </Layout>
         }
       />
 
-            <FarmerCropViews />
-            </Layout>
-      }
 
-/>
       <Route path="/contact-us/support" element={
           <Layout>
             <SupportForm />
