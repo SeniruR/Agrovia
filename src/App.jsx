@@ -19,6 +19,7 @@ import ShopProductView from "./pages/ShopProductView";
 import CropListings from "./pages/CropListing";
 import Profile from "./pages/Profile";
 import Footer from "./components/pages/Footer";
+import DriversMyList from "./pages/DriversMyList"
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -141,6 +142,13 @@ const App = () => {
       <Route path="/footer" element={
           <Layout>
             <Footer />
+          </Layout>
+        }
+      />
+    
+     <Route path="/driversmylist" element={
+          <Layout>
+            <DriversMyList />
           </Layout>
         }
       />
