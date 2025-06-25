@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ShoppingCart, Search, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const shop = {
   name: "GreenGrow Agri Supplies",
@@ -46,6 +47,7 @@ const allProducts = [
 const ShopProductView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const navigate = useNavigate();
 
   const categories = ['All', ...new Set(allProducts.map(p => p.category))];
 
@@ -71,7 +73,7 @@ const ShopProductView = () => {
               <span className="font-semibold text-yellow-700">{shop.reviewScore.toFixed(1)}</span>
               <button
                 className="ml-2 text-sm bg-[var(--green)] text-white hover:text-green-600 hover:border-green-600"
-                onClick={() => alert(`Viewing reviews for ${shop.name}`)}
+                onClick={() => navigate('/shopreviews')}
               >
                 View Reviews
               </button>
