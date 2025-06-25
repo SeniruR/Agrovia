@@ -5,6 +5,7 @@ import Users from "./pages/Users";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
+import FarmerCropView from "./pages/Farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 
 
@@ -111,6 +112,11 @@ const App = () => {
          </Layout>
         }
       />
+
+      <Route path="/farmviewAllCrops" element={
+          <Layout>
+            <FarmerCropView />
+
       <Route path="/contact-us/support" element={
           <Layout>
             <SupportForm />
@@ -135,9 +141,11 @@ const App = () => {
           <Layout>
             <Profile />
 
+
          </Layout>
         }
       />
+
 
       <Route path="/footer" element={
           <Layout>
@@ -152,6 +160,7 @@ const App = () => {
           </Layout>
         }
       />
+
     </Routes>
     
   );
