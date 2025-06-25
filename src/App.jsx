@@ -7,8 +7,8 @@ import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import FarmerCropViews from "./pages/Farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
-
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
+import ShopDashBoard from "./pages/shop/ShopDashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import SupportForm from "./pages/contact-us/SupportForm";
 import FeedbackForm from "./pages/contact-us/FeedbackForm";
@@ -182,6 +182,12 @@ const App = () => {
        <Route path="/farmerreviews" element={
           <Layout>
             <FarmerReviews />
+          </Layout>
+        }
+      />
+      <Route path="/shopdashboard" element={
+          <Layout>
+            <ShopDashBoard />
           </Layout>
         }
       />
