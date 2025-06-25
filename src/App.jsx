@@ -22,6 +22,7 @@ import Profile from "./pages/Profile";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
+import CropPostForm from "./components/pages/farmer/CropPostForm";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -117,61 +118,34 @@ const App = () => {
       <Route path="/farmviewAllCrops" element={
           <Layout>
             <FarmerCropView />
-
-      <Route path="/contact-us/support" element={
-          <Layout>
-            <SupportForm />
           </Layout>
         }
       />
-      <Route path="/contact-us/feedback" element={
-          <Layout>
-            <FeedbackForm />
-         </Layout>
-        }
-      />
-
-      <Route path="/cropListings" element={
-          <Layout>
-            <CropListings />
-
-         </Layout>
-        }
-      />
-      <Route path="/profile" element={
-          <Layout>
-            <Profile />
-
-
-         </Layout>
-        }
-      />
-
-
       <Route path="/footer" element={
           <Layout>
             <Footer />
           </Layout>
         }
       />
-    
-     <Route path="/driversmylist" element={
+      <Route path="/driversmylist" element={
           <Layout>
             <DriversMyList />
           </Layout>
         }
       />
-
-       <Route path="/myorderedcroplist" element={
+      <Route path="/myorderedcroplist" element={
           <Layout>
             <MyOrderCrops />
           </Layout>
         }
       />
-
-
+      <Route path="/CropPostForm" element={
+          <Layout>
+            <CropPostForm />
+          </Layout>
+        }
+      />
     </Routes>
-    
   );
 };
 
