@@ -15,8 +15,12 @@ import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
 
 import BuyersMarketplace from "./pages/ByersMarketPlace";
+import AgriShopMarketplace from "./pages/AgriShopMarketplace";
+import ShopProductView from "./pages/ShopProductView";
 import CropListings from "./pages/CropListing";
 import Profile from "./pages/Profile";
+import Footer from "./components/pages/Footer";
+import DriversMyList from "./pages/DriversMyList"
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -69,6 +73,18 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/agrishop" element={
+          <Layout>
+            <AgriShopMarketplace />
+          </Layout>
+        }
+      />
+      <Route path="/shop" element={
+          <Layout>
+            <ShopProductView />
+          </Layout>
+        }
+      />
       <Route path="/contact-us/support" element={
           <Layout>
             <SupportForm />
@@ -96,13 +112,55 @@ const App = () => {
          </Layout>
         }
       />
+
       <Route path="/farmviewAllCrops" element={
           <Layout>
             <FarmerCropView />
 
+      <Route path="/contact-us/support" element={
+          <Layout>
+            <SupportForm />
+          </Layout>
+        }
+      />
+      <Route path="/contact-us/feedback" element={
+          <Layout>
+            <FeedbackForm />
          </Layout>
         }
       />
+
+      <Route path="/cropListings" element={
+          <Layout>
+            <CropListings />
+
+         </Layout>
+        }
+      />
+      <Route path="/profile" element={
+          <Layout>
+            <Profile />
+
+
+         </Layout>
+        }
+      />
+
+
+      <Route path="/footer" element={
+          <Layout>
+            <Footer />
+          </Layout>
+        }
+      />
+    
+     <Route path="/driversmylist" element={
+          <Layout>
+            <DriversMyList />
+          </Layout>
+        }
+      />
+
     </Routes>
     
   );
