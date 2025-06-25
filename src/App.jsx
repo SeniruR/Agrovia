@@ -23,6 +23,7 @@ import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
 import FarmerReviews from "./pages/farmer/FarmersReviews";
+import NotFound from "./components/pages/NotFound";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -167,6 +168,12 @@ const App = () => {
             <FarmerReviews />
           </Layout>
         }
+      />
+      <Route path="/notfound" element={
+        <Layout>
+          <NotFound />
+        </Layout>
+      }
       />
 
 
