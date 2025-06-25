@@ -5,7 +5,7 @@ import Users from "./pages/Users";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
-import FarmerCropView from "./pages/Farmer/AllCropsViews";
+import FarmerCropViews from "./pages/Farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
@@ -22,6 +22,7 @@ import Profile from "./pages/Profile";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
+import FarmerReviews from "./pages/farmer/FarmersReviews";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -116,7 +117,7 @@ const App = () => {
 
       <Route path="/farmviewAllCrops" element={
           <Layout>
-            <FarmerCropView />
+            <FarmerCropViews />
             </Layout>
       }
 
@@ -141,16 +142,6 @@ const App = () => {
          </Layout>
         }
       />
-      <Route path="/profile" element={
-          <Layout>
-            <Profile />
-
-
-         </Layout>
-        }
-      />
-
-
       <Route path="/footer" element={
           <Layout>
             <Footer />
@@ -177,6 +168,13 @@ const App = () => {
           </Layout>
         }
       />
+       <Route path="/farmerreviews" element={
+          <Layout>
+            <FarmerReviews />
+          </Layout>
+        }
+      />
+
 
     </Routes>
     
