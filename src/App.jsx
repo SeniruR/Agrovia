@@ -17,7 +17,6 @@ import FarmerSignup from "./pages/FarmerSignup";
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
-
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
@@ -32,6 +31,8 @@ import CropPostForm from "./components/pages/farmer/CropPostForm";
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
 import ShopReviews from "./pages/shop/ShopReviews";
+
+import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
 
 import NotFound from "./components/pages/NotFound";
 
@@ -234,6 +235,13 @@ const App = () => {
        <Route path="/transportdashboard" element={
           <Layout>
             <TranspoartManagementDashboard />
+          </Layout>
+        }
+
+      />
+      <Route path="/createorganization" element={
+          <Layout>
+            <CreateOrganizationForm />
           </Layout>
         }
 
