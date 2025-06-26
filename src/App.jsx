@@ -34,6 +34,7 @@ import TranspoartManagementDashboard from "./pages/transport/TranspoartManagemen
 import ShopReviews from "./pages/shop/ShopReviews";
 
 import NotFound from "./components/pages/NotFound";
+import Complaint from "./pages/complaint/Complaint";
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -234,6 +235,13 @@ const App = () => {
        <Route path="/transportdashboard" element={
           <Layout>
             <TranspoartManagementDashboard />
+          </Layout>
+        }
+
+      />
+      <Route path="/complaintHandling" element={
+          <Layout>
+            <Complaint />
           </Layout>
         }
 
