@@ -31,11 +31,6 @@ const Layout = ({ children }) => {
               {children}
             </div>
           )}
-
-          <div className="w-full" style={{ color: 'black' }}>
-            {children}
-          </div>
-
         </div>
       </div>
       <Footer />
