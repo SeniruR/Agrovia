@@ -126,8 +126,7 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-            
-            
+           
           </div>
         </div>
       </header>
@@ -146,8 +145,8 @@ export default function Dashboard() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center px-6 py-3 rounded-xl font-semibold transition-all duration-300 border ${
-                activeTab === tab.id
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-transparent'
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-transparent shadow-lg'
                     : 'bg-white text-gray-600 border-gray-200 hover:text-green-600 hover:bg-green-50'
                 }`}
               >
@@ -273,13 +272,13 @@ export default function Dashboard() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
                 <div className="flex items-center space-x-4">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2  text-gray-400 w-5 h-5" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                       type="text"
                       placeholder="Search products..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-3 border-2 border-gray-300  bg-white rounded-xl focus:ring-4 focus:ring-green-200 focus:border-green-500 focus:outline-none transition-all duration-300 w-80"
+                      className="pl-10 pr-4 py-3 border-2 border-gray-300 bg-white rounded-xl focus:ring-4 focus:ring-green-200 focus:border-green-500 focus:outline-none transition-all duration-300 w-80"
                     />
                   </div>
                   <div className="relative">
@@ -323,13 +322,13 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <button className="p-2 bg-white text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors shadow-sm border border-gray-200">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                      <button className="p-2 bg-white text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors shadow-sm border border-gray-200">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <button className="p-2 bg-white text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shadow-sm border border-gray-200">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -406,7 +405,7 @@ export default function Dashboard() {
                   {recentOrders.map((order, index) => (
                     <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-2 font-semibold text-blue-600">{order.id}</td>
-                      <td className="py-4 px-2 text-gray-800 ">{order.customer}</td>
+                      <td className="py-4 px-2 text-gray-800">{order.customer}</td>
                       <td className="py-4 px-2 text-gray-800">{order.product}</td>
                       <td className="py-4 px-2 text-gray-600">{order.quantity}</td>
                       <td className="py-4 px-2 font-semibold text-green-600">{order.amount}</td>
@@ -419,10 +418,10 @@ export default function Dashboard() {
                       <td className="py-4 px-2 text-gray-500 text-sm">{order.time}</td>
                       <td className="py-4 px-2">
                         <div className="flex items-center space-x-2">
-                          <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                          <button className="p-2 bg-white text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors shadow-sm border border-gray-200">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                          <button className="p-2 bg-white text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors shadow-sm border border-gray-200">
                             <Edit className="w-4 h-4" />
                           </button>
                         </div>
@@ -439,7 +438,7 @@ export default function Dashboard() {
         {activeTab === 'customers' && (
           <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold bg-white text-gray-800 flex items-center">
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
                 <Users className="w-6 h-6 mr-3 text-green-600" />
                 Customer Management
               </h2>
