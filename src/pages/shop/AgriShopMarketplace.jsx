@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, MapPin, MessageCircle, ShoppingCart, Search } from 'lucide-react';
+import { Phone, MapPin, MessageCircle, ShoppingCart, Search, Star } from 'lucide-react';
 
 const allShops = [
   {
@@ -9,7 +9,8 @@ const allShops = [
     address: "No. 45, Main Street, Kurunegala",
     contact: "+94 77 123 4567",
     district: "Kurunegala",
-    image: "https://as2.ftcdn.net/v2/jpg/03/57/54/77/1000_F_357547735_aTZvm1ec8Uzgsd1aTukmFiOw4iXX2aKS.jpg"
+    image: "https://as2.ftcdn.net/v2/jpg/03/57/54/77/1000_F_357547735_aTZvm1ec8Uzgsd1aTukmFiOw4iXX2aKS.jpg",
+    reviewScore: 4.5
   },
   {
     id: 2,
@@ -18,7 +19,8 @@ const allShops = [
     address: "123 Agri Lane, Matale",
     contact: "+94 76 987 6543",
     district: "Matale",
-    image: "https://as2.ftcdn.net/v2/jpg/02/43/52/57/1000_F_243525780_r8sdu06FUxVmqvf3YUthU5s9nE0z0lhh.jpg"
+    image: "https://as2.ftcdn.net/v2/jpg/02/43/52/57/1000_F_243525780_r8sdu06FUxVmqvf3YUthU5s9nE0z0lhh.jpg",
+    reviewScore: 4.2
   },
   {
     id: 3,
@@ -27,7 +29,8 @@ const allShops = [
     address: "78 Tech Road, Anuradhapura",
     contact: "+94 71 456 7890",
     district: "Anuradhapura",
-    image: "https://as1.ftcdn.net/v2/jpg/02/56/71/44/1000_F_256714405_orXaybzjelKgmwImjk9B0DNqF204Qz05.jpg"
+    image: "https://as1.ftcdn.net/v2/jpg/02/56/71/44/1000_F_256714405_orXaybzjelKgmwImjk9B0DNqF204Qz05.jpg",
+    reviewScore: 4.8
   },
   {
     id: 4,
@@ -36,7 +39,8 @@ const allShops = [
     address: "56 Green Street, Gampaha",
     contact: "+94 70 222 3344",
     district: "Gampaha",
-    image: "https://as2.ftcdn.net/v2/jpg/01/18/98/45/1000_F_118984537_rmEjPQES0Ffv2hLagjSgjWYnisYDo9NV.jpg"
+    image: "https://as2.ftcdn.net/v2/jpg/01/18/98/45/1000_F_118984537_rmEjPQES0Ffv2hLagjSgjWYnisYDo9NV.jpg",
+    reviewScore: 4.0
   }
 ];
 
@@ -112,6 +116,10 @@ const AgriShopMarketplace = () => {
               <img src={shop.image} alt={shop.name} className="w-full h-56 object-cover" />
               <div className="p-6">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">{shop.name}</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <Star className="w-5 h-5 text-yellow-400" />
+                  <span className="font-semibold text-yellow-700">{shop.reviewScore.toFixed(1)}</span>
+                </div>
                 <p className="text-sm text-gray-600 mb-4">
                   <strong>Offerings:</strong> {shop.offerings.join(", ")}
                 </p>

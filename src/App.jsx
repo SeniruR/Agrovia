@@ -15,8 +15,8 @@ import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
 
 import BuyersMarketplace from "./pages/ByersMarketPlace";
-import AgriShopMarketplace from "./pages/AgriShopMarketplace";
-import ShopProductView from "./pages/ShopProductView";
+import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
+import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
 import Profile from "./pages/Profile";
 import Footer from "./components/pages/Footer";
@@ -26,6 +26,7 @@ import MyOrderCrops from "./pages/MyOrderCrops"
 import CropPostForm from "./components/pages/farmer/CropPostForm";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
+import ShopReviews from "./pages/shop/ShopReviews";
 
 import NotFound from "./components/pages/NotFound";
 
@@ -124,17 +125,12 @@ const App = () => {
 
       <Route path="/farmviewAllCrops" element={
           <Layout>
-
-            <FarmerCropView />
+            <FarmerCropViews />
           </Layout>
         }
       />
 
-            <FarmerCropViews />
-            </Layout>
-      }
 
-/>
       <Route path="/contact-us/support" element={
           <Layout>
             <SupportForm />
@@ -193,11 +189,19 @@ const App = () => {
           </Layout>
         }
       />
+
       <Route path="/notfound" element={
         <Layout>
           <NotFound />
         </Layout>
       }
+
+      <Route path="/shopreviews" element={
+          <Layout>
+            <ShopReviews />
+          </Layout>
+        }
+
       />
 
 

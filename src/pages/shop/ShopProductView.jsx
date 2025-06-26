@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Search } from 'lucide-react';
+import { ShoppingCart, Search, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const shop = {
   name: "GreenGrow Agri Supplies",
   owner: "Mr. Nuwan Perera",
   contact: "+94 77 123 4567",
   address: "No. 45, Main Street, Kurunegala",
-  image: "https://as2.ftcdn.net/v2/jpg/03/57/54/77/1000_F_357547735_aTZvm1ec8Uzgsd1aTukmFiOw4iXX2aKS.jpg"
+  image: "https://as2.ftcdn.net/v2/jpg/03/57/54/77/1000_F_357547735_aTZvm1ec8Uzgsd1aTukmFiOw4iXX2aKS.jpg",
+  reviewScore: 4.7
 };
 
 const allProducts = [
@@ -45,6 +47,7 @@ const allProducts = [
 const ShopProductView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const navigate = useNavigate();
 
   const categories = ['All', ...new Set(allProducts.map(p => p.category))];
 
@@ -65,6 +68,16 @@ const ShopProductView = () => {
             <p className="text-gray-700 mb-1"><strong>Owner:</strong> {shop.owner}</p>
             <p className="text-gray-700 mb-1"><strong>Contact:</strong> {shop.contact}</p>
             <p className="text-gray-700"><strong>Address:</strong> {shop.address}</p>
+            <div className="flex items-center gap-2 mb-2 mt-4">
+              <Star className="w-5 h-5 text-yellow-400" />
+              <span className="font-semibold text-yellow-700">{shop.reviewScore.toFixed(1)}</span>
+              <button
+                className="ml-2 text-sm bg-[var(--green)] text-white hover:text-green-600 hover:border-green-600"
+                onClick={() => navigate('/shopreviews')}
+              >
+                View Reviews
+              </button>
+            </div>
           </div>
         </div>
 
