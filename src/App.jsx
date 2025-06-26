@@ -27,9 +27,12 @@ import CropPostForm from "./components/pages/farmer/CropPostForm";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
+
 import ShopReviews from "./pages/shop/ShopReviews";
 
 import NotFound from "./components/pages/NotFound";
+
+import AdminDashboard from "./pages/admin/AdminDahboard"
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -208,6 +211,13 @@ const App = () => {
        <Route path="/transportdashboard" element={
           <Layout>
             <TranspoartManagementDashboard />
+          </Layout>
+        }
+
+      />
+      <Route path="/admindashboard" element={
+          <Layout>
+            <AdminDashboard/>
           </Layout>
         }
 
