@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {Drawer,List,ListItem,ListItemText,ListItemIcon,IconButton,Box} from '@mui/material';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
+import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined';
 import ContactMailOutlinedIcon from '@mui/icons-material/ContactMailOutlined';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -8,6 +9,13 @@ import MenuIcon from '@mui/icons-material/Menu';
 import {Link} from 'react-router-dom';
 
 const menuItems = [
+  {
+    label: 'Marketplace',
+    icon: <StorefrontOutlined />,
+    subcategories: [
+      { name: 'Shops', path: '/agrishop' },
+    ],
+  },
   {
     label: 'Knowledge Hub',
     icon: <MenuBookOutlinedIcon />,
@@ -48,7 +56,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
       >
         <IconButton
           onClick={toggleDrawer}
-          className="bg-white/50 backdrop-blur-md text-black hover:bg-green-400 shadow-md"
+          className="bg-white text-black hover:bg-green-400 shadow-md" style={{backgroundColor:'white'}}
         >
           <MenuIcon />
         </IconButton>
