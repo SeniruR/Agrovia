@@ -7,12 +7,15 @@ import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import FarmerCropViews from "./pages/Farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
-
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
+import ShopDashBoard from "./pages/shop/ShopDashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import SupportForm from "./pages/contact-us/SupportForm";
 import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
+
+import KnowledgeHubHome from "./pages/KnowledgeHubHome";
+import KHubCon from "./pages/KHubCon";
 
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
@@ -30,6 +33,8 @@ import TranspoartManagementDashboard from "./pages/transport/TranspoartManagemen
 
 import ShopReviews from "./pages/shop/ShopReviews";
 
+import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
+
 import NotFound from "./components/pages/NotFound";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
@@ -38,6 +43,7 @@ import AdminDashboard from "./pages/admin/AdminDahboard"
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
+
 
 const App = () => {
   return (
@@ -193,6 +199,27 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/shopdashboard" element={
+          <Layout>
+            <ShopDashBoard />
+          </Layout>
+        }
+      />
+
+       <Route path="/knowledge-hub" element={
+          <Layout>
+            <KnowledgeHubHome/>
+          </Layout>
+        }
+      />
+        <Route path="/hubContent" element={
+          <Layout>
+            <KHubCon/>
+          </Layout>
+        }
+      />
+      
+
 
       <Route path="/notfound" element={
         <Layout>
@@ -215,9 +242,15 @@ const App = () => {
         }
 
       />
+
       <Route path="/admindashboard" element={
           <Layout>
             <AdminDashboard/>
+
+      <Route path="/createorganization" element={
+          <Layout>
+            <CreateOrganizationForm />
+
           </Layout>
         }
 
