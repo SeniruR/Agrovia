@@ -28,6 +28,9 @@ import CropPostForm from "./components/pages/farmer/CropPostForm";
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import ShopReviews from "./pages/shop/ShopReviews";
 
+import NotFound from "./components/pages/NotFound";
+
+
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -186,11 +189,19 @@ const App = () => {
           </Layout>
         }
       />
+
+      <Route path="/notfound" element={
+        <Layout>
+          <NotFound />
+        </Layout>
+      }
+
       <Route path="/shopreviews" element={
           <Layout>
             <ShopReviews />
           </Layout>
         }
+
       />
 
 
