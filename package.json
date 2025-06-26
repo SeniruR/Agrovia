@@ -16,6 +16,10 @@
     "@mui/icons-material": "^7.1.2",
     "@mui/material": "^7.1.2",
 
+    "@tailwindcss/line-clamp": "^0.4.4",
+
+
+
     "@tailwindcss/vite": "^4.1.10",
     "lucide-react": "^0.522.0",
     "mui": "^0.0.1",

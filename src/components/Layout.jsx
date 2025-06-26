@@ -21,9 +21,21 @@ const Layout = ({ children }) => {
       <div className="flex-1 flex flex-col mt-20">
         <div className="flex-1 bg-gray-100 flex" style={{ backgroundColor: 'white' }}>
           <Sidebar open={open} toggleDrawer={toggleDrawer} />
+
+          {(isLoginPage||isSignupPage||isSignupPages||isForgotPasswordPage||isContactusPages) ? (
+            <div className="w-full" style={{ color: 'black' }}>
+              {children}
+            </div>
+          ) : (
+            <div className=" w-full" style={{ color: 'black' }}>
+              {children}
+            </div>
+          )}
+
           <div className="w-full" style={{ color: 'black' }}>
             {children}
           </div>
+
         </div>
       </div>
       <Footer />
