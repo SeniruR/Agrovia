@@ -253,10 +253,8 @@ const App = () => {
       <Route path="/createorganization" element={
           <Layout>
             <CreateOrganizationForm />
-
           </Layout>
         }
-
       />
 
 
