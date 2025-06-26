@@ -126,9 +126,20 @@ const AdminUserManagement = () => {
   const UserModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-md w-full p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          {editingUser ? 'Edit User' : 'Add New User'}
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {editingUser ? 'Edit User' : 'Add New User'}
+          </h3>
+          <button
+            onClick={() => {
+              setShowUserModal(false);
+              setEditingUser(null);
+            }}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
@@ -194,18 +205,18 @@ const AdminUserManagement = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-green-600 shadow-sm border-b border-green-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-              <p className="text-gray-600">Manage all Agrovia users and their permissions</p>
+              <h1 className="text-4xl font-bold text-white">User Management</h1>
+              <p className="text-green-100 text-lg mt-2">Manage all Agrovia users and their permissions</p>
             </div>
             <button
               onClick={() => setShowUserModal(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center space-x-2"
+              className="bg-white text-green-600 px-6 py-3 rounded-md hover:bg-gray-50 flex items-center space-x-2 font-semibold shadow-lg"
             >
-              <Plus size={20} />
+              <Plus size={22} />
               <span className="hidden sm:inline">Add User</span>
             </button>
           </div>
@@ -214,41 +225,49 @@ const AdminUserManagement = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.total}</p>
+                <p className="text-base text-gray-600 font-medium">Total Users</p>
+                <p className="text-4xl font-bold text-gray-900 mt-2">{userStats.total}</p>
               </div>
-              <Users className="text-green-600" size={24} />
+              <div className="bg-green-100 p-3 rounded-full">
+                <Users className="text-green-600" size={32} />
+              </div>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-green-600">{userStats.active}</p>
+                <p className="text-base text-gray-600 font-medium">Active</p>
+                <p className="text-4xl font-bold text-green-600 mt-2">{userStats.active}</p>
               </div>
-              <UserCheck className="text-green-600" size={24} />
+              <div className="bg-green-100 p-3 rounded-full">
+                <UserCheck className="text-green-600" size={32} />
+              </div>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Inactive</p>
-                <p className="text-2xl font-bold text-red-600">{userStats.inactive}</p>
+                <p className="text-base text-gray-600 font-medium">Inactive</p>
+                <p className="text-4xl font-bold text-red-600 mt-2">{userStats.inactive}</p>
               </div>
-              <UserX className="text-red-600" size={24} />
+              <div className="bg-red-100 p-3 rounded-full">
+                <UserX className="text-red-600" size={32} />
+              </div>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{userStats.pending}</p>
+                <p className="text-base text-gray-600 font-medium">Pending</p>
+                <p className="text-4xl font-bold text-yellow-600 mt-2">{userStats.pending}</p>
               </div>
-              <Activity className="text-yellow-600" size={24} />
+              <div className="bg-yellow-100 p-3 rounded-full">
+                <Activity className="text-yellow-600" size={32} />
+              </div>
             </div>
           </div>
         </div>
