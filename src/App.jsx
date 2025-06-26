@@ -246,18 +246,15 @@ const App = () => {
       <Route path="/admindashboard" element={
           <Layout>
             <AdminDashboard/>
-             </Layout>
-        }
-
-      />
-
-      <Route path="/createorganization" element={
-          <Layout>
-            <CreateOrganizationForm />
-
           </Layout>
         }
 
+      />
+      <Route path="/createorganization" element={
+          <Layout>
+            <CreateOrganizationForm />
+          </Layout>
+        }
       />
 
 
