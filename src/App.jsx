@@ -29,6 +29,9 @@ import FarmerReviews from "./pages/farmer/FarmersReviews";
 import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
 import ShopReviews from "./pages/shop/ShopReviews";
 
+import KnowledgeHubHome from "./pages/KnowledgeHubHome";
+import KHubCon from "./pages/KHubCon";
+
 import NotFound from "./components/pages/NotFound";
 
 
@@ -210,9 +213,19 @@ const App = () => {
             <TranspoartManagementDashboard />
           </Layout>
         }
-
       />
-
+      <Route path="/knowledgehub" element={
+          <Layout>
+            <KnowledgeHubHome />
+          </Layout>
+        }
+      />
+      <Route path="/knowledgecontent" element={
+          <Layout>
+            <KHubCon />
+          </Layout>
+        }
+      />
 
     </Routes>
   );
