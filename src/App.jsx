@@ -27,7 +27,7 @@ import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
 
-import CropPostForm from "./components/pages/farmer/CropPostForm";
+import CropPostForm from "./pages/farmer/CropPostForm";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
