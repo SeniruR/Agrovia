@@ -40,6 +40,8 @@ import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm"
 import NotFound from "./components/pages/NotFound";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
+import AdminUserManagement from "./pages/admin/AdminUserManagement"
+
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -261,6 +263,12 @@ const App = () => {
       <Route path="/farmervieworders" element={
           <Layout>
             <FarmerViewOrders />
+          </Layout>
+       }
+      />
+       <Route path="/usermanagement" element={
+          <Layout>
+            <AdminUserManagement />
           </Layout>
         }
       />
