@@ -26,9 +26,11 @@ import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
 
-import CropPostForm from "./components/pages/farmer/CropPostForm";
+import CropPostForm from "./pages/farmer/CropPostForm";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
+import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
+
 import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
 
 import ShopReviews from "./pages/shop/ShopReviews";
@@ -36,8 +38,11 @@ import ShopReviews from "./pages/shop/ShopReviews";
 import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
 
 import NotFound from "./components/pages/NotFound";
+import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
+import AdminUserManagement from "./pages/admin/AdminUserManagement"
+
 
 import OrganizationDashBoard from "./pages/organization/Oraganization";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -242,6 +247,13 @@ const App = () => {
         }
 
       />
+      <Route path="/complaintHandling" element={
+          <Layout>
+            <Complaint />
+          </Layout>
+        }
+
+      />
 
       <Route path="/admindashboard" element={
           <Layout>
@@ -256,6 +268,7 @@ const App = () => {
           </Layout>
         }
       />
+
       <Route path="/organization" element={
           <Layout>
             <OrganizationDashBoard />
@@ -263,6 +276,19 @@ const App = () => {
         }
       />
       
+
+      <Route path="/farmervieworders" element={
+          <Layout>
+            <FarmerViewOrders />
+          </Layout>
+       }
+      />
+       <Route path="/usermanagement" element={
+          <Layout>
+            <AdminUserManagement />
+          </Layout>
+        }
+      />
 
 
     </Routes>
