@@ -31,7 +31,7 @@ const BuyerDashboard = () => {
       quantity: '500 kg', 
       price: 'Rs. 120/kg', 
       rating: 4.8, 
-      image: '/api/placeholder/300/200',
+      image: 'https://images.pexels.com/photos/33239/rice-grains-pour-cereals.jpg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
       category: 'grains',
       organic: true,
       harvestDate: '2024-01-15'
@@ -44,7 +44,7 @@ const BuyerDashboard = () => {
       quantity: '200 kg', 
       price: 'Rs. 80/kg', 
       rating: 4.5, 
-      image: '/api/placeholder/300/200',
+      image: 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
       category: 'vegetables',
       organic: false,
       harvestDate: '2024-01-10'
@@ -57,7 +57,7 @@ const BuyerDashboard = () => {
       quantity: '300 kg', 
       price: 'Rs. 60/kg', 
       rating: 4.7, 
-      image: '/api/placeholder/300/200',
+      image: 'https://images.pexels.com/photos/1125767/pexels-photo-1125767.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
       category: 'vegetables',
       organic: true,
       harvestDate: '2024-01-08'
@@ -70,23 +70,82 @@ const BuyerDashboard = () => {
       quantity: '100 pieces', 
       price: 'Rs. 25/piece', 
       rating: 4.9, 
-      image: '/api/placeholder/300/200',
+      image: 'https://images.pexels.com/photos/1549200/pexels-photo-1549200.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
       category: 'fruits',
       organic: true,
       harvestDate: '2024-01-12'
+    },
+    { 
+      id: 5, 
+      name: 'Green Chili', 
+      farmer: 'Nimal Rajapaksa', 
+      location: 'Matale', 
+      quantity: '150 kg', 
+      price: 'Rs. 300/kg', 
+      rating: 4.6, 
+      image: 'https://images.pexels.com/photos/3677470/pexels-photo-3677470.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
+      category: 'vegetables',
+      organic: false,
+      harvestDate: '2024-01-14'
+    },
+    { 
+      id: 6, 
+      name: 'Organic Carrots', 
+      farmer: 'Priya Gunasekera', 
+      location: 'Badulla', 
+      quantity: '200 kg', 
+      price: 'Rs. 90/kg', 
+      rating: 4.4, 
+      image: 'https://images.pexels.com/photos/1268102/pexels-photo-1268102.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
+      category: 'vegetables',
+      organic: true,
+      harvestDate: '2024-01-16'
+    },
+    { 
+      id: 7, 
+      name: 'Fresh Bananas', 
+      farmer: 'Kumara Perera', 
+      location: 'Gampaha', 
+      quantity: '250 kg', 
+      price: 'Rs. 45/kg', 
+      rating: 4.3, 
+      image: 'https://images.pexels.com/photos/5966630/pexels-photo-5966630.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
+      category: 'fruits',
+      organic: false,
+      harvestDate: '2024-01-18'
+    },
+    { 
+      id: 8, 
+      name: 'Sweet Potatoes', 
+      farmer: 'Janaki Fernando', 
+      location: 'Monaragala', 
+      quantity: '180 kg', 
+      price: 'Rs. 85/kg', 
+      rating: 4.5, 
+      image: 'https://images.pexels.com/photos/1435904/pexels-photo-1435904.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop',
+      category: 'vegetables',
+      organic: true,
+      harvestDate: '2024-01-17'
     }
   ]);
 
   const [myOrders] = useState([
-    { id: 1, farmer: 'Sunil Fernando', crop: 'Rice', quantity: '100 kg', status: 'Delivered', total: 'Rs. 12,000', date: '2024-01-20' },
-    { id: 2, farmer: 'Kamala Silva', crop: 'Tomatoes', quantity: '50 kg', status: 'In Transit', total: 'Rs. 4,000', date: '2024-01-22' },
-    { id: 3, farmer: 'Ravi Perera', crop: 'Onions', quantity: '75 kg', status: 'Confirmed', total: 'Rs. 4,500', date: '2024-01-25' }
+    { id: 1, farmer: 'Sunil Fernando', crop: 'Rice', quantity: '100 kg', status: 'Delivered', total: 'Rs. 12,000', date: '2024-01-20', image: 'https://images.pexels.com/photos/33239/rice-grains-pour-cereals.jpg?auto=compress&cs=tinysrgb&w=60&h=60&fit=crop' },
+    { id: 2, farmer: 'Kamala Silva', crop: 'Tomatoes', quantity: '50 kg', status: 'In Transit', total: 'Rs. 4,000', date: '2024-01-22', image: 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg?auto=compress&cs=tinysrgb&w=60&h=60&fit=crop' },
+    { id: 3, farmer: 'Ravi Perera', crop: 'Onions', quantity: '75 kg', status: 'Confirmed', total: 'Rs. 4,500', date: '2024-01-25', image: 'https://images.pexels.com/photos/1125767/pexels-photo-1125767.jpeg?auto=compress&cs=tinysrgb&w=60&h=60&fit=crop' },
+    { id: 4, farmer: 'Nimal Rajapaksa', crop: 'Green Chili', quantity: '25 kg', status: 'Pending', total: 'Rs. 7,500', date: '2024-01-26', image: 'https://images.pexels.com/photos/3677470/pexels-photo-3677470.jpeg?auto=compress&cs=tinysrgb&w=60&h=60&fit=crop' },
+    { id: 5, farmer: 'Priya Gunasekera', crop: 'Carrots', quantity: '40 kg', status: 'In Transit', total: 'Rs. 3,600', date: '2024-01-27', image: 'https://images.pexels.com/photos/1268102/pexels-photo-1268102.jpeg?auto=compress&cs=tinysrgb&w=60&h=60&fit=crop' },
+    { id: 6, farmer: 'Mala Wickramasinghe', crop: 'King Coconuts', quantity: '30 pieces', status: 'Delivered', total: 'Rs. 750', date: '2024-01-28', image: 'https://images.pexels.com/photos/1549200/pexels-photo-1549200.jpeg?auto=compress&cs=tinysrgb&w=60&h=60&fit=crop' },
+    { id: 7, farmer: 'Kumara Perera', crop: 'Bananas', quantity: '60 kg', status: 'Confirmed', total: 'Rs. 2,700', date: '2024-01-29', image: 'https://images.pexels.com/photos/5966630/pexels-photo-5966630.jpeg?auto=compress&cs=tinysrgb&w=60&h=60&fit=crop' },
+    { id: 8, farmer: 'Janaki Fernando', crop: 'Sweet Potatoes', quantity: '45 kg', status: 'Processing', total: 'Rs. 3,825', date: '2024-01-30', image: 'https://images.pexels.com/photos/1435904/pexels-photo-1435904.jpeg?auto=compress&cs=tinysrgb&w=60&h=60&fit=crop' }
   ]);
 
   const [favorites] = useState([
-    { id: 1, farmer: 'Sunil Fernando', specialty: 'Premium Rice', rating: 4.8 },
-    { id: 2, farmer: 'Mala Wickramasinghe', specialty: 'King Coconuts', rating: 4.9 },
-    { id: 3, farmer: 'Kamala Silva', specialty: 'Fresh Vegetables', rating: 4.5 }
+    { id: 1, farmer: 'Sunil Fernando', specialty: 'Premium Rice', rating: 4.8, image: 'https://images.pexels.com/photos/1181534/pexels-photo-1181534.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
+    { id: 2, farmer: 'Mala Wickramasinghe', specialty: 'King Coconuts', rating: 4.9, image: 'https://images.pexels.com/photos/1181534/pexels-photo-1181534.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
+    { id: 3, farmer: 'Kamala Silva', specialty: 'Fresh Vegetables', rating: 4.5, image: 'https://images.pexels.com/photos/1181534/pexels-photo-1181534.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
+    { id: 4, farmer: 'Nimal Rajapaksa', specialty: 'Spices & Chilies', rating: 4.6, image: 'https://images.pexels.com/photos/1181534/pexels-photo-1181534.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' },
+    { id: 5, farmer: 'Priya Gunasekera', specialty: 'Organic Produce', rating: 4.4, image: 'https://images.pexels.com/photos/1181534/pexels-photo-1181534.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop' }
   ]);
 
   const categories = [
@@ -103,6 +162,7 @@ const BuyerDashboard = () => {
       case 'in transit': return 'text-blue-600 bg-blue-100';
       case 'confirmed': return 'text-yellow-600 bg-yellow-100';
       case 'pending': return 'text-orange-600 bg-orange-100';
+      case 'processing': return 'text-purple-600 bg-purple-100';
       case 'cancelled': return 'text-red-600 bg-red-100';
       default: return 'text-gray-600 bg-gray-100';
     }
@@ -150,7 +210,7 @@ const BuyerDashboard = () => {
       </div>
 
       {/* Available Crops Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-8 gap-4">
         {filteredCrops.map((crop) => (
           <div key={crop.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
             <div className="relative">
@@ -220,9 +280,9 @@ const BuyerDashboard = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Farmer</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Crop</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -232,12 +292,19 @@ const BuyerDashboard = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {myOrders.map((order) => (
-                <tr key={order.id}>
+                <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <img src={order.image} alt={order.crop} className="h-12 w-12 rounded-lg object-cover mr-3" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{order.crop}</div>
+                      </div>
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{order.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.farmer}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.crop}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.quantity}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.total}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{order.total}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                       {order.status}
@@ -245,8 +312,10 @@ const BuyerDashboard = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.date}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button className="text-blue-600 hover:text-blue-900 mr-3">View</button>
-                    <button className="text-green-600 hover:text-green-900">Track</button>
+                    <div className="flex space-x-2">
+                      <button className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md text-xs">View</button>
+                      <button className="text-green-600 hover:text-green-900 bg-green-50 px-3 py-1 rounded-md text-xs">Track</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -261,13 +330,11 @@ const BuyerDashboard = () => {
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-900">Favorite Farmers</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-4">
         {favorites.map((favorite) => (
           <div key={favorite.id} className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center space-x-4 mb-4">
-              <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                <User className="h-6 w-6 text-green-600" />
-              </div>
+              <img src={favorite.image} alt={favorite.farmer} className="h-12 w-12 rounded-full object-cover" />
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">{favorite.farmer}</h3>
                 <p className="text-sm text-gray-600">{favorite.specialty}</p>
@@ -296,7 +363,7 @@ const BuyerDashboard = () => {
   const renderDashboard = () => (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -333,18 +400,39 @@ const BuyerDashboard = () => {
             <Heart className="h-8 w-8 text-red-600" />
           </div>
         </div>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">This Month</p>
+              <p className="text-2xl font-bold text-gray-900">Rs. 12,500</p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-indigo-600" />
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Saved Items</p>
+              <p className="text-2xl font-bold text-gray-900">15</p>
+            </div>
+            <Heart className="h-8 w-8 text-pink-600" />
+          </div>
+        </div>
       </div>
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Orders</h3>
           <div className="space-y-3">
-            {myOrders.slice(0, 3).map((order) => (
+            {myOrders.slice(0, 4).map((order) => (
               <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{order.crop} from {order.farmer}</p>
-                  <p className="text-xs text-gray-600">{order.quantity} - {order.total}</p>
+                <div className="flex items-center space-x-3">
+                  <img src={order.image} alt={order.crop} className="h-10 w-10 rounded-lg object-cover" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{order.crop} from {order.farmer}</p>
+                    <p className="text-xs text-gray-600">{order.quantity} - {order.total}</p>
+                  </div>
                 </div>
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                   {order.status}
@@ -357,18 +445,42 @@ const BuyerDashboard = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Market Insights</h3>
           <div className="space-y-4">
-            <div className="p-4 bg-green-50 rounded-lg">
+            <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-400">
               <h4 className="font-medium text-green-900">Best Deals Today</h4>
               <p className="text-sm text-green-700">Premium Rice at 15% discount</p>
             </div>
-            <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
               <h4 className="font-medium text-blue-900">New Arrivals</h4>
               <p className="text-sm text-blue-700">Fresh organic vegetables from Nuwara Eliya</p>
             </div>
-            <div className="p-4 bg-yellow-50 rounded-lg">
+            <div className="p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
               <h4 className="font-medium text-yellow-900">Seasonal Recommendation</h4>
               <p className="text-sm text-yellow-700">Stock up on King Coconuts for the season</p>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="space-y-3">
+            <button className="w-full p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-left transition-colors">
+              <div className="flex items-center space-x-3">
+                <Search className="h-5 w-5" />
+                <span className="font-medium">Browse New Products</span>
+              </div>
+            </button>
+            <button className="w-full p-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-left transition-colors">
+              <div className="flex items-center space-x-3">
+                <Package className="h-5 w-5" />
+                <span className="font-medium">Track Active Orders</span>
+              </div>
+            </button>
+            <button className="w-full p-3 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 text-left transition-colors">
+              <div className="flex items-center space-x-3">
+                <Heart className="h-5 w-5" />
+                <span className="font-medium">View Favorites</span>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -384,18 +496,58 @@ const BuyerDashboard = () => {
       case 'bulk': return (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Bulk Orders</h2>
-          <p className="text-gray-600">Bulk purchasing options coming soon...</p>
+          <p className="text-gray-600 mb-6">Place orders for large quantities with special pricing.</p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-8 gap-4">
+            <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              <img src="https://images.pexels.com/photos/33239/rice-grains-pour-cereals.jpg?auto=compress&cs=tinysrgb&w=300&h=150&fit=crop" alt="Rice" className="w-full h-32 object-cover rounded-lg mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Rice - Premium Quality</h3>
+              <p className="text-sm text-gray-600 mb-4">Minimum order: 1000 kg</p>
+              <p className="text-lg font-bold text-blue-600 mb-4">Rs. 100/kg (bulk price)</p>
+              <button className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
+                Request Quote
+              </button>
+            </div>
+            
+            <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              <img src="https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg?auto=compress&cs=tinysrgb&w=300&h=150&fit=crop" alt="Mixed Vegetables" className="w-full h-32 object-cover rounded-lg mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Mixed Vegetables</h3>
+              <p className="text-sm text-gray-600 mb-4">Minimum order: 500 kg</p>
+              <p className="text-lg font-bold text-blue-600 mb-4">Rs. 70/kg (bulk price)</p>
+              <button className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
+                Request Quote
+              </button>
+            </div>
+            
+            <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              <img src="https://images.pexels.com/photos/1268102/pexels-photo-1268102.jpeg?auto=compress&cs=tinysrgb&w=300&h=150&fit=crop" alt="Organic Produce" className="w-full h-32 object-cover rounded-lg mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Organic Produce</h3>
+              <p className="text-sm text-gray-600 mb-4">Minimum order: 300 kg</p>
+              <p className="text-lg font-bold text-blue-600 mb-4">Rs. 150/kg (bulk price)</p>
+              <button className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
+                Request Quote
+              </button>
+            </div>
+          </div>
         </div>
       );
       default: return renderMarketplace();
     }
   };
 
+  // Determine container padding based on active tab
+  const getContainerPadding = () => {
+    if (activeTab === 'orders') {
+      return 'px-2 sm:px-4 lg:px-6 py-6';
+    }
+    return 'px-2 sm:px-4 lg:px-6 py-6';
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 w-full">
       {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="bg-white shadow-sm w-full">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
               <ShoppingCart className="h-8 w-8 text-blue-600" />
@@ -422,9 +574,9 @@ const BuyerDashboard = () => {
       </div>
 
       {/* Navigation */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
+      <div className="bg-white border-b w-full">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8 overflow-x-auto">
             {[
               { id: 'marketplace', label: 'Marketplace', icon: Package },
               { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
@@ -437,7 +589,7 @@ const BuyerDashboard = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -453,7 +605,7 @@ const BuyerDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`w-full ${getContainerPadding()}`}>
         {renderContent()}
       </div>
     </div>
