@@ -39,7 +39,7 @@ import NotFound from "./components/pages/NotFound";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
 
-
+import OrganizationDashBoard from "./pages/organization/Oraganization";
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -256,6 +256,13 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/organization" element={
+          <Layout>
+            <OrganizationDashBoard />
+          </Layout>
+        }
+      />
+      
 
 
     </Routes>
