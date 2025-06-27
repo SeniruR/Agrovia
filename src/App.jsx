@@ -45,6 +45,8 @@ import AdminUserManagement from "./pages/admin/AdminUserManagement"
 
 
 import OrganizationDashBoard from "./pages/organization/Oraganization";
+import FarmingPestAlerts from "./pages/PestAlert";
+
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -286,6 +288,12 @@ const App = () => {
        <Route path="/usermanagement" element={
           <Layout>
             <AdminUserManagement />
+          </Layout>
+        }
+      />
+       <Route path="/pestalert" element={
+          <Layout>
+            <FarmingPestAlerts/>
           </Layout>
         }
       />
