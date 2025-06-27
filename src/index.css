@@ -5,7 +5,6 @@
 :root {
   --login-button-bg:springgreen;
   --login-button-hover-bg:limegreen;
-  --green: #90EE90;
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -31,14 +30,14 @@ a:hover {
 
 body {
   margin: 0;
-  /* display: flex; */
+  display: flex;
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
 
 h1 {
-  font-size: 3.0em;
+  font-size: 3.2em;
   line-height: 1.1;
 }
 
@@ -101,16 +100,4 @@ button:focus-visible {
 
 .sidebarcurves{
   color: rgba(0, 0, 0);
-}
-
-/*form buttons*/
-.next-button{
-  background-color: #00ff7f;
-  color: rgb(255, 255, 255);
-}
-
-.next-button:hover{
-  background-color: #00cc66;
-  color: rgb(255, 255, 255);
-  border-color: #00ff7f;
 }
