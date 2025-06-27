@@ -46,6 +46,7 @@ import AdminUserManagement from "./pages/admin/AdminUserManagement"
 
 import OrganizationDashBoard from "./pages/organization/Oraganization";
 import FarmingPestAlerts from "./pages/PestAlert";
+import PestAlertInterface from "./pages/PestAlert";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -293,7 +294,7 @@ const App = () => {
       />
        <Route path="/pestalert" element={
           <Layout>
-            <FarmingPestAlerts/>
+            <PestAlertInterface/>
           </Layout>
         }
       />
