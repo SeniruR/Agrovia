@@ -28,6 +28,8 @@ import MyOrderCrops from "./pages/MyOrderCrops"
 
 import CropPostForm from "./pages/farmer/CropPostForm";
 
+import CreateArticle from "./pages/Moderator/CreateArticle";
+
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
 import FarmerViewOrderDetails from "./pages/farmer/FarmerViewOrderDetails";
@@ -316,6 +318,12 @@ const App = () => {
         <Route path="/transportreviews" element={
           <Layout>
             <TransportServicesReviews/>
+          </Layout>
+        }
+      />
+      <Route path="/createarticle" element={
+          <Layout>
+            <CreateArticle/>
           </Layout>
         }
       />
