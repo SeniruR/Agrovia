@@ -26,7 +26,7 @@ import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
 
-import CropPostForm from "./components/pages/farmer/CropPostForm";
+import CropPostForm from "./pages/farmer/CropPostForm";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
@@ -39,9 +39,16 @@ import ShopReviews from "./pages/shop/ShopReviews";
 import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
 
 import NotFound from "./components/pages/NotFound";
+import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
+import AdminUserManagement from "./pages/admin/AdminUserManagement"
+import SubscriptionManagement from "./pages/SubscriptionManagement";
 
+
+import OrganizationDashBoard from "./pages/organization/Oraganization";
+import FarmingPestAlerts from "./pages/PestAlert";
+import PestAlertInterface from "./pages/PestAlert";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -245,6 +252,13 @@ const App = () => {
         }
 
       />
+      <Route path="/complaintHandling" element={
+          <Layout>
+            <Complaint />
+          </Layout>
+        }
+
+      />
 
       <Route path="/admindashboard" element={
           <Layout>
@@ -259,11 +273,38 @@ const App = () => {
           </Layout>
         }
       />
+
+      <Route path="/organization" element={
+          <Layout>
+            <OrganizationDashBoard />
+          </Layout>
+        }
+      />
+      
+
       <Route path="/farmervieworders" element={
           <Layout>
             <FarmerViewOrders />
           </Layout>
+       }
+      />
+       <Route path="/usermanagement" element={
+          <Layout>
+            <AdminUserManagement />
+          </Layout>
         }
+      />
+       <Route path="/pestalert" element={
+          <Layout>
+            <PestAlertInterface/>
+          </Layout>
+        }
+      />
+      <Route path="/subsciptionmanagement" element={
+        <Layout>
+          <SubscriptionManagement />
+        </Layout>
+      }
       />
       <Route path="/farmervieworderdetails" element={
           <Layout>
