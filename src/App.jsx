@@ -30,6 +30,7 @@ import CropPostForm from "./pages/farmer/CropPostForm";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
+import FarmerViewOrderDetails from "./pages/farmer/FarmerViewOrderDetails";
 
 import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
 
@@ -304,6 +305,12 @@ const App = () => {
           <SubscriptionManagement />
         </Layout>
       }
+      />
+      <Route path="/farmervieworderdetails" element={
+          <Layout>
+            <FarmerViewOrderDetails />
+          </Layout>
+        }
       />
 
 

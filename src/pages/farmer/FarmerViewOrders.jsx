@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Add this import
 
-const OrderDashboard = () => {
+const FarmerViewOrders = () => {
     const [filters, setFilters] = useState({
         id: "",
         dateFrom: "",
@@ -38,6 +39,8 @@ const OrderDashboard = () => {
     const exportCSV = () => {
         alert("CSV export not yet implemented");
     };
+
+    const navigate = useNavigate(); // Add this line
 
     return (
         <div className="p-6 max-w-7xl mx-auto bg-blue-50 min-h-screen">
@@ -128,7 +131,10 @@ const OrderDashboard = () => {
                                     </span>
                                 </td>
                                 <td className="p-3 space-x-2 flex items-center">
-                                    <button className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition">
+                                    <button
+                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition"
+                                        onClick={() => navigate("/farmervieworderdetails")} // Add this handler
+                                    >
                                         {/* Eye Icon */}
                                         <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                                             <path
@@ -184,4 +190,4 @@ const OrderDashboard = () => {
     );
 };
 
-export default OrderDashboard;
+export default FarmerViewOrders;
