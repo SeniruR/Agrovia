@@ -369,8 +369,8 @@ const SubscriptionManagement = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <Leaf className="w-8 h-8 text-green-500 mr-2" />
-              <h1 className="text-2xl font-bold text-gray-800">Agrovia</h1>
+              
+              <h1 className="text-3xl font-bold text-gray-800 flex items-center">Subscription Management</h1>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex bg-green-100 rounded-lg p-1">
