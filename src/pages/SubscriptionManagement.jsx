@@ -351,42 +351,121 @@ const SubscriptionManagement = () => {
     );
   };
 
-  const UsageStats = () => (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-        <BarChart3 className="w-6 h-6 text-green-500 mr-2" />
-        Current Usage
-      </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-700">Crop Listings</span>
-            <Package className="w-5 h-5 text-green-500" />
-          </div>
-          <div className="flex items-center">
-            <div className="flex-1 bg-gray-200 rounded-full h-2 mr-3">
-              <div className="bg-green-500 h-2 rounded-full" style={{ width: '60%' }}></div>
-            </div>
-            <span className="text-sm font-semibold">3/5</span>
-          </div>
-        </div>
+  const UsageStats = () => {
+    const farmerUsageData = [
+      {
+        label: 'Crop Listings',
+        current: 3,
+        limit: currentPlan === 'basic' ? 5 : 'Unlimited',
+        percentage: currentPlan === 'basic' ? 60 : 30,
+        color: 'green',
+        icon: Package
+      },
+      {
+        label: 'Price Forecasts',
+        current: currentPlan === 'basic' ? 0 : 12,
+        limit: currentPlan === 'basic' ? 0 : 50,
+        percentage: currentPlan === 'basic' ? 0 : 24,
+        color: 'emerald',
+        icon: TrendingUp
+      },
+      {
+        label: 'Bulk Sales',
+        current: currentPlan === 'basic' ? 0 : 2,
+        limit: currentPlan === 'basic' ? 0 : 10,
+        percentage: currentPlan === 'basic' ? 0 : 20,
+        color: 'lime',
+        icon: Users
+      },
+      {
+        label: 'Direct Messages',
+        current: currentPlan === 'basic' ? 5 : 25,
+        limit: currentPlan === 'basic' ? 10 : 'Unlimited',
+        percentage: currentPlan === 'basic' ? 50 : 25,
+        color: 'teal',
+        icon: MessageCircle
+      }
+    ];
+
+    const buyerUsageData = [
+      {
+        label: 'Orders Placed',
+        current: 2,
+        limit: currentPlan === 'basic' ? 3 : 'Unlimited',
+        percentage: currentPlan === 'basic' ? 67 : 20,
+        color: 'green',
+        icon: Package
+      },
+      {
+        label: 'Bulk Purchases',
+        current: currentPlan === 'basic' ? 0 : 8,
+        limit: currentPlan === 'basic' ? 0 : 'Unlimited',
+        percentage: currentPlan === 'basic' ? 0 : 40,
+        color: 'emerald',
+        icon: Users
+      },
+      {
+        label: 'Contract Farming',
+        current: currentPlan === 'basic' ? 0 : 3,
+        limit: currentPlan === 'basic' ? 0 : 15,
+        percentage: currentPlan === 'basic' ? 0 : 20,
+        color: 'lime',
+        icon: Calendar
+      },
+      {
+        label: 'Market Analytics',
+        current: currentPlan === 'basic' ? 0 : 45,
+        limit: currentPlan === 'basic' ? 0 : 100,
+        percentage: currentPlan === 'basic' ? 0 : 45,
+        color: 'teal',
+        icon: BarChart3
+      }
+    ];
+
+    const currentUsageData = userType === 'farmer' ? farmerUsageData : buyerUsageData;
+
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+          <BarChart3 className="w-6 h-6 text-green-500 mr-2" />
+          Current Usage - {userType === 'farmer' ? 'Farmer' : 'Buyer'} Features
+        </h3>
         
-        <div className="bg-lime-50 border border-lime-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-700">API Calls</span>
-            <Zap className="w-5 h-5 text-lime-600" />
-          </div>
-          <div className="flex items-center">
-            <div className="flex-1 bg-gray-200 rounded-full h-2 mr-3">
-              <div className="bg-lime-500 h-2 rounded-full" style={{ width: '80%' }}></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {currentUsageData.map((usage, index) => (
+            <div key={index} className={`bg-${usage.color}-50 border border-${usage.color}-200 rounded-lg p-4`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-700">{usage.label}</span>
+                <usage.icon className={`w-5 h-5 text-${usage.color}-500`} />
+              </div>
+              <div className="flex items-center">
+                <div className="flex-1 bg-gray-200 rounded-full h-2 mr-3">
+                  <div 
+                    className={`bg-${usage.color}-500 h-2 rounded-full`} 
+                    style={{ width: `${usage.percentage}%` }}
+                  ></div>
+                </div>
+                <span className="text-sm font-semibold">
+                  {usage.current}/{usage.limit}
+                </span>
+              </div>
+              {currentPlan === 'basic' && usage.current === 0 && (
+                <p className="text-xs text-gray-500 mt-1">Upgrade to unlock this feature</p>
+              )}
             </div>
-            <span className="text-sm font-semibold">800/1000</span>
-          </div>
+          ))}
         </div>
+
+        {currentPlan === 'basic' && (
+          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <strong>💡 Tip:</strong> Upgrade to Premium to unlock advanced features and remove usage limits!
+            </p>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
@@ -395,7 +474,7 @@ const SubscriptionManagement = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              
+             
               <h1 className="text-3xl font-bold text-gray-800 flex items-center">Subscription Management</h1>
             </div>
             <div className="flex items-center space-x-4">
@@ -483,7 +562,7 @@ const SubscriptionManagement = () => {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
               <Settings className="w-6 h-6 text-green-500 mr-2" />
-              Account Settings
+              {userType === 'farmer' ? 'Farmer' : 'Buyer'} Account Settings
             </h3>
             
             <div className="space-y-6">
@@ -500,26 +579,117 @@ const SubscriptionManagement = () => {
                     <input type="checkbox" className="text-green-500" defaultChecked />
                     <span className="ml-2">Email notifications</span>
                   </label>
+                  {userType === 'farmer' && (
+                    <>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="text-green-500" defaultChecked />
+                        <span className="ml-2">Pest alerts</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="text-green-500" defaultChecked />
+                        <span className="ml-2">Weather updates</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="text-green-500" />
+                        <span className="ml-2">Price forecast alerts</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="text-green-500" />
+                        <span className="ml-2">Harvest reminders</span>
+                      </label>
+                    </>
+                  )}
+                  {userType === 'buyer' && (
+                    <>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="text-green-500" defaultChecked />
+                        <span className="ml-2">New crop availability</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="text-green-500" />
+                        <span className="ml-2">Bulk purchase opportunities</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="text-green-500" />
+                        <span className="ml-2">Contract farming offers</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="text-green-500" defaultChecked />
+                        <span className="ml-2">Order status updates</span>
+                      </label>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {userType === 'farmer' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Farm Profile Settings
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input type="checkbox" className="text-green-500" defaultChecked />
+                      <span className="ml-2">Show farm location to buyers</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="text-green-500" defaultChecked />
+                      <span className="ml-2">Allow direct contact from buyers</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="text-green-500" />
+                      <span className="ml-2">Auto-publish seasonal crops</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {userType === 'buyer' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Purchase Preferences
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input type="checkbox" className="text-green-500" defaultChecked />
+                      <span className="ml-2">Prefer certified organic produce</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="text-green-500" />
+                      <span className="ml-2">Auto-approve recurring orders</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="text-green-500" defaultChecked />
+                      <span className="ml-2">Show company profile to farmers</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subscription Settings
+                </label>
+                <div className="space-y-2">
                   <label className="flex items-center">
-                    <input type="checkbox" className="text-green-500" />
-                    <span className="ml-2">Push notifications</span>
+                    <input type="checkbox" className="text-green-500" defaultChecked />
+                    <span className="ml-2">Automatically renew subscription</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input type="checkbox" className="text-green-500" defaultChecked />
+                    <span className="ml-2">Send renewal reminders</span>
                   </label>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Auto-renewal
-                </label>
-                <label className="flex items-center">
-                  <input type="checkbox" className="text-green-500" defaultChecked />
-                  <span className="ml-2">Automatically renew subscription</span>
-                </label>
+              <div className="pt-4 border-t border-gray-200">
+                <button className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors mr-3">
+                  Save Settings
+                </button>
+                <button className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                  Reset to Default
+                </button>
               </div>
-
-              <button className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
-                Save Settings
-              </button>
             </div>
           </div>
         )}
