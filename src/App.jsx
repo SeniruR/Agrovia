@@ -42,6 +42,7 @@ import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
+import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
 import OrganizationDashBoard from "./pages/organization/Oraganization";
@@ -297,6 +298,12 @@ const App = () => {
             <PestAlertInterface/>
           </Layout>
         }
+      />
+      <Route path="/subsciptionmanagement" element={
+        <Layout>
+          <SubscriptionManagement />
+        </Layout>
+      }
       />
 
 
