@@ -49,6 +49,7 @@ import SubscriptionManagement from "./pages/SubscriptionManagement";
 import OrganizationDashBoard from "./pages/organization/Oraganization";
 import FarmingPestAlerts from "./pages/PestAlert";
 import PestAlertInterface from "./pages/PestAlert";
+import TransportServicesReviews from "./pages/transport/TransportReviews";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -309,6 +310,12 @@ const App = () => {
       <Route path="/farmervieworderdetails" element={
           <Layout>
             <FarmerViewOrderDetails />
+          </Layout>
+        }
+      />
+        <Route path="/transportreviews" element={
+          <Layout>
+            <TransportServicesReviews/>
           </Layout>
         }
       />
