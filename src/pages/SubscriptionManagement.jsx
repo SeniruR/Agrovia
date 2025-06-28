@@ -291,39 +291,65 @@ const SubscriptionManagement = () => {
     </div>
   );
 
-  const BillingHistory = () => (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-        <Calendar className="w-6 h-6 text-green-500 mr-2" />
-        Billing History
-      </h3>
-      
-      <div className="space-y-4">
-        {[
-          { date: '2025-06-28', amount: 2500, plan: 'Premium Farmer', status: 'Paid' },
-          { date: '2025-05-28', amount: 2500, plan: 'Premium Farmer', status: 'Paid' },
-          { date: '2025-04-28', amount: 0, plan: 'Basic Farmer', status: 'Free' },
-        ].map((invoice, index) => (
-          <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-semibold text-gray-800">{invoice.plan}</p>
-                <p className="text-sm text-gray-600">{invoice.date}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-gray-800">Rs. {invoice.amount.toLocaleString()}</p>
-                <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                  invoice.status === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {invoice.status}
-                </span>
+  const BillingHistory = () => {
+    const farmerBillingHistory = [
+      { date: '2025-06-28', amount: 2500, plan: 'Premium Farmer', status: 'Paid' },
+      { date: '2025-05-28', amount: 2500, plan: 'Premium Farmer', status: 'Paid' },
+      { date: '2025-04-28', amount: 0, plan: 'Basic Farmer', status: 'Free' },
+      { date: '2025-03-28', amount: 0, plan: 'Basic Farmer', status: 'Free' },
+    ];
+
+    const buyerBillingHistory = [
+      { date: '2025-06-28', amount: 3000, plan: 'Premium Buyer', status: 'Paid' },
+      { date: '2025-05-28', amount: 3000, plan: 'Premium Buyer', status: 'Paid' },
+      { date: '2025-04-28', amount: 7500, plan: 'Enterprise Buyer', status: 'Paid' },
+      { date: '2025-03-28', amount: 0, plan: 'Basic Buyer', status: 'Free' },
+    ];
+
+    const currentBillingHistory = userType === 'farmer' ? farmerBillingHistory : buyerBillingHistory;
+
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+          <Calendar className="w-6 h-6 text-green-500 mr-2" />
+          Billing History - {userType === 'farmer' ? 'Farmer' : 'Buyer'} Plans
+        </h3>
+        
+        <div className="space-y-4">
+          {currentBillingHistory.map((invoice, index) => (
+            <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold text-gray-800">{invoice.plan}</p>
+                  <p className="text-sm text-gray-600">{invoice.date}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-gray-800">Rs. {invoice.amount.toLocaleString()}</p>
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                    invoice.status === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-lime-100 text-lime-800'
+                  }`}>
+                    {invoice.status}
+                  </span>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+
+        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-700">Total Paid This Year:</span>
+            <span className="font-bold text-green-600">
+              Rs. {currentBillingHistory
+                .filter(invoice => invoice.status === 'Paid')
+                .reduce((total, invoice) => total + invoice.amount, 0)
+                .toLocaleString()}
+            </span>
           </div>
-        ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const UsageStats = () => (
     <div className="bg-white rounded-xl shadow-lg p-6">
