@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import ShopItemsListing from './components/ShopItemsListing';
-import ItemDetail from './components/ItemDetail';
-import CartPage from './components/CartPage';
-import { CartProvider } from './contexts/CartContext';
+import ShopItemsListing from './ShopItemsListing';
+import ItemDetail from './ItemDetail';
+import CartPage from './CartPage';
+import { CartProvider } from './CartContext';
 
 function Items() {
   const [currentView, setCurrentView] = useState('listing');

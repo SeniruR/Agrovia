@@ -12,7 +12,7 @@ import {
   Phone,
   User
 } from 'lucide-react';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from './CartContext';
 
 const CartPage = ({ onBack }) => {
   const { cartItems, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
@@ -51,7 +51,7 @@ const CartPage = ({ onBack }) => {
           <div className="flex items-center justify-between">
             <button
               onClick={onBack}
-              className="flex items-center gap-3 text-emerald-600 hover:text-emerald-700 font-bold text-lg transition-all duration-300 hover:gap-4"
+              className="flex items-center bg-slate-100 gap-3 text-emerald-600 hover:text-emerald-700 font-bold text-lg transition-all duration-300 hover:gap-4"
             >
               <ArrowLeft className="w-6 h-6" />
               Continue Shopping
@@ -122,7 +122,7 @@ const CartPage = ({ onBack }) => {
                           </div>
                           <button
                             onClick={() => removeFromCart(item.id)}
-                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-300"
+                            className="p-2 bg-slate-200 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-300"
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
@@ -133,14 +133,14 @@ const CartPage = ({ onBack }) => {
                             <div className="flex items-center bg-white rounded-xl border border-emerald-200">
                               <button
                                 onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                className="p-2 text-gray-600 hover:text-gray-800 transition-colors rounded-l-xl hover:bg-gray-50"
+                                className="p-2 bg-slate-100 text-gray-600 hover:text-gray-800 transition-colors rounded-l-xl hover:bg-gray-50"
                               >
                                 <Minus className="w-4 h-4" />
                               </button>
                               <span className="px-4 py-2 font-bold text-gray-900">{item.quantity}</span>
                               <button
                                 onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                className="p-2 text-gray-600 hover:text-gray-800 transition-colors rounded-r-xl hover:bg-gray-50"
+                                className="p-2 bg-slate-100 text-gray-600 hover:text-gray-800 transition-colors rounded-r-xl hover:bg-gray-50"
                               >
                                 <Plus className="w-4 h-4" />
                               </button>
@@ -175,15 +175,15 @@ const CartPage = ({ onBack }) => {
                 
                 <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      <User className="w-4 h-4 inline mr-1" />
+                    <label className="block text-sm  bg font-semibold text-gray-700 mb-2">
+                      <User className="w-4  h-4 inline mr-1" />
                       Full Name *
                     </label>
                     <input
                       type="text"
                       value={deliveryInfo.name}
                       onChange={(e) => setDeliveryInfo({...deliveryInfo, name: e.target.value})}
-                      className="w-full px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      className="w-full bg-slate-100 px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       placeholder="Enter your full name"
                     />
                   </div>
@@ -197,7 +197,7 @@ const CartPage = ({ onBack }) => {
                       type="tel"
                       value={deliveryInfo.phone}
                       onChange={(e) => setDeliveryInfo({...deliveryInfo, phone: e.target.value})}
-                      className="w-full px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      className="w-full bg-slate-100 px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       placeholder="Enter phone number"
                     />
                   </div>
@@ -210,7 +210,7 @@ const CartPage = ({ onBack }) => {
                     <textarea
                       value={deliveryInfo.address}
                       onChange={(e) => setDeliveryInfo({...deliveryInfo, address: e.target.value})}
-                      className="w-full px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      className="w-full bg-slate-100 px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       rows="3"
                       placeholder="Enter complete address"
                     />
@@ -223,7 +223,7 @@ const CartPage = ({ onBack }) => {
                         type="text"
                         value={deliveryInfo.city}
                         onChange={(e) => setDeliveryInfo({...deliveryInfo, city: e.target.value})}
-                        className="w-full px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        className="w-full bg-slate-100 px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         placeholder="City"
                       />
                     </div>
@@ -233,7 +233,7 @@ const CartPage = ({ onBack }) => {
                         type="text"
                         value={deliveryInfo.pincode}
                         onChange={(e) => setDeliveryInfo({...deliveryInfo, pincode: e.target.value})}
-                        className="w-full px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        className="w-full bg-slate-100 px-4 py-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         placeholder="Postal Code"
                       />
                     </div>

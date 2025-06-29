@@ -18,7 +18,7 @@ import {
   Minus,
   TrendingUp
 } from 'lucide-react';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from './CartContext';
 
 const ItemDetail = ({ item, onBack }) => {
   const [selectedImage, setSelectedImage] = useState(0);
@@ -61,7 +61,7 @@ const ItemDetail = ({ item, onBack }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <button
             onClick={onBack}
-            className="flex items-center gap-3 text-emerald-600 hover:text-emerald-700 font-bold text-lg transition-all duration-300 hover:gap-4"
+            className="flex bg-slate-100 items-center gap-3 text-emerald-600 hover:text-emerald-700 font-bold text-lg transition-all duration-300 hover:gap-4"
           >
             <ArrowLeft className="w-6 h-6" />
             Back to Products
@@ -199,12 +199,12 @@ const ItemDetail = ({ item, onBack }) => {
                 <label htmlFor="quantity" className="text-xl font-bold text-gray-900">
                   Quantity:
                 </label>
-                <div className="flex items-center bg-gray-100 rounded-2xl">
+                <div className="flex items-center bg-white rounded-2xl">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="p-3 text-gray-600 hover:text-gray-800 transition-colors rounded-l-2xl hover:bg-gray-200"
+                    className="p-3 bg-slate-100 text-gray-600 hover:text-gray-800 transition-colors rounded-l-2xl hover:bg-gray-200"
                   >
-                    <Minus className="w-5 h-5" />
+                    <Minus className="w-5  h-5" />
                   </button>
                   <input
                     type="number"
@@ -213,11 +213,11 @@ const ItemDetail = ({ item, onBack }) => {
                     max={item.quantity}
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-20 px-4 py-3 text-center border-0 bg-transparent font-bold text-lg focus:ring-0"
+                    className="w-20 bg-white px-4 py-3 text-center border-0 bg-transparent font-bold text-lg focus:ring-0"
                   />
                   <button
                     onClick={() => setQuantity(Math.min(item.quantity, quantity + 1))}
-                    className="p-3 text-gray-600 hover:text-gray-800 transition-colors rounded-r-2xl hover:bg-gray-200"
+                    className="p-3 bg-slate-100 text-gray-600 hover:text-gray-800 transition-colors rounded-r-2xl hover:bg-gray-200"
                   >
                     <Plus className="w-5 h-5" />
                   </button>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock } from 'lucide-react';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from './CartContext';
 
 const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -439,14 +439,14 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
                 placeholder="Search products, brands, or shops..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 border-0 rounded-2xl focus:ring-4 focus:ring-emerald-300 text-gray-900 text-lg shadow-lg"
+                className="w-full bg-slate-100 pl-12 pr-4 py-4 border-0 rounded-2xl focus:ring-4 focus:ring-emerald-300 text-gray-900 text-lg shadow-lg"
               />
             </div>
             
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-6 py-4 border-0 rounded-2xl focus:ring-4 focus:ring-emerald-300 text-gray-900 font-semibold shadow-lg"
+              className="px-6 py-4 bg-slate-100 border-0 rounded-2xl focus:ring-4 focus:ring-emerald-300 text-gray-900 font-semibold shadow-lg"
             >
               <option value="rating">⭐ Top Rated</option>
               <option value="trending">🔥 Trending</option>
@@ -467,7 +467,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
                 <div className="p-2 bg-emerald-100 rounded-lg">
                   <Filter className="w-5 h-5 text-emerald-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">Categories</h2>
+                <h2 className="text-xl  font-bold text-gray-900">Categories</h2>
               </div>
               
               <div className="space-y-3">
@@ -477,7 +477,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
                     <button
                       key={category.value}
                       onClick={() => setSelectedCategory(category.value)}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                      className={`w-full bg-slate-100 flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all duration-300 ${
                         selectedCategory === category.value
                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg transform scale-105'
                           : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
@@ -527,13 +527,13 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
                   {filteredAndSortedItems.length} products found
                 </p>
               </div>
-              <div className="flex items-center gap-2 bg-white rounded-xl p-1 shadow-lg border border-emerald-100">
+              <div className="flex items-center  gap-2 bg-white rounded-xl p-1 shadow-lg border border-emerald-100">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-3 rounded-lg transition-all duration-300 ${
+                  className={`p-3  rounded-lg transition-all duration-300 ${
                     viewMode === 'grid' 
                       ? 'bg-emerald-500 text-white shadow-md' 
-                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                      : 'text-gray-400 bg-slate-200 hover:text-gray-600 bg hover:bg-gray-50'
                   }`}
                 >
                   <Grid className="w-5 h-5" />
@@ -543,7 +543,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
                   className={`p-3 rounded-lg transition-all duration-300 ${
                     viewMode === 'list' 
                       ? 'bg-emerald-500 text-white shadow-md' 
-                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                      : 'text-gray-400 bg-slate-200 hover:text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   <List className="w-5 h-5" />
