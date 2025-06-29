@@ -53,6 +53,8 @@ import FarmingPestAlerts from "./pages/PestAlert";
 import PestAlertInterface from "./pages/PestAlert";
 import TransportServicesReviews from "./pages/transport/TransportReviews";
 import ShopItem from "./pages/shop/Items";
+import EmailAlerts from "./pages/EmailAlerts";
+import WeatherNotifications from "./pages/WeatherAlerts"; 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -331,6 +333,19 @@ const App = () => {
       <Route path="/shopitem" element={
           <Layout>
             <ShopItem/>
+          </Layout>
+        }
+      />
+
+       <Route path="/emailalerts" element={
+          <Layout>
+            <EmailAlerts/>
+          </Layout>
+        }
+      />
+ <Route path="/weatheralerts" element={
+          <Layout>
+            <WeatherNotifications/>
           </Layout>
         }
       />
