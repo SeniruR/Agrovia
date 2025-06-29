@@ -52,6 +52,7 @@ import OrganizationDashBoard from "./pages/organization/Oraganization";
 import FarmingPestAlerts from "./pages/PestAlert";
 import PestAlertInterface from "./pages/PestAlert";
 import TransportServicesReviews from "./pages/transport/TransportReviews";
+import ShopItem from "./pages/shop/Items";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -324,6 +325,12 @@ const App = () => {
       <Route path="/createarticle" element={
           <Layout>
             <CreateArticle/>
+          </Layout>
+        }
+      />
+      <Route path="/shopitem" element={
+          <Layout>
+            <ShopItem/>
           </Layout>
         }
       />
