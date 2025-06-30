@@ -30,6 +30,7 @@ const BuyersMarketplace = () => {
     { id: 'rice', name: 'Rice', icon: '🍚' },
     { id: 'vegetables', name: 'Vegetables', icon: '🥬' }
   ];
+const [selectedProduct, setSelectedProduct] = useState(null);
 
  const products = [
   {
@@ -41,6 +42,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 500,
     available: 2000,
+    phone: '077-1234567',
     rating: 4.8,
     reviews: 124,
     image: 'https://i.pinimg.com/736x/d3/a5/60/d3a5604bcd9b4397d8b9f3365dbe2581.jpg',
@@ -60,6 +62,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 300,
     available: 1800,
+    phone: '077-1234567',
     rating: 4.6,
     reviews: 89,
     image: 'https://i.pinimg.com/736x/11/3e/ae/113eae72dd9b982bca13381d8b6575b7.jpg',
@@ -79,6 +82,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 200,
     available: 1200,
+    phone: '077-1234567',
     rating: 4.9,
     reviews: 156,
     image: 'https://images.pexels.com/photos/4110253/pexels-photo-4110253.jpeg?auto=compress&cs=tinysrgb&w=400',
@@ -98,6 +102,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 400,
     available: 1500,
+    phone: '077-1234567',
     rating: 4.7,
     reviews: 78,
     image: 'https://i.pinimg.com/736x/72/03/25/720325c56313ca3277094c61092cff8b.jpg',
@@ -117,6 +122,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 100,
     available: 800,
+    phone: '077-1234567',
     rating: 4.5,
     reviews: 92,
     image: 'https://images.pexels.com/photos/65174/pexels-photo-65174.jpeg?auto=compress&cs=tinysrgb&w=400',
@@ -136,6 +142,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 300,
     available: 1200,
+    phone: '077-1234567',
     rating: 4.4,
     reviews: 67,
     image: 'https://i.pinimg.com/736x/c2/4f/f7/c24ff7271bd7257ea1484607a68bbfc4.jpg',
@@ -155,6 +162,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 250,
     available: 900,
+    phone: '077-1234567',
     rating: 4.3,
     reviews: 54,
     image: 'https://i.pinimg.com/736x/07/34/d1/0734d130bb1b84f341302eb063130a35.jpg',
@@ -174,6 +182,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 150,
     available: 600,
+    phone: '077-1234567',
     rating: 4.6,
     reviews: 43,
     image: 'https://i.pinimg.com/736x/e4/62/bc/e462bc43c9a3619a338eeac9f7e4eb72.jpg',
@@ -193,6 +202,7 @@ const BuyersMarketplace = () => {
     unit: 'kg',
     minOrder: 100,
     available: 450,
+    phone: '077-1234567',
     rating: 4.7,
     reviews: 38,
     image: 'https://i.pinimg.com/736x/9f/21/60/9f21601664b4dcec7a5ac3e69665a081.jpg',
@@ -204,6 +214,9 @@ const BuyersMarketplace = () => {
     discount: 8
   }
 ];
+const [phoneProduct, setPhoneProduct] = useState(null);
+
+
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -241,6 +254,8 @@ const BuyersMarketplace = () => {
   const ProductCard = ({ product }) => {
     const originalPrice = product.discount > 0 ? Math.round(product.price / (1 - product.discount / 100)) : product.price;
     const isFavorite = favorites.has(product.id);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+
 
     return (
       <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
@@ -343,12 +358,15 @@ const BuyersMarketplace = () => {
               <ShoppingCart className="w-4 h-4" />
               Add to Cart
             </button>
-            <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-xl transition-all duration-200 hover:shadow-md">
-              <Eye className="w-4 h-4" />
-            </button>
-            <button className="bg-blue-100 hover:bg-blue-200 text-blue-700 p-3 rounded-xl transition-all duration-200 hover:shadow-md">
-              <Phone className="w-4 h-4" />
-            </button>
+        
+
+           <button
+  onClick={() => setPhoneProduct(product)}
+  className="bg-blue-100 hover:bg-blue-200 text-blue-700 p-3 rounded-xl transition-all duration-200 hover:shadow-md"
+>
+  <Phone className="w-4 h-4" />
+</button>
+
             <button className="bg-purple-100 hover:bg-purple-200 text-purple-700 p-3 rounded-xl transition-all duration-200 hover:shadow-md">
               <MessageCircle className="w-4 h-4" />
             </button>
@@ -532,7 +550,23 @@ const BuyersMarketplace = () => {
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
-
+{/* Phone popup modal */}
+        {phoneProduct && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl shadow-lg relative w-80 text-center">
+              <button
+                onClick={() => setPhoneProduct(null)}
+                className="absolute top-3 right-3 text-gray-500 text-xl"
+              >
+                &times;
+              </button>
+              <h2 className="text-xl font-bold mb-2">Contact {phoneProduct.farmer}</h2>
+              <p className="text-lg text-blue-700 font-semibold">{phoneProduct.phone}</p>
+            </div>
+          </div>
+        )}
+      
+ 
         {/* Load More */}
         {sortedProducts.length > 0 && (
           <div className="text-center mt-12">
