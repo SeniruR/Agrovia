@@ -3,13 +3,31 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingUp, TrendingDown, MapPin, AlertTriangle, Calendar, Filter, Search, Info } from 'lucide-react';
 
 const PriceForecastingInterface = () => {
-  const [selectedCrop, setSelectedCrop] = useState('rice');
+  const [selectedCrop, setSelectedCrop] = useState('redrice');
   const [selectedLocation, setSelectedLocation] = useState('colombo');
   const [timeRange, setTimeRange] = useState('6months');
 
   // Sample data for different crops and locations
   const priceData = {
-    rice: {
+    redrice: {
+      colombo: [
+        { month: 'Jan', price: 125, forecast: 130 },
+        { month: 'Feb', price: 135, forecast: 140 },
+        { month: 'Mar', price: 130, forecast: 135 },
+        { month: 'Apr', price: 145, forecast: 150 },
+        { month: 'May', price: 140, forecast: 145 },
+        { month: 'Jun', price: 155, forecast: 160 }
+      ],
+      kandy: [
+        { month: 'Jan', price: 120, forecast: 125 },
+        { month: 'Feb', price: 130, forecast: 135 },
+        { month: 'Mar', price: 125, forecast: 130 },
+        { month: 'Apr', price: 140, forecast: 145 },
+        { month: 'May', price: 135, forecast: 140 },
+        { month: 'Jun', price: 150, forecast: 155 }
+      ]
+    },
+    whiterice: {
       colombo: [
         { month: 'Jan', price: 85, forecast: 88 },
         { month: 'Feb', price: 90, forecast: 92 },
@@ -27,40 +45,76 @@ const PriceForecastingInterface = () => {
         { month: 'Jun', price: 95, forecast: 99 }
       ]
     },
-    grains: {
+    cabbage: {
       colombo: [
-        { month: 'Jan', price: 75, forecast: 78 },
-        { month: 'Feb', price: 80, forecast: 82 },
-        { month: 'Mar', price: 78, forecast: 80 },
-        { month: 'Apr', price: 85, forecast: 88 },
-        { month: 'May', price: 82, forecast: 85 },
-        { month: 'Jun', price: 88, forecast: 92 }
+        { month: 'Jan', price: 45, forecast: 50 },
+        { month: 'Feb', price: 55, forecast: 60 },
+        { month: 'Mar', price: 40, forecast: 45 },
+        { month: 'Apr', price: 35, forecast: 40 },
+        { month: 'May', price: 60, forecast: 65 },
+        { month: 'Jun', price: 50, forecast: 55 }
       ],
       kandy: [
-        { month: 'Jan', price: 72, forecast: 75 },
-        { month: 'Feb', price: 77, forecast: 79 },
-        { month: 'Mar', price: 75, forecast: 77 },
-        { month: 'Apr', price: 82, forecast: 85 },
-        { month: 'May', price: 79, forecast: 82 },
-        { month: 'Jun', price: 85, forecast: 89 }
+        { month: 'Jan', price: 40, forecast: 45 },
+        { month: 'Feb', price: 50, forecast: 55 },
+        { month: 'Mar', price: 35, forecast: 40 },
+        { month: 'Apr', price: 30, forecast: 35 },
+        { month: 'May', price: 55, forecast: 60 },
+        { month: 'Jun', price: 45, forecast: 50 }
       ]
     },
-    vegetables: {
+    carrot: {
+      colombo: [
+        { month: 'Jan', price: 80, forecast: 85 },
+        { month: 'Feb', price: 95, forecast: 100 },
+        { month: 'Mar', price: 75, forecast: 80 },
+        { month: 'Apr', price: 70, forecast: 75 },
+        { month: 'May', price: 110, forecast: 115 },
+        { month: 'Jun', price: 90, forecast: 95 }
+      ],
+      kandy: [
+        { month: 'Jan', price: 75, forecast: 80 },
+        { month: 'Feb', price: 90, forecast: 95 },
+        { month: 'Mar', price: 70, forecast: 75 },
+        { month: 'Apr', price: 65, forecast: 70 },
+        { month: 'May', price: 105, forecast: 110 },
+        { month: 'Jun', price: 85, forecast: 90 }
+      ]
+    },
+    tomato: {
       colombo: [
         { month: 'Jan', price: 120, forecast: 125 },
-        { month: 'Feb', price: 135, forecast: 140 },
-        { month: 'Mar', price: 125, forecast: 130 },
-        { month: 'Apr', price: 110, forecast: 115 },
-        { month: 'May', price: 140, forecast: 145 },
-        { month: 'Jun', price: 130, forecast: 135 }
+        { month: 'Feb', price: 140, forecast: 145 },
+        { month: 'Mar', price: 110, forecast: 115 },
+        { month: 'Apr', price: 95, forecast: 100 },
+        { month: 'May', price: 160, forecast: 165 },
+        { month: 'Jun', price: 135, forecast: 140 }
       ],
       kandy: [
         { month: 'Jan', price: 115, forecast: 120 },
-        { month: 'Feb', price: 130, forecast: 135 },
-        { month: 'Mar', price: 120, forecast: 125 },
-        { month: 'Apr', price: 105, forecast: 110 },
-        { month: 'May', price: 135, forecast: 140 },
-        { month: 'Jun', price: 125, forecast: 130 }
+        { month: 'Feb', price: 135, forecast: 140 },
+        { month: 'Mar', price: 105, forecast: 110 },
+        { month: 'Apr', price: 90, forecast: 95 },
+        { month: 'May', price: 155, forecast: 160 },
+        { month: 'Jun', price: 130, forecast: 135 }
+      ]
+    },
+    beans: {
+      colombo: [
+        { month: 'Jan', price: 180, forecast: 185 },
+        { month: 'Feb', price: 200, forecast: 205 },
+        { month: 'Mar', price: 175, forecast: 180 },
+        { month: 'Apr', price: 160, forecast: 165 },
+        { month: 'May', price: 220, forecast: 225 },
+        { month: 'Jun', price: 195, forecast: 200 }
+      ],
+      kandy: [
+        { month: 'Jan', price: 175, forecast: 180 },
+        { month: 'Feb', price: 195, forecast: 200 },
+        { month: 'Mar', price: 170, forecast: 175 },
+        { month: 'Apr', price: 155, forecast: 160 },
+        { month: 'May', price: 215, forecast: 220 },
+        { month: 'Jun', price: 190, forecast: 195 }
       ]
     }
   };
@@ -72,15 +126,18 @@ const PriceForecastingInterface = () => {
     { risk: 'Seasonal', level: 80, color: 'bg-red-500' }
   ];
 
-  const currentData = priceData[selectedCrop]?.[selectedLocation] || priceData.rice.colombo;
+  const currentData = priceData[selectedCrop]?.[selectedLocation] || priceData.redrice.colombo;
   const currentPrice = currentData[currentData.length - 1]?.price || 0;
   const forecastPrice = currentData[currentData.length - 1]?.forecast || 0;
   const priceChange = ((forecastPrice - currentPrice) / currentPrice * 100).toFixed(1);
 
   const crops = [
-    { value: 'rice', label: 'Rice', icon: '🌾' },
-    { value: 'grains', label: 'Grains', icon: '🌰' },
-    { value: 'vegetables', label: 'Vegetables', icon: '🥬' }
+    { value: 'redrice', label: 'Red Rice', icon: '🌾' },
+    { value: 'whiterice', label: 'White Rice', icon: '🍚' },
+    { value: 'cabbage', label: 'Cabbage', icon: '🥬' },
+    { value: 'carrot', label: 'Carrot', icon: '🥕' },
+    { value: 'tomato', label: 'Tomato', icon: '🍅' },
+    { value: 'beans', label: 'Green Beans', icon: '🫘' }
   ];
 
   const locations = [
@@ -99,7 +156,7 @@ const PriceForecastingInterface = () => {
             🌾 Agrovia Price Forecasting
           </h1>
           <p className="text-green-600 text-lg">
-            Smart pricing insights for Rice, Grains & Vegetables
+            Smart pricing insights for specific crop varieties
           </p>
           <div className="mt-4 inline-flex items-center gap-2 bg-green-100 px-4 py-2 rounded-full">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -116,35 +173,35 @@ const PriceForecastingInterface = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Crop Selection */}
             <div>
-              <label className="block text-sm font-semibold text-green-700 mb-3">
-                🌱 Select Crop Category
-              </label>
-              <div className="space-y-2">
-                {crops.map(crop => (
-                  <label key={crop.value} className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="crop"
-                      value={crop.value}
-                      checked={selectedCrop === crop.value}
-                      onChange={(e) => setSelectedCrop(e.target.value)}
-                      className="sr-only"
-                    />
-                    <div className={`flex items-center gap-3 w-full p-3 rounded-xl border-2 transition-all ${
-                      selectedCrop === crop.value 
-                        ? 'border-green-500 bg-green-50 text-green-800' 
-                        : 'border-gray-200 hover:border-green-300'
-                    }`}>
-                      <span className="text-lg">{crop.icon}</span>
-                      <span className="font-medium">{crop.label}</span>
-                      {selectedCrop === crop.value && (
-                        <div className="ml-auto w-2 h-2 bg-green-500 rounded-full"></div>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
+  <label className="block text-sm font-semibold text-green-700 mb-3">
+    🌱 Select Crop Type
+  </label>
+  <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-green-400 scrollbar-track-gray-100 pr-2">
+    {crops.map(crop => (
+      <label key={crop.value} className="flex items-center cursor-pointer">
+        <input
+          type="radio"
+          name="crop"
+          value={crop.value}
+          checked={selectedCrop === crop.value}
+          onChange={(e) => setSelectedCrop(e.target.value)}
+          className="sr-only"
+        />
+        <div className={`flex items-center gap-3 w-full p-3 rounded-xl border-2 transition-all ${
+          selectedCrop === crop.value
+            ? 'border-green-500 bg-green-50 text-green-800'
+            : 'border-gray-200 hover:border-green-300'
+        }`}>
+          <span className="text-lg">{crop.icon}</span>
+          <span className="font-medium">{crop.label}</span>
+          {selectedCrop === crop.value && (
+            <div className="ml-auto w-2 h-2 bg-green-500 rounded-full"></div>
+          )}
+        </div>
+      </label>
+    ))}
+  </div>
+</div>
 
             {/* Location Selection */}
             <div>
