@@ -260,10 +260,10 @@ const PriceForecastingInterface = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-700">Forecast Price</h3>
               <div className="bg-blue-100 p-2 rounded-full">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
+                <TrendingUp className="w-5 h-5 text-green-600" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-blue-800 mb-2">
+            <div className="text-3xl font-bold text-green-800 mb-2">
               Rs. {forecastPrice}/kg
             </div>
             <p className="text-sm text-gray-600">Next month prediction</p>
@@ -296,7 +296,7 @@ const PriceForecastingInterface = () => {
                 <span className="text-sm text-gray-600">Historical</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <span className="text-sm text-gray-600">Forecast</span>
               </div>
             </div>
@@ -428,10 +428,10 @@ const PriceForecastingInterface = () => {
 
             <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
               <div className="flex items-start gap-2">
-                <MapPin className="w-5 h-5 text-blue-600 mt-0.5" />
+                <MapPin className="w-5 h-5 text-green-600 mt-0.5" />
                 <div>
-                  <h4 className="font-semibold text-blue-800 mb-1">Best Market</h4>
-                  <p className="text-sm text-blue-700">
+                  <h4 className="font-semibold text-green-800 mb-1">Best Market</h4>
+                  <p className="text-sm text-green-700">
                     Colombo offers the highest prices for {crops.find(c => c.value === selectedCrop)?.label} 
                     with better market demand.
                   </p>
@@ -449,7 +449,7 @@ const PriceForecastingInterface = () => {
               <TrendingUp className="w-5 h-5" />
               Set Price Alert
             </button>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-xl transition-colors flex items-center justify-center gap-2">
+            <button className="bg-green-700 hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-xl transition-colors flex items-center justify-center gap-2">
               <Calendar className="w-5 h-5" />
               Schedule Sale
             </button>
