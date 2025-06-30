@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import axios from 'axios';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -12,14 +13,27 @@ const Login = () => {
         setError("");
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!form.email || !form.password) {
-            setError("Please fill in all fields.");
-            return;
+    const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.email || !form.password) {
+        setError("Please fill in all fields.");
+        return;
+    }
+
+    try {
+        const res = await axios.post('http://localhost:3001/login', {
+        email: form.email.trim(),
+        password: form.password.trim()
+        });
+
+        if (res.data.message === 'Login successful') {
+        navigate('/');
         }
-        navigate("/");
+    } catch (err) {
+        setError(err.response?.data?.message || 'Login failed');
+    }
     };
+
 
     return (
         <div className="flex items-center justify-center" style={{height:'calc(100vh - 80px)'}}>
