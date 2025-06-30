@@ -215,6 +215,16 @@ const [selectedProduct, setSelectedProduct] = useState(null);
   }
 ];
 const [phoneProduct, setPhoneProduct] = useState(null);
+const [cartProduct, setCartProduct] = useState(null);
+
+// Inside your ProductCard component, update Add to Cart button:
+<button
+  onClick={() => setCartProduct(product)}
+  className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 px-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+>
+  <ShoppingCart className="w-4 h-4" />
+  Add to Cart
+</button>
 
 
 
@@ -354,10 +364,13 @@ const [phoneProduct, setPhoneProduct] = useState(null);
           </div>
 
           <div className="flex gap-3">
-            <button className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 px-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-              <ShoppingCart className="w-4 h-4" />
-              Add to Cart
-            </button>
+            <button
+  onClick={() => setCartProduct(product)}
+  className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 px-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+>
+  <ShoppingCart className="w-4 h-4" />
+  Add to Cart
+</button>
         
 
            <button
@@ -566,7 +579,29 @@ const [phoneProduct, setPhoneProduct] = useState(null);
           </div>
         )}
       
- 
+ {cartProduct && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-xl shadow-lg relative w-80 text-center">
+      <button
+        onClick={() => setCartProduct(null)}
+        className="absolute top-3 right-3 text-gray-500 text-xl"
+      >
+        &times;
+      </button>
+      <h2 className="text-xl font-bold mb-4">Added to Cart!</h2>
+      <p className="text-gray-700 mb-6">
+        You have added <strong>{cartProduct.name}</strong> to your cart.
+      </p>
+      <button
+        onClick={() => setCartProduct(null)}
+        className="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-xl font-semibold transition"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
         {/* Load More */}
         {sortedProducts.length > 0 && (
           <div className="text-center mt-12">
