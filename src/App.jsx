@@ -56,6 +56,7 @@ import ShopItem from "./pages/shop/Items";
 import EmailAlerts from "./pages/EmailAlerts";
 import WeatherNotifications from "./pages/WeatherAlerts"; 
 import PriceForcasting from "./pages/PriceForcasting";
+import ContentApprovalDashboard from "./pages/ContentApproval";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -353,6 +354,12 @@ const App = () => {
       <Route path="/priceforcast" element={
         <Layout>
           <PriceForcasting />
+        </Layout>
+      }
+      />
+ <Route path="/conapproval" element={
+        <Layout>
+          <ContentApprovalDashboard />
         </Layout>
       }
       />
