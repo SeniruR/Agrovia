@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from 'axios';
 
 const districts = [
     "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle",
@@ -23,7 +24,8 @@ const FarmerSignup = () => {
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
     const [form, setForm] = useState({
-        name: "",
+        firstName: "",
+        lastName: "",
         email: "",
         password: "",
         confirmPassword: "",
@@ -67,8 +69,8 @@ const FarmerSignup = () => {
     const handleNext = (e) => {
         e.preventDefault();
         if (step === 1) {
-            const { name, NIC, address, location } = form;
-            if (!name || !NIC || !address || !location) {
+            const { firstName,lastName, NIC, address, location } = form;
+            if (!firstName || !lastName || !NIC || !address || !location) {
                 setError("Please fill in all fields.");
                 return;
             }
@@ -100,9 +102,10 @@ const FarmerSignup = () => {
     navigate("/login");
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const { email, password, confirmPassword } = form;
+        const { email, password, confirmPassword, firstName, lastName, NIC, address, location } = form;
+
         if (!email || !password || !confirmPassword) {
             setError("Please fill in all fields.");
             return;
@@ -115,20 +118,54 @@ const FarmerSignup = () => {
             setError("Password must be at least 8 characters, include 1 uppercase, 1 lowercase, and 1 digit.");
             return;
         }
-        navigate("/");
+
+        try {
+            const res = await axios.post('http://localhost:3001/signup', {
+                firstName,
+                lastName,
+                NIC,
+                address,
+                location,
+                email,
+                password,
+                organizationId: selectedOrgId
+            });
+
+            if (res.data.message === 'Signup successful') {
+                navigate('/login');
+            } else if (res.data.message === 'Email already exists') {
+                setError('An account with this email already exists.');
+            } else {
+                setError(res.data.message || 'Signup failed');
+            }
+        } catch (err) {
+            if (err.response?.data?.message === 'Email already exists') {
+                setError('An account with this email already exists.');
+            } else {
+                setError(err.response?.data?.message || 'Server error');
+            }
+        }
     };
+
+    const formatLabel = (text) => {
+        if (text === text.toUpperCase()) return text;
+        return text.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+    };
+
+
 
     return (
         <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 80px)' }}>
-            <div className="p-10 rounded-2xl shadow-2xl w-[40%] max-w-sm flex flex-col items-center" style={{ border: '2px solid springgreen', borderRadius: '17px', padding: '30px', width: '-webkit-fill-available', maxWidth: '340px', marginTop:'30px' }}>
+            <div className="p-10 rounded-2xl shadow-2xl w-[40%] max-w-sm flex flex-col items-center" style={{ border: '2px solid springgreen', borderRadius: '17px', padding: '30px', width: '-webkit-fill-available', marginTop:'30px' }}>
                 <h2 className="text-3xl mb-8 text-green-700 text-center mb-[10px]">Farmer Sign Up</h2>
                 <form onSubmit={step < 3 ? handleNext : handleSubmit} className="w-full space-y-6">
                     {step === 1 && (
                         <>
-                            {["name", "NIC", "address"].map((field) => (
-                                <div key={field} style={{marginTop:'10px'}}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+                                {["firstName", "lastName", "NIC", "address"].map((field) => (
+                                    <div key={field} style={{ flex: '1 1 calc(50% - 10px)', marginTop: '10px' }}>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                        {field.charAt(0).toUpperCase() + field.slice(1)}
+                                        {formatLabel(field)}
                                     </label>
                                     <input
                                         type="text"
@@ -137,11 +174,20 @@ const FarmerSignup = () => {
                                         onChange={handleChange}
                                         required
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none transition"
-                                        style={{ backgroundColor: 'white', padding: '10px', width: '-webkit-fill-available', borderRadius: '10px', margin: '4px 0', color: 'black' }}
+                                        style={{
+                                        backgroundColor: 'white',
+                                        padding: '10px',
+                                        width: '100%',
+                                        borderRadius: '10px',
+                                        margin: '4px 0',
+                                        color: 'black',
+                                        }}
                                     />
+                                    </div>
+                                ))}
                                 </div>
-                            ))}
-                            <div style={{marginTop:'10px'}}>
+
+                                <div style={{ marginTop: '10px' }}>
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">Location</label>
                                 <select
                                     name="location"
@@ -149,14 +195,23 @@ const FarmerSignup = () => {
                                     onChange={handleChange}
                                     required
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none transition"
-                                    style={{ backgroundColor: 'white', padding: '10px', width: '-webkit-fill-available', borderRadius: '10px', margin: '4px 0', color: 'black' }}
+                                    style={{
+                                    backgroundColor: 'white',
+                                    padding: '10px',
+                                    width: '100%',
+                                    borderRadius: '10px',
+                                    margin: '4px 0',
+                                    color: 'black',
+                                    }}
                                 >
                                     <option value="">Select District</option>
                                     {districts.map((district) => (
-                                        <option key={district} value={district}>{district}</option>
+                                    <option key={district} value={district}>
+                                        {district}
+                                    </option>
                                     ))}
                                 </select>
-                            </div>
+                                </div>
                         </>
                     )}
                     {step === 2 && (
