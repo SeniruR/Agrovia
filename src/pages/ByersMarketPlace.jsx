@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X } from 'lucide-react';
+import {Link} from 'react-router-dom';
 
 const ByersMarketplace = () => {
   const [viewMode, setViewMode] = useState('grid');
@@ -266,13 +267,15 @@ const filteredProducts = products
       </div>
       
       <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
+      <Link to="/farmerreviews">
+        <div className="flex items-center gap-2 mb-2">  
           <div className="flex items-center gap-1">
             <Star size={14} className="fill-yellow-400 text-yellow-400" />
             <span className="text-sm font-medium text-gray-700">{product.rating}</span>
           </div>
           <span className="text-sm text-gray-500">({product.reviews} reviews)</span>
         </div>
+      </Link>
         
         <h3 className="font-bold text-lg text-gray-800 mb-1">{product.name}</h3>
         <p className="text-sm text-gray-600 mb-2">{product.farmer}</p>

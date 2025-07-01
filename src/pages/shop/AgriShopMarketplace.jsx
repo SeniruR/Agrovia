@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Phone, MapPin, MessageCircle, ShoppingCart, Search, Star } from 'lucide-react';
+import {Link} from 'react-router-dom';
 
 const allShops = [
   {
@@ -116,10 +117,10 @@ const AgriShopMarketplace = () => {
               <img src={shop.image} alt={shop.name} className="w-full h-56 object-cover" />
               <div className="p-6">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">{shop.name}</h3>
-                <div className="flex items-center gap-2 mb-2">
+                <Link to="/shopreviews"><div className="flex items-center gap-2 mb-2">
                   <Star className="w-5 h-5 text-yellow-400" />
                   <span className="font-semibold text-yellow-700">{shop.reviewScore.toFixed(1)}</span>
-                </div>
+                </div></Link>
                 <p className="text-sm text-gray-600 mb-4">
                   <strong>Offerings:</strong> {shop.offerings.join(", ")}
                 </p>

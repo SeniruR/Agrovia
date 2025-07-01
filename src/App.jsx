@@ -198,7 +198,7 @@ const App = () => {
           </Layout>
         }
       />
-      <Route path="/CropPostForm" element={
+      <Route path="/croppostform" element={
           <Layout>
             <CropPostForm />
           </Layout>
