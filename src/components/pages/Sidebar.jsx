@@ -15,7 +15,6 @@ const menuItems = [
     label: 'Dashboard',
     icon: <PersonOutlined />,
     subcategories: [
-      { name: 'Overview', path: '/profile' },
       { name: 'Shop Dashboard', path: '/shopdashboard' },
       { name: 'Delivery Dashboard', path: '/transportdashboard' },
       { name: 'Admin Dashboard', path: '/admindashboard' },
