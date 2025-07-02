@@ -9,11 +9,18 @@ import MenuIcon from '@mui/icons-material/Menu';
 import {Link} from 'react-router-dom';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined';
+import ContactSupportOutlinedIcon from '@mui/icons-material/ContactSupportOutlined';
+import SubscriptionsOutlinedIcon from '@mui/icons-material/SubscriptionsOutlined';
+import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined';
+import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined'
 
 const menuItems = [
   {
     label: 'Dashboard',
-    icon: <PersonOutlined />,
+    icon: <DashboardOutlinedIcon />,
     subcategories: [
       { name: 'Shop Dashboard', path: '/shopdashboard' },
       { name: 'Delivery Dashboard', path: '/transportdashboard' },
@@ -21,15 +28,37 @@ const menuItems = [
       { name: 'My Profile', path: '/profile' },
       { name: 'My Crops', path: '/farmviewAllCrops' },
       { name: 'My Delivery', path: '/driversmylist' },
+      { name: 'My Organization', path: '/organization' },
+      { name: 'My Orders', path: '/farmervieworders' },
     ],
   },
   {
     label: 'Shops',
-    icon: <StorefrontOutlined />,
+    icon: <StorefrontOutlinedIcon />,
     subcategories: [
       { name: 'Agriculture Shops', path: '/agrishop' },
       { name: 'Crop MarketPlace', path: '/byersmarket' },
     ],
+  },
+  {
+    label: 'Add Items',
+    icon: <AddCircleOutlineOutlinedIcon />,
+    path: '/itempostedForm',
+  },
+  {
+    label: 'Manage Users',
+    icon: <ManageAccountsOutlinedIcon />,
+    path: '/usermanagement',
+  },
+  {
+    label: 'Pest Alerts',
+    icon: <BugReportOutlinedIcon />,
+    path: '/pestalert',
+  },
+  {
+    label: 'Subscription Plan',
+    icon: <SubscriptionsOutlinedIcon />,
+    path: '/subscriptionmanagement',
   },
   {
     label: 'Knowledge Hub',
@@ -38,11 +67,8 @@ const menuItems = [
   },
   {
     label: 'Contact Us',
-    icon: <ContactMailOutlinedIcon />,
-    subcategories: [
-      { name: 'Support', path: '/contact-us/support' },
-      { name: 'Feedback', path: '/contact-us/feedback' },
-    ],
+    icon: <ContactSupportOutlinedIcon />,
+    path: '/complaintHandling',
   },
 ];
 
