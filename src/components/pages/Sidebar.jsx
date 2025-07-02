@@ -12,30 +12,30 @@ import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
 
 const menuItems = [
   {
-    label: 'My Profile',
+    label: 'Dashboard',
     icon: <PersonOutlined />,
-    path: '/profile',
-  },
-  {
-    label: 'Marketplace',
-    icon: <StorefrontOutlined />,
     subcategories: [
-      { name: 'Shops', path: '/agrishop' },
+      { name: 'Overview', path: '/profile' },
+      { name: 'Shop Dashboard', path: '/shopdashboard' },
+      { name: 'Delivery Dashboard', path: '/transportdashboard' },
+      { name: 'Admin Dashboard', path: '/admindashboard' },
+      { name: 'My Profile', path: '/profile' },
+      { name: 'My Crops', path: '/farmviewAllCrops' },
+      { name: 'My Delivery', path: '/driversmylist' },
     ],
   },
   {
-    label: 'Orders',
-    icon: <Inventory2Outlined />,
-    path: '/farmervieworders',
+    label: 'Shops',
+    icon: <StorefrontOutlined />,
+    subcategories: [
+      { name: 'Agriculture Shops', path: '/agrishop' },
+      { name: 'Crop MarketPlace', path: '/byersmarket' },
+    ],
   },
   {
     label: 'Knowledge Hub',
     icon: <MenuBookOutlinedIcon />,
-    subcategories: [
-      { name: 'Articles', path: '/knowledge-hub/articles' },
-      { name: 'Tutorials', path: '/knowledge-hub/tutorials' },
-      { name: 'FAQs', path: '/knowledge-hub/faqs' },
-    ],
+    path: '/knowledge-hub',
   },
   {
     label: 'Contact Us',

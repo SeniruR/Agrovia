@@ -1,8 +1,10 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import {BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Users from "./pages/Users";
 import Login from "./pages/Login";
+import BuyerDashboard from "./components/dashboards/BuyerDashboard";
+import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import FarmerCropViews from "./pages/Farmer/AllCropsViews";
@@ -26,10 +28,13 @@ import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
 
-import CropPostForm from "./components/pages/farmer/CropPostForm";
+import CropPostForm from "./pages/farmer/CropPostForm";
+
+import CreateArticle from "./pages/Moderator/CreateArticle";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
+import FarmerViewOrderDetails from "./pages/farmer/FarmerViewOrderDetails";
 
 import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
 
@@ -38,11 +43,22 @@ import ShopReviews from "./pages/shop/ShopReviews";
 import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
 
 import NotFound from "./components/pages/NotFound";
+import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
+import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
+import OrganizationDashBoard from "./pages/organization/Oraganization";
+import FarmingPestAlerts from "./pages/PestAlert";
+import PestAlertInterface from "./pages/PestAlert";
+import TransportServicesReviews from "./pages/transport/TransportReviews";
+import ShopItem from "./pages/shop/Items";
+import EmailAlerts from "./pages/EmailAlerts";
+import WeatherNotifications from "./pages/WeatherAlerts"; 
+import PriceForcasting from "./pages/PriceForcasting";
+import ContentApprovalDashboard from "./pages/ContentApproval";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -81,6 +97,9 @@ const App = () => {
         <Layout>
           <FarmerSignup />
         </Layout>} />
+        {/* Dashboard Routes - No Layout */}
+      <Route path="/dashboard/farmer" element={<FarmerDashboard />} />
+      <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
 {/* <Route path="/signup/shop-owner" element={<ShopOwnerSignup />} />
 <Route path="/signup/moderator" element={<ModeratorSignup />} />
 <Route path="/signup/transporter" element={<TransporterSignup />} /> */}
@@ -184,7 +203,7 @@ const App = () => {
           </Layout>
         }
       />
-      <Route path="/CropPostForm" element={
+      <Route path="/croppostform" element={
           <Layout>
             <CropPostForm />
           </Layout>
@@ -246,6 +265,13 @@ const App = () => {
         }
 
       />
+      <Route path="/complaintHandling" element={
+          <Layout>
+            <Complaint />
+          </Layout>
+        }
+
+      />
 
       <Route path="/admindashboard" element={
           <Layout>
@@ -260,6 +286,15 @@ const App = () => {
           </Layout>
         }
       />
+
+      <Route path="/organization" element={
+          <Layout>
+            <OrganizationDashBoard />
+          </Layout>
+        }
+      />
+      
+
       <Route path="/farmervieworders" element={
           <Layout>
             <FarmerViewOrders />
@@ -271,6 +306,67 @@ const App = () => {
             <AdminUserManagement />
           </Layout>
         }
+      />
+       <Route path="/pestalert" element={
+          <Layout>
+            <PestAlertInterface/>
+          </Layout>
+        }
+      />
+      <Route path="/subsciptionmanagement" element={
+        <Layout>
+          <SubscriptionManagement />
+        </Layout>
+      }
+      />
+      <Route path="/farmervieworderdetails" element={
+          <Layout>
+            <FarmerViewOrderDetails />
+          </Layout>
+        }
+      />
+        <Route path="/transportreviews" element={
+          <Layout>
+            <TransportServicesReviews/>
+          </Layout>
+        }
+      />
+      <Route path="/createarticle" element={
+          <Layout>
+            <CreateArticle/>
+          </Layout>
+        }
+      />
+      <Route path="/shopitem" element={
+          <Layout>
+            <ShopItem/>
+          </Layout>
+        }
+      />
+
+       <Route path="/emailalerts" element={
+          <Layout>
+            <EmailAlerts/>
+          </Layout>
+        }
+      />
+ <Route path="/weatheralerts" element={
+          <Layout>
+            <WeatherNotifications/>
+          </Layout>
+        }
+      />
+      <Route path="/priceforcast" element={
+        <Layout>
+          <PriceForcasting />
+        </Layout>
+      }
+      />
+ <Route path="/conapproval" element={
+        <Layout>
+          <ContentApprovalDashboard />
+        </Layout>
+      }
       />
 
 
