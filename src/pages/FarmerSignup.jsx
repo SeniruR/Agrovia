@@ -624,7 +624,7 @@ const FarmerSignup = () => {
         <div className="text-center mb-8">
           <button
             onClick={() => navigate('/signup')}
-            className="inline-flex bg-green-100 items-center space-x-2 text-green-600 hover:text-green-800 mb-4 transition-colors duration-300"
+            className="inline-flex bg-green-100 items-center space-x-2 text-green-600 px-4 py-2 rounded-full text-sm hover:text-green-800 mb-4 transition-colors duration-300"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Role Selection</span>
