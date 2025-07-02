@@ -2,6 +2,7 @@ import React from 'react';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import EmailIcon from '@mui/icons-material/EmailOutlined';
 import logo from '../../assets/images/agrovia.png';
 import { Link } from 'react-router-dom';
 
@@ -26,6 +27,11 @@ const Navigation = () => {
           <Link to="/cart">
             <button className="icon text-black hover:text-green-600 transition p-2 bg-white rounded-full">
               <ShoppingCartOutlinedIcon className="!w-[20px] !h-[20px]" />
+            </button>
+          </Link>
+          <Link to="/emailalerts">
+            <button className="icon text-black hover:text-green-600 transition p-2 bg-white rounded-full">
+              <EmailIcon className="!w-[20px] !h-[20px]" />
             </button>
           </Link>
           <Link to="/login">

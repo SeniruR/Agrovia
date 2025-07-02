@@ -4,11 +4,12 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import logo from '../assets/images/heroimage.jpg';
+import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 
 const facilities = [
   { name: "Marketplace", icon: <StorefrontIcon fontSize="large" /> },
-  { name: "Knowledge", icon: <MenuBookIcon fontSize="large" /> },
-  { name: "Transport", icon: <LocalShippingIcon fontSize="large" /> },
+  { name: "Agri Shop", icon: <StorefrontOutlinedIcon fontSize="large" /> , path: '/agrishop' },
+  { name: "Transport", icon: <LocalShippingIcon fontSize="large" /> , path: '/transportreviews'},
   { name: "Support", icon: <SupportAgentIcon fontSize="large" /> },
 ];
 
@@ -35,22 +36,42 @@ const LandingContent = () => {
           We are providing different Facilities
         </h2>
         <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-6 mx-[20%] py-[10px]">
-          {facilities.map((facility, index) => (
-            <div
-              key={index}
-              className="flex flex-col items-center bg-green-50 p-4 rounded-lg shadow hover:shadow-md transition"
-              style={{
-                backgroundColor: "var(--green)",
-                borderRadius: "10px",
-                padding: "15px",
-                justifyContent: "center",
-                margin: "0px 10px",
-              }}
-            >
-              <div className="text-4xl mb-2">{facility.icon}</div>
-              <p className="text-sm font-medium text-gray-700">{facility.name}</p>
-            </div>
-          ))}
+          {facilities.map((facility, index) => {
+            const cardContent = (
+              <div
+                className="flex flex-col items-center bg-green-50 p-4 rounded-lg shadow hover:shadow-md transition"
+                style={{
+                  backgroundColor: "var(--green)",
+                  borderRadius: "10px",
+                  padding: "15px",
+                  justifyContent: "center",
+                  margin: "0px 10px",
+                }}
+              >
+                <div className="text-4xl mb-2 text-black">{facility.icon}</div>
+                <p className="text-sm font-medium text-gray-700">{facility.name}</p>
+              </div>
+            );
+            if (facility.path) {
+              // Lazy import Link to avoid error if react-router-dom is not installed
+              // You should have react-router-dom installed and imported at the top
+              // import { Link } from "react-router-dom";
+              return (
+                <a
+                  key={index}
+                  href={facility.path}
+                  style={{ textDecoration: "none" }}
+                >
+                  {cardContent}
+                </a>
+              );
+            }
+            return (
+              <div key={index}>
+                {cardContent}
+              </div>
+            );
+          })}
         </div>
       </section>
 

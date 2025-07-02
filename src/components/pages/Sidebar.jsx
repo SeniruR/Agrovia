@@ -14,8 +14,9 @@ import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined';
 import ContactSupportOutlinedIcon from '@mui/icons-material/ContactSupportOutlined';
 import SubscriptionsOutlinedIcon from '@mui/icons-material/SubscriptionsOutlined';
-import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined';
+import AlertOutlinedIcon from '@mui/icons-material/CrisisAlertOutlined';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined'
+import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 
 const menuItems = [
   {
@@ -30,13 +31,14 @@ const menuItems = [
       { name: 'My Delivery', path: '/driversmylist' },
       { name: 'My Organization', path: '/organization' },
       { name: 'My Orders', path: '/farmervieworders' },
+      { name: 'Price Forcast', path: '/priceforcast' },
     ],
   },
   {
-    label: 'Shops',
+    label: 'Marketplace',
     icon: <StorefrontOutlinedIcon />,
     subcategories: [
-      { name: 'Agriculture Shops', path: '/agrishop' },
+      { name: 'Agriculture Marketplace', path: '/shopitem' },
       { name: 'Crop MarketPlace', path: '/byersmarket' },
     ],
   },
@@ -46,14 +48,27 @@ const menuItems = [
     path: '/itempostedForm',
   },
   {
+    label: 'Create Article',
+    icon: <AddCircleOutlineOutlinedIcon />,
+    path: '/createarticle',
+  },
+  {
     label: 'Manage Users',
     icon: <ManageAccountsOutlinedIcon />,
     path: '/usermanagement',
   },
   {
-    label: 'Pest Alerts',
-    icon: <BugReportOutlinedIcon />,
-    path: '/pestalert',
+    label: 'Approve Contents',
+    icon: <ArticleOutlinedIcon />,
+    path: '/conapproval',
+  },
+  {
+    label: 'Alerts',
+    icon: <AlertOutlinedIcon />,
+    subcategories: [
+      { name: 'Pest Alerts', path: '/pestalert' },
+      { name: 'Weather Alerts', path: '/weatheralerts' },
+    ],
   },
   {
     label: 'Subscription Plan',
