@@ -82,7 +82,7 @@ const userRoles = [
   }
 ];
 
-function App() {
+function signup() {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState(null);
   const [hoveredCard, setHoveredCard] = useState(null);
@@ -343,4 +343,4 @@ function App() {
   );
 }
 
-export default App;
+export default signup;
