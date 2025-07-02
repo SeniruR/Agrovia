@@ -15,12 +15,17 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.1.2",
     "@mui/material": "^7.1.2",
+
+    "@tailwindcss/vite": "^4.1.10",
+    "lucide-react": "^0.523.0",
+
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tailwindcss/vite": "^4.1.10",
     "@tiptap/extension-image": "^2.23.0",
     "@tiptap/react": "^2.23.0",
     "@tiptap/starter-kit": "^2.23.0",
     "lucide-react": "^0.522.0",
+
     "mui": "^0.0.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
