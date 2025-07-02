@@ -1,0 +1,411 @@
+import React, { useState } from 'react';
+import { ArrowLeft, MessageSquareX, User, Calendar, AlertCircle, CheckCircle, XCircle, Plus, Send, Users, Clock, FileText, Wheat, Store, Truck, MessageCircle } from 'lucide-react';
+
+const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddReply, onAssign }) => {
+  const [newNote, setNewNote] = useState('');
+  const [newReply, setNewReply] = useState('');
+  const [showNoteForm, setShowNoteForm] = useState(false);
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [showAssignForm, setShowAssignForm] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState('');
+
+  const agents = [
+    'Sarah Johnson',
+    'Mike Davis',
+    'Emily Rodriguez',
+    'David Wilson',
+    'Lisa Chen'
+  ];
+
+  if (!complaint) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Complaint Not Found</h2>
+          <p className="text-slate-600 mb-4">The requested complaint could not be found.</p>
+          <button
+            onClick={onBack}
+            className="px-6 py-3  bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case 'crop': return <Wheat className="w-6 h-6" />;
+      case 'shop': return <Store className="w-6 h-6" />;
+      case 'transport': return <Truck className="w-6 h-6" />;
+      default: return <MessageSquareX className="w-6 h-6" />;
+    }
+  };
+
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'crop': return 'from-green-500 to-emerald-600';
+      case 'shop': return 'from-blue-500 to-indigo-600';
+      case 'transport': return 'from-purple-500 to-violet-600';
+      default: return 'from-slate-500 to-slate-600';
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-700 border-red-200';
+      case 'high': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'low': return 'bg-slate-100 text-slate-700 border-slate-200';
+      default: return 'bg-slate-100 text-slate-700 border-slate-200';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    return status === 'consider' 
+      ? 'bg-green-100 text-green-700 border-green-200'
+      : 'bg-red-100 text-red-700 border-red-200';
+  };
+
+  const handleAddNote = () => {
+    if (newNote.trim()) {
+      onAddNote(complaint.id, newNote);
+      setNewNote('');
+      setShowNoteForm(false);
+    }
+  };
+
+  const handleAddReply = () => {
+    if (newReply.trim()) {
+      onAddReply(complaint.id, newReply);
+      setNewReply('');
+      setShowReplyForm(false);
+    }
+  };
+
+  const handleAssign = () => {
+    if (selectedAgent) {
+      onAssign(complaint.id, selectedAgent);
+      setSelectedAgent('');
+      setShowAssignForm(false);
+    }
+  };
+
+  const getActionIcon = (actionType) => {
+    switch (actionType) {
+      case 'created': return <Plus className="w-4 h-4" />;
+      case 'status_change': return <AlertCircle className="w-4 h-4" />;
+      case 'assignment': return <Users className="w-4 h-4" />;
+      case 'note_added': return <FileText className="w-4 h-4" />;
+      case 'admin_reply': return <MessageCircle className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center mb-8">
+          <button
+            onClick={onBack}
+            className="mr-4 p-2 bg-white hover:bg-white hover:shadow-md rounded-xl transition-all"
+          >
+            <ArrowLeft className="w-6 h-6 text-slate-600" />
+          </button>
+          <div className="flex items-center">
+            <div className={`w-12 h-12 bg-gradient-to-br ${getTypeColor(complaint.type)} rounded-xl flex items-center justify-center mr-4`}>
+              {getTypeIcon(complaint.type)}
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-800">Admin - Complaint Details</h1>
+              <p className="text-slate-600">#{complaint.id} • {complaint.type} complaint</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Complaint Info */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${complaint.type === 'crop' ? 'bg-green-100 text-green-700 border-green-200' : complaint.type === 'shop' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200'}`}>
+                      {complaint.type}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
+                      {complaint.priority}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center space-x-1 ${getStatusColor(complaint.status)}`}>
+                      {complaint.status === 'consider' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                      <span>{complaint.status === 'consider' ? 'Consider' : 'Not Consider'}</span>
+                    </span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800 mb-4">{complaint.title}</h2>
+                </div>
+              </div>
+
+              <div className="prose max-w-none">
+                <p className="text-slate-700 leading-relaxed mb-6">{complaint.description}</p>
+              </div>
+
+              {/* Additional Details */}
+              <div className="grid md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <User className="w-5 h-5 text-slate-400" />
+                    <div>
+                      <p className="text-sm text-slate-500">Submitted by</p>
+                      <p className="font-medium text-slate-800">{complaint.submittedByName}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="w-5 h-5 text-slate-400" />
+                    <div>
+                      <p className="text-sm text-slate-500">Submitted on</p>
+                      <p className="font-medium text-slate-800">{complaint.submittedAt.toDateString()}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {complaint.location && (
+                    <div>
+                      <p className="text-sm text-slate-500">Location</p>
+                      <p className="font-medium text-slate-800">{complaint.location}</p>
+                    </div>
+                  )}
+                  {complaint.orderNumber && (
+                    <div>
+                      <p className="text-sm text-slate-500">Order Number</p>
+                      <p className="font-medium text-slate-800">{complaint.orderNumber}</p>
+                    </div>
+                  )}
+                  {complaint.cropType && (
+                    <div>
+                      <p className="text-sm text-slate-500">Crop Type</p>
+                      <p className="font-medium text-slate-800">{complaint.cropType}</p>
+                    </div>
+                  )}
+                  {complaint.shopName && (
+                    <div>
+                      <p className="text-sm text-slate-500">Shop Name</p>
+                      <p className="font-medium text-slate-800">{complaint.shopName}</p>
+                    </div>
+                  )}
+                  {complaint.transportCompany && (
+                    <div>
+                      <p className="text-sm text-slate-500">Transport Company</p>
+                      <p className="font-medium text-slate-800">{complaint.transportCompany}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Reply Section */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
+                {!complaint.adminReply && complaint.status === 'consider' && (
+                  <button
+                    onClick={() => setShowReplyForm(!showReplyForm)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Add Reply</span>
+                  </button>
+                )}
+              </div>
+
+              {showReplyForm && (
+                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+                  <textarea
+                    value={newReply}
+                    onChange={(e) => setNewReply(e.target.value)}
+                    placeholder="Write your official response to the customer..."
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none"
+                  />
+                  <div className="flex justify-end space-x-3 mt-3">
+                    <button
+                      onClick={() => setShowReplyForm(false)}
+                      className="px-4 py-2 bg-white text-slate-600 hover:text-slate-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAddReply}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Send Reply</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {complaint.adminReply ? (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
+                  <p className="text-slate-700 leading-relaxed">{complaint.adminReply}</p>
+                </div>
+              ) : (
+                <p className="text-slate-500 text-center py-8">
+                  {complaint.status === 'consider' ? 'No reply sent yet.' : 'No reply needed for this complaint.'}
+                </p>
+              )}
+            </div>
+
+            {/* Notes Section */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-slate-800">Internal Notes</h3>
+                <button
+                  onClick={() => setShowNoteForm(!showNoteForm)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Note</span>
+                </button>
+              </div>
+
+              {showNoteForm && (
+                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+                  <textarea
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Add an internal note about this complaint..."
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors resize-none"
+                  />
+                  <div className="flex justify-end space-x-3 mt-3">
+                    <button
+                      onClick={() => setShowNoteForm(false)}
+                      className="px-4 py-2 text-slate-600 bg-white hover:text-slate-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAddNote}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Add Note</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {complaint.notes.length === 0 ? (
+                  <p className="text-slate-500 text-center py-8">No internal notes added yet.</p>
+                ) : (
+                  complaint.notes.map((note) => (
+                    <div key={note.id} className="p-4 bg-slate-50 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-slate-800">{note.author}</span>
+                        <span className="text-sm text-slate-500">{note.timestamp.toLocaleString()}</span>
+                      </div>
+                      <p className="text-slate-700">{note.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Actions */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4">Actions</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+                  <select
+                    value={complaint.status}
+                    onChange={(e) => onUpdateStatus(complaint.id, e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border bg-white border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-colors"
+                  >
+                    <option value="consider">Consider</option>
+                    <option value="not-consider">Not Consider</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">Assigned Agent</label>
+                    <button
+                      onClick={() => setShowAssignForm(!showAssignForm)}
+                      className="text-xs bg-white text-blue-600 hover:text-blue-700"
+                    >
+                      Change
+                    </button>
+                  </div>
+                  {complaint.assignedTo ? (
+                    <p className="text-sm text-slate-800 px-3 py-2 bg-slate-50 rounded-lg">{complaint.assignedTo}</p>
+                  ) : (
+                    <p className="text-sm text-slate-500 px-3 py-2 bg-slate-50 rounded-lg">Not assigned</p>
+                  )}
+                </div>
+
+                {showAssignForm && (
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <select
+                      value={selectedAgent}
+                      onChange={(e) => setSelectedAgent(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-colors mb-3"
+                    >
+                      <option value="">Select agent...</option>
+                      {agents.map(agent => (
+                        <option key={agent} value={agent}>{agent}</option>
+                      ))}
+                    </select>
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        onClick={() => setShowAssignForm(false)}
+                        className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleAssign}
+                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Assign
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Activity Timeline */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4">Activity Timeline</h3>
+              <div className="space-y-4">
+                {complaint.actions.map((action) => (
+                  <div key={action.id} className="flex items-start space-x-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
+                      {getActionIcon(action.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-800">{action.description}</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {action.author} • {action.timestamp.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ComplaintDetail;

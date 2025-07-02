@@ -1,0 +1,293 @@
+import React, { useState } from 'react';
+import { ArrowLeft, Upload, Store, AlertCircle } from 'lucide-react';
+
+const ShopComplaintForm = ({ onSubmit, onBack }) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    submittedBy: '',
+    priority: 'medium',
+    shopName: '',
+    location: '',
+    category: '',
+    orderNumber: '',
+    purchaseDate: ''
+  });
+
+  const [errors, setErrors] = useState({});
+
+  const categories = [
+    'Defective Seeds', 'Wrong Product', 'Poor Service', 'Overcharging', 'Contaminated Products', 
+    'Equipment Malfunction', 'Staff Behavior', 'Store Hygiene', 'Other'
+  ];
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.title.trim()) newErrors.title = 'Title is required';
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.submittedBy.trim()) newErrors.submittedBy = 'Your name is required';
+    if (!formData.shopName.trim()) newErrors.shopName = 'Shop name is required';
+    if (!formData.category) newErrors.category = 'Category is required';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+
+    onSubmit({
+      type: 'shop',
+      title: formData.title,
+      description: formData.description,
+      status: 'consider',
+      priority: formData.priority,
+      submittedBy: formData.submittedBy,
+      shopName: formData.shopName,
+      location: formData.location,
+      category: formData.category,
+      orderNumber: formData.orderNumber || undefined
+    });
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  return (
+    <div className="min-h-screen p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center mb-8">
+          <button
+            onClick={onBack}
+            className="mr-4 p-2 bg-slate-100 hover:bg-white hover:shadow-md rounded-xl transition-all"
+          >
+            <ArrowLeft className="w-6 h-6  text-slate-600" />
+          </button>
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-gradient-to-br  from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mr-4">
+              <Store className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-800">Shop Complaint</h1>
+              <p className="text-slate-600">Report problems with seeds, equipment, or shop services</p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-8">
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Left Column */}
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Complaint Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => handleInputChange('title', e.target.value)}
+                    className={`w-full bg-white px-4 py-3 rounded-xl border transition-colors ${
+                      errors.title ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    }`}
+                    placeholder="Brief description of the issue"
+                  />
+                  {errors.title && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      {errors.title}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Your Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.submittedBy}
+                    onChange={(e) => handleInputChange('submittedBy', e.target.value)}
+                    className={`w-full bg-white px-4 py-3 rounded-xl border transition-colors ${
+                      errors.submittedBy ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    }`}
+                    placeholder="Enter your full name"
+                  />
+                  {errors.submittedBy && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      {errors.submittedBy}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Shop Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.shopName}
+                    onChange={(e) => handleInputChange('shopName', e.target.value)}
+                    className={`w-full bg-white px-4 py-3 rounded-xl border transition-colors ${
+                      errors.shopName ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    }`}
+                    placeholder="Name of the shop or store"
+                  />
+                  {errors.shopName && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      {errors.shopName}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Issue Category *
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => handleInputChange('category', e.target.value)}
+                    className={`w-full  bg-white px-4 py-3 rounded-xl border transition-colors ${
+                      errors.category ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    }`}
+                  >
+                    <option value="">Select category</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                  {errors.category && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      {errors.category}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Priority Level
+                  </label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) => handleInputChange('priority', e.target.value)}
+                    className="w-full bg-white px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Shop Location
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
+                    className="w-full  bg-white px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    placeholder="Shop address or location"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Order/Receipt Number
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.orderNumber}
+                    onChange={(e) => handleInputChange('orderNumber', e.target.value)}
+                    className="w-full bg-white px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    placeholder="Enter order or receipt number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Purchase Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.purchaseDate}
+                    onChange={(e) => handleInputChange('purchaseDate', e.target.value)}
+                    className="w-full bg-white px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Attachment Section */}
+            <div className="mt-8">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Attach Evidence (Optional)
+              </label>
+              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
+                <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">Upload photos of receipts, products, or other evidence</p>
+                <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 10MB each</p>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="mt-8">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Detailed Description *
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                rows={6}
+                className={`w-full bg-white px-4 py-3 rounded-xl border transition-colors resize-none ${
+                  errors.description ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                }`}
+                placeholder="Please provide a detailed description of your experience, what went wrong, when it happened, and any attempts you made to resolve the issue..."
+              />
+              {errors.description && (
+                <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  {errors.description}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-slate-50 px-8 py-6 flex justify-end space-x-4">
+            <button
+              type="button"
+              onClick={onBack}
+              className="px-6 py-3 bg-white text-slate-600 hover:text-slate-800 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              Submit Complaint
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default ShopComplaintForm; 
