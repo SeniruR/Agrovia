@@ -5,7 +5,7 @@ export default function EmailAlerts() {
   const [activeTab, setActiveTab] = useState('all');
   const [alertFilters, setAlertFilters] = useState({
     orderConfirmed: true,
-    orderShipped: true,
+    orderDispatched: true,
     orderDelivered: true,
     paymentReceived: true,
     stockUpdates: true
@@ -33,8 +33,8 @@ export default function EmailAlerts() {
     {
       id: 3,
       type: 'sms',
-      title: 'Order Shipped',
-      category: 'orderShipped',
+      title: 'Order Dispatched',
+      category: 'orderDispatched',
       message: 'Your organic vegetables from Nuwara Eliya are on the way! Track: AG2025002',
       timestamp: '2025-06-28  11:45 AM',
       location: 'Kandy'
@@ -210,7 +210,7 @@ export default function EmailAlerts() {
             {Object.entries(alertFilters).map(([key, value]) => {
               const labels = {
                 orderConfirmed: 'Order Confirmed',
-                orderShipped: 'Order Shipped',
+                orderDispatched: 'Order Dispatched',
                 orderDelivered: 'Order Delivered',
                 paymentReceived: 'Payment Received',
                 stockUpdates: 'Stock Updates'
