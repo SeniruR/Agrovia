@@ -46,7 +46,7 @@ import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm"
 
 import NotFound from "./components/pages/NotFound";
 import Complaint from "./pages/complaint/Complaint";
-
+import BulkSellerChat from "./pages/BulkSellerChat";
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
 import SubscriptionManagement from "./pages/SubscriptionManagement";
@@ -138,6 +138,12 @@ const App = () => {
       <Route path="/shop" element={
           <Layout>
             <ShopProductView />
+          </Layout>
+        }
+      />
+      <Route path="/chat" element={
+          <Layout>
+            <BulkSellerChat />
           </Layout>
         }
       />
