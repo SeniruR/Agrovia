@@ -29,7 +29,7 @@ const TransportDashboard = () => {
       farmerPhone: '+94 71 234 5678',
       buyerName: 'Green Valley Supermarket',
       buyerPhone: '+94 11 234 5678',
-      crop: 'Organic Rice',
+      crop: 'Basmati Rice',
       quantity: '500 kg',
       pickupLocation: 'Anuradhapura, North Central',
       deliveryLocation: 'Colombo 07, Western',
@@ -47,7 +47,7 @@ const TransportDashboard = () => {
       farmerPhone: '+94 77 345 6789',
       buyerName: 'Fresh Mart Chain',
       buyerPhone: '+94 11 345 6789',
-      crop: 'Fresh Vegetables',
+      crop: 'Green Cabbage',
       quantity: '200 kg',
       pickupLocation: 'Kandy, Central',
       deliveryLocation: 'Gampaha, Western',
@@ -83,7 +83,7 @@ const TransportDashboard = () => {
       farmerPhone: '+94 76 567 8901',
       buyerName: 'Hotel Paradise',
       buyerPhone: '+94 11 567 8901',
-      crop: 'Fresh Coconuts',
+      crop: 'Tomatoes',
       quantity: '100 units',
       pickupLocation: 'Kurunegala, North Western',
       deliveryLocation: 'Colombo 03, Western',
@@ -219,15 +219,17 @@ const TransportDashboard = () => {
         <div className="bg-white rounded-xl shadow-md p-4 mb-6 border border-green-100">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search deliveries..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+  <input
+    type="text"
+    placeholder="Search deliveries..."
+    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg 
+               focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+  />
+</div>
+
             <div className="flex items-center space-x-2">
               <Filter className="w-4 h-4 text-gray-500" />
               <select
