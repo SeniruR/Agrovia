@@ -7,31 +7,83 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import MenuIcon from '@mui/icons-material/Menu';
 import {Link} from 'react-router-dom';
+import PersonOutlined from '@mui/icons-material/PersonOutlined';
+import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined';
+import ContactSupportOutlinedIcon from '@mui/icons-material/ContactSupportOutlined';
+import SubscriptionsOutlinedIcon from '@mui/icons-material/SubscriptionsOutlined';
+import AlertOutlinedIcon from '@mui/icons-material/CrisisAlertOutlined';
+import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined'
+import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 
 const menuItems = [
   {
-    label: 'Marketplace',
-    icon: <StorefrontOutlined />,
+    label: 'Dashboard',
+    icon: <DashboardOutlinedIcon />,
     subcategories: [
-      { name: 'Shops', path: '/agrishop' },
+      { name: 'Shop Dashboard', path: '/shopdashboard' },
+      { name: 'Delivery Dashboard', path: '/transportdashboard' },
+      { name: 'Admin Dashboard', path: '/admindashboard' },
+      { name: 'My Profile', path: '/profile' },
+      { name: 'My Crops', path: '/farmviewAllCrops' },
+      { name: 'My Delivery', path: '/driversmylist' },
+      { name: 'My Organization', path: '/organization' },
+      { name: 'My Orders', path: '/farmervieworders' },
+      { name: 'Price Forcast', path: '/priceforcast' },
     ],
+  },
+  {
+    label: 'Marketplace',
+    icon: <StorefrontOutlinedIcon />,
+    subcategories: [
+      { name: 'Agriculture Marketplace', path: '/shopitem' },
+      { name: 'Crop MarketPlace', path: '/byersmarket' },
+    ],
+  },
+  {
+    label: 'Add Items',
+    icon: <AddCircleOutlineOutlinedIcon />,
+    path: '/itempostedForm',
+  },
+  {
+    label: 'Create Article',
+    icon: <AddCircleOutlineOutlinedIcon />,
+    path: '/createarticle',
+  },
+  {
+    label: 'Manage Users',
+    icon: <ManageAccountsOutlinedIcon />,
+    path: '/usermanagement',
+  },
+  {
+    label: 'Approve Contents',
+    icon: <ArticleOutlinedIcon />,
+    path: '/conapproval',
+  },
+  {
+    label: 'Alerts',
+    icon: <AlertOutlinedIcon />,
+    subcategories: [
+      { name: 'Pest Alerts', path: '/pestalert' },
+      { name: 'Weather Alerts', path: '/weatheralerts' },
+    ],
+  },
+  {
+    label: 'Subscription Plan',
+    icon: <SubscriptionsOutlinedIcon />,
+    path: '/subscriptionmanagement',
   },
   {
     label: 'Knowledge Hub',
     icon: <MenuBookOutlinedIcon />,
-    subcategories: [
-      { name: 'Articles', path: '/knowledge-hub/articles' },
-      { name: 'Tutorials', path: '/knowledge-hub/tutorials' },
-      { name: 'FAQs', path: '/knowledge-hub/faqs' },
-    ],
+    path: '/knowledge-hub',
   },
   {
     label: 'Contact Us',
-    icon: <ContactMailOutlinedIcon />,
-    subcategories: [
-      { name: 'Support', path: '/contact-us/support' },
-      { name: 'Feedback', path: '/contact-us/feedback' },
-    ],
+    icon: <ContactSupportOutlinedIcon />,
+    path: '/complaintHandling',
   },
 ];
 
@@ -83,68 +135,90 @@ const Sidebar = ({ open, toggleDrawer }) => {
         }}
       >
         <div className="flex flex-col justify-between h-[97vh] w-[240px]">
-          <List>
-            {menuItems.map((item, index) => (
-              <React.Fragment key={index}>
-                <ListItem
-                  button
-                  onClick={() => handleToggle(index)}
-                  className="hover:bg-gray-200 rounded-lg"
-                >
-                  <ListItemIcon className="min-w-[40px] text-black">
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.label}
-                    className="text-black font-medium"
-                  />
-                  {expandedIndex === index ? (
-                    <ExpandLess className="ml-2" />
-                  ) : (
-                    <ExpandMore className="ml-2" />
-                  )}
-                </ListItem>
+   <List>
+      {menuItems.map((item, index) => (
+        <React.Fragment key={index}>
+          {item.subcategories ? (
+            <ListItem
+              button
+              onClick={() => handleToggle(index)}
+              className="hover:bg-gray-200 rounded-lg"
+            >
+              <ListItemIcon className="min-w-[40px] text-black">
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.label}
+                className="text-black font-medium"
+              />
+              {expandedIndex === index ? (
+                <ExpandLess className="ml-2" />
+              ) : (
+                <ExpandMore className="ml-2" />
+              )}
+            </ListItem>
+          ) : (
+            <Link
+              to={item.path}
+              style={{ textDecoration: 'none' }}
+              onClick={toggleDrawer}
+            >
+              <ListItem
+                button
+                className="hover:bg-gray-200 rounded-lg"
+              >
+                <ListItemIcon className="min-w-[40px] text-black">
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.label}
+                  className="text-black font-medium"
+                />
+              </ListItem>
+            </Link>
+          )}
 
-                {expandedIndex === index &&
-                  item.subcategories.map((sub, subIndex) => {
-                    const isLast = subIndex === item.subcategories.length - 1;
-                    return (
-                      <Link
-                        to={sub.path}
-                        key={subIndex}
-                        style={{ textDecoration: 'none' }}
-                        onClick={toggleDrawer}
-                      >
-                        <ListItem
-                          button
-                          className={`relative ml-10 py-1 pl-2 ${isLast ? 'last-sub-item' : ''}`}
-                          style={{
-                            marginLeft: '46px',
-                            width: 'auto',
-                            borderRadius: '10px',
-                            padding: '8px 12px',
-                            color: 'black'
-                          }}
-                        >
-                          {!isLast && (
-                            <div className=" absolute left-[-20px] top-0 w-[20px] h-full z-10">
-                              <div className=" absolute top-0 left-0 w-[2px] h-full bg-black z-10" />
-                            </div>
-                          )}
-                          <div className="absolute left-[-20px] top-0 w-[20px] h-full text-gray-400 z-20">
-                            <div className="absolute top-0 left-0 w-[16px] h-[20px] border-black border-l-[2px] border-b-[2px] border-black-400 rounded-bl-[15px]" />
-                          </div>
-                          <ListItemText
-                            primary={sub.name}
-                            className="pl-2 text-sm text-gray-700"
-                          />
-                        </ListItem>
-                      </Link>
-                    );
-                  })}
-              </React.Fragment>
-            ))}
-          </List>
+          {item.subcategories && expandedIndex === index &&
+            item.subcategories.map((sub, subIndex) => {
+              const isLast = subIndex === item.subcategories.length - 1;
+              return (
+                <Link
+                  to={sub.path}
+                  key={subIndex}
+                  style={{ textDecoration: 'none' }}
+                  onClick={toggleDrawer}
+                >
+                  <ListItem
+                    button
+                    className={`relative ml-10 py-1 pl-2 ${isLast ? 'last-sub-item' : ''}`}
+                    style={{
+                      marginLeft: '46px',
+                      width: 'auto',
+                      borderRadius: '10px',
+                      padding: '8px 12px',
+                      color: 'black'
+                    }}
+                  >
+                    {!isLast && (
+                      <div className=" absolute left-[-20px] top-0 w-[20px] h-full z-10">
+                        <div className=" absolute top-0 left-0 w-[2px] h-full bg-black z-10" />
+                      </div>
+                    )}
+                    <div className="absolute left-[-20px] top-0 w-[20px] h-full text-gray-400 z-20">
+                      <div className="absolute top-0 left-0 w-[16px] h-[20px] border-black border-l-[2px] border-b-[2px] border-black-400 rounded-bl-[15px]" />
+                    </div>
+                    <ListItemText
+                      primary={sub.name}
+                      className="pl-2 text-sm text-gray-700"
+                    />
+                  </ListItem>
+                </Link>
+              );
+            })}
+        </React.Fragment>
+      ))}
+    </List>
+
 
           <div className="p-4">
             <Link to="/login"><button
