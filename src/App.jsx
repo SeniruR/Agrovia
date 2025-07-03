@@ -12,9 +12,11 @@ import './index.css'; // or wherever you have Tailwind directives
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
 import ShopDashBoard from "./pages/shop/ShopDashboard";
 import ForgotPassword from "./pages/ForgotPassword";
-import SupportForm from "./pages/contact-us/SupportForm";
-import FeedbackForm from "./pages/contact-us/FeedbackForm";
+// import SupportForm from "./pages/contact-us/SupportForm";
+// import FeedbackForm from "./pages/contact-us/FeedbackForm";
 import FarmerSignup from "./pages/FarmerSignup";
+import BuyerSignup from "./pages/BuyerSignup";
+import TransporterSignup from "./pages/TransporterSignup";
 
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
@@ -96,7 +98,18 @@ const App = () => {
       <Route path="/signup/farmer" element={
         <Layout>
           <FarmerSignup />
-        </Layout>} />
+        </Layout>} 
+      />
+      <Route path="/signup/buyer" element={
+        <Layout>
+          <BuyerSignup />
+        </Layout>} 
+      />
+      <Route path="/signup/transporter" element={
+        <Layout>
+          <TransporterSignup />
+        </Layout>} 
+      />
         {/* Dashboard Routes - No Layout */}
       <Route path="/dashboard/farmer" element={<FarmerDashboard />} />
       <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
@@ -128,18 +141,6 @@ const App = () => {
           </Layout>
         }
       />
-      <Route path="/contact-us/support" element={
-          <Layout>
-            <SupportForm />
-          </Layout>
-        }
-      />
-      <Route path="/contact-us/feedback" element={
-          <Layout>
-            <FeedbackForm />
-         </Layout>
-        }
-      />
 
       <Route path="/cropListings" element={
           <Layout>
@@ -160,20 +161,6 @@ const App = () => {
           <Layout>
             <FarmerCropViews />
           </Layout>
-        }
-      />
-
-
-      <Route path="/contact-us/support" element={
-          <Layout>
-            <SupportForm />
-          </Layout>
-        }
-      />
-      <Route path="/contact-us/feedback" element={
-          <Layout>
-            <FeedbackForm />
-         </Layout>
         }
       />
 
@@ -313,7 +300,7 @@ const App = () => {
           </Layout>
         }
       />
-      <Route path="/subsciptionmanagement" element={
+      <Route path="/subscriptionmanagement" element={
         <Layout>
           <SubscriptionManagement />
         </Layout>

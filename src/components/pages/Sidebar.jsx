@@ -9,28 +9,71 @@ import MenuIcon from '@mui/icons-material/Menu';
 import {Link} from 'react-router-dom';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined';
+import ContactSupportOutlinedIcon from '@mui/icons-material/ContactSupportOutlined';
+import SubscriptionsOutlinedIcon from '@mui/icons-material/SubscriptionsOutlined';
+import AlertOutlinedIcon from '@mui/icons-material/CrisisAlertOutlined';
+import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined'
+import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 
 const menuItems = [
   {
     label: 'Dashboard',
-    icon: <PersonOutlined />,
+    icon: <DashboardOutlinedIcon />,
     subcategories: [
-      { name: 'Overview', path: '/profile' },
       { name: 'Shop Dashboard', path: '/shopdashboard' },
       { name: 'Delivery Dashboard', path: '/transportdashboard' },
       { name: 'Admin Dashboard', path: '/admindashboard' },
       { name: 'My Profile', path: '/profile' },
       { name: 'My Crops', path: '/farmviewAllCrops' },
       { name: 'My Delivery', path: '/driversmylist' },
+      { name: 'My Organization', path: '/organization' },
+      { name: 'My Orders', path: '/farmervieworders' },
+      { name: 'Price Forcast', path: '/priceforcast' },
     ],
   },
   {
-    label: 'Shops',
-    icon: <StorefrontOutlined />,
+    label: 'Marketplace',
+    icon: <StorefrontOutlinedIcon />,
     subcategories: [
-      { name: 'Agriculture Shops', path: '/agrishop' },
+      { name: 'Agriculture Marketplace', path: '/shopitem' },
       { name: 'Crop MarketPlace', path: '/byersmarket' },
     ],
+  },
+  {
+    label: 'Add Items',
+    icon: <AddCircleOutlineOutlinedIcon />,
+    path: '/itempostedForm',
+  },
+  {
+    label: 'Create Article',
+    icon: <AddCircleOutlineOutlinedIcon />,
+    path: '/createarticle',
+  },
+  {
+    label: 'Manage Users',
+    icon: <ManageAccountsOutlinedIcon />,
+    path: '/usermanagement',
+  },
+  {
+    label: 'Approve Contents',
+    icon: <ArticleOutlinedIcon />,
+    path: '/conapproval',
+  },
+  {
+    label: 'Alerts',
+    icon: <AlertOutlinedIcon />,
+    subcategories: [
+      { name: 'Pest Alerts', path: '/pestalert' },
+      { name: 'Weather Alerts', path: '/weatheralerts' },
+    ],
+  },
+  {
+    label: 'Subscription Plan',
+    icon: <SubscriptionsOutlinedIcon />,
+    path: '/subscriptionmanagement',
   },
   {
     label: 'Knowledge Hub',
@@ -39,11 +82,8 @@ const menuItems = [
   },
   {
     label: 'Contact Us',
-    icon: <ContactMailOutlinedIcon />,
-    subcategories: [
-      { name: 'Support', path: '/contact-us/support' },
-      { name: 'Feedback', path: '/contact-us/feedback' },
-    ],
+    icon: <ContactSupportOutlinedIcon />,
+    path: '/complaintHandling',
   },
 ];
 
