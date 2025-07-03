@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X } from 'lucide-react';
+import { Trash } from 'lucide-react';
 
 const ByersMarketplace = () => {
   const [viewMode, setViewMode] = useState('grid');
@@ -366,12 +367,12 @@ const filteredProducts = products
                       <Plus size={14} />
                     </button>
                   </div>
-                  <button
-                    onClick={() => removeFromCart(item.id)}
-                    className="p-1 text-red-500 hover:bg-red-50 rounded-full"
-                  >
-                    <X size={16} />
-                  </button>
+                 <button
+  onClick={() => removeFromCart(item.id)}
+  className="p-1 text-red-500 hover:bg-red-50 rounded-full"
+>
+  <Trash size={16} />
+</button>
                 </div>
               ))}
             </div>
