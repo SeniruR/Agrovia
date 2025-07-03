@@ -17,7 +17,7 @@ const userRoles = [
   {
     id: 'farmer',
     title: 'Farmer',
-    description: 'Cultivate and manage agricultural operations with AI-powered farming solutions',
+    description: 'Cultivate and manage agricultural operations with AI-powered farming solutions (Currently We are not accept any kind of Fruits)',
     icon: Sprout,
     color: 'from-emerald-500 to-green-600',
     bgColor: 'bg-emerald-500',

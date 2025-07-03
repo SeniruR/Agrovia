@@ -14,6 +14,7 @@ const ByersMarketplace = () => {
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const [favorites, setFavorites] = useState(new Set());
+  const [quantities, setQuantities] = useState({});
 
   const products = [
     {
@@ -195,16 +196,16 @@ const filteredProducts = products
     return 0; // Relevance (no sorting)
   });
 
-  const addToCart = (product) => {
+  const addToCart = (product, quantity) => {
     const existingItem = cart.find(item => item.id === product.id);
     if (existingItem) {
-      setCart(cart.map(item => 
-        item.id === product.id 
-          ? { ...item, quantity: item.quantity + 1 }
+      setCart(cart.map(item =>
+        item.id === product.id
+          ? { ...item, quantity: item.quantity + quantity }
           : item
       ));
     } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+      setCart([...cart, { ...product, quantity }]);
     }
   };
 
@@ -222,6 +223,22 @@ const filteredProducts = products
           : item
       ));
     }
+  };
+
+  const parseMinOrder = (minOrderStr) => {
+    const match = minOrderStr.match(/\d+/);
+    return match ? parseInt(match[0]) : 1;
+  };
+
+  const getQuantity = (productId, minOrderStr) => {
+    return quantities[productId] || parseMinOrder(minOrderStr);
+  };
+
+  const updateProductQuantity = (productId, newQuantity) => {
+    setQuantities(prev => ({
+      ...prev,
+      [productId]: Math.max(1, newQuantity)
+    }));
   };
 
   const toggleFavorite = (productId) => {
@@ -312,20 +329,43 @@ const filteredProducts = products
           </div>
         </div>
         
-        <div className="flex gap-2">
-          <button
-            onClick={() => addToCart(product)}
-            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2.5 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
-          >
-            <ShoppingCart size={16} />
-            Add to Cart
-          </button>
-          <button className="p-2.5 border border-green-500 text-green-500 hover:bg-green-50 rounded-xl transition-colors">
-            <Phone size={16} />
-          </button>
-          <button className="p-2.5 border border-green-500 text-green-500 hover:bg-green-50 rounded-xl transition-colors">
-            <MessageCircle size={16} />
-          </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => updateProductQuantity(product.id, getQuantity(product.id, product.minOrder) - 1)}
+              className="px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold"
+            >
+              -
+            </button>
+            <input
+              type="number"
+              min="1"
+              value={getQuantity(product.id, product.minOrder)}
+              onChange={(e) => updateProductQuantity(product.id, parseInt(e.target.value) || 1)}
+              className="w-16 text-center border border-green-300 rounded-lg py-1"
+            />
+            <button
+              onClick={() => updateProductQuantity(product.id, getQuantity(product.id, product.minOrder) + 1)}
+              className="px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold"
+            >
+              +
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => addToCart(product, getQuantity(product.id, product.minOrder))}
+              className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2.5 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
+            >
+              <ShoppingCart size={16} />
+              Add to Cart
+            </button>
+            <button className="p-2.5 border border-green-500 text-green-500 hover:bg-green-50 rounded-xl transition-colors">
+              <Phone size={16} />
+            </button>
+            <button className="p-2.5 border border-green-500 text-green-500 hover:bg-green-50 rounded-xl transition-colors">
+              <MessageCircle size={16} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
