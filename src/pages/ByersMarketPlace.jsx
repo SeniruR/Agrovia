@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X } from 'lucide-react';
 import { Trash } from 'lucide-react';
 
+
+
 const ByersMarketplace = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [selectedCategory, setSelectedCategory] = useState('All Products');
@@ -411,15 +413,16 @@ const filteredProducts = products
     <div className="flex flex-col lg:flex-row gap-4 items-center">
       {/* Search Bar */}
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search products, farmers, or locations..."
-          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-        />
-      </div>
+  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+  <input
+    type="text"
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    placeholder="Search products, farmers, or locations..."
+    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+  />
+</div>
+
 
       {/* Category & Sort Dropdowns */}
       <div className="flex gap-3">
