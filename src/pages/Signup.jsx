@@ -204,22 +204,6 @@ function signup() {
                       }`}>
                         {role.description}
                       </p>
-                      
-                      {/* Features List */}
-                      <div className="space-y-2">
-                        {role.features.map((feature, idx) => (
-                          <div key={idx} className="flex items-center space-x-2">
-                            <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${
-                              isSelected ? 'bg-green-500' : 'bg-green-400'
-                            }`} />
-                            <span className={`text-xs transition-all duration-500 ${
-                              isSelected ? 'text-green-700' : 'text-slate-600'
-                            }`}>
-                              {feature}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
                     </div>
 
                     {/* Hover Effect */}

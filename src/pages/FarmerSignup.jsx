@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Select from 'react-select';
 import {
   User,
   Mail,
@@ -114,7 +115,8 @@ const FarmerSignup = () => {
     'Precision Agriculture',
     'Sustainable Agriculture',
     'Hydroponic',
-    'Mixed Methods'
+    'Mixed Methods',
+    'Other'
   ];
 
   // Irrigation system options
@@ -125,7 +127,8 @@ const FarmerSignup = () => {
     'Flood Irrigation',
     'Canal Irrigation',
     'Well Water',
-    'Mixed Systems'
+    'Mixed Systems',
+    'Other'
   ];
 
   // Soil type options
@@ -136,7 +139,8 @@ const FarmerSignup = () => {
     'Silt',
     'Peaty',
     'Chalky',
-    'Mixed'
+    'Mixed',
+    'Other'
   ];
 
   // Education level options
@@ -160,6 +164,17 @@ const FarmerSignup = () => {
     'Rs. 1,000,000 - 2,000,000',
     'Above Rs. 2,000,000'
   ];
+
+  
+  const gramasewaDivisions = [
+    { value: 'Colombo 01', label: 'Colombo 01' },
+    { value: 'Kaduwela', label: 'Kaduwela' },
+    { value: 'Maharagama', label: 'Maharagama' },
+    { value: 'Gampaha', label: 'Gampaha' },
+    { value: 'Negombo', label: 'Negombo' },
+  // Add more divisions as needed
+  ];
+
 
   const handleInputChange = useCallback((e) => {
   const { name, value, files } = e.target;
@@ -327,7 +342,27 @@ const FarmerSignup = () => {
           {icon && React.createElement(icon, { className: "w-4 h-4" })}
           <span>{label} {required && <span className="text-red-500">*</span>}</span>
         </label>
-        {options ? (
+        {options && props.isSearchable ? (
+          <Select
+            name={name}
+            value={options.find(opt => opt.value === fieldValue) || null}
+            onChange={selected => handleInputChange({ target: { name, value: selected ? selected.value : '' } })}
+            options={options}
+            placeholder={`Search ${label}`}
+            classNamePrefix="react-select"
+            isSearchable
+            styles={{
+              control: (base, state) => ({
+                ...base,
+                borderColor: errors[name] ? '#ef4444' : '#bbf7d0',
+                backgroundColor: errors[name] ? '#fef2f2' : '#f1f5f9',
+                borderRadius: '0.75rem',
+                minHeight: '48px',
+                boxShadow: state.isFocused ? '0 0 0 2px #22c55e' : undefined,
+              }),
+            }}
+          />
+        ) : options ? (
           <select
             name={name}
             value={fieldValue}
@@ -338,9 +373,19 @@ const FarmerSignup = () => {
             {...props}
           >
             <option value="">Select {label}</option>
-            {options.map(option => (
-              <option key={option} value={option}>{option}</option>
-            ))}
+            {options.map(option =>
+              typeof option === 'object' && option !== null
+                ? (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                )
+                : (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                )
+            )}
           </select>
         ) : type === 'textarea' ? (
           <textarea
@@ -695,12 +740,6 @@ const FarmerSignup = () => {
 
               <div className="grid md:grid-cols-2 gap-6">
                 <InputField
-                  icon={Calendar}
-                  label="Birth Date"
-                  name="birthDate"
-                  type="date"
-                />
-                <InputField
                   icon={Phone}
                   label="Phone Number"
                   name="phoneNumber"
@@ -718,12 +757,6 @@ const FarmerSignup = () => {
               />
 
               <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={BookOpen}
-                  label="Education Level"
-                  name="educationLevel"
-                  options={educationOptions}
-                />
                 <InputField
                   icon={Camera}
                   label="Profile Image"
@@ -759,16 +792,16 @@ const FarmerSignup = () => {
               <div className="grid md:grid-cols-2 gap-6">
                 <InputField
                   icon={Leaf}
-                  label="Primary Crops"
+                  label="Primary Crops (Except Fruits)"
                   name="primaryCrops"
                   required
                   placeholder="e.g., Rice, Tea, Coconut"
                 />
                 <InputField
                   icon={Sprout}
-                  label="Secondary Crops"
+                  label="Secondary Crops (Except Fruits)"
                   name="secondaryCrops"
-                  placeholder="e.g., Vegetables, Fruits"
+                  placeholder="e.g., Vegetables, Grains"
                 />
               </div>
 
@@ -906,8 +939,11 @@ const FarmerSignup = () => {
                 label="Division of Gramasewa Niladari"
                 name="divisionGramasewaNumber"
                 required
-                placeholder="Enter your Gramasewa Niladari division"
+                placeholder="Search your Gramasewa Niladari division"
+                options={gramasewaDivisions} // array of divisions
+                isSearchable={true} // if supported
               />
+
               <div className="space-y-2">
                 <InputField
                   icon={Users}

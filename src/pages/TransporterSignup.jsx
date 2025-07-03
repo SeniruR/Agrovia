@@ -348,12 +348,6 @@ const TransporterSignup = () => {
 
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField
-                                    icon={Calendar}
-                                    label="Birth Date"
-                                    name="birthDate"
-                                    type="date"
-                                />
-                                <InputField
                                     icon={Phone}
                                     label="Phone Number"
                                     name="phoneNumber"
