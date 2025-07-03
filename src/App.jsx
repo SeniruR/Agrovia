@@ -8,6 +8,7 @@ import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
 import FarmerCropViews from "./pages/Farmer/AllCropsViews";
+import HarvestForecast from "./pages/farmer/HarvestForecast";
 import './index.css'; // or wherever you have Tailwind directives
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
 import ShopDashBoard from "./pages/shop/ShopDashboard";
@@ -206,6 +207,12 @@ const App = () => {
        <Route path="/farmerreviews" element={
           <Layout>
             <FarmerReviews />
+          </Layout>
+        }
+      />
+      <Route path="/harvestforecast" element={
+          <Layout>
+            <HarvestForecast />
           </Layout>
         }
       />
