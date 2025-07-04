@@ -58,14 +58,9 @@ const FarmerSignup = () => {
   // Organization committee form data
   const [orgFormData, setOrgFormData] = useState({
     organizationName: '',
-    registrationNumber: '',
-    chairpersonName: '',
-    chairpersonContact: '',
-    secretaryName: '',
-    secretaryContact: '',
-    treasurerName: '',
-    treasurerContact: '',
-    organizationAddress: '',
+    govijanasewaniladariname : '',
+    govijanasewaniladariContact: '',
+    letterofProof: null,
     establishedDate: '',
     memberCount: '',
     organizationDescription: ''
@@ -218,24 +213,15 @@ const FarmerSignup = () => {
 
     // Required organization fields
     if (!orgFormData.organizationName?.trim()) newErrors.organizationName = 'Organization name is required';
-    if (!orgFormData.registrationNumber?.trim()) newErrors.registrationNumber = 'Registration number is required';
-    if (!orgFormData.chairpersonName?.trim()) newErrors.chairpersonName = 'Chairperson name is required';
-    if (!orgFormData.chairpersonContact?.trim()) newErrors.chairpersonContact = 'Chairperson contact is required';
-    if (!orgFormData.secretaryName?.trim()) newErrors.secretaryName = 'Secretary name is required';
-    if (!orgFormData.secretaryContact?.trim()) newErrors.secretaryContact = 'Secretary contact is required';
-    if (!orgFormData.organizationAddress?.trim()) newErrors.organizationAddress = 'Organization address is required';
+    if (!orgFormData.govijanasewaniladariname?.trim()) newErrors.govijanasewaniladariname = 'Govijanasewa Niladari name is required';
+    if (!orgFormData.govijanasewaniladariContact?.trim()) newErrors.govijanasewaniladariContact = 'Govijanasewa Niladari contact is required';
+    if (!orgFormData.letterofProof) newErrors.letterofProof = 'Letter of proof is required';
     if (!orgFormData.establishedDate) newErrors.establishedDate = 'Established date is required';
 
     // Contact validation
     const phoneRegex = /^[0-9]{10}$/;
-    if (orgFormData.chairpersonContact && !phoneRegex.test(orgFormData.chairpersonContact)) {
-      newErrors.chairpersonContact = 'Please enter a valid 10-digit phone number';
-    }
-    if (orgFormData.secretaryContact && !phoneRegex.test(orgFormData.secretaryContact)) {
-      newErrors.secretaryContact = 'Please enter a valid 10-digit phone number';
-    }
-    if (orgFormData.treasurerContact && orgFormData.treasurerContact && !phoneRegex.test(orgFormData.treasurerContact)) {
-      newErrors.treasurerContact = 'Please enter a valid 10-digit phone number';
+    if (orgFormData.govijanasewaniladariContact && !phoneRegex.test(orgFormData.govijanasewaniladariContact)) {
+      newErrors.govijanasewaniladariContact = 'Please enter a valid 10-digit phone number';
     }
 
     // Member count validation
@@ -418,7 +404,7 @@ const FarmerSignup = () => {
     
     return (
       <div className="space-y-2">
-        <label className="flex items-center space-x-2 text-sm font-medium text-blue-800">
+        <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
           {icon && React.createElement(icon, { className: "w-4 h-4" })}
           <span>{label} {required && <span className="text-red-500">*</span>}</span>
         </label>
@@ -428,8 +414,8 @@ const FarmerSignup = () => {
             value={fieldValue}
             onChange={handleInputChange}
             rows={3}
-            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-none bg-slate-100 ${
-              orgErrors[name] ? 'border-red-500 bg-red-50' : 'border-blue-200 focus:border-blue-400'
+            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 resize-none bg-slate-100 ${
+              orgErrors[name] ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
             }`}
             {...props}
           />
@@ -440,8 +426,8 @@ const FarmerSignup = () => {
             value={fieldValue}
             onChange={handleInputChange}
             autoComplete="off"
-            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 bg-slate-100 ${
-              orgErrors[name] ? 'border-red-500 bg-red-50' : 'border-blue-200 focus:border-blue-400'
+            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${
+              orgErrors[name] ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
             }`}
             {...props}
           />
@@ -458,133 +444,103 @@ const FarmerSignup = () => {
 
   if (showOrgForm) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-green-50 to-purple-50 py-12 px-4">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center space-x-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center space-x-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Building2 className="w-4 h-4" />
               <span>Organization Committee Registration</span>
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-indigo-800 bg-clip-text text-transparent mb-4">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-800 to-green-800 bg-clip-text text-transparent mb-4">
               Register Organization Committee
             </h1>
-            <p className="text-blue-700 max-w-2xl mx-auto">
+            <p className="text-green-700 max-w-2xl mx-auto">
               Register your farmer organization committee to get a committee number for farmer registration.
             </p>
           </div>
 
           {/* Organization Form */}
-          <div className="bg-white rounded-2xl shadow-xl border border-blue-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6">
-              <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
-                <Users className="w-6 h-6" />
-                <span>Organization Details</span>
-              </h2>
-            </div>
+                <div className="bg-white rounded-2xl shadow-xl border border-green-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-green-500 to-green-600 p-6">
+                  <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
+                  <Users className="w-6 h-6" />
+                  <span>Organization Details</span>
+                  </h2>
+                </div>
 
-            <form onSubmit={handleOrgSubmit} className="p-8 space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={Building2}
-                  label="Organization Name"
-                  name="organizationName"
-                  required
-                  placeholder="Enter organization name"
-                />
-                <OrgInputField
+                <form onSubmit={handleOrgSubmit} className="p-8 space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                  <OrgInputField
+                    icon={Building2}
+                    label="Organization Name"
+                    name="organizationName"
+                    required
+                    placeholder="Enter organization name"
+                  />
+                  <OrgInputField
+                    icon={User}
+                    label="Govijanasewa Niladari Name"
+                    name="govijanasewaniladariname"
+                    required
+                    placeholder="Enter Govijanasewa Niladari name"
+                  />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                  <OrgInputField
+                    icon={Phone}
+                    label="Govijanasewa Niladari Contact"
+                    name="govijanasewaniladariContact"
+                    required
+                    placeholder="Enter 10-digit phone number"
+                  />
+                  <OrgInputField
+                    icon={FileText}
+                    label="Letter of Proof"
+                    name="letterofProof"
+                    type="file"
+                    required
+                    placeholder="Upload letter of proof"
+                    onChange={e => {
+                    const { name, files } = e.target;
+                    setOrgFormData(prev => ({
+                      ...prev,
+                      [name]: files ? files[0] : null
+                    }));
+                    if (orgErrors[name]) {
+                      setOrgErrors(prev => ({ ...prev, [name]: '' }));
+                    }
+                    }}
+                  />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                  <OrgInputField
+                    icon={Calendar}
+                    label="Established Date"
+                    name="establishedDate"
+                    type="date"
+                    required
+                  />
+                  <OrgInputField
+                    icon={Users}
+                    label="Member Count"
+                    name="memberCount"
+                    type="number"
+                    placeholder="Enter number of members"
+                  />
+                  </div>
+
+                  <OrgInputField
                   icon={FileText}
-                  label="Registration Number"
-                  name="registrationNumber"
-                  required
-                  placeholder="Enter registration number"
-                />
-              </div>
+                  label="Organization Description"
+                  name="organizationDescription"
+                  type="textarea"
+                  placeholder="Describe your organization's activities and goals"
+                  />
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={User}
-                  label="Chairperson Name"
-                  name="chairpersonName"
-                  required
-                  placeholder="Enter chairperson name"
-                />
-                <OrgInputField
-                  icon={Phone}
-                  label="Chairperson Contact"
-                  name="chairpersonContact"
-                  required
-                  placeholder="Enter 10-digit phone number"
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={User}
-                  label="Secretary Name"
-                  name="secretaryName"
-                  required
-                  placeholder="Enter secretary name"
-                />
-                <OrgInputField
-                  icon={Phone}
-                  label="Secretary Contact"
-                  name="secretaryContact"
-                  required
-                  placeholder="Enter 10-digit phone number"
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={User}
-                  label="Treasurer Name"
-                  name="treasurerName"
-                  placeholder="Enter treasurer name (optional)"
-                />
-                <OrgInputField
-                  icon={Phone}
-                  label="Treasurer Contact"
-                  name="treasurerContact"
-                  placeholder="Enter 10-digit phone number (optional)"
-                />
-              </div>
-
-              <OrgInputField
-                icon={Home}
-                label="Organization Address"
-                name="organizationAddress"
-                type="textarea"
-                required
-                placeholder="Enter complete organization address"
-              />
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={Calendar}
-                  label="Established Date"
-                  name="establishedDate"
-                  type="date"
-                  required
-                />
-                <OrgInputField
-                  icon={Users}
-                  label="Member Count"
-                  name="memberCount"
-                  type="number"
-                  placeholder="Enter number of members"
-                />
-              </div>
-
-              <OrgInputField
-                icon={FileText}
-                label="Organization Description"
-                name="organizationDescription"
-                type="textarea"
-                placeholder="Describe your organization's activities and goals"
-              />
-
-              {/* Action Buttons */}
+                  {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
                 <button
                   type="button"
@@ -597,7 +553,7 @@ const FarmerSignup = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-300 disabled:opacity-50"
                 >
                   {isLoading ? (
                     <>
