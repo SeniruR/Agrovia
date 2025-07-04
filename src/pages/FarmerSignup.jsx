@@ -20,13 +20,8 @@ import {
   Users,
   Sprout,
   Award,
-  BookOpen,
-  Tractor,
   Leaf,
-  DollarSign,
-  Clock,
-  Target,
-  TrendingUp
+  Clock
 } from 'lucide-react';
 
 const FarmerSignup = () => {
@@ -54,20 +49,10 @@ const FarmerSignup = () => {
     organizationCommitteeNumber: '',
     // New farmer-specific fields
     farmingExperience: '',
-    primaryCrops: '',
-    secondaryCrops: '',
-    farmingMethods: '',
+    cultivatedCrops: '',
     irrigationSystem: '',
     soilType: '',
-    farmingGoals: '',
-    annualIncome: '',
-    educationLevel: '',
-    farmingCertifications: '',
-    equipmentOwned: '',
-    marketingChannels: '',
-    challenges: '',
-    technologyUsage: '',
-    sustainabilityPractices: ''
+    farmingCertifications: ''
   });
 
   // Organization committee form data
@@ -107,16 +92,10 @@ const FarmerSignup = () => {
     'More than 20 years'
   ];
 
-  // Farming methods options
-  const farmingMethodsOptions = [
-    'Traditional/Conventional',
-    'Organic',
-    'Integrated Pest Management (IPM)',
-    'Precision Agriculture',
-    'Sustainable Agriculture',
-    'Hydroponic',
-    'Mixed Methods',
-    'Other'
+  // Cultivated crops options
+  const cultivatedCropsOptions = [
+    'Vegetables',
+    'Grains'
   ];
 
   // Irrigation system options
@@ -141,28 +120,6 @@ const FarmerSignup = () => {
     'Chalky',
     'Mixed',
     'Other'
-  ];
-
-  // Education level options
-  const educationOptions = [
-    'Primary Education',
-    'Secondary Education',
-    'Advanced Level',
-    'Diploma',
-    'Bachelor\'s Degree',
-    'Master\'s Degree',
-    'Agricultural Training Certificate',
-    'Other'
-  ];
-
-  // Annual income ranges
-  const incomeRanges = [
-    'Below Rs. 100,000',
-    'Rs. 100,000 - 300,000',
-    'Rs. 300,000 - 500,000',
-    'Rs. 500,000 - 1,000,000',
-    'Rs. 1,000,000 - 2,000,000',
-    'Above Rs. 2,000,000'
   ];
 
   
@@ -217,7 +174,7 @@ const FarmerSignup = () => {
     if (!formData.divisionGramasewaNumber?.trim()) newErrors.divisionGramasewaNumber = 'Division of Gramasewa Niladari is required';
     if (!formData.organizationCommitteeNumber?.trim()) newErrors.organizationCommitteeNumber = 'Organization committee number is required';
     if (!formData.farmingExperience) newErrors.farmingExperience = 'Farming experience is required';
-    if (!formData.primaryCrops?.trim()) newErrors.primaryCrops = 'Primary crops information is required';
+    if (!formData.cultivatedCrops) newErrors.cultivatedCrops = 'Cultivated crops information is required';
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -792,25 +749,10 @@ const FarmerSignup = () => {
               <div className="grid md:grid-cols-2 gap-6">
                 <InputField
                   icon={Leaf}
-                  label="Primary Crops (Except Fruits)"
-                  name="primaryCrops"
+                  label="Cultivated Crops"
+                  name="cultivatedCrops"
                   required
-                  placeholder="e.g., Rice, Tea, Coconut"
-                />
-                <InputField
-                  icon={Sprout}
-                  label="Secondary Crops (Except Fruits)"
-                  name="secondaryCrops"
-                  placeholder="e.g., Vegetables, Grains"
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Tractor}
-                  label="Farming Methods"
-                  name="farmingMethods"
-                  options={farmingMethodsOptions}
+                  options={cultivatedCropsOptions}
                 />
                 <InputField
                   icon={MapPin}
@@ -820,20 +762,12 @@ const FarmerSignup = () => {
                 />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Leaf}
-                  label="Soil Type"
-                  name="soilType"
-                  options={soilTypeOptions}
-                />
-                <InputField
-                  icon={DollarSign}
-                  label="Annual Income Range"
-                  name="annualIncome"
-                  options={incomeRanges}
-                />
-              </div>
+              <InputField
+                icon={Leaf}
+                label="Soil Type"
+                name="soilType"
+                options={soilTypeOptions}
+              />
 
               <InputField
                 icon={FileText}
@@ -847,60 +781,13 @@ const FarmerSignup = () => {
             {/* Professional Development Section */}
             <div className="space-y-6">
               <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                Professional Development & Resources
+                Professional Development
               </h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Award}
-                  label="Farming Certifications"
-                  name="farmingCertifications"
-                  placeholder="e.g., Organic certification, GAP certification"
-                />
-                <InputField
-                  icon={Tractor}
-                  label="Equipment Owned"
-                  name="equipmentOwned"
-                  placeholder="e.g., Tractor, Harvester, Irrigation equipment"
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={TrendingUp}
-                  label="Marketing Channels"
-                  name="marketingChannels"
-                  placeholder="e.g., Local markets, Cooperatives, Direct sales"
-                />
-                <InputField
-                  icon={Target}
-                  label="Technology Usage"
-                  name="technologyUsage"
-                  placeholder="e.g., Mobile apps, Weather monitoring, GPS"
-                />
-              </div>
-
               <InputField
-                icon={Target}
-                label="Farming Goals"
-                name="farmingGoals"
-                type="textarea"
-                placeholder="Describe your short-term and long-term farming goals"
-              />
-
-              <InputField
-                icon={Leaf}
-                label="Sustainability Practices"
-                name="sustainabilityPractices"
-                type="textarea"
-                placeholder="Describe any sustainable or eco-friendly practices you follow"
-              />
-
-              <InputField
-                icon={AlertCircle}
-                label="Current Challenges"
-                name="challenges"
-                type="textarea"
-                placeholder="What are the main challenges you face in farming?"
+                icon={Award}
+                label="Farming Certifications"
+                name="farmingCertifications"
+                placeholder="e.g., Organic certification, GAP certification"
               />
             </div>
 
