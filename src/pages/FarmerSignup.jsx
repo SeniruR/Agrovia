@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Select from 'react-select';
+import Select from 'react-select'; // Import react-select
 import {
   User,
   Mail,
@@ -29,6 +29,91 @@ import {
   TrendingUp
 } from 'lucide-react';
 
+// --- Helper Components (Defined Outside) ---
+
+const InputField = React.memo(({ icon, label, name, type = 'text', required = false, options = null, value, onChange, error, showPassword, onPasswordToggle, ...props }) => {
+    const baseClassName = `w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 border-green-200 focus:border-green-400`;
+
+    return (
+        <div className="space-y-2">
+            <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
+                {icon && React.createElement(icon, { className: "w-4 h-4" })}
+                <span>{label} {required && <span className="text-red-500">*</span>}</span>
+            </label>
+            {options ? (
+                <select name={name} value={value} onChange={onChange} className={baseClassName} {...props}>
+                    <option value="">Select {label}</option>
+                    {options.map(option =>
+                        typeof option === 'object' && option !== null
+                            ? <option key={option.value} value={option.value}>{option.label}</option>
+                            : <option key={option} value={option}>{option}</option>
+                    )}
+                </select>
+            ) : type === 'textarea' ? (
+                <textarea name={name} value={value} onChange={onChange} rows={4} className={`${baseClassName} resize-none`} {...props} />
+            ) : type === 'file' ? (
+                <div className="relative">
+                    <input type="file" name={name} onChange={onChange} accept="image/*" className="hidden" id={name} {...props} />
+                    <label htmlFor={name} className={`${baseClassName.replace('rounded-xl', 'border-dashed rounded-xl')} cursor-pointer flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-green-50`}>
+                        <Camera className="w-5 h-5 text-green-600" />
+                        <span className="text-green-700">{value ? value.name : `Choose profile image`}</span>
+                    </label>
+                </div>
+            ) : (
+                <div className="relative">
+                    <input
+                        type={type === 'password' ? (showPassword ? 'text' : 'password') : type}
+                        name={name}
+                        value={value}
+                        onChange={onChange}
+                        autoComplete={type === 'password' ? 'new-password' : 'off'}
+                        className={`${baseClassName} ${type === 'password' ? 'pr-12' : ''}`}
+                        {...props}
+                    />
+                    {type === 'password' && (
+                        <button type="button" onClick={onPasswordToggle} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-600 hover:text-green-800">
+                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                    )}
+                </div>
+            )}
+            {error && (
+                <div className="flex items-center space-x-1 text-red-500 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{error}</span>
+                </div>
+            )}
+        </div>
+    );
+});
+
+const OrgInputField = React.memo(({ icon, label, name, type = 'text', required = false, value, onChange, error, ...props }) => {
+    const baseClassName = `w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 bg-slate-100 border-blue-200 focus:border-blue-400`;
+
+    return (
+        <div className="space-y-2">
+            <label className="flex items-center space-x-2 text-sm font-medium text-blue-800">
+                {icon && React.createElement(icon, { className: "w-4 h-4" })}
+                <span>{label} {required && <span className="text-red-500">*</span>}</span>
+            </label>
+            {type === 'textarea' ? (
+                <textarea name={name} value={value} onChange={onChange} rows={3} className={`${baseClassName} resize-none`} {...props} />
+            ) : (
+                <input type={type} name={name} value={value} onChange={onChange} autoComplete="off" className={baseClassName} {...props} />
+            )}
+            {error && (
+                <div className="flex items-center space-x-1 text-red-500 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{error}</span>
+                </div>
+            )}
+        </div>
+    );
+});
+
+
+// --- Main FarmerSignup Component ---
+
 const FarmerSignup = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -36,267 +121,115 @@ const FarmerSignup = () => {
   const [showOrgForm, setShowOrgForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Main farmer form data
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    district: '',
-    landSize: '',
-    nic: '',
-    birthDate: '',
-    address: '',
-    phoneNumber: '',
-    description: '',
-    profileImage: null,
-    password: '',
-    confirmPassword: '',
-    divisionGramasewaNumber: '',
-    organizationCommitteeNumber: '',
-    // New farmer-specific fields
-    farmingExperience: '',
-    primaryCrops: '',
-    secondaryCrops: '',
-    farmingMethods: '',
-    irrigationSystem: '',
-    soilType: '',
-    farmingGoals: '',
-    annualIncome: '',
-    educationLevel: '',
-    farmingCertifications: '',
-    equipmentOwned: '',
-    marketingChannels: '',
-    challenges: '',
-    technologyUsage: '',
-    sustainabilityPractices: ''
+    fullName: '', email: '', district: '', landSize: '', nic: '', birthDate: '',
+    address: '', phoneNumber: '', description: '', profileImage: null, password: '',
+    confirmPassword: '', divisionGramasewaNumber: '', organizationCommitteeNumber: '',
+    farmingExperience: '', primaryCrops: '', secondaryCrops: '', farmingMethods: '',
+    irrigationSystem: '', soilType: '', farmingGoals: '', annualIncome: '',
+    educationLevel: '', farmingCertifications: '', equipmentOwned: '',
+    marketingChannels: '', challenges: '', technologyUsage: '', sustainabilityPractices: ''
   });
 
-  // Organization committee form data
   const [orgFormData, setOrgFormData] = useState({
-    organizationName: '',
-    registrationNumber: '',
-    chairpersonName: '',
-    chairpersonContact: '',
-    secretaryName: '',
-    secretaryContact: '',
-    treasurerName: '',
-    treasurerContact: '',
-    organizationAddress: '',
-    establishedDate: '',
-    memberCount: '',
-    organizationDescription: ''
+    organizationName: '', registrationNumber: '', chairpersonName: '',
+    chairpersonContact: '', secretaryName: '', secretaryContact: '',
+    treasurerName: '', treasurerContact: '', organizationAddress: '',
+    establishedDate: '', memberCount: '', organizationDescription: ''
   });
 
   const [errors, setErrors] = useState({});
   const [orgErrors, setOrgErrors] = useState({});
 
-  // Sri Lankan districts
-  const districts = [
-    'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 'Galle', 'Gampaha',
-    'Hambantota', 'Jaffna', 'Kalutara', 'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala',
-    'Mannar', 'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya', 'Polonnaruwa',
-    'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
-  ];
-
-  // Farming experience options
-  const experienceOptions = [
-    'Less than 1 year',
-    '1-3 years',
-    '3-5 years',
-    '5-10 years',
-    '10-20 years',
-    'More than 20 years'
-  ];
-
-  // Farming methods options
-  const farmingMethodsOptions = [
-    'Traditional/Conventional',
-    'Organic',
-    'Integrated Pest Management (IPM)',
-    'Precision Agriculture',
-    'Sustainable Agriculture',
-    'Hydroponic',
-    'Mixed Methods',
-    'Other'
-  ];
-
-  // Irrigation system options
-  const irrigationOptions = [
-    'Rain-fed',
-    'Drip Irrigation',
-    'Sprinkler System',
-    'Flood Irrigation',
-    'Canal Irrigation',
-    'Well Water',
-    'Mixed Systems',
-    'Other'
-  ];
-
-  // Soil type options
-  const soilTypeOptions = [
-    'Clay',
-    'Sandy',
-    'Loamy',
-    'Silt',
-    'Peaty',
-    'Chalky',
-    'Mixed',
-    'Other'
-  ];
-
-  // Education level options
-  const educationOptions = [
-    'Primary Education',
-    'Secondary Education',
-    'Advanced Level',
-    'Diploma',
-    'Bachelor\'s Degree',
-    'Master\'s Degree',
-    'Agricultural Training Certificate',
-    'Other'
-  ];
-
-  // Annual income ranges
-  const incomeRanges = [
-    'Below Rs. 100,000',
-    'Rs. 100,000 - 300,000',
-    'Rs. 300,000 - 500,000',
-    'Rs. 500,000 - 1,000,000',
-    'Rs. 1,000,000 - 2,000,000',
-    'Above Rs. 2,000,000'
-  ];
-
-  
+  // --- Static Data Arrays ---
+  const districts = ['Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara', 'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar', 'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya', 'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'];
+  const experienceOptions = ['Less than 1 year', '1-3 years', '3-5 years', '5-10 years', '10-20 years', 'More than 20 years'];
+  const farmingMethodsOptions = ['Traditional/Conventional', 'Organic', 'Integrated Pest Management (IPM)', 'Precision Agriculture', 'Sustainable Agriculture', 'Hydroponic', 'Mixed Methods', 'Other'];
+  const irrigationOptions = ['Rain-fed', 'Drip Irrigation', 'Sprinkler System', 'Flood Irrigation', 'Canal Irrigation', 'Well Water', 'Mixed Systems', 'Other'];
+  const soilTypeOptions = ['Clay', 'Sandy', 'Loamy', 'Silt', 'Peaty', 'Chalky', 'Mixed', 'Other'];
+  const educationOptions = ['Primary Education', 'Secondary Education', 'Advanced Level', 'Diploma', 'Bachelor\'s Degree', 'Master\'s Degree', 'Agricultural Training Certificate', 'Other'];
+  const incomeRanges = ['Below Rs. 100,000', 'Rs. 100,000 - 300,000', 'Rs. 300,000 - 500,000', 'Rs. 500,000 - 1,000,000', 'Rs. 1,000,000 - 2,000,000', 'Above Rs. 2,000,000'];
   const gramasewaDivisions = [
-    { value: 'Colombo 01', label: 'Colombo 01' },
+    { value: 'Colombo 01', label: 'Colombo 01 - Fort' },
+    { value: 'Colombo 02', label: 'Colombo 02 - Slave Island' },
+    { value: 'Colombo 03', label: 'Colombo 03 - Kollupitiya' },
     { value: 'Kaduwela', label: 'Kaduwela' },
     { value: 'Maharagama', label: 'Maharagama' },
+    { value: 'Homagama', label: 'Homagama' },
     { value: 'Gampaha', label: 'Gampaha' },
     { value: 'Negombo', label: 'Negombo' },
-  // Add more divisions as needed
+    { value: 'Wattala', label: 'Wattala' },
+    { value: 'Ja-Ela', label: 'Ja-Ela' },
   ];
 
-
+  // --- Handlers ---
   const handleInputChange = useCallback((e) => {
-  const { name, value, files } = e.target;
+    const { name, value, files } = e.target;
+    setFormData(prev => ({ ...prev, [name]: files ? files[0] : value }));
+  }, []);
 
-  setFormData(prev => ({
-    ...prev,
-    [name]: files ? files[0] : value
-  }));
-
-  if (errors[name]) {
-    setErrors(prev => ({ ...prev, [name]: '' }));
-  }
-}, [errors]);
-
+  const handleSelectChange = useCallback((selectedOption, actionMeta) => {
+      setFormData(prev => ({
+          ...prev,
+          [actionMeta.name]: selectedOption ? selectedOption.value : ''
+      }));
+  }, []);
 
   const handleOrgInputChange = useCallback((e) => {
     const { name, value } = e.target;
-    
-    setOrgFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setOrgFormData(prev => ({ ...prev, [name]: value }));
+  }, []);
 
-    if (orgErrors[name]) {
-      setOrgErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  }, [orgErrors]);
-
+  // --- Validation ---
   const validateForm = () => {
     const newErrors = {};
-
-    // Required field validations
-    if (!formData.fullName?.trim()) newErrors.fullName = 'Full name is required';
-    if (!formData.email?.trim()) newErrors.email = 'Email is required';
+    if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
+    if (!formData.email.trim()) newErrors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Please enter a valid email address';
     if (!formData.district) newErrors.district = 'District is required';
-    if (!formData.nic?.trim()) newErrors.nic = 'NIC is required';
-    if (!formData.phoneNumber?.trim()) newErrors.phoneNumber = 'Phone number is required';
+    if (!formData.nic.trim()) newErrors.nic = 'NIC is required';
+    else if (!/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/.test(formData.nic)) newErrors.nic = 'Please enter a valid NIC number';
+    if (!formData.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required';
+    else if (!/^[0-9]{10}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
     if (!formData.password) newErrors.password = 'Password is required';
-    if (!formData.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
-    if (!formData.divisionGramasewaNumber?.trim()) newErrors.divisionGramasewaNumber = 'Division of Gramasewa Niladari is required';
-    if (!formData.organizationCommitteeNumber?.trim()) newErrors.organizationCommitteeNumber = 'Organization committee number is required';
+    else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
+    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+    if (!formData.divisionGramasewaNumber) newErrors.divisionGramasewaNumber = 'Division of Gramasewa Niladari is required';
+    if (!formData.organizationCommitteeNumber.trim()) newErrors.organizationCommitteeNumber = 'Organization committee number is required';
     if (!formData.farmingExperience) newErrors.farmingExperience = 'Farming experience is required';
-    if (!formData.primaryCrops?.trim()) newErrors.primaryCrops = 'Primary crops information is required';
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (formData.email && !emailRegex.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    // NIC validation (Sri Lankan format)
-    const nicRegex = /^([0-9]{9}[x|X|v|V]|[0-9]{12})$/;
-    if (formData.nic && !nicRegex.test(formData.nic)) {
-      newErrors.nic = 'Please enter a valid NIC number';
-    }
-
-    // Phone number validation
-    const phoneRegex = /^[0-9]{10}$/;
-    if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
-    }
-
-    // Password validation
-    if (formData.password && formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters long';
-    }
-
-    // Confirm password validation
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    // Land size validation (if provided)
-    if (formData.landSize && (isNaN(formData.landSize) || parseFloat(formData.landSize) <= 0)) {
-      newErrors.landSize = 'Please enter a valid land size';
-    }
-
+    if (!formData.primaryCrops.trim()) newErrors.primaryCrops = 'Primary crops information is required';
+    if (formData.landSize && (isNaN(formData.landSize) || parseFloat(formData.landSize) <= 0)) newErrors.landSize = 'Please enter a valid land size';
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validateOrgForm = () => {
     const newErrors = {};
-
-    // Required organization fields
-    if (!orgFormData.organizationName?.trim()) newErrors.organizationName = 'Organization name is required';
-    if (!orgFormData.registrationNumber?.trim()) newErrors.registrationNumber = 'Registration number is required';
-    if (!orgFormData.chairpersonName?.trim()) newErrors.chairpersonName = 'Chairperson name is required';
-    if (!orgFormData.chairpersonContact?.trim()) newErrors.chairpersonContact = 'Chairperson contact is required';
-    if (!orgFormData.secretaryName?.trim()) newErrors.secretaryName = 'Secretary name is required';
-    if (!orgFormData.secretaryContact?.trim()) newErrors.secretaryContact = 'Secretary contact is required';
-    if (!orgFormData.organizationAddress?.trim()) newErrors.organizationAddress = 'Organization address is required';
-    if (!orgFormData.establishedDate) newErrors.establishedDate = 'Established date is required';
-
-    // Contact validation
     const phoneRegex = /^[0-9]{10}$/;
-    if (orgFormData.chairpersonContact && !phoneRegex.test(orgFormData.chairpersonContact)) {
-      newErrors.chairpersonContact = 'Please enter a valid 10-digit phone number';
-    }
-    if (orgFormData.secretaryContact && !phoneRegex.test(orgFormData.secretaryContact)) {
-      newErrors.secretaryContact = 'Please enter a valid 10-digit phone number';
-    }
-    if (orgFormData.treasurerContact && orgFormData.treasurerContact && !phoneRegex.test(orgFormData.treasurerContact)) {
-      newErrors.treasurerContact = 'Please enter a valid 10-digit phone number';
-    }
-
-    // Member count validation
-    if (orgFormData.memberCount && (isNaN(orgFormData.memberCount) || parseInt(orgFormData.memberCount) <= 0)) {
-      newErrors.memberCount = 'Please enter a valid member count';
-    }
-
+    if (!orgFormData.organizationName.trim()) newErrors.organizationName = 'Organization name is required';
+    if (!orgFormData.registrationNumber.trim()) newErrors.registrationNumber = 'Registration number is required';
+    if (!orgFormData.chairpersonName.trim()) newErrors.chairpersonName = 'Chairperson name is required';
+    if (!orgFormData.chairpersonContact.trim()) newErrors.chairpersonContact = 'Chairperson contact is required';
+    else if (!phoneRegex.test(orgFormData.chairpersonContact)) newErrors.chairpersonContact = 'Please enter a valid 10-digit phone number';
+    if (!orgFormData.secretaryName.trim()) newErrors.secretaryName = 'Secretary name is required';
+    if (!orgFormData.secretaryContact.trim()) newErrors.secretaryContact = 'Secretary contact is required';
+    else if (!phoneRegex.test(orgFormData.secretaryContact)) newErrors.secretaryContact = 'Please enter a valid 10-digit phone number';
+    if (orgFormData.treasurerContact && !phoneRegex.test(orgFormData.treasurerContact)) newErrors.treasurerContact = 'Please enter a valid 10-digit phone number';
+    if (!orgFormData.organizationAddress.trim()) newErrors.organizationAddress = 'Organization address is required';
+    if (!orgFormData.establishedDate) newErrors.establishedDate = 'Established date is required';
+    if (orgFormData.memberCount && (isNaN(orgFormData.memberCount) || parseInt(orgFormData.memberCount) <= 0)) newErrors.memberCount = 'Please enter a valid member count';
+    
     setOrgErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // --- Submissions ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-
     setIsLoading(true);
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
       console.log('Farmer registration data:', formData);
       alert('Farmer registration successful!');
@@ -312,17 +245,12 @@ const FarmerSignup = () => {
   const handleOrgSubmit = async (e) => {
     e.preventDefault();
     if (!validateOrgForm()) return;
-
     setIsLoading(true);
     try {
-      // Simulate API call for organization registration
       await new Promise(resolve => setTimeout(resolve, 2000));
       console.log('Organization registration data:', orgFormData);
-      
-      // Generate a mock committee number
       const newCommitteeNumber = `ORG${Date.now()}`;
       setFormData(prev => ({ ...prev, organizationCommitteeNumber: newCommitteeNumber }));
-      
       alert(`Organization registered successfully! Your committee number is: ${newCommitteeNumber}`);
       setShowOrgForm(false);
     } catch (error) {
@@ -333,326 +261,60 @@ const FarmerSignup = () => {
     }
   };
 
-  const InputField = React.memo(({ icon, label, name, type = 'text', required = false, options = null, ...props }) => {
-    const fieldValue = formData[name] || '';
-    
-    return (
-      <div className="space-y-2">
-        <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
-          {icon && React.createElement(icon, { className: "w-4 h-4" })}
-          <span>{label} {required && <span className="text-red-500">*</span>}</span>
-        </label>
-        {options && props.isSearchable ? (
-          <Select
-            name={name}
-            value={options.find(opt => opt.value === fieldValue) || null}
-            onChange={selected => handleInputChange({ target: { name, value: selected ? selected.value : '' } })}
-            options={options}
-            placeholder={`Search ${label}`}
-            classNamePrefix="react-select"
-            isSearchable
-            styles={{
-              control: (base, state) => ({
-                ...base,
-                borderColor: errors[name] ? '#ef4444' : '#bbf7d0',
-                backgroundColor: errors[name] ? '#fef2f2' : '#f1f5f9',
-                borderRadius: '0.75rem',
-                minHeight: '48px',
-                boxShadow: state.isFocused ? '0 0 0 2px #22c55e' : undefined,
-              }),
-            }}
-          />
-        ) : options ? (
-          <select
-            name={name}
-            value={fieldValue}
-            onChange={handleInputChange}
-            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${
-              errors[name] ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
-            }`}
-            {...props}
-          >
-            <option value="">Select {label}</option>
-            {options.map(option =>
-              typeof option === 'object' && option !== null
-                ? (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                )
-                : (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                )
-            )}
-          </select>
-        ) : type === 'textarea' ? (
-          <textarea
-            name={name}
-            value={fieldValue}
-            onChange={handleInputChange}
-            rows={4}
-            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 resize-none bg-slate-100 ${
-              errors[name] ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
-            }`}
-            {...props}
-          />
-        ) : type === 'file' ? (
-          <div className="relative">
-            <input
-              type="file"
-              name={name}
-              onChange={handleInputChange}
-              accept="image/*"
-              className="hidden"
-              id={name}
-              // value={fieldValue}  // Removed value prop for file input
-              {...props}
-            />
-            <label
-              htmlFor={name}
-              className={`w-full px-4 py-3 border-2 border-dashed rounded-xl cursor-pointer flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-green-50 bg-slate-100 ${
-                errors[name] ? 'border-red-500 bg-red-50' : 'border-green-300 hover:border-green-400'
-              }`}
-            >
-              <Camera className="w-5 h-5 text-green-600" />
-              <span className="text-green-700">
-                {formData[name] ? formData[name].name : 'Choose profile image'}
-              </span>
-            </label>
-          </div>
-        ) : (
-          <div className="relative">
-            <input
-              type={type === 'password' ? (name === 'password' ? (showPassword ? 'text' : 'password') : (showConfirmPassword ? 'text' : 'password')) : type}
-              name={name}
-              value={fieldValue}
-              onChange={handleInputChange}
-              autoComplete={type === 'password' ? 'new-password' : 'off'}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${
-                type === 'password' ? 'pr-12' : ''
-              } ${errors[name] ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'}`}
-              {...props}
-            />
-            {type === 'password' && (
-              <button
-                type="button"
-                onClick={() => name === 'password' ? setShowPassword(!showPassword) : setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-600 hover:text-green-800"
-              >
-                {(name === 'password' ? showPassword : showConfirmPassword) ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            )}
-          </div>
-        )}
-        {errors[name] && (
-          <div className="flex items-center space-x-1 text-red-500 text-sm">
-            <AlertCircle className="w-4 h-4" />
-            <span>{errors[name]}</span>
-          </div>
-        )}
-      </div>
-    );
-  });
-
-  const OrgInputField = React.memo(({ icon, label, name, type = 'text', required = false, ...props }) => {
-    const fieldValue = orgFormData[name] || '';
-    
-    return (
-      <div className="space-y-2">
-        <label className="flex items-center space-x-2 text-sm font-medium text-blue-800">
-          {icon && React.createElement(icon, { className: "w-4 h-4" })}
-          <span>{label} {required && <span className="text-red-500">*</span>}</span>
-        </label>
-        {type === 'textarea' ? (
-          <textarea
-            name={name}
-            value={fieldValue}
-            onChange={handleInputChange}
-            rows={3}
-            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-none bg-slate-100 ${
-              orgErrors[name] ? 'border-red-500 bg-red-50' : 'border-blue-200 focus:border-blue-400'
-            }`}
-            {...props}
-          />
-        ) : (
-          <input
-            type={type}
-            name={name}
-            value={fieldValue}
-            onChange={handleInputChange}
-            autoComplete="off"
-            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 bg-slate-100 ${
-              orgErrors[name] ? 'border-red-500 bg-red-50' : 'border-blue-200 focus:border-blue-400'
-            }`}
-            {...props}
-          />
-        )}
-        {orgErrors[name] && (
-          <div className="flex items-center space-x-1 text-red-500 text-sm">
-            <AlertCircle className="w-4 h-4" />
-            <span>{orgErrors[name]}</span>
-          </div>
-        )}
-      </div>
-    );
-  });
+  // Custom styles for react-select
+  const selectCustomStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      minHeight: '48px',
+      backgroundColor: '#f1f5f9',
+      border: state.isFocused ? '2px solid #22c55e' : '2px solid #bbf7d0',
+      borderRadius: '0.75rem',
+      boxShadow: state.isFocused ? '0 0 0 2px #22c55e' : 'none',
+      '&:hover': {
+        borderColor: '#4ade80',
+      }
+    }),
+    placeholder: (provided) => ({ ...provided, color: '#64748b' }),
+    singleValue: (provided) => ({ ...provided, color: '#1e293b' })
+  };
+  
+  // --- Render Logic ---
 
   if (showOrgForm) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4">
         <div className="max-w-6xl mx-auto">
-          {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center space-x-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <Building2 className="w-4 h-4" />
-              <span>Organization Committee Registration</span>
-            </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-indigo-800 bg-clip-text text-transparent mb-4">
-              Register Organization Committee
-            </h1>
-            <p className="text-blue-700 max-w-2xl mx-auto">
-              Register your farmer organization committee to get a committee number for farmer registration.
-            </p>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-indigo-800 bg-clip-text text-transparent mb-4">Register Organization Committee</h1>
+            <p className="text-blue-700 max-w-2xl mx-auto">Register your farmer organization to get a committee number for farmer registration.</p>
           </div>
-
-          {/* Organization Form */}
           <div className="bg-white rounded-2xl shadow-xl border border-blue-200 overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6">
-              <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
-                <Users className="w-6 h-6" />
-                <span>Organization Details</span>
-              </h2>
+              <h2 className="text-2xl font-bold text-white flex items-center space-x-2"><Users className="w-6 h-6" /><span>Organization Details</span></h2>
             </div>
-
             <form onSubmit={handleOrgSubmit} className="p-8 space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={Building2}
-                  label="Organization Name"
-                  name="organizationName"
-                  required
-                  placeholder="Enter organization name"
-                />
-                <OrgInputField
-                  icon={FileText}
-                  label="Registration Number"
-                  name="registrationNumber"
-                  required
-                  placeholder="Enter registration number"
-                />
+                 <OrgInputField icon={Building2} label="Organization Name" name="organizationName" required placeholder="Enter organization name" value={orgFormData.organizationName} onChange={handleOrgInputChange} error={orgErrors.organizationName} />
+                 <OrgInputField icon={FileText} label="Registration Number" name="registrationNumber" required placeholder="Enter registration number" value={orgFormData.registrationNumber} onChange={handleOrgInputChange} error={orgErrors.registrationNumber} />
+                 <OrgInputField icon={User} label="Chairperson Name" name="chairpersonName" required placeholder="Enter chairperson name" value={orgFormData.chairpersonName} onChange={handleOrgInputChange} error={orgErrors.chairpersonName} />
+                 <OrgInputField icon={Phone} label="Chairperson Contact" name="chairpersonContact" required placeholder="Enter 10-digit phone number" value={orgFormData.chairpersonContact} onChange={handleOrgInputChange} error={orgErrors.chairpersonContact} />
+                 <OrgInputField icon={User} label="Secretary Name" name="secretaryName" required placeholder="Enter secretary name" value={orgFormData.secretaryName} onChange={handleOrgInputChange} error={orgErrors.secretaryName} />
+                 <OrgInputField icon={Phone} label="Secretary Contact" name="secretaryContact" required placeholder="Enter 10-digit phone number" value={orgFormData.secretaryContact} onChange={handleOrgInputChange} error={orgErrors.secretaryContact} />
+                 <OrgInputField icon={User} label="Treasurer Name" name="treasurerName" placeholder="Enter treasurer name (optional)" value={orgFormData.treasurerName} onChange={handleOrgInputChange} error={orgErrors.treasurerName} />
+                 <OrgInputField icon={Phone} label="Treasurer Contact" name="treasurerContact" placeholder="Enter 10-digit phone number (optional)" value={orgFormData.treasurerContact} onChange={handleOrgInputChange} error={orgErrors.treasurerContact} />
               </div>
-
+              <OrgInputField icon={Home} label="Organization Address" name="organizationAddress" type="textarea" required placeholder="Enter complete organization address" value={orgFormData.organizationAddress} onChange={handleOrgInputChange} error={orgErrors.organizationAddress} />
               <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={User}
-                  label="Chairperson Name"
-                  name="chairpersonName"
-                  required
-                  placeholder="Enter chairperson name"
-                />
-                <OrgInputField
-                  icon={Phone}
-                  label="Chairperson Contact"
-                  name="chairpersonContact"
-                  required
-                  placeholder="Enter 10-digit phone number"
-                />
+                <OrgInputField icon={Calendar} label="Established Date" name="establishedDate" type="date" required value={orgFormData.establishedDate} onChange={handleOrgInputChange} error={orgErrors.establishedDate} />
+                <OrgInputField icon={Users} label="Member Count" name="memberCount" type="number" placeholder="Enter number of members" value={orgFormData.memberCount} onChange={handleOrgInputChange} error={orgErrors.memberCount} />
               </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={User}
-                  label="Secretary Name"
-                  name="secretaryName"
-                  required
-                  placeholder="Enter secretary name"
-                />
-                <OrgInputField
-                  icon={Phone}
-                  label="Secretary Contact"
-                  name="secretaryContact"
-                  required
-                  placeholder="Enter 10-digit phone number"
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={User}
-                  label="Treasurer Name"
-                  name="treasurerName"
-                  placeholder="Enter treasurer name (optional)"
-                />
-                <OrgInputField
-                  icon={Phone}
-                  label="Treasurer Contact"
-                  name="treasurerContact"
-                  placeholder="Enter 10-digit phone number (optional)"
-                />
-              </div>
-
-              <OrgInputField
-                icon={Home}
-                label="Organization Address"
-                name="organizationAddress"
-                type="textarea"
-                required
-                placeholder="Enter complete organization address"
-              />
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <OrgInputField
-                  icon={Calendar}
-                  label="Established Date"
-                  name="establishedDate"
-                  type="date"
-                  required
-                />
-                <OrgInputField
-                  icon={Users}
-                  label="Member Count"
-                  name="memberCount"
-                  type="number"
-                  placeholder="Enter number of members"
-                />
-              </div>
-
-              <OrgInputField
-                icon={FileText}
-                label="Organization Description"
-                name="organizationDescription"
-                type="textarea"
-                placeholder="Describe your organization's activities and goals"
-              />
-
-              {/* Action Buttons */}
+              <OrgInputField icon={FileText} label="Organization Description" name="organizationDescription" type="textarea" placeholder="Describe your organization's activities and goals" value={orgFormData.organizationDescription} onChange={handleOrgInputChange} error={orgErrors.organizationDescription} />
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowOrgForm(false)}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                  <span>Back to Farmer Registration</span>
+                <button type="button" onClick={() => setShowOrgForm(false)} className="flex items-center justify-center space-x-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all">
+                  <ArrowLeft className="w-5 h-5" /><span>Back to Farmer Registration</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 disabled:opacity-50"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Registering Organization...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-5 h-5" />
-                      <span>Register Organization</span>
-                    </>
-                  )}
+                <button type="submit" disabled={isLoading} className="flex-1 flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50">
+                  {isLoading ? (<><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Registering...</span></>) : (<><Check className="w-5 h-5" /><span>Register Organization</span></>)}
                 </button>
               </div>
             </form>
@@ -665,323 +327,103 @@ const FarmerSignup = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-12 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
-          <button
-            onClick={() => navigate('/signup')}
-            className="inline-flex bg-green-100 items-center space-x-2 text-green-600 px-4 py-2 rounded-full text-sm hover:text-green-800 mb-4 transition-colors duration-300"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Role Selection</span>
+          <button onClick={() => navigate('/signup')} className="inline-flex bg-green-100 items-center space-x-2 text-green-600 px-4 py-2 rounded-full text-sm hover:text-green-800 mb-4 transition-colors">
+            <ArrowLeft className="w-4 h-4" /><span>Back to Role Selection</span>
           </button>
-          <div className="inline-flex items-center space-x-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
-            <Sprout className="w-4 h-4" />
-            <span>Farmer Registration</span>
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-800 to-emerald-800 bg-clip-text text-transparent mb-4">
-            Join as a Farmer
-          </h1>
-          <p className="text-green-700 max-w-2xl mx-auto">
-            Create your farmer account to access AI-powered farming solutions, crop planning, and marketplace features.
-          </p>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-800 to-emerald-800 bg-clip-text text-transparent mb-4">Join as a Farmer</h1>
+          <p className="text-green-700 max-w-2xl mx-auto">Create your farmer account to access AI-powered farming solutions, crop planning, and marketplace features.</p>
         </div>
-
-        {/* Main Form */}
         <div className="bg-white rounded-2xl shadow-xl border border-green-200 overflow-hidden">
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
-            <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
-              <User className="w-6 h-6" />
-              <span>Farmer Registration Form</span>
-            </h2>
+            <h2 className="text-2xl font-bold text-white flex items-center space-x-2"><User className="w-6 h-6" /><span>Farmer Registration Form</span></h2>
           </div>
-
           <form onSubmit={handleSubmit} className="p-8 space-y-8">
-            {/* Personal Details Section */}
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                Personal Information
-              </h3>
+              <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Personal Information</h3>
               <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={User}
-                  label="Full Name"
-                  name="fullName"
-                  onChange={handleInputChange}
-                  type="text"
-                  required
-                  placeholder="Enter your full name"
-                />
-                <InputField
-                  icon={Mail}
-                  label="Email Address"
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="Enter your email address"
-                />
+                <InputField icon={User} label="Full Name" name="fullName" required placeholder="Enter your full name" value={formData.fullName} onChange={handleInputChange} error={errors.fullName} />
+                <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} onChange={handleInputChange} error={errors.email} />
+                <InputField icon={MapPin} label="District" name="district" required options={districts} value={formData.district} onChange={handleInputChange} error={errors.district} />
+                <InputField icon={FileText} label="NIC Number" name="nic" required placeholder="Enter NIC number" value={formData.nic} onChange={handleInputChange} error={errors.nic} />
+                <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} onChange={handleInputChange} error={errors.phoneNumber} />
               </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={MapPin}
-                  label="District"
-                  name="district"
-                  required
-                  options={districts}
-                />
-                <InputField
-                  icon={FileText}
-                  label="NIC Number"
-                  name="nic"
-                  required
-                  placeholder="Enter NIC number"
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Phone}
-                  label="Phone Number"
-                  name="phoneNumber"
-                  required
-                  placeholder="Enter 10-digit phone number"
-                />
-              </div>
-
-              <InputField
-                icon={Home}
-                label="Address"
-                name="address"
-                type="textarea"
-                placeholder="Enter your complete address"
-              />
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Camera}
-                  label="Profile Image"
-                  name="profileImage"
-                  type="file"
-                />
-              </div>
+              <InputField icon={Home} label="Address" name="address" type="textarea" placeholder="Enter your complete address" value={formData.address} onChange={handleInputChange} error={errors.address} />
+              <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} onChange={handleInputChange} error={errors.profileImage} />
             </div>
 
-            {/* Farming Experience Section */}
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                Farming Experience & Background
-              </h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Clock}
-                  label="Farming Experience"
-                  name="farmingExperience"
-                  required
-                  options={experienceOptions}
-                />
-                <InputField
-                  icon={Sprout}
-                  label="Land Size (acres)"
-                  name="landSize"
-                  type="number"
-                  step="0.01"
-                  placeholder="Enter land size in acres"
-                />
+              <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Farming Experience & Background</h3>
+               <div className="grid md:grid-cols-2 gap-6">
+                <InputField icon={Clock} label="Farming Experience" name="farmingExperience" required options={experienceOptions} value={formData.farmingExperience} onChange={handleInputChange} error={errors.farmingExperience} />
+                <InputField icon={Sprout} label="Land Size (acres)" name="landSize" type="number" step="0.01" placeholder="Enter land size in acres" value={formData.landSize} onChange={handleInputChange} error={errors.landSize} />
+                <InputField icon={Leaf} label="Primary Crops (Except Fruits)" name="primaryCrops" required placeholder="e.g., Rice, Tea, Coconut" value={formData.primaryCrops} onChange={handleInputChange} error={errors.primaryCrops} />
+                <InputField icon={Sprout} label="Secondary Crops (Except Fruits)" name="secondaryCrops" placeholder="e.g., Vegetables, Grains" value={formData.secondaryCrops} onChange={handleInputChange} error={errors.secondaryCrops} />
+                <InputField icon={Tractor} label="Farming Methods" name="farmingMethods" options={farmingMethodsOptions} value={formData.farmingMethods} onChange={handleInputChange} error={errors.farmingMethods} />
+                <InputField icon={MapPin} label="Irrigation System" name="irrigationSystem" options={irrigationOptions} value={formData.irrigationSystem} onChange={handleInputChange} error={errors.irrigationSystem} />
+                <InputField icon={Leaf} label="Soil Type" name="soilType" options={soilTypeOptions} value={formData.soilType} onChange={handleInputChange} error={errors.soilType} />
+                <InputField icon={DollarSign} label="Annual Income Range" name="annualIncome" options={incomeRanges} value={formData.annualIncome} onChange={handleInputChange} error={errors.annualIncome} />
               </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Leaf}
-                  label="Primary Crops (Except Fruits)"
-                  name="primaryCrops"
-                  required
-                  placeholder="e.g., Rice, Tea, Coconut"
-                />
-                <InputField
-                  icon={Sprout}
-                  label="Secondary Crops (Except Fruits)"
-                  name="secondaryCrops"
-                  placeholder="e.g., Vegetables, Grains"
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Tractor}
-                  label="Farming Methods"
-                  name="farmingMethods"
-                  options={farmingMethodsOptions}
-                />
-                <InputField
-                  icon={MapPin}
-                  label="Irrigation System"
-                  name="irrigationSystem"
-                  options={irrigationOptions}
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Leaf}
-                  label="Soil Type"
-                  name="soilType"
-                  options={soilTypeOptions}
-                />
-                <InputField
-                  icon={DollarSign}
-                  label="Annual Income Range"
-                  name="annualIncome"
-                  options={incomeRanges}
-                />
-              </div>
-
-              <InputField
-                icon={FileText}
-                label="Farming Description"
-                name="description"
-                type="textarea"
-                placeholder="Tell us about your farming experience, interests, and current practices"
-              />
+              <InputField icon={FileText} label="Farming Description" name="description" type="textarea" placeholder="Tell us about your farming experience..." value={formData.description} onChange={handleInputChange} error={errors.description} />
             </div>
 
-            {/* Professional Development Section */}
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                Professional Development & Resources
-              </h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Award}
-                  label="Farming Certifications"
-                  name="farmingCertifications"
-                  placeholder="e.g., Organic certification, GAP certification"
-                />
-                <InputField
-                  icon={Tractor}
-                  label="Equipment Owned"
-                  name="equipmentOwned"
-                  placeholder="e.g., Tractor, Harvester, Irrigation equipment"
-                />
+              <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Professional Development & Resources</h3>
+               <div className="grid md:grid-cols-2 gap-6">
+                <InputField icon={Award} label="Farming Certifications" name="farmingCertifications" placeholder="e.g., Organic certification" value={formData.farmingCertifications} onChange={handleInputChange} error={errors.farmingCertifications} />
+                <InputField icon={Tractor} label="Equipment Owned" name="equipmentOwned" placeholder="e.g., Tractor, Harvester" value={formData.equipmentOwned} onChange={handleInputChange} error={errors.equipmentOwned} />
+                <InputField icon={TrendingUp} label="Marketing Channels" name="marketingChannels" placeholder="e.g., Local markets, Cooperatives" value={formData.marketingChannels} onChange={handleInputChange} error={errors.marketingChannels} />
+                <InputField icon={Target} label="Technology Usage" name="technologyUsage" placeholder="e.g., Mobile apps, Weather monitoring" value={formData.technologyUsage} onChange={handleInputChange} error={errors.technologyUsage} />
               </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={TrendingUp}
-                  label="Marketing Channels"
-                  name="marketingChannels"
-                  placeholder="e.g., Local markets, Cooperatives, Direct sales"
-                />
-                <InputField
-                  icon={Target}
-                  label="Technology Usage"
-                  name="technologyUsage"
-                  placeholder="e.g., Mobile apps, Weather monitoring, GPS"
-                />
-              </div>
-
-              <InputField
-                icon={Target}
-                label="Farming Goals"
-                name="farmingGoals"
-                type="textarea"
-                placeholder="Describe your short-term and long-term farming goals"
-              />
-
-              <InputField
-                icon={Leaf}
-                label="Sustainability Practices"
-                name="sustainabilityPractices"
-                type="textarea"
-                placeholder="Describe any sustainable or eco-friendly practices you follow"
-              />
-
-              <InputField
-                icon={AlertCircle}
-                label="Current Challenges"
-                name="challenges"
-                type="textarea"
-                placeholder="What are the main challenges you face in farming?"
-              />
+              <InputField icon={Target} label="Farming Goals" name="farmingGoals" type="textarea" placeholder="Describe your short-term and long-term farming goals" value={formData.farmingGoals} onChange={handleInputChange} error={errors.farmingGoals} />
+              <InputField icon={Leaf} label="Sustainability Practices" name="sustainabilityPractices" type="textarea" placeholder="Describe any sustainable practices you follow" value={formData.sustainabilityPractices} onChange={handleInputChange} error={errors.sustainabilityPractices} />
+              <InputField icon={AlertCircle} label="Current Challenges" name="challenges" type="textarea" placeholder="What are the main challenges you face in farming?" value={formData.challenges} onChange={handleInputChange} error={errors.challenges} />
             </div>
 
-            {/* Security Section */}
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                Security Information
-              </h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <InputField
-                  icon={Lock}
-                  label="Password"
-                  name="password"
-                  type="password"
-                  required
-                  placeholder="Enter password (min 8 characters)"
-                />
-                <InputField
-                  icon={Lock}
-                  label="Confirm Password"
-                  name="confirmPassword"
-                  type="password"
-                  required
-                  placeholder="Confirm your password"
-                />
-              </div>
-            </div>
-
-            {/* Administrative Details Section */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                Administrative Details
-              </h3>
-              <InputField
-                icon={MapPin}
-                label="Division of Gramasewa Niladari"
-                name="divisionGramasewaNumber"
-                required
-                placeholder="Search your Gramasewa Niladari division"
-                options={gramasewaDivisions} // array of divisions
-                isSearchable={true} // if supported
-              />
-
-              <div className="space-y-2">
-                <InputField
-                  icon={Users}
-                  label="Organization Committee Number"
-                  name="organizationCommitteeNumber"
-                  required
-                  placeholder="Enter organization committee number"
-                />
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowOrgForm(true)}
-                    className="text-green-600 hover:text-green-800 text-sm font-medium underline transition-colors duration-300"
-                  >
-                    Don't have an organization committee number? Register here
-                  </button>
+                <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Security Information</h3>
+                <div className="grid md:grid-cols-2 gap-6">
+                    <InputField icon={Lock} label="Password" name="password" type="password" required placeholder="Enter password (min 8 characters)" value={formData.password} onChange={handleInputChange} error={errors.password} showPassword={showPassword} onPasswordToggle={() => setShowPassword(!showPassword)} />
+                    <InputField icon={Lock} label="Confirm Password" name="confirmPassword" type="password" required placeholder="Confirm your password" value={formData.confirmPassword} onChange={handleInputChange} error={errors.confirmPassword} showPassword={showConfirmPassword} onPasswordToggle={() => setShowConfirmPassword(!showConfirmPassword)} />
                 </div>
-              </div>
             </div>
 
-            {/* Submit Button */}
+            <div className="space-y-6">
+                <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Administrative Details</h3>
+                <div className="space-y-2">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
+                        <MapPin className="w-4 h-4" />
+                        <span>Division of Gramasewa Niladari <span className="text-red-500">*</span></span>
+                    </label>
+                    <Select
+                      name="divisionGramasewaNumber"
+                      options={gramasewaDivisions}
+                      isSearchable
+                      isClearable
+                      placeholder="Search and select your division..."
+                      styles={selectCustomStyles}
+                      value={gramasewaDivisions.find(option => option.value === formData.divisionGramasewaNumber)}
+                      onChange={handleSelectChange}
+                    />
+                    {errors.divisionGramasewaNumber && (
+                        <div className="flex items-center space-x-1 text-red-500 text-sm">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>{errors.divisionGramasewaNumber}</span>
+                        </div>
+                    )}
+                </div>
+                
+                <InputField icon={Users} label="Organization Committee Number" name="organizationCommitteeNumber" required placeholder="Enter organization committee number" value={formData.organizationCommitteeNumber} onChange={handleInputChange} error={errors.organizationCommitteeNumber} />
+                <div className="text-center">
+                    <button type="button" onClick={() => setShowOrgForm(true)} className="text-green-600 hover:text-green-800 text-sm font-medium underline transition-colors">
+                        Don't have an organization committee number? Register here
+                    </button>
+                </div>
+            </div>
+
             <div className="pt-6">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 px-6 rounded-xl font-semibold transition-all duration-300 hover:from-green-600 hover:to-emerald-700 hover:shadow-lg disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Creating Account...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-5 h-5" />
-                    <span>Create Farmer Account</span>
-                  </>
-                )}
+              <button type="submit" disabled={isLoading} className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 px-6 rounded-xl font-semibold transition-all hover:from-green-600 hover:to-emerald-700 hover:shadow-lg disabled:opacity-50">
+                {isLoading ? (<><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Creating Account...</span></>) : (<><Check className="w-5 h-5" /><span>Create Farmer Account</span></>)}
               </button>
             </div>
           </form>
