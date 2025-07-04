@@ -457,9 +457,7 @@ const BuyerSignup = () => {
                             <button type="submit" disabled={isLoading} className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 px-6 rounded-xl font-semibold transition-all duration-300 hover:from-green-600 hover:to-emerald-700 hover:shadow-lg disabled:opacity-50">
                                 {isLoading ? (
                                     <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Creating Account...</span></>
-                                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Creating Account...</span></>
                                 ) : (
-                                    <><Check className="w-5 h-5" /><span>Create Buyer Account</span></>
                                     <><Check className="w-5 h-5" /><span>Create Buyer Account</span></>
                                 )}
                             </button>
