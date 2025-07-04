@@ -173,7 +173,6 @@ const BuyerSignup = () => {
     const [showOrgForm, setShowOrgForm] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Main buyer form data
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -185,29 +184,21 @@ const BuyerSignup = () => {
         profileImage: null,
         password: '',
         confirmPassword: '',
-        organizationCommitteeNumber: ''
+        organizationCommitteeNumber: '',
+        paymentOffer: '',
     });
 
     // Organization committee form data
     const [orgFormData, setOrgFormData] = useState({
-        organizationName: '',
-        registrationNumber: '',
-        chairpersonName: '',
-        chairpersonContact: '',
-        secretaryName: '',
-        secretaryContact: '',
-        treasurerName: '',
-        treasurerContact: '',
-        organizationAddress: '',
-        establishedDate: '',
-        memberCount: '',
-        organizationDescription: ''
+        organizationName: '', registrationNumber: '', chairpersonName: '',
+        chairpersonContact: '', secretaryName: '', secretaryContact: '',
+        treasurerName: '', treasurerContact: '', organizationAddress: '',
+        establishedDate: '', memberCount: '', organizationDescription: ''
     });
 
     const [errors, setErrors] = useState({});
     const [orgErrors, setOrgErrors] = useState({});
 
-    // Sri Lankan districts
     const districts = [
         'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 'Galle', 'Gampaha',
         'Hambantota', 'Jaffna', 'Kalutara', 'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala',
@@ -215,15 +206,8 @@ const BuyerSignup = () => {
         'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
     ];
 
-    // Company types for buyers
     const companyTypes = [
-        'Retailer',
-        'Wholesaler',
-        'Exporter',
-        'Processor',
-        'Supermarket',
-        'Restaurant',
-        'Other'
+        'Retailer', 'Wholesaler', 'Exporter', 'Processor', 'Supermarket', 'Restaurant', 'Other'
     ];
 
     const handleInputChange = useCallback((e) => {
@@ -233,7 +217,7 @@ const BuyerSignup = () => {
             [name]: files ? files[0] : value
         }));
         if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
+            setErrors(prev => ({ ...prev, [name]: null }));
         }
     }, [errors]);
 
@@ -244,7 +228,7 @@ const BuyerSignup = () => {
             [name]: value
         }));
         if (orgErrors[name]) {
-            setOrgErrors(prev => ({ ...prev, [name]: '' }));
+            setOrgErrors(prev => ({ ...prev, [name]: null }));
         }
     }, [orgErrors]);
 
@@ -252,8 +236,10 @@ const BuyerSignup = () => {
         const newErrors = {};
         if (!formData.fullName?.trim()) newErrors.fullName = 'Full name is required';
         if (!formData.email?.trim()) newErrors.email = 'Email is required';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Please enter a valid email address';
         if (!formData.district) newErrors.district = 'District is required';
         if (!formData.phoneNumber?.trim()) newErrors.phoneNumber = 'Phone number is required';
+        else if (!/^[0-9]{10}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
         if (!formData.password) newErrors.password = 'Password is required';
         if (!formData.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
         if (showOrgForm && !formData.organizationCommitteeNumber?.trim()) newErrors.organizationCommitteeNumber = 'Organization committee number is required';
@@ -471,7 +457,9 @@ const BuyerSignup = () => {
                             <button type="submit" disabled={isLoading} className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 px-6 rounded-xl font-semibold transition-all duration-300 hover:from-green-600 hover:to-emerald-700 hover:shadow-lg disabled:opacity-50">
                                 {isLoading ? (
                                     <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Creating Account...</span></>
+                                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Creating Account...</span></>
                                 ) : (
+                                    <><Check className="w-5 h-5" /><span>Create Buyer Account</span></>
                                     <><Check className="w-5 h-5" /><span>Create Buyer Account</span></>
                                 )}
                             </button>

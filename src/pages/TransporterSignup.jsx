@@ -1,24 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    User,
-    Mail,
-    MapPin,
-    Phone,
-    Calendar,
-    Home,
-    FileText,
-    Camera,
-    Lock,
-    Eye,
-    EyeOff,
-    ArrowLeft,
-    Check,
-    AlertCircle,
-    Truck,
-    Gauge,
-    Ruler,
-    Award,
+    User, Mail, MapPin, Phone, Calendar, Home, FileText,
+    Camera, Lock, Eye, EyeOff, ArrowLeft, Check, AlertCircle,
+    Truck, Gauge, Ruler, Award,
 } from 'lucide-react';
 
 
@@ -248,7 +233,6 @@ const TransporterSignup = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-12 px-4">
             <div className="max-w-6xl mx-auto">
-                {/* Header */}
                 <div className="text-center mb-8">
                     <button
                         onClick={() => navigate('/signup')}
@@ -269,7 +253,6 @@ const TransporterSignup = () => {
                     </p>
                 </div>
 
-                {/* Main Form */}
                 <div className="bg-white rounded-2xl shadow-xl border border-green-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
                         <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
@@ -279,11 +262,8 @@ const TransporterSignup = () => {
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-8 space-y-8">
-                        {/* Personal Details Section */}
                         <div className="space-y-6">
-                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                                Personal Information
-                            </h3>
+                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Personal Information</h3>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={User} label="Full Name" name="fullName" type="text" required placeholder="Enter your full name" value={formData.fullName} error={errors.fullName} onChange={handleInputChange} />
                                 <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} />
@@ -301,11 +281,8 @@ const TransporterSignup = () => {
                             </div>
                         </div>
 
-                        {/* Vehicle Details Section */}
                         <div className="space-y-6">
-                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                                Vehicle & Logistics Details
-                            </h3>
+                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Vehicle & Logistics Details</h3>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Truck} label="Vehicle Type" name="vehicleType" required options={vehicleTypes} value={formData.vehicleType} error={errors.vehicleType} onChange={handleInputChange} />
                                 <InputField icon={FileText} label="Vehicle Number" name="vehicleNumber" required placeholder="Enter vehicle registration number" value={formData.vehicleNumber} error={errors.vehicleNumber} onChange={handleInputChange} />
@@ -330,11 +307,8 @@ const TransporterSignup = () => {
                             </div>
                         </div>
 
-                        {/* License & Experience Section */}
                         <div className="space-y-6">
-                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                                License & Experience
-                            </h3>
+                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">License & Experience</h3>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Award} label="License Number" name="licenseNumber" required placeholder="Enter your driving license number" value={formData.licenseNumber} error={errors.licenseNumber} onChange={handleInputChange} />
                                 <InputField icon={Calendar} label="License Expiry Date" name="licenseExpiry" type="date" required value={formData.licenseExpiry} error={errors.licenseExpiry} onChange={handleInputChange} />
@@ -343,18 +317,14 @@ const TransporterSignup = () => {
                             <InputField icon={FileText} label="Additional Information" name="additionalInfo" type="textarea" placeholder="Any additional info about your logistics services" value={formData.additionalInfo} error={errors.additionalInfo} onChange={handleInputChange} />
                         </div>
 
-                        {/* Security Section */}
                         <div className="space-y-6">
-                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                                Security Information
-                            </h3>
+                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Security Information</h3>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Lock} label="Password" name="password" type="password" required placeholder="Enter password (min 8 characters)" value={formData.password} error={errors.password} onChange={handleInputChange} showPassword={showPassword} onTogglePassword={() => setShowPassword(p => !p)} />
                                 <InputField icon={Lock} label="Confirm Password" name="confirmPassword" type="password" required placeholder="Confirm your password" value={formData.confirmPassword} error={errors.confirmPassword} onChange={handleInputChange} showPassword={showConfirmPassword} onTogglePassword={() => setShowConfirmPassword(p => !p)} />
                             </div>
                         </div>
 
-                        {/* Submit Button */}
                         <div className="pt-6">
                             <button
                                 type="submit"
