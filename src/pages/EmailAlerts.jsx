@@ -142,13 +142,7 @@ export default function EmailAlerts() {
       <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-8 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center space-x-4 mb-4">
-            <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
-              <Leaf className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">Agrovia</h1>
-              <p className="text-green-100">Sri Lanka's Premium Agricultural Marketplace</p>
-            </div>
+           
           </div>
           
           <div className="flex items-center space-x-3">
