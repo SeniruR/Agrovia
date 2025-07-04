@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useLocation } from "react-router-dom";
 import Navigation from "./pages/Navigation";
 import Sidebar from "./pages/Sidebar";
-import Footer from "./pages/BottomFooter";
+import Footer from "./pages/Footer";
 
 const Layout = ({ children }) => {
   const [open, setOpen] = useState(false);
@@ -33,7 +33,7 @@ const Layout = ({ children }) => {
           )}
         </div>
       </div>
-      <BottomFooter />
+      <Footer />
     </div>
   );
 };

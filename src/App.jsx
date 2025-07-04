@@ -7,6 +7,7 @@ import BuyerDashboard from "./components/dashboards/BuyerDashboard";
 import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
+import LayoutAll from "./components/LayoutAll";
 import FarmerCropViews from "./pages/Farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
@@ -72,9 +73,9 @@ const App = () => {
     
     <Routes>
       <Route path="/" element={
-          <Layout>
+          <LayoutAll>
             <Home />
-          </Layout>
+          </LayoutAll>
         }
       />
       <Route path="/users" element={
