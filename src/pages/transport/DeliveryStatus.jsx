@@ -61,7 +61,7 @@ export default function UpdateDeliveryStatus() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
