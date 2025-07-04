@@ -213,14 +213,14 @@ const KnowledgeHubHome = () => {
       {/* Header Section */}
       <div className="bg-gradient-to-r from-green-600 to-green-800 text-white py-10 sm:py-16 px-4">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 text-white">
             Improve knowledge with experts
           </h1>
-          <p className="text-base sm:text-lg opacity-95 mb-3 sm:mb-4 max-w-4xl mx-auto leading-relaxed px-2">
+          <p className="text-base sm:text-lg text-white opacity-95 mb-3 sm:mb-4 max-w-4xl mx-auto leading-relaxed px-2">
             Share your knowledge with experts in the agricultural field and become part of a growing community of changemakers. 
             Exchange ideas, gain insights, and contribute to building smarter, more sustainable farming practices.
           </p>
-          <p className="text-sm sm:text-base opacity-90 max-w-3xl mx-auto px-2">
+          <p className="text-sm sm:text-base text-white opacity-90 max-w-3xl mx-auto px-2">
             Support local agriculture, enjoy better value, and build lasting relationships with the people who grow your food – all in one place.
           </p>
         </div>
