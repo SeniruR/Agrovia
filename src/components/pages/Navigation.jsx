@@ -90,7 +90,7 @@ const Navigation = ({ onSidebarToggle }) => {
               <img 
                 src={logo} 
                 alt="Agrovia Logo" 
-                className="w-28 h-auto transform group-hover:scale-110 transition-all duration-400 drop-shadow-lg" 
+                className="w-28 h-auto transform group-hover:scale-110 transition-all duration-400 drop-shadow-lg sm:max-w-[70px] pb-[5px]" 
               />
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-400/15 to-emerald-500/15 opacity-0 group-hover:opacity-100 transition-all duration-400"></div>
               <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-green-400/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-400"></div>
@@ -101,7 +101,7 @@ const Navigation = ({ onSidebarToggle }) => {
         {/* Navigation Actions */}
         <div className="flex items-center gap-2">
           {/* Quick Actions - Always visible */}
-          <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2">
             <Link to="/">
               <button 
                 className="group relative p-3 text-green-700 hover:text-emerald-800 rounded-2xl transition-all duration-400 backdrop-blur-sm transform hover:scale-110 active:scale-95"
@@ -191,7 +191,7 @@ const Navigation = ({ onSidebarToggle }) => {
 
           {/* Divider */}
           <div 
-            className="w-px h-10 mx-4"
+            className="hidden w-px h-10 mx-4"
             style={{
               background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.4) 0%, rgba(16, 185, 129, 0.2) 25%, rgba(6, 182, 212, 0.15) 50%, rgba(16, 185, 129, 0.2) 75%, rgba(34, 197, 94, 0.4) 100%)',
               boxShadow: '0 0 8px rgba(34, 197, 94, 0.3)'
@@ -304,7 +304,7 @@ const Navigation = ({ onSidebarToggle }) => {
             /* Enhanced Get Started Button */
             <Link to="/login">
               <button 
-                className="group relative overflow-hidden bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 hover:from-emerald-600 hover:via-green-600 hover:to-teal-600 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-500 shadow-2xl hover:shadow-3xl ml-4 flex items-center gap-3 transform hover:scale-105 active:scale-95"
+                className="group relative overflow-hidden bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 hover:from-emerald-600 hover:via-green-600 hover:to-teal-600 text-white font-bold py-2 px-4 rounded-2xl transition-all duration-500 shadow-2xl hover:shadow-3xl ml-4 flex items-center gap-3 transform hover:scale-105 active:scale-95"
                 style={{
                   boxShadow: '0 12px 35px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 20px rgba(34, 197, 94, 0.2)'
                 }}
