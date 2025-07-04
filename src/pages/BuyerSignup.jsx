@@ -151,7 +151,6 @@ const BuyerSignup = () => {
         companyType: '',
         companyAddress: '',
         phoneNumber: '',
-        description: '',
         profileImage: null,
         password: '',
         confirmPassword: '',
@@ -202,8 +201,6 @@ const BuyerSignup = () => {
         if (!formData.email?.trim()) newErrors.email = 'Email is required';
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Please enter a valid email address';
         if (!formData.district) newErrors.district = 'District is required';
-        if (!formData.companyName?.trim()) newErrors.companyName = 'Company name is required';
-        if (!formData.companyType) newErrors.companyType = 'Company type is required';
         if (!formData.phoneNumber?.trim()) newErrors.phoneNumber = 'Phone number is required';
         else if (!/^[0-9]{10}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
         if (!formData.password) newErrors.password = 'Password is required';

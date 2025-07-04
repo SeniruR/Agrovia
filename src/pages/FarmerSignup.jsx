@@ -20,13 +20,8 @@ import {
   Users,
   Sprout,
   Award,
-  BookOpen,
-  Tractor,
   Leaf,
-  DollarSign,
-  Clock,
-  Target,
-  TrendingUp
+  Clock
 } from 'lucide-react';
 
 // --- Helper Components (Defined Outside) ---
@@ -282,7 +277,7 @@ const FarmerSignup = () => {
 
   if (showOrgForm) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-green-50 to-purple-50 py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-indigo-800 bg-clip-text text-transparent mb-4">Register Organization Committee</h1>
