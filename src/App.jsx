@@ -57,6 +57,7 @@ import OrganizationDashBoard from "./pages/organization/Oraganization";
 import FarmingPestAlerts from "./pages/PestAlert";
 import PestAlertInterface from "./pages/PestAlert";
 import TransportServicesReviews from "./pages/transport/TransportReviews";
+import DeliveryStatus from "./pages/transport/DeliveryStatus";
 import ShopItem from "./pages/shop/Items";
 import EmailAlerts from "./pages/EmailAlerts";
 import WeatherNotifications from "./pages/WeatherAlerts"; 
@@ -353,6 +354,12 @@ const App = () => {
  <Route path="/conapproval" element={
         <Layout>
           <ContentApprovalDashboard />
+        </Layout>
+      }
+      />
+      <Route path="/deliverystatus" element={
+        <Layout>
+          <DeliveryStatus/>
         </Layout>
       }
       />
