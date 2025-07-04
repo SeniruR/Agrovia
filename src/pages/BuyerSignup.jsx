@@ -22,7 +22,6 @@ import {
     BookOpen,
     Tractor,
     Leaf,
-    DollarSign,
     Clock,
     Target,
     TrendingUp
@@ -44,13 +43,10 @@ const BuyerSignup = () => {
         companyType: '',
         companyAddress: '',
         phoneNumber: '',
-        description: '',
         profileImage: null,
         password: '',
         confirmPassword: '',
-        organizationCommitteeNumber: '',
-        // Buyer-specific fields
-        paymentOffer: '', // New field for buyer's payment offer for farmers
+        organizationCommitteeNumber: ''
     });
 
     // Organization committee form data (unchanged)
@@ -124,13 +120,10 @@ const BuyerSignup = () => {
         if (!formData.fullName?.trim()) newErrors.fullName = 'Full name is required';
         if (!formData.email?.trim()) newErrors.email = 'Email is required';
         if (!formData.district) newErrors.district = 'District is required';
-        if (!formData.companyName?.trim()) newErrors.companyName = 'Company name is required';
-        if (!formData.companyType) newErrors.companyType = 'Company type is required';
         if (!formData.phoneNumber?.trim()) newErrors.phoneNumber = 'Phone number is required';
         if (!formData.password) newErrors.password = 'Password is required';
         if (!formData.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
         if (!formData.organizationCommitteeNumber?.trim()) newErrors.organizationCommitteeNumber = 'Organization committee number is required';
-        if (!formData.paymentOffer?.trim()) newErrors.paymentOffer = 'Payment offer is required';
 
         // Email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -604,7 +597,6 @@ const BuyerSignup = () => {
                                     icon={FileText}
                                     label="Company Name"
                                     name="companyName"
-                                    required
                                     placeholder="Enter your company name"
                                 />
                             </div>
@@ -614,7 +606,6 @@ const BuyerSignup = () => {
                                     icon={Building2}
                                     label="Company Type"
                                     name="companyType"
-                                    required
                                     options={companyTypes}
                                 />
                                 <InputField
@@ -642,27 +633,6 @@ const BuyerSignup = () => {
                                     type="file"
                                 />
                             </div>
-                        </div>
-
-                        {/* Payment Offer Section */}
-                        <div className="space-y-6">
-                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">
-                                Payment Offer for Farmers
-                            </h3>
-                            <InputField
-                                icon={DollarSign}
-                                label="Payment Offer"
-                                name="paymentOffer"
-                                required
-                                placeholder="Enter your payment offer for farmers (e.g., Rs. 100/kg for rice)"
-                            />
-                            <InputField
-                                icon={FileText}
-                                label="Description"
-                                name="description"
-                                type="textarea"
-                                placeholder="Describe your buying interests, requirements, or any other details"
-                            />
                         </div>
 
                         {/* Security Section */}
