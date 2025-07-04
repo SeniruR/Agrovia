@@ -64,6 +64,7 @@ import WeatherNotifications from "./pages/WeatherAlerts";
 import PriceForcasting from "./pages/PriceForcasting";
 import ContentApprovalDashboard from "./pages/ContentApproval";
 import FarmerVerificationPanel from "./pages/organization/farmerVerificationPanel";
+import CropReccomendationSystem from "./pages/CropRecommendation";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -368,6 +369,12 @@ const App = () => {
        <Route path="/vertificationpanel" element={
         <Layout>
           <FarmerVerificationPanel/>
+        </Layout>
+      }
+      />
+       <Route path="/cropreco" element={
+        <Layout>
+          <CropReccomendationSystem/>
         </Layout>
       }
       />
