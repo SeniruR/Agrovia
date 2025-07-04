@@ -63,6 +63,7 @@ import EmailAlerts from "./pages/EmailAlerts";
 import WeatherNotifications from "./pages/WeatherAlerts"; 
 import PriceForcasting from "./pages/PriceForcasting";
 import ContentApprovalDashboard from "./pages/ContentApproval";
+import FarmerVerificationPanel from "./pages/organization/farmerVerificationPanel";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -360,6 +361,13 @@ const App = () => {
       <Route path="/deliverystatus" element={
         <Layout>
           <DeliveryStatus/>
+        </Layout>
+      }
+      />
+
+       <Route path="/vertificationpanel" element={
+        <Layout>
+          <FarmerVerificationPanel/>
         </Layout>
       }
       />
