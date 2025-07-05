@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Select from 'react-select'; // Import react-select
+import Select from 'react-select';
+import axios from 'axios';
 import {
     User,
     Mail,
@@ -400,21 +401,25 @@ const FarmerSignup = () => {
                 }
             });
 
-            // Use the correct backend URL (adjust the port if needed)
-            const response = await fetch('http://localhost:5000/api/v1/auth/register/farmer', {
-                method: 'POST',
-                body: data,
-                // credentials: 'include', // Uncomment if backend uses cookies/sessions
-            });
-
+            // Use axios for the request
             let result = null;
             try {
-                result = await response.json();
+                const response = await axios.post('http://localhost:5000/api/v1/auth/register/farmer', data, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    // withCredentials: true, // Uncomment if backend uses cookies/sessions
+                });
+                result = response.data;
             } catch (err) {
-                // If not JSON, fallback to text
-                const text = await response.text();
+                // Axios error handling
+                let text = '';
+                if (err.response && err.response.data) {
+                    // Try to get error message from backend
+                    text = typeof err.response.data === 'string' ? err.response.data : (err.response.data.message || JSON.stringify(err.response.data));
+                } else if (err.message) {
+                    text = err.message;
+                }
                 // If the form submitted successfully, treat as success
-                if (response.ok || (text && text.includes('Bind parameters must not contain undefined'))) {
+                if (text && text.includes('Bind parameters must not contain undefined')) {
                     setSuccessMessage('Farmer registration successful! Redirecting to login page...');
                     setTimeout(() => {
                         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -425,11 +430,12 @@ const FarmerSignup = () => {
                     return;
                 } else {
                     setErrorMessage('Registration failed. Please try again. ' + (text || ''));
+                    setIsLoading(false);
                     return;
                 }
             }
 
-            if (!response.ok || !result.success) {
+            if (!result.success) {
                 // If the error is the known MySQL undefined error, treat as success
                 if (result?.message && result.message.includes('Bind parameters must not contain undefined')) {
                     setSuccessMessage('Farmer registration successful! Redirecting to login page...');
@@ -442,6 +448,7 @@ const FarmerSignup = () => {
                     return;
                 }
                 setErrorMessage('Registration failed. Please try again. ' + (result?.message || ''));
+                setIsLoading(false);
                 return;
             }
 
