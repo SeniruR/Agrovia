@@ -3,7 +3,7 @@ import { Facebook, Twitter, Instagram, Mail, Phone, MapPin, Leaf, Users, Shoppin
 
 const Footer = () => {
   return (
-    <footer className="bg-gradient-to-br from-green-800 to-green-900 text-white">
+    <footer className="bg-gradient-to-br from-agrovia-800 to-agrovia-900 text-white">
       {/* Main Footer Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -11,21 +11,21 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Leaf className="h-8 w-8 text-green-300" />
+              <Leaf className="h-8 w-8 text-agrovia-300" />
               <h3 className="text-2xl font-bold text-white">Agrovia</h3>
             </div>
-            <p className="text-green-100 text-sm leading-relaxed">
+            <p className="text-agrovia-100 text-sm leading-relaxed">
               Empowering Sri Lankan farmers with smart tools for sustainable farming and fair market access. 
               Building bridges between farmers and consumers.
             </p>
             <div className="flex space-x-4 pt-2">
-              <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
+              <a href="#" className="text-agrovia-300 hover:text-white transition-colors duration-200">
                 <Facebook className="h-5 w-5" />
               </a>
-              <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
+              <a href="#" className="text-agrovia-300 hover:text-white transition-colors duration-200">
                 <Twitter className="h-5 w-5" />
               </a>
-              <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
+              <a href="#" className="text-agrovia-300 hover:text-white transition-colors duration-200">
                 <Instagram className="h-5 w-5" />
               </a>
             </div>

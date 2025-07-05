@@ -18,7 +18,40 @@ const Login = () => {
             setError("Please fill in all fields.");
             return;
         }
-        navigate("/");
+        // Backend login request
+        fetch('http://localhost:5000/api/v1/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: form.email, password: form.password }),
+        })
+        .then(async (res) => {
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.message || 'Login failed');
+            }
+            return res.json();
+        })
+        .then((data) => {
+            // The backend returns user as data.data.user
+            const user = data?.data?.user;
+            if (data.success && user) {
+                localStorage.setItem('user', JSON.stringify(user));
+                window.dispatchEvent(new Event('userChanged'));
+                // Redirect based on user role
+                if (user.role === 'farmer') {
+                    navigate('/dashboard');
+                } else {
+                    navigate('/');
+                }
+            } else {
+                setError(data.message || 'Invalid credentials');
+            }
+        })
+        .catch((err) => {
+            setError(err.message || 'Login failed');
+        });
     };
 
     return (

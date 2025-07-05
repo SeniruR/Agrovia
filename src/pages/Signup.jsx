@@ -17,7 +17,7 @@ const userRoles = [
   {
     id: 'farmer',
     title: 'Farmer',
-    description: 'Cultivate and manage agricultural operations with AI-powered farming solutions',
+    description: 'Cultivate and manage agricultural operations with AI-powered farming solutions (Currently We are not accept any kind of Fruits)',
     icon: Sprout,
     color: 'from-emerald-500 to-green-600',
     bgColor: 'bg-emerald-500',
@@ -204,22 +204,6 @@ function signup() {
                       }`}>
                         {role.description}
                       </p>
-                      
-                      {/* Features List */}
-                      <div className="space-y-2">
-                        {role.features.map((feature, idx) => (
-                          <div key={idx} className="flex items-center space-x-2">
-                            <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${
-                              isSelected ? 'bg-green-500' : 'bg-green-400'
-                            }`} />
-                            <span className={`text-xs transition-all duration-500 ${
-                              isSelected ? 'text-green-700' : 'text-slate-600'
-                            }`}>
-                              {feature}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
                     </div>
 
                     {/* Hover Effect */}

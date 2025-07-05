@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload } from 'lucide-react';
+import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload, Leaf, Droplets, AlertCircle, CheckCircle } from 'lucide-react';
 
 const CropPostForm = () => {
   const [formData, setFormData] = useState({
@@ -249,62 +249,35 @@ const CropPostForm = () => {
     alert('Crop post submitted successfully!');
   };
 
-  const renderProgressBar = () => (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        {[1, 2, 3, 4].map((step) => (
-          <div
-            key={step}
-            className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-semibold transition-all duration-300 text-black ${
-              step < currentStep
-                ? 'bg-green-500 border-green-500 text-white'
-                : step === currentStep
-                ? 'bg-green-500 border-green-500 text-white scale-110'
-                : 'border-gray-300 text-gray-400'
-            }`}
-          >
-            {step}
-          </div>
-        ))}
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-3">
-        <div
-          className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all duration-500"
-          style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-        ></div>
-      </div>
-      <div className="flex justify-between text-sm text-black mt-3 font-medium">
-        <span>Crop Details</span>
-        <span>Pricing & Quantity</span>
-        <span>Location & Contact</span>
-        <span>Images & Review</span>
-      </div>
-    </div>
-  );
-
   const renderStep1 = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-black mb-6">Crop Information</h2>
+    <div className="space-y-6 sm:space-y-8">
+      <div className="text-center mb-8 sm:mb-12">
+        <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
+          <Leaf className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+        </div>
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">Crop Information</h2>
+        <p className="text-base sm:text-lg text-gray-600">Tell us about your crop and its quality</p>
+      </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+        <div className="w-full">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
             Crop Category <span className="text-red-500">*</span>
           </label>
           <select
             name="cropCategory"
             value={formData.cropCategory}
             onChange={handleInputChange}
-            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black"
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
             required
           >
-            <option value="vegetables">Vegetables</option>
-            <option value="grains">Grains</option>
+            <option value="vegetables">🥬 Vegetables</option>
+            <option value="grains">🌾 Grains</option>
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">
+        <div className="w-full">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
             Crop Name <span className="text-red-500">*</span>
           </label>
           <select
@@ -312,8 +285,8 @@ const CropPostForm = () => {
             value={formData.cropName}
             onChange={handleInputChange}
             onBlur={handleBlur}
-            className={`w-full p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-              errors.cropName && touched.cropName ? 'border-red-500' : 'border-gray-300'
+            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+              errors.cropName && touched.cropName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
             }`}
             required
           >
@@ -323,12 +296,15 @@ const CropPostForm = () => {
             ))}
           </select>
           {errors.cropName && touched.cropName && (
-            <p className="mt-1 text-sm text-red-600">{errors.cropName}</p>
+            <div className="flex items-center mt-2 text-red-600 text-sm">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span>{errors.cropName}</span>
+            </div>
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">
+        <div className="w-full">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
             Variety/Type
           </label>
           <input
@@ -337,96 +313,117 @@ const CropPostForm = () => {
             value={formData.variety}
             onChange={handleInputChange}
             placeholder="e.g., Cherry Tomato, Basmati Rice"
-            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black"
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">
-            Harvest Date <span className="text-red-500">*</span>
+        <div className="w-full">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <Calendar className="inline w-5 h-5 mr-2" />Harvest Date <span className="text-red-500">*</span>
           </label>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-            <input
-              type="date"
-              name="harvestDate"
-              value={formData.harvestDate}
-              onChange={handleInputChange}
-              onBlur={handleBlur}
-              className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.harvestDate && touched.harvestDate ? 'border-red-500' : 'border-gray-300'
-              }`}
-              required
-            />
-          </div>
+          <input
+            type="date"
+            name="harvestDate"
+            value={formData.harvestDate}
+            onChange={handleInputChange}
+            onBlur={handleBlur}
+            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+              errors.harvestDate && touched.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+            }`}
+            required
+          />
           {errors.harvestDate && touched.harvestDate && (
-            <p className="mt-1 text-sm text-red-600">{errors.harvestDate}</p>
+            <div className="flex items-center mt-2 text-red-600 text-sm">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span>{errors.harvestDate}</span>
+            </div>
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">
-            Best Before Date
+        <div className="w-full">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            <Calendar className="inline w-5 h-5 mr-2" />Best Before Date
           </label>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-            <input
-              type="date"
-              name="expiryDate"
-              value={formData.expiryDate}
-              onChange={handleInputChange}
-              className="w-full pl-12 p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black"
-            />
-          </div>
+          <input
+            type="date"
+            name="expiryDate"
+            value={formData.expiryDate}
+            onChange={handleInputChange}
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+          />
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-black mb-2">
+      <div className="w-full">
+        <label className="block text-sm font-semibold text-gray-700 mb-3">
           Description
         </label>
         <textarea
           name="description"
           value={formData.description}
           onChange={handleInputChange}
-          rows="4"
-          placeholder="Describe your crop quality, growing conditions, etc."
-          className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 resize-none text-black"
-        ></textarea>
+          rows={6}
+          placeholder="Describe your crop quality, growing conditions, and any special features..."
+          className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none hover:border-gray-400 text-base sm:text-lg"
+        />
       </div>
 
-      <div className="space-y-3">
-        <label className="block text-sm font-medium text-black">Quality Certifications</label>
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all duration-200">
+      {/* Quality Certifications - Enhanced */}
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border-2 border-green-200">
+        <h3 className="text-lg font-bold text-green-800 mb-6 flex items-center">
+          <CheckCircle className="w-6 h-6 mr-2" />
+          Quality Certifications
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <label className="flex items-center p-4 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:border-green-300 hover:shadow-md transition-all duration-300">
             <input
               type="checkbox"
               name="organicCertified"
               checked={formData.organicCertified}
               onChange={handleInputChange}
-              className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
             />
-            <span className="ml-2 text-sm text-black">🌱 Organic Certified</span>
+            <div className="ml-3">
+              <span className="text-sm font-bold text-gray-800 flex items-center">
+                <Leaf className="w-4 h-4 mr-1 text-green-600" />
+                Organic Certified
+              </span>
+              <p className="text-xs text-gray-600 mt-1">No synthetic chemicals used</p>
+            </div>
           </label>
-          <label className="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all duration-200">
+
+          <label className="flex items-center p-4 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:border-green-300 hover:shadow-md transition-all duration-300">
             <input
               type="checkbox"
               name="pesticideFree"
               checked={formData.pesticideFree}
               onChange={handleInputChange}
-              className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
             />
-            <span className="ml-2 text-sm text-black">🚫 Pesticide Free</span>
+            <div className="ml-3">
+              <span className="text-sm font-bold text-gray-800 flex items-center">
+                <Droplets className="w-4 h-4 mr-1 text-blue-600" />
+                Pesticide Free
+              </span>
+              <p className="text-xs text-gray-600 mt-1">No harmful pesticides</p>
+            </div>
           </label>
-          <label className="flex items-center p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all duration-200">
+
+          <label className="flex items-center p-4 bg-white border-2 border-gray-200 rounded-xl cursor-pointer hover:border-green-300 hover:shadow-md transition-all duration-300">
             <input
               type="checkbox"
               name="freshlyHarvested"
               checked={formData.freshlyHarvested}
               onChange={handleInputChange}
-              className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
             />
-            <span className="ml-2 text-sm text-black">🌾 Freshly Harvested</span>
+            <div className="ml-3">
+              <span className="text-sm font-bold text-gray-800 flex items-center">
+                <Package className="w-4 h-4 mr-1 text-orange-600" />
+                Freshly Harvested
+              </span>
+              <p className="text-xs text-gray-600 mt-1">Harvested within 24 hours</p>
+            </div>
           </label>
         </div>
       </div>
@@ -745,33 +742,74 @@ const CropPostForm = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-2">
-              Create Crop Post
-            </h1>
-            <p className="text-black text-lg">Share your fresh crops with buyers across Sri Lanka</p>
+    <div className="min-h-screen bg-gray-100">
+      {/* Header Section - Compact and modern */}
+      <div className="bg-gradient-to-r from-green-600 to-green-800 text-white py-4 sm:py-6 px-4">
+        <div className="max-w-7xl mx-auto text-center">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 text-white">
+            Post Your Fresh Crops
+          </h1>
+          <p className="text-sm sm:text-base text-white opacity-95 max-w-3xl mx-auto leading-relaxed px-2">
+            Connect directly with buyers and get the best prices for your fresh agricultural produce.
+          </p>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
+
+        {/* Progress Bar - Enhanced */}
+        <div className="mb-8 sm:mb-12">
+          <div className="flex items-center justify-center space-x-4 sm:space-x-8">
+            {[1, 2, 3, 4].map((step) => (
+              <div key={step} className="flex items-center">
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center font-bold text-lg sm:text-xl transition-all duration-500 transform ${
+                  currentStep >= step 
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg scale-105 ring-4 ring-green-200' 
+                    : 'bg-white text-gray-600 border-2 border-gray-300 shadow-sm hover:shadow-md'
+                }`}>
+                  {step}
+                </div>
+                {step < 4 && (
+                  <div className={`w-16 sm:w-24 h-2 sm:h-3 ml-4 sm:ml-8 rounded-full transition-all duration-500 ${
+                    currentStep > step ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gray-200'
+                  }`} />
+                )}
+              </div>
+            ))}
           </div>
+          <div className="flex justify-center mt-4 sm:mt-6 space-x-8 sm:space-x-16">
+            <span className={`text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentStep >= 1 ? 'text-green-600' : 'text-gray-500'}`}>
+              Crop Details
+            </span>
+            <span className={`text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentStep >= 2 ? 'text-green-600' : 'text-gray-500'}`}>
+              Pricing & Quantity
+            </span>
+            <span className={`text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentStep >= 3 ? 'text-green-600' : 'text-gray-500'}`}>
+              Location & Contact
+            </span>
+            <span className={`text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentStep >= 4 ? 'text-green-600' : 'text-gray-500'}`}>
+              Images & Review
+            </span>
+          </div>
+        </div>
 
-          {renderProgressBar()}
-
+        <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 lg:p-12 border border-gray-200">
           <form onSubmit={handleSubmit}>
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
             {currentStep === 4 && renderStep4()}
 
-            <div className="flex justify-between mt-10 pt-6 border-t border-gray-200">
+            {/* Navigation Buttons */}
+            <div className="flex flex-col sm:flex-row justify-between mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 gap-4 sm:gap-0">
               <button
                 type="button"
                 onClick={prevStep}
                 disabled={currentStep === 1}
-                className={`px-8 py-3 rounded-lg font-medium transition-all duration-200 ${
+                className={`px-6 sm:px-8 lg:px-12 py-3 sm:py-4 rounded-lg font-semibold text-base sm:text-lg transition-all duration-300 ${
                   currentStep === 1
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-gray-600 text-white hover:bg-gray-700 hover:shadow-lg'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-500 text-white hover:bg-gray-600 shadow-lg hover:shadow-xl'
                 }`}
               >
                 ← Previous
@@ -781,7 +819,7 @@ const CropPostForm = () => {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="px-8 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 hover:shadow-lg transition-all duration-200"
+                  className="px-6 sm:px-8 lg:px-12 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
                   Next Step →
                 </button>
@@ -789,13 +827,18 @@ const CropPostForm = () => {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="px-10 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 hover:shadow-lg transition-all duration-200"
+                  className="px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  🚀 Post Crop
+                  🌾 Post My Crop
                 </button>
               )}
             </div>
           </form>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-6 sm:mt-10 text-gray-500 text-sm sm:text-base">
+          <p>Your crop listing will be reviewed and published within 12 hours</p>
         </div>
       </div>
     </div>

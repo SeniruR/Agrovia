@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Users, 
   ShoppingCart, 
@@ -26,8 +26,6 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 
 const AgroviaAdminDashboard = () => {
-  const [notifications, setNotifications] = useState(5);
-
   // Mock data for the dashboard
   const stats = {
     totalFarmers: 1247,
@@ -98,12 +96,6 @@ const AgroviaAdminDashboard = () => {
   
 
 
-  const pestAlerts = [
-    { id: 1, title: 'Fall Armyworm Alert - Western Province', severity: 'High', affected: 234, region: 'Western', date: '2025-06-24', status: 'Active' },
-    { id: 2, title: 'Brown Plant Hopper - Central Province', severity: 'Medium', affected: 156, region: 'Central', date: '2025-06-22', status: 'Active' },
-    { id: 3, title: 'Leaf Curl Disease - Southern Province', severity: 'Low', affected: 89, region: 'Southern', date: '2025-06-20', status: 'Resolved' }
-  ];
-
   const StatCard = ({ title, value, icon: Icon, change, color = "green" }) => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
@@ -125,21 +117,38 @@ const AgroviaAdminDashboard = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-green-700 shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+    <>
+      {/* Add custom styles for better scrolling */}
+      <style>{`
+        .scrollbar-thin::-webkit-scrollbar {
+          width: 8px;
+        }
+        .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+          background-color: #d1d5db;
+          border-radius: 4px;
+        }
+        .scrollbar-track-gray-100::-webkit-scrollbar-track {
+          background-color: #f3f4f6;
+        }
+        html {
+          scroll-behavior: smooth;
+        }
+        .admin-dashboard {
+          overflow-x: hidden;
+          position: relative;
+        }
+      `}</style>
+      
+      <div className="min-h-screen bg-gray-50 overflow-x-hidden admin-dashboard">
+      {/* Page Header - Static header since Navigation component handles fixed header */}
+      <header className="bg-gradient-to-r from-green-600 to-green-700 shadow-lg">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex justify-center items-center">
-  <h1 className="text-2xl font-bold text-white">Agrovia Admin Dashboard</h1>
-</div>
-
+              <h1 className="text-3xl font-bold text-white">Agrovia Admin Dashboard</h1>
+            </div>
             
             <div className="flex items-center space-x-6">
-              
-              
-             
-              
               <div className="flex items-center space-x-2">
                 <BarChart3 className="h-6 w-6 text-green-200" />
                 <span className="hidden md:block text-sm font-medium text-green-100">Live Analytics</span>
@@ -149,8 +158,9 @@ const AgroviaAdminDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      {/* Main Content - Removed top padding since Navigation component provides spacing */}
+      <main className="pb-8">
+        <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         
         {/* Overview Stats */}
         <section>
@@ -314,7 +324,7 @@ const AgroviaAdminDashboard = () => {
               <div className="p-6 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Recent Activities</h3>
               </div>
-              <div className="p-6 max-h-96 overflow-y-auto">
+              <div className="p-6 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <div className="space-y-4">
                   {recentActivities.map((activity) => (
                     <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
@@ -344,7 +354,7 @@ const AgroviaAdminDashboard = () => {
               <div className="p-6 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Pending Complaints</h3>
               </div>
-              <div className="p-6 max-h-96 overflow-y-auto">
+              <div className="p-6 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <div className="space-y-4">
                   {pendingComplaints.map((complaint) => (
                     <div key={complaint.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -514,11 +524,12 @@ const AgroviaAdminDashboard = () => {
           </div>
         </section>
 
+        </div>
       </main>
 
       {/* Footer */}
-     
-    </div>
+      </div>
+    </>
   );
 };
 
