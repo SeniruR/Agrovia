@@ -70,6 +70,9 @@ import PriceForcasting from "./pages/PriceForcasting";
 import ContentApprovalDashboard from "./pages/ContentApproval";
 import FarmerVerificationPanel from "./pages/organization/farmerVerificationPanel";
 import CropReccomendationSystem from "./pages/CropRecommendation";
+import OrderHistory from "./components/dashboards/OrderHistory";
+import SavedItems from "./components/dashboards/SavedItems";
+import TrackOrders from "./components/dashboards/TrackOrders";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -124,9 +127,9 @@ const App = () => {
           <ShopOwnerSignup />
         </Layout>} 
       />
-        {/* Dashboard Routes - No Layout */}
-      <Route path="/dashboard/farmer" element={<FarmerDashboard />} />
-      <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
+        {/* Dashboard Routes - Now with Layout */}
+      <Route path="/dashboard/farmer" element={<Layout><FarmerDashboard /></Layout>} />
+      <Route path="/dashboard/buyer" element={<Layout><BuyerDashboard /></Layout>} />
 {/* <Route path="/signup/moderator" element={<ModeratorSignup />} /> */}
 
       <Route path="/forgotpassword" element={
@@ -407,6 +410,24 @@ const App = () => {
        <Route path="/cropreco" element={
         <Layout>
           <CropReccomendationSystem/>
+        </Layout>
+      }
+      />
+        <Route path="/order-history" element={
+        <Layout>
+          <OrderHistory/>
+        </Layout>
+      }
+      />
+       <Route path="/saved-items" element={
+        <Layout>
+          <SavedItems/>
+        </Layout>
+      }
+      />
+       <Route path="/track-orders" element={
+        <Layout>
+          <TrackOrders/>
         </Layout>
       }
       />
