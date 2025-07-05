@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Navigation from "./pages/Navigation";
 import ModernSidebar from "./ui/Sidebar";
-import Footer from "./pages/Footer";
+import BottomFooter from "./pages/BottomFooter";
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -72,7 +72,7 @@ const Layout = ({ children }) => {
           sidebarOpen && isDesktop ? 'lg:ml-80' : isDesktop ? 'lg:ml-16' : 'ml-0'
         }`}
       >
-        <Footer />
+        <BottomFooter />
       </div>
     </div>
   );
