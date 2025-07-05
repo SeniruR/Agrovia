@@ -22,7 +22,7 @@ import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
-import BuyersMarketplace from "./pages/ByersMarketPlace";
+import BuyersMarketplace from "./pages/ByersMarketPlace_backup";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
