@@ -20,6 +20,7 @@ import { Link } from 'react-router-dom';
 
 const Navigation = ({ onSidebarToggle }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   const [notificationCount, setNotificationCount] = useState(3);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -35,19 +36,35 @@ const Navigation = ({ onSidebarToggle }) => {
 
   // Check authentication status
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    setIsLoggedIn(!!token);
-    
-    if (token) {
-      setNotificationCount(5);
-    } else {
-      setNotificationCount(2);
-    }
+    const checkUser = () => {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        setIsLoggedIn(true);
+        try {
+          const userObj = JSON.parse(userStr);
+          setUserEmail(userObj.email || "");
+        } catch {
+          setUserEmail("");
+        }
+        setNotificationCount(5);
+      } else {
+        setIsLoggedIn(false);
+        setUserEmail("");
+        setNotificationCount(2);
+      }
+    };
+    checkUser();
+    window.addEventListener('userChanged', checkUser);
+    return () => window.removeEventListener('userChanged', checkUser);
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('authToken'); // for cleanup if present
     setIsLoggedIn(false);
+    setUserEmail("");
+    window.dispatchEvent(new Event('userChanged'));
+    window.location.href = "/"; // redirect to home after logout
   };
 
   return (
@@ -273,7 +290,7 @@ const Navigation = ({ onSidebarToggle }) => {
                     }}
                   >
                     <p className="text-sm font-semibold text-green-800">Welcome back!</p>
-                    <p className="text-xs text-green-600">user@example.com</p>
+                    <p className="text-xs text-green-600">{userEmail || "User"}</p>
                   </div>
                   <div className="py-2">
                     <Link to="/profile" className="flex items-center gap-3 px-4 py-3 text-sm text-green-700 hover:text-green-800 hover:bg-green-50 transition-all duration-200">
