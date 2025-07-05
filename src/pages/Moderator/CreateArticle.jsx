@@ -5,7 +5,10 @@ import Image from "@tiptap/extension-image";
 
 const CreateArticle = () => {
   const [figures, setFigures] = useState([]);
+  const [title, setTitle] = useState("");
+  const [cover, setCover] = useState(null);
   const fileInputRef = useRef();
+  const coverInputRef = useRef();
 
   const editor = useEditor({
     extensions: [StarterKit, Image],
@@ -14,7 +17,6 @@ const CreateArticle = () => {
 
   const handleImageSelection = (e) => {
     const files = Array.from(e.target.files);
-    const figurePrompts = [];
 
     files.forEach((file, index) => {
       const label = prompt(`Enter figure name for "${file.name}" (e.g., Figure-${index + 1})`);
@@ -30,6 +32,14 @@ const CreateArticle = () => {
 
       reader.readAsDataURL(new File([file], renamed, { type: file.type }));
     });
+  };
+
+  const handleCoverSelection = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCover(reader.result);
+    reader.readAsDataURL(file);
   };
 
   const insert = (command) => {
@@ -50,35 +60,84 @@ const CreateArticle = () => {
       case "code":
         editor.chain().focus().toggleCodeBlock().run();
         break;
+      case "blockquote":
+        editor.chain().focus().toggleBlockquote().run();
+        break;
+      case "hr":
+        editor.chain().focus().setHorizontalRule().run();
+        break;
       default:
         break;
     }
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6 bg-white rounded shadow text-gray-800">
-      <h1 className="text-2xl font-bold text-green-700">Create New Article</h1>
+    <div className="max-w-4xl mx-auto p-6 space-y-8 bg-white rounded-2xl shadow-lg text-gray-800 border border-green-100">
+      {/* Article Title */}
+      <div className="flex flex-col gap-2">
+        <label className="text-lg font-semibold text-green-700">Article Title</label>
+        <input
+          type="text"
+          className="border border-green-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-300 outline-none text-xl font-bold bg-green-50 text-green-700 placeholder-green-400 transition"
+          placeholder="Enter your article title..."
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
+
+      {/* Cover Image */}
+      <div className="flex flex-col gap-2">
+        <label className="text-lg font-semibold text-green-700">Cover Image</label>
+        <div className="flex items-center gap-4">
+          {cover && (
+            <img
+              src={cover}
+              alt="Cover"
+              className="w-32 h-20 object-cover rounded-lg border border-green-200 shadow"
+            />
+          )}
+          <button
+            onClick={() => coverInputRef.current?.click()}
+            className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold shadow hover:from-green-600 hover:to-emerald-600 transition"
+          >
+            {cover ? "Change Cover" : "Upload Cover"}
+          </button>
+          <input
+            type="file"
+            accept="image/*"
+            ref={coverInputRef}
+            onChange={handleCoverSelection}
+            className="hidden"
+          />
+        </div>
+      </div>
 
       {/* Action Bar */}
       <div className="flex flex-wrap items-center gap-3 border-b pb-2 mb-4">
-        <button onClick={() => insert("bold")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200">
-          Bold
+        <button onClick={() => insert("bold")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200 font-semibold">
+          <span className="font-bold">B</span>
         </button>
-        <button onClick={() => insert("italic")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200">
-          Italic
+        <button onClick={() => insert("italic")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200 font-semibold italic">
+          I
         </button>
-        <button onClick={() => insert("ul")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200">
+        <button onClick={() => insert("ul")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200 font-semibold">
           • List
         </button>
-        <button onClick={() => insert("ol")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200">
+        <button onClick={() => insert("ol")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200 font-semibold">
           1. List
         </button>
-        <button onClick={() => insert("code")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200">
-          Code Block
+        <button onClick={() => insert("code")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200 font-semibold">
+          {"</>"}
+        </button>
+        <button onClick={() => insert("blockquote")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200 font-semibold">
+          “
+        </button>
+        <button onClick={() => insert("hr")} className="text-sm px-3 py-1 bg-green-100 rounded hover:bg-green-200 font-semibold">
+          <span className="text-lg">―</span>
         </button>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+          className="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-semibold"
         >
           Upload Image(s)
         </button>
@@ -93,23 +152,31 @@ const CreateArticle = () => {
       </div>
 
       {/* Writing Section */}
-      <div className="border border-gray-300 rounded p-4 min-h-[300px]">
+      <div className="border border-green-200 rounded-xl p-4 min-h-[300px] bg-green-50/30 shadow-inner">
         <EditorContent editor={editor} />
       </div>
 
       {/* Uploaded Figures */}
       {figures.length > 0 && (
         <div className="pt-4">
-          <p className="text-sm font-semibold text-gray-600 mb-2">Figures:</p>
+          <p className="text-sm font-semibold text-green-700 mb-2">Figures:</p>
           <ul className="list-disc pl-5 space-y-1">
             {figures.map((name, idx) => (
               <li key={idx} className="text-sm text-gray-700">
+                <span className="inline-block bg-green-100 text-green-800 px-2 py-0.5 rounded mr-2">{idx + 1}</span>
                 {name}
               </li>
             ))}
           </ul>
         </div>
       )}
+
+      {/* Submit Button */}
+      <div className="flex justify-end pt-4">
+        <button className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-3 rounded-lg font-semibold shadow hover:from-green-600 hover:to-emerald-600 transition">
+          Publish Article
+        </button>
+      </div>
     </div>
   );
 };
