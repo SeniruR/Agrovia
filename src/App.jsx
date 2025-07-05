@@ -7,6 +7,7 @@ import BuyerDashboard from "./components/dashboards/BuyerDashboard";
 import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
+import LayoutAll from "./components/LayoutAll";
 import FarmerCropViews from "./pages/Farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
@@ -57,11 +58,14 @@ import OrganizationDashBoard from "./pages/organization/Oraganization";
 import FarmingPestAlerts from "./pages/PestAlert";
 import PestAlertInterface from "./pages/PestAlert";
 import TransportServicesReviews from "./pages/transport/TransportReviews";
+import DeliveryStatus from "./pages/transport/DeliveryStatus";
 import ShopItem from "./pages/shop/Items";
 import EmailAlerts from "./pages/EmailAlerts";
 import WeatherNotifications from "./pages/WeatherAlerts"; 
 import PriceForcasting from "./pages/PriceForcasting";
 import ContentApprovalDashboard from "./pages/ContentApproval";
+import FarmerVerificationPanel from "./pages/organization/farmerVerificationPanel";
+import CropReccomendationSystem from "./pages/CropRecommendation";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -73,9 +77,9 @@ const App = () => {
     
     <Routes>
       <Route path="/" element={
-          <Layout>
+          <LayoutAll>
             <Home />
-          </Layout>
+          </LayoutAll>
         }
       />
       <Route path="/users" element={
@@ -356,6 +360,25 @@ const App = () => {
  <Route path="/conapproval" element={
         <Layout>
           <ContentApprovalDashboard />
+        </Layout>
+      }
+      />
+      <Route path="/deliverystatus" element={
+        <Layout>
+          <DeliveryStatus/>
+        </Layout>
+      }
+      />
+
+       <Route path="/vertificationpanel" element={
+        <Layout>
+          <FarmerVerificationPanel/>
+        </Layout>
+      }
+      />
+       <Route path="/cropreco" element={
+        <Layout>
+          <CropReccomendationSystem/>
         </Layout>
       }
       />
