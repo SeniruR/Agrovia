@@ -238,7 +238,7 @@ const FarmerSignup = () => {
 
     // Main farmer form data
     const [formData, setFormData] = useState({
-        fullName: '',
+        name: '', // changed from fullName
         email: '',
         district: '',
         landSize: '',
@@ -304,7 +304,7 @@ const FarmerSignup = () => {
 
     const validateForm = () => {
         const newErrors = {};
-        if (!formData.fullName?.trim()) newErrors.fullName = 'Full name is required';
+        if (!formData.name?.trim()) newErrors.name = 'Full name is required';
         if (!formData.email?.trim()) newErrors.email = 'Email is required';
         if (!formData.district) newErrors.district = 'District is required';
         if (!formData.nic?.trim()) newErrors.nic = 'NIC is required';
@@ -346,14 +346,70 @@ const FarmerSignup = () => {
         e.preventDefault();
         if (!validateForm()) return;
         setIsLoading(true);
+
+
         try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            console.log('Farmer registration data:', formData);
+            // Map frontend fields to backend expected fields and ensure required fields are present and valid
+            const mappedData = {
+                name: formData.name?.trim() || '',
+                email: formData.email?.trim() || '',
+                password: formData.password,
+                contact_number: formData.phoneNumber?.trim() || '',
+                district: formData.district?.trim() || '',
+                land_size: formData.landSize !== '' && formData.landSize !== null && formData.landSize !== undefined ? Number(formData.landSize) : '',
+                nic_number: formData.nic?.trim() || '',
+                organization_committee_number: formData.organizationCommitteeNumber?.trim() || '',
+                address: formData.address,
+                profile_image: formData.profileImage,
+                birth_date: formData.birthDate,
+                description: formData.description,
+                division_gramasewa_number: formData.divisionGramasewaNumber,
+                farming_experience: formData.farmingExperience,
+                cultivated_crops: formData.cultivatedCrops,
+                irrigation_system: formData.irrigationSystem,
+                soil_type: formData.soilType,
+                farming_certifications: formData.farmingCertifications
+            };
+
+            // Only append fields that are required and non-empty for backend validation
+            const requiredFields = [
+                'name', 'email', 'password', 'contact_number', 'district', 'land_size', 'nic_number', 'organization_committee_number'
+            ];
+            for (const field of requiredFields) {
+                if (!mappedData[field] && mappedData[field] !== 0) {
+                    alert(`Field "${field}" is required and missing or invalid.`);
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // Prepare form data for file upload
+            const data = new FormData();
+            Object.entries(mappedData).forEach(([key, value]) => {
+                if (value !== null && value !== undefined && value !== '') {
+                    data.append(key, value);
+                }
+            });
+
+            // Use the correct backend URL (adjust the port if needed)
+            const response = await fetch('http://localhost:5000/api/v1/auth/register/farmer', {
+                method: 'POST',
+                body: data,
+                // credentials: 'include', // Uncomment if backend uses cookies/sessions
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Server error');
+            }
+
+            const result = await response.json();
+            console.log('Farmer registration data:', result);
             alert('Farmer registration successful!');
             navigate('/dashboard');
         } catch (error) {
             console.error('Registration failed:', error);
-            alert('Registration failed. Please try again.');
+            alert('Registration failed. Please try again.\n' + (error.message || ''));
         } finally {
             setIsLoading(false);
         }
@@ -463,7 +519,7 @@ const FarmerSignup = () => {
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Personal Information</h3>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={User} label="Full Name" name="fullName" type="text" required placeholder="Enter your full name" value={formData.fullName} error={errors.fullName} onChange={handleInputChange} />
+                                <InputField icon={User} label="Full Name" name="name" type="text" required placeholder="Enter your full name" value={formData.name} error={errors.name} onChange={handleInputChange} />
                                 <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
