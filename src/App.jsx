@@ -26,7 +26,7 @@ import BuyersMarketplace from "./pages/ByersMarketPlace_backup";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
-import Profile from "./pages/Profile";
+import FarmerProfileEdit from "./pages/Profile";
 import FarmerProfile from "./pages/profiles/FarmerProfile";
 import BuyerProfile from "./pages/profiles/BuyerProfile";
 import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
@@ -162,15 +162,21 @@ const App = () => {
         }
       />
       <Route path="/profile" element={<ProfileRouter />} />
-      <Route path="/profile/general" element={
+      {/* <Route path="/profile/general" element={
           <Layout>
             <Profile />
          </Layout>
         }
-      />
+      /> */}
       <Route path="/profile/farmer" element={
           <Layout>
             <FarmerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/farmer/edit" element={
+          <Layout>
+            <FarmerProfileEdit />
          </Layout>
         }
       />

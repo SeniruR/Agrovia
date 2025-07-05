@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   MapPin, 
@@ -141,7 +142,7 @@ const FarmerProfile = () => {
           <div className="flex flex-col gap-3">
             {!isEditing ? (
               <button
-                onClick={() => setIsEditing(true)}
+                onClick={() => navigate('/profile/farmer/edit')}
                 className="bg-white/20 hover:bg-white/30 text-white px-6 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 backdrop-blur-sm border border-white/20"
               >
                 <Edit3 size={16} />
@@ -205,6 +206,8 @@ const FarmerProfile = () => {
       {label}
     </button>
   );
+
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
