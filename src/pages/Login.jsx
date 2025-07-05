@@ -38,6 +38,7 @@ const Login = () => {
             const user = data?.data?.user;
             if (data.success && user) {
                 localStorage.setItem('user', JSON.stringify(user));
+                window.dispatchEvent(new Event('userChanged'));
                 // Redirect based on user role
                 if (user.role === 'farmer') {
                     navigate('/dashboard');
