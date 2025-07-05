@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
     User,
     Mail,
@@ -182,9 +183,9 @@ const BuyerSignup = () => {
         companyAddress: '',
         phoneNumber: '',
         profileImage: null,
+        nicNumber: '',
         password: '',
         confirmPassword: '',
-        organizationCommitteeNumber: '',
         paymentOffer: '',
     });
 
@@ -198,6 +199,8 @@ const BuyerSignup = () => {
 
     const [errors, setErrors] = useState({});
     const [orgErrors, setOrgErrors] = useState({});
+    const [successMessage, setSuccessMessage] = useState("");
+    const [errorMessage, setErrorMessage] = useState("");
 
     const districts = [
         'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 'Galle', 'Gampaha',
@@ -240,9 +243,10 @@ const BuyerSignup = () => {
         if (!formData.district) newErrors.district = 'District is required';
         if (!formData.phoneNumber?.trim()) newErrors.phoneNumber = 'Phone number is required';
         else if (!/^[0-9]{10}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
+        if (!formData.nicNumber?.trim()) newErrors.nicNumber = 'NIC number is required';
+        else if (!/^([0-9]{9}[VXvx]|[0-9]{12})$/.test(formData.nicNumber)) newErrors.nicNumber = 'Please enter a valid NIC number';
         if (!formData.password) newErrors.password = 'Password is required';
         if (!formData.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
-        if (showOrgForm && !formData.organizationCommitteeNumber?.trim()) newErrors.organizationCommitteeNumber = 'Organization committee number is required';
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (formData.email && !emailRegex.test(formData.email)) {
@@ -251,6 +255,10 @@ const BuyerSignup = () => {
         const phoneRegex = /^[0-9]{10}$/;
         if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber)) {
             newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
+        }
+        const nicRegex = /^([0-9]{9}[VXvx]|[0-9]{12})$/;
+        if (formData.nicNumber && !nicRegex.test(formData.nicNumber)) {
+            newErrors.nicNumber = 'Please enter a valid NIC number';
         }
         if (formData.password && formData.password.length < 8) {
             newErrors.password = 'Password must be at least 8 characters long';
@@ -293,14 +301,81 @@ const BuyerSignup = () => {
         e.preventDefault();
         if (!validateForm()) return;
         setIsLoading(true);
+
+        // Map frontend fields to backend expected fields (shared user table + buyer table)
+        const mappedData = {
+            name: formData.fullName?.trim() || '',
+            email: formData.email?.trim() || '',
+            password: formData.password,
+            contact_number: formData.phoneNumber?.trim() || '',
+            district: formData.district?.trim() || '',
+            nic_number: formData.nicNumber?.trim() || '',
+            // Buyer-specific fields (for separate buyer table)
+            company_name: formData.companyName?.trim() || '',
+            company_type: formData.companyType?.trim() || '',
+            company_address: formData.companyAddress?.trim() || '',
+            profile_image: formData.profileImage ?? null,
+            payment_offer: formData.paymentOffer?.trim() || '',
+        };
+
+        // Required fields for user table
+        const requiredFields = [
+            'name', 'email', 'password', 'contact_number', 'district'
+        ];
+        for (const field of requiredFields) {
+            if (
+                mappedData[field] === undefined ||
+                mappedData[field] === null ||
+                mappedData[field] === ''
+            ) {
+                alert(`Field "${field}" is required and missing or invalid.`);
+                setIsLoading(false);
+                return;
+            }
+        }
+
+        // Prepare FormData for file upload
+        const data = new FormData();
+        Object.entries(mappedData).forEach(([key, value]) => {
+            if (requiredFields.includes(key)) {
+                data.append(key, value);
+            } else {
+                if (value !== undefined && value !== null && value !== '') {
+                    data.append(key, value);
+                }
+            }
+        });
+
         try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            console.log('Buyer registration data:', formData);
-            alert('Buyer registration successful!');
-            navigate('/dashboard');
+            const response = await axios.post('http://localhost:5000/api/v1/auth/register/buyer', data, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const result = response.data;
+            if (!result.success) {
+                setErrorMessage(result.message || 'Registration failed. Please try again.');
+                setIsLoading(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+            if (result.data && result.data.user) {
+                localStorage.setItem('user', JSON.stringify(result.data.user));
+                window.dispatchEvent(new Event('userChanged'));
+            }
+            setSuccessMessage('Buyer registration successful! Redirecting to login page...');
+            setErrorMessage("");
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setTimeout(() => navigate('/login'), 2000);
         } catch (error) {
-            console.error('Registration failed:', error);
-            alert('Registration failed. Please try again.');
+            let msg = 'Registration failed. Please try again.';
+            if (error.response && error.response.data) {
+                // Log backend error for debugging
+                console.log('Backend error:', error.response.data);
+                msg += ' ' + (typeof error.response.data === 'string' ? error.response.data : (error.response.data.message || JSON.stringify(error.response.data)));
+            } else if (error.message) {
+                msg += ' ' + error.message;
+            }
+            setErrorMessage(msg);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setIsLoading(false);
         }
@@ -314,7 +389,6 @@ const BuyerSignup = () => {
             await new Promise(resolve => setTimeout(resolve, 2000));
             console.log('Organization registration data:', orgFormData);
             const newCommitteeNumber = `ORG${Date.now()}`;
-            setFormData(prev => ({ ...prev, organizationCommitteeNumber: newCommitteeNumber }));
             alert(`Organization registered successfully! Your committee number is: ${newCommitteeNumber}`);
             setShowOrgForm(false);
         } catch (error) {
@@ -412,6 +486,24 @@ const BuyerSignup = () => {
                     </p>
                 </div>
 
+                {/* Success and error messages */}
+                {(successMessage || errorMessage) && (
+                    <div className="max-w-xl mx-auto mb-6">
+                        {successMessage && (
+                            <div className="flex items-center space-x-2 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-xl text-center justify-center font-semibold">
+                                <Check className="w-5 h-5 text-green-600" />
+                                <span>{successMessage}</span>
+                            </div>
+                        )}
+                        {errorMessage && (
+                            <div className="flex items-center space-x-2 bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded-xl text-center justify-center font-semibold mt-2">
+                                <AlertCircle className="w-4 h-4 text-red-600" />
+                                <span>{errorMessage}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="bg-white rounded-2xl shadow-xl border border-green-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
                         <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
@@ -430,6 +522,9 @@ const BuyerSignup = () => {
                                 <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
+                                <InputField icon={FileText} label="NIC Number" name="nicNumber" required placeholder="Enter your NIC number" value={formData.nicNumber} error={errors.nicNumber} onChange={handleInputChange} />
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={MapPin} label="District" name="district" required options={districts} value={formData.district} error={errors.district} onChange={handleInputChange} />
                                 <InputField icon={FileText} label="Company Name" name="companyName" placeholder="Enter your company name" value={formData.companyName} error={errors.companyName} onChange={handleInputChange} />
                             </div>
@@ -440,6 +535,7 @@ const BuyerSignup = () => {
                             <InputField icon={Home} label="Company Address" name="companyAddress" type="textarea" placeholder="Enter your complete company address" value={formData.companyAddress} error={errors.companyAddress} onChange={handleInputChange} />
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} />
+                                <InputField icon={FileText} label="Payment Offer" name="paymentOffer" placeholder="Describe your payment terms" value={formData.paymentOffer} error={errors.paymentOffer} onChange={handleInputChange} />
                             </div>
                         </div>
 
