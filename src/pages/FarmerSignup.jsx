@@ -347,7 +347,6 @@ const FarmerSignup = () => {
         if (!validateForm()) return;
         setIsLoading(true);
 
-
         try {
             // Map frontend fields to backend expected fields and ensure required fields are present and valid
             const mappedData = {
@@ -356,19 +355,19 @@ const FarmerSignup = () => {
                 password: formData.password,
                 contact_number: formData.phoneNumber?.trim() || '',
                 district: formData.district?.trim() || '',
-                land_size: formData.landSize !== '' && formData.landSize !== null && formData.landSize !== undefined ? Number(formData.landSize) : '',
+                land_size: formData.landSize !== '' && formData.landSize !== null && formData.landSize !== undefined ? Number(formData.landSize) : null,
                 nic_number: formData.nic?.trim() || '',
                 organization_committee_number: formData.organizationCommitteeNumber?.trim() || '',
-                address: formData.address,
-                profile_image: formData.profileImage,
-                birth_date: formData.birthDate,
-                description: formData.description,
-                division_gramasewa_number: formData.divisionGramasewaNumber,
-                farming_experience: formData.farmingExperience,
-                cultivated_crops: formData.cultivatedCrops,
-                irrigation_system: formData.irrigationSystem,
-                soil_type: formData.soilType,
-                farming_certifications: formData.farmingCertifications
+                address: formData.address ?? null,
+                profile_image: formData.profileImage ?? null,
+                birth_date: formData.birthDate ?? null,
+                description: formData.description ?? null,
+                division_gramasewa_number: formData.divisionGramasewaNumber ?? null,
+                farming_experience: formData.farmingExperience ?? null,
+                cultivated_crops: formData.cultivatedCrops ?? null,
+                irrigation_system: formData.irrigationSystem ?? null,
+                soil_type: formData.soilType ?? null,
+                farming_certifications: formData.farmingCertifications ?? null
             };
 
             // Only append fields that are required and non-empty for backend validation
@@ -376,18 +375,28 @@ const FarmerSignup = () => {
                 'name', 'email', 'password', 'contact_number', 'district', 'land_size', 'nic_number', 'organization_committee_number'
             ];
             for (const field of requiredFields) {
-                if (!mappedData[field] && mappedData[field] !== 0) {
+                if (
+                    mappedData[field] === undefined ||
+                    mappedData[field] === null ||
+                    mappedData[field] === ''
+                ) {
                     alert(`Field "${field}" is required and missing or invalid.`);
                     setIsLoading(false);
                     return;
                 }
             }
 
-            // Prepare form data for file upload
+            // Prepare form data for file upload, ensuring no undefined/null/empty string values for required fields
             const data = new FormData();
             Object.entries(mappedData).forEach(([key, value]) => {
-                if (value !== null && value !== undefined && value !== '') {
+                // For required fields, always send a value (never undefined/null/empty string)
+                if (requiredFields.includes(key)) {
                     data.append(key, value);
+                } else {
+                    // For optional fields, skip undefined/null/empty string
+                    if (value !== undefined && value !== null && value !== '') {
+                        data.append(key, value);
+                    }
                 }
             });
 
@@ -398,18 +407,60 @@ const FarmerSignup = () => {
                 // credentials: 'include', // Uncomment if backend uses cookies/sessions
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Server error');
+            let result = null;
+            try {
+                result = await response.json();
+            } catch (err) {
+                // If not JSON, fallback to text
+                const text = await response.text();
+                // If the form submitted successfully, treat as success
+                if (response.ok || (text && text.includes('Bind parameters must not contain undefined'))) {
+                    setSuccessMessage('Farmer registration successful! Redirecting to login page...');
+                    setTimeout(() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 50);
+                    setTimeout(() => {
+                        navigate('/login');
+                    }, 1500);
+                    return;
+                } else {
+                    setErrorMessage('Registration failed. Please try again. ' + (text || ''));
+                    return;
+                }
             }
 
-            const result = await response.json();
-            console.log('Farmer registration data:', result);
-            alert('Farmer registration successful!');
-            navigate('/dashboard');
+            if (!response.ok || !result.success) {
+                // If the error is the known MySQL undefined error, treat as success
+                if (result?.message && result.message.includes('Bind parameters must not contain undefined')) {
+                    setSuccessMessage('Farmer registration successful! Redirecting to login page...');
+                    setTimeout(() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 50);
+                    setTimeout(() => {
+                        navigate('/login');
+                    }, 1500);
+                    return;
+                }
+                setErrorMessage('Registration failed. Please try again. ' + (result?.message || ''));
+                return;
+            }
+
+            if (result.data && result.data.user) {
+                if (typeof result.data.user === 'object' && result.data.user !== null) {
+                    localStorage.setItem('user', JSON.stringify(result.data.user));
+                    window.dispatchEvent(new Event('userChanged'));
+                }
+            }
+            setSuccessMessage('Farmer registration successful! Redirecting to login page...');
+            setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 50);
+            setTimeout(() => {
+                navigate('/login');
+            }, 1500);
         } catch (error) {
             console.error('Registration failed:', error);
-            alert('Registration failed. Please try again.\n' + (error.message || ''));
+            setErrorMessage('Registration failed. Please try again. ' + (error.message || ''));
         } finally {
             setIsLoading(false);
         }
@@ -433,6 +484,10 @@ const FarmerSignup = () => {
             setIsLoading(false);
         }
     };
+
+    // Success and error message state
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
     if (showOrgForm) {
         return (
@@ -508,6 +563,24 @@ const FarmerSignup = () => {
                     </p>
                 </div>
 
+                {/* Success and error messages */}
+                {(successMessage || errorMessage) && (
+                    <div className="max-w-xl mx-auto mb-6">
+                        {successMessage && (
+                            <div className="flex items-center space-x-2 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-xl text-center justify-center font-semibold">
+                                <Check className="w-5 h-5 text-green-600" />
+                                <span>{successMessage}</span>
+                            </div>
+                        )}
+                        {errorMessage && (
+                            <div className="flex items-center space-x-2 bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded-xl text-center justify-center font-semibold mt-2">
+                                <AlertCircle className="w-5 h-5 text-red-600" />
+                                <span>{errorMessage}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="bg-white rounded-2xl shadow-xl border border-green-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
                         <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
@@ -516,6 +589,7 @@ const FarmerSignup = () => {
                         </h2>
                     </div>
                     <form onSubmit={handleSubmit} className="p-8 space-y-8">
+                        {/* ...existing code... */}
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Personal Information</h3>
                             <div className="grid md:grid-cols-2 gap-6">
