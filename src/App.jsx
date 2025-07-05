@@ -18,6 +18,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import FarmerSignup from "./pages/FarmerSignup";
 import BuyerSignup from "./pages/BuyerSignup";
 import TransporterSignup from "./pages/TransporterSignup";
+import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
@@ -114,12 +115,15 @@ const App = () => {
           <TransporterSignup />
         </Layout>} 
       />
+      <Route path="/signup/shop-owner" element={
+        <Layout>
+          <ShopOwnerSignup />
+        </Layout>} 
+      />
         {/* Dashboard Routes - No Layout */}
       <Route path="/dashboard/farmer" element={<FarmerDashboard />} />
       <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
-{/* <Route path="/signup/shop-owner" element={<ShopOwnerSignup />} />
-<Route path="/signup/moderator" element={<ModeratorSignup />} />
-<Route path="/signup/transporter" element={<TransporterSignup />} /> */}
+{/* <Route path="/signup/moderator" element={<ModeratorSignup />} /> */}
 
       <Route path="/forgotpassword" element={
           <Layout>

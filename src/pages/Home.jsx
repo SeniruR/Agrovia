@@ -31,11 +31,11 @@ const LandingContent = () => {
         </div>
       </section>
 
-      <section className="py-12 px-6 text-center md:p-20">
+      <section className="py-12 px-4 text-center">
         <h2 className="text-2xl font-bold text-green-700 mb-8">
           We are providing different Facilities
         </h2>
-        <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-6 mx-[20%] py-[10px]">
+        <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-6 max-w-6xl mx-auto py-[10px]">
           {facilities.map((facility, index) => {
             const cardContent = (
               <div
@@ -75,7 +75,7 @@ const LandingContent = () => {
         </div>
       </section>
 
-      <section className="bg-[#F8F7F0] py-12 px-6 md:p-20 flex flex-col md:flex-row items-center gap-10">
+      <section className="bg-[#F8F7F0] py-12 px-4 flex flex-col md:flex-row items-center gap-10 max-w-6xl mx-auto">
         <div className="md:w-1/2">
           <img src={logo} alt="Farm Landscape" className="rounded-lg shadow-md" />
         </div>
@@ -126,7 +126,7 @@ const LandingContent = () => {
         </div>
       </section>
 
-      <section className="bg-green-50 py-12 px-6 md:p-20 grid md:grid-cols-2 gap-10 items-center">
+      <section className="bg-green-50 py-12 px-4 grid md:grid-cols-2 gap-10 items-center max-w-6xl mx-auto">
         <div>
           <h2 className="text-3xl font-bold text-gray-800 mb-6">You've Any Questions</h2>
           <div className="space-y-6">
@@ -163,7 +163,7 @@ const LandingContent = () => {
         </div>
       </section>
 
-      <section className="bg-gray-50 py-10 px-6 rounded-lg shadow-md md:p-20">
+      <section className="bg-gray-50 py-10 px-4 rounded-lg shadow-md max-w-6xl mx-auto">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">What They are talking about Agrovia</h2>
           <p className="text-gray-500 mb-6">
@@ -207,6 +207,35 @@ const LandingContent = () => {
               "The support and knowledge base on this platform are outstanding. My yields have improved thanks to Agrovia."
             </p>
             <p className="text-sm text-gray-600 text-right">– Priya Sharma</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Section for Sidebar Testing */}
+      <section className="py-16 px-4 bg-neutral-50">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center text-neutral-900 mb-8">
+            Modern Sidebar Demo
+          </h2>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
+              <h3 className="text-xl font-semibold text-agrovia-700 mb-4">
+                Responsive Design
+              </h3>
+              <p className="text-neutral-600 leading-relaxed">
+                The new sidebar is fully responsive. On desktop, it slides out and shifts content to the right. 
+                On mobile, it appears as an overlay. Try opening the sidebar by clicking the menu icon in the navigation bar.
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
+              <h3 className="text-xl font-semibold text-agrovia-700 mb-4">
+                Smooth Animations
+              </h3>
+              <p className="text-neutral-600 leading-relaxed">
+                All transitions use CSS animations for smooth user experience. The content shifts seamlessly 
+                when the sidebar opens and closes, maintaining the layout integrity.
+              </p>
+            </div>
           </div>
         </div>
       </section>
