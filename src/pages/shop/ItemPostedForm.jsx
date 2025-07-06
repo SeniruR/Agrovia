@@ -182,29 +182,56 @@ const removeImage = (index) => {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Validate all steps
+  const step3Errors = validateStep3();
+  if (Object.keys(step3Errors).length > 0) {
+    setErrors(step3Errors);
+    return;
+  }
+
+  const allErrors = {
+    ...validateStep1(),
+    ...validateStep2(),
+    ...validateStep3()
+  };
+
+  if (Object.keys(allErrors).length > 0) {
+    setErrors(allErrors);
+    setCurrentStep(1);
+    return;
+  }
+
+  try {
+    // Create FormData for file upload
+    const formDataToSend = new FormData();
     
-    const step3Errors = validateStep3();
-    if (Object.keys(step3Errors).length > 0) {
-      setErrors(step3Errors);
-      return;
+    // Add all regular fields
+    Object.entries(formData).forEach(([key, value]) => {
+      if (key !== 'images' && key !== 'imagePreviews' && key !== 'termsAccepted') {
+        formDataToSend.append(key, value);
+      }
+    });
+    
+    // Add image files
+    formData.images.forEach((image) => {
+      formDataToSend.append('images', image);
+    });
+
+    // Send to backend
+    const response = await fetch('/api/products', {
+      method: 'POST',
+      body: formDataToSend,
+    });
+
+    if (!response.ok) {
+      throw new Error('Submission failed');
     }
 
-    // Final validation of all steps
-    const allErrors = {
-      ...validateStep1(),
-      ...validateStep2(),
-      ...validateStep3()
-    };
-
-    if (Object.keys(allErrors).length > 0) {
-      setErrors(allErrors);
-      setCurrentStep(1); // Go back to first step with errors
-      return;
-    }
-
-    console.log('Form submitted:', formData);
+    const data = await response.json();
+    console.log('Success:', data);
     alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
     
     // Reset form
@@ -228,11 +255,17 @@ const removeImage = (index) => {
       season: '',
       organicCertified: false,
       images: [],
+      imagePreviews: [], // Add this if you're using previews
       termsAccepted: false
     });
     setCurrentStep(1);
     setErrors({});
-  };
+
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error submitting form. Please try again.');
+  }
+};
 
   const getProductIcon = (type) => {
     switch (type) {
@@ -451,6 +484,7 @@ const removeImage = (index) => {
                 <p className="text-base sm:text-lg text-gray-600">Provide detailed information about your product</p>
               </div>
               
+              
               {/* Product Type Selection */}
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-4 sm:mb-6">
@@ -663,7 +697,45 @@ const removeImage = (index) => {
                   </div>
                 )}
               </div>
-
+<div className="w-full">
+  <label className="block text-sm font-semibold text-gray-700 mb-3">
+    Product Images (Max 5)
+  </label>
+  <div className="flex flex-wrap gap-4 mb-4">
+    {formData.imagePreviews.map((preview, index) => (
+      <div key={index} className="relative">
+        <img 
+          src={preview} 
+          alt={`Preview ${index}`}
+          className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+        />
+        <button
+          type="button"
+          onClick={() => removeImage(index)}
+          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+        >
+          ×
+        </button>
+      </div>
+    ))}
+    {formData.imagePreviews.length < 5 && (
+      <label className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors">
+        <div className="text-center">
+          <Upload className="w-8 h-8 mx-auto text-gray-400" />
+          <span className="text-xs text-gray-500">Add Image</span>
+        </div>
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
+      </label>
+    )}
+  </div>
+  <p className="text-xs text-gray-500">Upload clear images of your product (JPEG, PNG)</p>
+</div>
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Usage Instructions
