@@ -10,7 +10,7 @@ import {
 // --- Controlled InputField Component (Correctly placed outside) ---
 const InputField = React.memo(({
   icon, label, name, type = 'text', required = false, options = null,
-  isSearchable = false, value, error, onChange, onTogglePassword, showPassword, ...props
+  isSearchable = false, value, error, onChange, onTogglePassword, showPassword, inputRef, ...props
 }) => {
   const baseClassName = "w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100";
   const errorClassName = "border-red-500 bg-red-50";
@@ -40,11 +40,14 @@ const InputField = React.memo(({
               boxShadow: state.isFocused ? '0 0 0 2px #3b82f6' : undefined,
             }),
           }}
+          ref={inputRef}
         />
       ) : options ? (
         <select
           name={name} value={value || ''} onChange={onChange}
-          className={`${baseClassName} ${error ? errorClassName : normalClassName}`} {...props}
+          className={`${baseClassName} ${error ? errorClassName : normalClassName}`}
+          ref={inputRef}
+          {...props}
         >
           <option value="">Select {label}</option>
           {options.map(option =>
@@ -56,11 +59,13 @@ const InputField = React.memo(({
       ) : type === 'textarea' ? (
         <textarea
           name={name} value={value || ''} onChange={onChange} rows={4}
-          className={`${baseClassName} resize-none ${error ? errorClassName : normalClassName}`} {...props}
+          className={`${baseClassName} resize-none ${error ? errorClassName : normalClassName}`}
+          ref={inputRef}
+          {...props}
         />
       ) : type === 'file' ? (
         <div className="relative">
-          <input type="file" name={name} onChange={onChange} className="hidden" id={name} {...props} />
+          <input type="file" name={name} onChange={onChange} className="hidden" id={name} ref={inputRef} {...props} />
           <label htmlFor={name} className={`w-full px-4 py-3 border-2 border-dashed rounded-xl cursor-pointer flex items-center justify-center space-x-2 transition-all duration-300 hover:bg-green-50 bg-slate-100 ${error ? errorClassName : 'border-green-300 hover:border-green-400'}`}>
             {name === 'profileImage' ? <Camera className="w-5 h-5 text-green-600" /> : null}
             {name === 'shopImage' ? <Store className="w-5 h-5 text-green-600" /> : null}
@@ -74,7 +79,9 @@ const InputField = React.memo(({
             type={type === 'password' ? (showPassword ? 'text' : 'password') : type}
             name={name} value={value || ''} onChange={onChange}
             autoComplete={type === 'password' ? 'new-password' : 'off'}
-            className={`${baseClassName} ${type === 'password' ? 'pr-12' : ''} ${error ? errorClassName : normalClassName}`} {...props}
+            className={`${baseClassName} ${type === 'password' ? 'pr-12' : ''} ${error ? errorClassName : normalClassName}`}
+            ref={inputRef}
+            {...props}
           />
           {type === 'password' && (
             <button type="button" onClick={onTogglePassword} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-600 hover:text-green-800">
@@ -98,6 +105,11 @@ const ShopOwnerSignup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Refs for each field for error scrolling
+  const fieldRefs = React.useRef({});
 
   const [formData, setFormData] = useState({
     fullName: '', email: '', district: '', nic: '', address: '', phoneNumber: '',
@@ -160,10 +172,34 @@ const ShopOwnerSignup = () => {
     if (formData.shopEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.shopEmail)) newErrors.shopEmail = 'Please enter a valid shop email address';
     if (!formData.district) newErrors.district = 'District is required';
     if (!formData.nic?.trim()) newErrors.nic = 'NIC is required';
-    else if (!/^([0-9]{9}[x|X|v|V]|[0-9]{12})$/.test(formData.nic)) newErrors.nic = 'Please enter a valid NIC number';
+    else {
+      // Enhanced NIC validation (same as FarmerSignup)
+      const newNICRegex = /^(19|20)\d{2}\d{8}$/;
+      const oldNICRegex = /^\d{2}\d{7}[vVxX]$/;
+      if (newNICRegex.test(formData.nic)) {
+        // New NIC: check year is reasonable (1900-2099)
+        const year = parseInt(formData.nic.substring(0, 4), 10);
+        if (year < 1900 || year > new Date().getFullYear()) {
+          newErrors.nic = 'New NIC: Invalid birth year.';
+        }
+      } else if (oldNICRegex.test(formData.nic)) {
+        // Old NIC: check year is reasonable (assume 19xx)
+        const year = parseInt(formData.nic.substring(0, 2), 10);
+        const fullYear = year > 30 ? 1900 + year : 2000 + year;
+        if (fullYear < 1900 || fullYear > new Date().getFullYear()) {
+          newErrors.nic = 'Old NIC: Invalid birth year.';
+        }
+      } else {
+        newErrors.nic = 'NIC must be 12 digits (e.g., 200212345678) or 9 digits + V/X (e.g., 68xxxxxxxV)';
+      }
+    }
     if (!formData.phoneNumber?.trim()) newErrors.phoneNumber = 'Phone number is required';
-    else if (!/^[0-9]{10}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
-    if (formData.shopPhoneNumber && !/^[0-9]{10}$/.test(formData.shopPhoneNumber)) newErrors.shopPhoneNumber = 'Please enter a valid 10-digit shop phone number';
+    else {
+      // Phone number must start with 0 and have 10 digits
+      const phoneRegex = /^0[0-9]{9}$/;
+      if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = 'Phone number must start with 0 and have 10 digits';
+    }
+    if (formData.shopPhoneNumber && !/^0[0-9]{9}$/.test(formData.shopPhoneNumber)) newErrors.shopPhoneNumber = 'Shop phone number must start with 0 and have 10 digits';
     if (!formData.password) newErrors.password = 'Password is required';
     else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
@@ -176,6 +212,14 @@ const ShopOwnerSignup = () => {
     if (!formData.openingDays || formData.openingDays.length === 0) newErrors.openingDays = 'Opening days are required';
 
     setErrors(newErrors);
+
+    // Scroll to first error field if any
+    if (Object.keys(newErrors).length > 0) {
+      const firstErrorField = Object.keys(newErrors)[0];
+      if (fieldRefs.current[firstErrorField] && fieldRefs.current[firstErrorField].scrollIntoView) {
+        fieldRefs.current[firstErrorField].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -183,6 +227,8 @@ const ShopOwnerSignup = () => {
     e.preventDefault();
     if (!validateForm()) return;
     setIsLoading(true);
+    setSuccessMessage("");
+    setErrorMessage("");
     try {
       // Prepare FormData for multipart/form-data (snake_case for backend compatibility)
       const data = new FormData();
@@ -216,13 +262,19 @@ const ShopOwnerSignup = () => {
       );
       const result = response.data;
       if (!result.success) {
-        throw new Error(result.message || 'Registration failed');
+        setErrorMessage(result.message || 'Registration failed. Please try again.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       }
-      alert('Shop owner registration successful!');
-      navigate('/login');
+      setSuccessMessage('Shop owner registration successful! Redirecting to login page...');
+      setErrorMessage("");
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => navigate('/login'), 2000);
     } catch (error) {
       console.error('Registration failed:', error);
-      alert(error.response?.data?.message || error.message || 'Registration failed. Please try again.');
+      setErrorMessage(error.response?.data?.message || error.message || 'Registration failed. Please try again.');
+      setSuccessMessage("");
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsLoading(false);
     }
@@ -250,6 +302,24 @@ const ShopOwnerSignup = () => {
           </p>
         </div>
 
+        {/* Success and error messages */}
+        {(successMessage || errorMessage) && (
+          <div className="max-w-xl mx-auto mb-6">
+            {successMessage && (
+              <div className="flex items-center space-x-2 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-xl text-center justify-center font-semibold">
+                <Check className="w-5 h-5 text-green-600" />
+                <span>{successMessage}</span>
+              </div>
+            )}
+            {errorMessage && (
+              <div className="flex items-center space-x-2 bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded-xl text-center justify-center font-semibold mt-2">
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-xl border border-green-200 overflow-hidden">
           <div className="bg-gradient-to-r from-green-500 to-green-600 p-6">
             <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
@@ -263,29 +333,29 @@ const ShopOwnerSignup = () => {
             <div className="space-y-6">
               <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Personal Information</h3>
               <div className="grid md:grid-cols-2 gap-6">
-                <InputField icon={User} label="Full Name" name="fullName" type="text" required placeholder="Enter your full name" value={formData.fullName} error={errors.fullName} onChange={handleInputChange} />
-                <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} />
-                <InputField icon={MapPin} label="District" name="district" required options={districts} value={formData.district} error={errors.district} onChange={handleInputChange} />
-                <InputField icon={FileText} label="NIC Number" name="nic" required placeholder="Enter NIC number" value={formData.nic} error={errors.nic} onChange={handleInputChange} />
-                <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} />
+                <InputField icon={User} label="Full Name" name="fullName" type="text" required placeholder="Enter your full name" value={formData.fullName} error={errors.fullName} onChange={handleInputChange} inputRef={el => fieldRefs.current['fullName'] = el} />
+                <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} inputRef={el => fieldRefs.current['email'] = el} />
+                <InputField icon={MapPin} label="District" name="district" required options={districts} value={formData.district} error={errors.district} onChange={handleInputChange} inputRef={el => fieldRefs.current['district'] = el} />
+                <InputField icon={FileText} label="NIC Number" name="nic" required placeholder="Enter NIC number" value={formData.nic} error={errors.nic} onChange={handleInputChange} inputRef={el => fieldRefs.current['nic'] = el} />
+                <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['phoneNumber'] = el} />
               </div>
-              <InputField icon={Home} label="Personal Address" name="address" type="textarea" placeholder="Enter your complete personal address" value={formData.address} error={errors.address} onChange={handleInputChange} />
-              <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" accept="image/*" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} />
+              <InputField icon={Home} label="Personal Address" name="address" type="textarea" placeholder="Enter your complete personal address" value={formData.address} error={errors.address} onChange={handleInputChange} inputRef={el => fieldRefs.current['address'] = el} />
+              <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" accept="image/*" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} inputRef={el => fieldRefs.current['profileImage'] = el} />
             </div>
 
             {/* Shop Details Section */}
             <div className="space-y-6">
               <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Shop Information</h3>
               <div className="grid md:grid-cols-2 gap-6">
-                <InputField icon={Store} label="Shop Name" name="shopName" required placeholder="Enter your shop name" value={formData.shopName} error={errors.shopName} onChange={handleInputChange} />
-                <InputField icon={FileText} label="Business Registration Number" name="businessRegistrationNumber" required placeholder="Enter business registration number" value={formData.businessRegistrationNumber} error={errors.businessRegistrationNumber} onChange={handleInputChange} />
+                <InputField icon={Store} label="Shop Name" name="shopName" required placeholder="Enter your shop name" value={formData.shopName} error={errors.shopName} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopName'] = el} />
+                <InputField icon={FileText} label="Business Registration Number" name="businessRegistrationNumber" required placeholder="Enter business registration number" value={formData.businessRegistrationNumber} error={errors.businessRegistrationNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['businessRegistrationNumber'] = el} />
               </div>
-              <InputField icon={Home} label="Shop Address" name="shopAddress" type="textarea" required placeholder="Enter your shop's complete address" value={formData.shopAddress} error={errors.shopAddress} onChange={handleInputChange} />
+              <InputField icon={Home} label="Shop Address" name="shopAddress" type="textarea" required placeholder="Enter your shop's complete address" value={formData.shopAddress} error={errors.shopAddress} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopAddress'] = el} />
               <div className="grid md:grid-cols-2 gap-6">
-                <InputField icon={Phone} label="Shop Phone Number" name="shopPhoneNumber" required placeholder="Enter shop's 10-digit phone number" value={formData.shopPhoneNumber} error={errors.shopPhoneNumber} onChange={handleInputChange} />
-                <InputField icon={Mail} label="Shop Email (Optional)" name="shopEmail" type="email" placeholder="Enter shop email address" value={formData.shopEmail} error={errors.shopEmail} onChange={handleInputChange} />
-                <InputField icon={Package} label="Shop Category" name="shopCategory" required options={shopCategoryOptions} value={formData.shopCategory} error={errors.shopCategory} onChange={handleInputChange} />
-                <InputField icon={Clock} label="Operating Hours" name="operatingHours" required options={operatingHoursOptions} value={formData.operatingHours} error={errors.operatingHours} onChange={handleInputChange} />
+                <InputField icon={Phone} label="Shop Phone Number" name="shopPhoneNumber" required placeholder="Enter shop's 10-digit phone number" value={formData.shopPhoneNumber} error={errors.shopPhoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopPhoneNumber'] = el} />
+                <InputField icon={Mail} label="Shop Email (Optional)" name="shopEmail" type="email" placeholder="Enter shop email address" value={formData.shopEmail} error={errors.shopEmail} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopEmail'] = el} />
+                <InputField icon={Package} label="Shop Category" name="shopCategory" required options={shopCategoryOptions} value={formData.shopCategory} error={errors.shopCategory} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopCategory'] = el} />
+                <InputField icon={Clock} label="Operating Hours" name="operatingHours" required options={operatingHoursOptions} value={formData.operatingHours} error={errors.operatingHours} onChange={handleInputChange} inputRef={el => fieldRefs.current['operatingHours'] = el} />
               </div>
               <div className="space-y-2">
                 <label className="flex items-center space-x-2 text-sm font-medium text-green-800"><Calendar className="w-4 h-4" /><span>Opening Days <span className="text-red-500">*</span></span></label>
@@ -301,11 +371,11 @@ const ShopOwnerSignup = () => {
                 />
                 {errors.openingDays && (<div className="flex items-center space-x-1 text-red-500 text-sm"><AlertCircle className="w-4 h-4" /><span>{errors.openingDays}</span></div>)}
               </div>
-              <InputField icon={MapPin} label="Delivery Areas" name="deliveryAreas" type="textarea" placeholder="List areas you deliver to (comma separated)" value={formData.deliveryAreas} error={errors.deliveryAreas} onChange={handleInputChange} />
-              <InputField icon={FileText} label="Shop Description" name="shopDescription" type="textarea" placeholder="Describe your shop, products, and services" value={formData.shopDescription} error={errors.shopDescription} onChange={handleInputChange} />
+              <InputField icon={MapPin} label="Delivery Areas" name="deliveryAreas" type="textarea" placeholder="List areas you deliver to (comma separated)" value={formData.deliveryAreas} error={errors.deliveryAreas} onChange={handleInputChange} inputRef={el => fieldRefs.current['deliveryAreas'] = el} />
+              <InputField icon={FileText} label="Shop Description" name="shopDescription" type="textarea" placeholder="Describe your shop, products, and services" value={formData.shopDescription} error={errors.shopDescription} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopDescription'] = el} />
               <div className="grid md:grid-cols-2 gap-6">
-                <InputField icon={FileText} label="Shop License" name="shopLicense" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" value={formData.shopLicense} error={errors.shopLicense} onChange={handleInputChange} />
-                <InputField icon={Store} label="Shop Image" name="shopImage" type="file" accept="image/*" value={formData.shopImage} error={errors.shopImage} onChange={handleInputChange} />
+                <InputField icon={FileText} label="Shop License" name="shopLicense" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" value={formData.shopLicense} error={errors.shopLicense} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopLicense'] = el} />
+                <InputField icon={Store} label="Shop Image" name="shopImage" type="file" accept="image/*" value={formData.shopImage} error={errors.shopImage} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopImage'] = el} />
               </div>
             </div>
 
@@ -318,12 +388,14 @@ const ShopOwnerSignup = () => {
                   placeholder="Enter password (min 8 characters)"
                   value={formData.password} error={errors.password} onChange={handleInputChange}
                   showPassword={showPassword} onTogglePassword={() => setShowPassword(!showPassword)}
+                  inputRef={el => fieldRefs.current['password'] = el}
                 />
                 <InputField
                   icon={Lock} label="Confirm Password" name="confirmPassword" type="password" required
                   placeholder="Confirm your password"
                   value={formData.confirmPassword} error={errors.confirmPassword} onChange={handleInputChange}
                   showPassword={showConfirmPassword} onTogglePassword={() => setShowConfirmPassword(!showConfirmPassword)}
+                  inputRef={el => fieldRefs.current['confirmPassword'] = el}
                 />
               </div>
             </div>
