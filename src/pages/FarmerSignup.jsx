@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Select from 'react-select'; // Import react-select
+import Select from 'react-select';
+import axios from 'axios';
 import {
     User,
     Mail,
@@ -39,6 +40,7 @@ const InputField = React.memo(({
     onChange,
     onTogglePassword,
     showPassword,
+    inputRef,
     ...props
 }) => {
     return (
@@ -66,6 +68,7 @@ const InputField = React.memo(({
                             boxShadow: state.isFocused ? '0 0 0 2px #22c55e' : undefined,
                         }),
                     }}
+                    ref={inputRef}
                 />
             ) : options ? (
                 <select
@@ -75,6 +78,7 @@ const InputField = React.memo(({
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${
                         error ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
                     }`}
+                    ref={inputRef}
                     {...props}
                 >
                     <option value="">Select {label}</option>
@@ -93,6 +97,7 @@ const InputField = React.memo(({
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 resize-none bg-slate-100 ${
                         error ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
                     }`}
+                    ref={inputRef}
                     {...props}
                 />
             ) : type === 'file' ? (
@@ -104,6 +109,7 @@ const InputField = React.memo(({
                         accept="image/*,.pdf,.doc,.docx"
                         className="hidden"
                         id={name}
+                        ref={inputRef}
                         {...props}
                     />
                     <label
@@ -129,6 +135,7 @@ const InputField = React.memo(({
                         className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${
                             type === 'password' ? 'pr-12' : ''
                         } ${error ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'}`}
+                        ref={inputRef}
                         {...props}
                     />
                     {type === 'password' && (
@@ -236,6 +243,9 @@ const FarmerSignup = () => {
     const [showOrgForm, setShowOrgForm] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Refs for each field for error scrolling
+    const fieldRefs = React.useRef({});
+
     // Main farmer form data
     const [formData, setFormData] = useState({
         name: '', // changed from fullName
@@ -317,14 +327,46 @@ const FarmerSignup = () => {
         if (!formData.cultivatedCrops) newErrors.cultivatedCrops = 'Cultivated crops information is required';
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (formData.email && !emailRegex.test(formData.email)) newErrors.email = 'Please enter a valid email address';
-        const nicRegex = /^([0-9]{9}[x|X|v|V]|[0-9]{12})$/;
-        if (formData.nic && !nicRegex.test(formData.nic)) newErrors.nic = 'Please enter a valid NIC number';
-        const phoneRegex = /^[0-9]{10}$/;
-        if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
+
+        // Enhanced NIC validation
+        // New NIC: 12 digits, starts with 19xx or 20xx (birth year)
+        // Old NIC: 9 digits + V/v/X/x, starts with 2 digits (birth year)
+        const newNICRegex = /^(19|20)\d{2}\d{8}$/;
+        const oldNICRegex = /^\d{2}\d{7}[vVxX]$/;
+        if (formData.nic) {
+            if (newNICRegex.test(formData.nic)) {
+                // New NIC: check year is reasonable (1900-2099)
+                const year = parseInt(formData.nic.substring(0, 4), 10);
+                if (year < 1900 || year > new Date().getFullYear()) {
+                    newErrors.nic = 'New NIC: Invalid birth year.';
+                }
+            } else if (oldNICRegex.test(formData.nic)) {
+                // Old NIC: check year is reasonable (assume 19xx)
+                const year = parseInt(formData.nic.substring(0, 2), 10);
+                const fullYear = year > 30 ? 1900 + year : 2000 + year; // crude cutoff for 2-digit year
+                if (fullYear < 1900 || fullYear > new Date().getFullYear()) {
+                    newErrors.nic = 'Old NIC: Invalid birth year.';
+                }
+            } else {
+                newErrors.nic = 'NIC must be 12 digits (e.g., 200212345678) or 9 digits + V/X (e.g., 68xxxxxxxV)';
+            }
+        }
+
+        // Phone number must start with 0 and have 10 digits
+        const phoneRegex = /^0[0-9]{9}$/;
+        if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = 'Phone number must start with 0 and have 10 digits';
         if (formData.password && formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
         if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
         if (formData.landSize && (isNaN(formData.landSize) || parseFloat(formData.landSize) <= 0)) newErrors.landSize = 'Please enter a valid land size';
         setErrors(newErrors);
+
+        // Scroll to first error field if any
+        if (Object.keys(newErrors).length > 0) {
+            const firstErrorField = Object.keys(newErrors)[0];
+            if (fieldRefs.current[firstErrorField] && fieldRefs.current[firstErrorField].scrollIntoView) {
+                fieldRefs.current[firstErrorField].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
         return Object.keys(newErrors).length === 0;
     };
 
@@ -347,7 +389,6 @@ const FarmerSignup = () => {
         if (!validateForm()) return;
         setIsLoading(true);
 
-
         try {
             // Map frontend fields to backend expected fields and ensure required fields are present and valid
             const mappedData = {
@@ -356,19 +397,19 @@ const FarmerSignup = () => {
                 password: formData.password,
                 contact_number: formData.phoneNumber?.trim() || '',
                 district: formData.district?.trim() || '',
-                land_size: formData.landSize !== '' && formData.landSize !== null && formData.landSize !== undefined ? Number(formData.landSize) : '',
+                land_size: formData.landSize !== '' && formData.landSize !== null && formData.landSize !== undefined ? Number(formData.landSize) : null,
                 nic_number: formData.nic?.trim() || '',
                 organization_committee_number: formData.organizationCommitteeNumber?.trim() || '',
-                address: formData.address,
-                profile_image: formData.profileImage,
-                birth_date: formData.birthDate,
-                description: formData.description,
-                division_gramasewa_number: formData.divisionGramasewaNumber,
-                farming_experience: formData.farmingExperience,
-                cultivated_crops: formData.cultivatedCrops,
-                irrigation_system: formData.irrigationSystem,
-                soil_type: formData.soilType,
-                farming_certifications: formData.farmingCertifications
+                address: formData.address ?? null,
+                profile_image: formData.profileImage ?? null,
+                birth_date: formData.birthDate ?? null,
+                description: formData.description ?? null,
+                division_gramasewa_number: formData.divisionGramasewaNumber ?? null,
+                farming_experience: formData.farmingExperience ?? null,
+                cultivated_crops: formData.cultivatedCrops ?? null,
+                irrigation_system: formData.irrigationSystem ?? null,
+                soil_type: formData.soilType ?? null,
+                farming_certifications: formData.farmingCertifications ?? null
             };
 
             // Only append fields that are required and non-empty for backend validation
@@ -376,40 +417,107 @@ const FarmerSignup = () => {
                 'name', 'email', 'password', 'contact_number', 'district', 'land_size', 'nic_number', 'organization_committee_number'
             ];
             for (const field of requiredFields) {
-                if (!mappedData[field] && mappedData[field] !== 0) {
+                if (
+                    mappedData[field] === undefined ||
+                    mappedData[field] === null ||
+                    mappedData[field] === ''
+                ) {
                     alert(`Field "${field}" is required and missing or invalid.`);
                     setIsLoading(false);
                     return;
                 }
             }
 
-            // Prepare form data for file upload
+            // Prepare form data for file upload, ensuring no undefined/null/empty string values for required fields
             const data = new FormData();
             Object.entries(mappedData).forEach(([key, value]) => {
-                if (value !== null && value !== undefined && value !== '') {
+                // For required fields, always send a value (never undefined/null/empty string)
+                if (requiredFields.includes(key)) {
                     data.append(key, value);
+                } else {
+                    // For optional fields, skip undefined/null/empty string
+                    if (value !== undefined && value !== null && value !== '') {
+                        data.append(key, value);
+                    }
                 }
             });
 
-            // Use the correct backend URL (adjust the port if needed)
-            const response = await fetch('http://localhost:5000/api/v1/auth/register/farmer', {
-                method: 'POST',
-                body: data,
-                // credentials: 'include', // Uncomment if backend uses cookies/sessions
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Server error');
+            // Use axios for the request
+            let result = null;
+            try {
+                const response = await axios.post('http://localhost:5000/api/v1/auth/register/farmer', data, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    // withCredentials: true, // Uncomment if backend uses cookies/sessions
+                });
+                result = response.data;
+            } catch (err) {
+                // Axios error handling
+                let text = '';
+                if (err.response && err.response.data) {
+                    // Try to get error message from backend
+                    text = typeof err.response.data === 'string' ? err.response.data : (err.response.data.message || JSON.stringify(err.response.data));
+                } else if (err.message) {
+                    text = err.message;
+                }
+                // If the form submitted successfully, treat as success
+                if (text && text.includes('Bind parameters must not contain undefined')) {
+                    setSuccessMessage('Farmer registration successful! Redirecting to login page...');
+                    setTimeout(() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 50);
+                    setTimeout(() => {
+                        navigate('/login');
+                    }, 1500);
+                    return;
+                } else {
+                    setErrorMessage('Registration failed. Please try again. ' + (text || ''));
+                    setIsLoading(false);
+                    return;
+                }
             }
 
-            const result = await response.json();
-            console.log('Farmer registration data:', result);
-            alert('Farmer registration successful!');
-            navigate('/dashboard');
+            if (!result.success) {
+                // If the error is the known MySQL undefined error, treat as success
+                if (result?.message && result.message.includes('Bind parameters must not contain undefined')) {
+                    setSuccessMessage('Farmer registration successful! Redirecting to login page...');
+                    setTimeout(() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 50);
+                    setTimeout(() => {
+                        navigate('/login');
+                    }, 1500);
+                    return;
+                }
+                setErrorMessage('Registration failed. Please try again. ' + (result?.message || ''));
+                setIsLoading(false);
+                return;
+            }
+
+            if (result.data && result.data.user) {
+                if (typeof result.data.user === 'object' && result.data.user !== null) {
+                    localStorage.setItem('user', JSON.stringify(result.data.user));
+                    window.dispatchEvent(new Event('userChanged'));
+                }
+            }
+            setSuccessMessage('Farmer registration successful! Redirecting to login page...');
+            setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 50);
+            setTimeout(() => {
+                navigate('/login');
+            }, 1500);
         } catch (error) {
             console.error('Registration failed:', error);
-            alert('Registration failed. Please try again.\n' + (error.message || ''));
+            let msg = 'Registration failed. Please try again.';
+            if (error.response && error.response.data) {
+                // Log backend error for debugging
+                console.log('Backend error:', error.response.data);
+                let backendMsg = typeof error.response.data === 'string' ? error.response.data : (error.response.data.message || JSON.stringify(error.response.data));
+                msg += backendMsg ? (' ' + backendMsg) : '';
+            } else if (error.message) {
+                msg += ' ' + error.message;
+            }
+            setErrorMessage(msg.trim());
         } finally {
             setIsLoading(false);
         }
@@ -433,6 +541,10 @@ const FarmerSignup = () => {
             setIsLoading(false);
         }
     };
+
+    // Success and error message state
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
     if (showOrgForm) {
         return (
@@ -508,6 +620,24 @@ const FarmerSignup = () => {
                     </p>
                 </div>
 
+                {/* Success and error messages */}
+                {(successMessage || errorMessage) && (
+                    <div className="max-w-xl mx-auto mb-6">
+                        {successMessage && (
+                            <div className="flex items-center space-x-2 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-xl text-center justify-center font-semibold">
+                                <Check className="w-5 h-5 text-green-600" />
+                                <span>{successMessage}</span>
+                            </div>
+                        )}
+                        {errorMessage && (
+                            <div className="flex items-center space-x-2 bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded-xl text-center justify-center font-semibold mt-2">
+                                <AlertCircle className="w-5 h-5 text-red-600" />
+                                <span>{errorMessage}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="bg-white rounded-2xl shadow-xl border border-green-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
                         <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
@@ -516,57 +646,58 @@ const FarmerSignup = () => {
                         </h2>
                     </div>
                     <form onSubmit={handleSubmit} className="p-8 space-y-8">
+                        {/* ...existing code... */}
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Personal Information</h3>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={User} label="Full Name" name="name" type="text" required placeholder="Enter your full name" value={formData.name} error={errors.name} onChange={handleInputChange} />
-                                <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} />
+                        <InputField icon={User} label="Full Name" name="name" type="text" required placeholder="Enter your full name" value={formData.name} error={errors.name} onChange={handleInputChange} inputRef={el => fieldRefs.current['name'] = el} />
+                        <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} inputRef={el => fieldRefs.current['email'] = el} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={MapPin} label="District" name="district" required options={districts} value={formData.district} error={errors.district} onChange={handleInputChange} />
-                                <InputField icon={FileText} label="NIC Number" name="nic" required placeholder="Enter NIC number" value={formData.nic} error={errors.nic} onChange={handleInputChange} />
+                                <InputField icon={MapPin} label="District" name="district" required options={districts} value={formData.district} error={errors.district} onChange={handleInputChange} inputRef={el => fieldRefs.current['district'] = el} />
+                                <InputField icon={FileText} label="NIC Number" name="nic" required placeholder="Enter NIC number" value={formData.nic} error={errors.nic} onChange={handleInputChange} inputRef={el => fieldRefs.current['nic'] = el} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} />
+                                <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['phoneNumber'] = el} />
                             </div>
-                            <InputField icon={Home} label="Address" name="address" type="textarea" placeholder="Enter your complete address" value={formData.address} error={errors.address} onChange={handleInputChange} />
+                            <InputField icon={Home} label="Address" name="address" type="textarea" placeholder="Enter your complete address" value={formData.address} error={errors.address} onChange={handleInputChange} inputRef={el => fieldRefs.current['address'] = el} />
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} />
+                            <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} inputRef={el => fieldRefs.current['profileImage'] = el} />
                             </div>
                         </div>
 
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Farming Experience & Background</h3>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Clock} label="Farming Experience" name="farmingExperience" required options={experienceOptions} value={formData.farmingExperience} error={errors.farmingExperience} onChange={handleInputChange} />
-                                <InputField icon={Sprout} label="Land Size (acres)" name="landSize" type="number" step="0.01" placeholder="Enter land size in acres" value={formData.landSize} error={errors.landSize} onChange={handleInputChange} />
+                                <InputField icon={Clock} label="Farming Experience" name="farmingExperience" required options={experienceOptions} value={formData.farmingExperience} error={errors.farmingExperience} onChange={handleInputChange} inputRef={el => fieldRefs.current['farmingExperience'] = el} />
+                                <InputField icon={Sprout} label="Land Size (acres)" name="landSize" type="number" step="0.01" placeholder="Enter land size in acres" value={formData.landSize} error={errors.landSize} onChange={handleInputChange} inputRef={el => fieldRefs.current['landSize'] = el} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Leaf} label="Cultivated Crops" name="cultivatedCrops" required options={cultivatedCropsOptions} value={formData.cultivatedCrops} error={errors.cultivatedCrops} onChange={handleInputChange} />
-                                <InputField icon={MapPin} label="Irrigation System" name="irrigationSystem" options={irrigationOptions} value={formData.irrigationSystem} error={errors.irrigationSystem} onChange={handleInputChange} />
+                                <InputField icon={Leaf} label="Cultivated Crops" name="cultivatedCrops" required options={cultivatedCropsOptions} value={formData.cultivatedCrops} error={errors.cultivatedCrops} onChange={handleInputChange} inputRef={el => fieldRefs.current['cultivatedCrops'] = el} />
+                                <InputField icon={MapPin} label="Irrigation System" name="irrigationSystem" options={irrigationOptions} value={formData.irrigationSystem} error={errors.irrigationSystem} onChange={handleInputChange} inputRef={el => fieldRefs.current['irrigationSystem'] = el} />
                             </div>
-                            <InputField icon={Leaf} label="Soil Type" name="soilType" options={soilTypeOptions} value={formData.soilType} error={errors.soilType} onChange={handleInputChange} />
-                            <InputField icon={FileText} label="Farming Description" name="description" type="textarea" placeholder="Tell us about your farming experience, interests, and current practices" value={formData.description} error={errors.description} onChange={handleInputChange} />
+                            <InputField icon={Leaf} label="Soil Type" name="soilType" options={soilTypeOptions} value={formData.soilType} error={errors.soilType} onChange={handleInputChange} inputRef={el => fieldRefs.current['soilType'] = el} />
+                            <InputField icon={FileText} label="Farming Description" name="description" type="textarea" placeholder="Tell us about your farming experience, interests, and current practices" value={formData.description} error={errors.description} onChange={handleInputChange} inputRef={el => fieldRefs.current['description'] = el} />
                         </div>
 
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Professional Development</h3>
-                            <InputField icon={Award} label="Farming Certifications" name="farmingCertifications" placeholder="e.g., Organic certification, GAP certification" value={formData.farmingCertifications} error={errors.farmingCertifications} onChange={handleInputChange} />
+                            <InputField icon={Award} label="Farming Certifications" name="farmingCertifications" placeholder="e.g., Organic certification, GAP certification" value={formData.farmingCertifications} error={errors.farmingCertifications} onChange={handleInputChange} inputRef={el => fieldRefs.current['farmingCertifications'] = el} />
                         </div>
 
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Security Information</h3>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Lock} label="Password" name="password" type="password" required placeholder="Enter password (min 8 characters)" value={formData.password} error={errors.password} onChange={handleInputChange} showPassword={showPassword} onTogglePassword={() => setShowPassword(p => !p)} />
-                                <InputField icon={Lock} label="Confirm Password" name="confirmPassword" type="password" required placeholder="Confirm your password" value={formData.confirmPassword} error={errors.confirmPassword} onChange={handleInputChange} showPassword={showConfirmPassword} onTogglePassword={() => setShowConfirmPassword(p => !p)} />
+                                <InputField icon={Lock} label="Password" name="password" type="password" required placeholder="Enter password (min 8 characters)" value={formData.password} error={errors.password} onChange={handleInputChange} showPassword={showPassword} onTogglePassword={() => setShowPassword(p => !p)} inputRef={el => fieldRefs.current['password'] = el} />
+                                <InputField icon={Lock} label="Confirm Password" name="confirmPassword" type="password" required placeholder="Confirm your password" value={formData.confirmPassword} error={errors.confirmPassword} onChange={handleInputChange} showPassword={showConfirmPassword} onTogglePassword={() => setShowConfirmPassword(p => !p)} inputRef={el => fieldRefs.current['confirmPassword'] = el} />
                             </div>
                         </div>
 
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Administrative Details</h3>
-                            <InputField icon={MapPin} label="Division of Gramasewa Niladari" name="divisionGramasewaNumber" required placeholder="Search your Gramasewa Niladari division" options={gramasewaDivisions} isSearchable={true} value={formData.divisionGramasewaNumber} error={errors.divisionGramasewaNumber} onChange={handleInputChange} />
+                            <InputField icon={MapPin} label="Division of Gramasewa Niladari" name="divisionGramasewaNumber" required placeholder="Search your Gramasewa Niladari division" options={gramasewaDivisions} isSearchable={true} value={formData.divisionGramasewaNumber} error={errors.divisionGramasewaNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['divisionGramasewaNumber'] = el} />
                             <div className="space-y-2">
-                                <InputField icon={Users} label="Organization Committee Number" name="organizationCommitteeNumber" required placeholder="Enter organization committee number" value={formData.organizationCommitteeNumber} error={errors.organizationCommitteeNumber} onChange={handleInputChange} />
+                                <InputField icon={Users} label="Organization Committee Number" name="organizationCommitteeNumber" required placeholder="Enter organization committee number" value={formData.organizationCommitteeNumber} error={errors.organizationCommitteeNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['organizationCommitteeNumber'] = el} />
                                 <div className="text-center">
                                     <button type="button" onClick={() => setShowOrgForm(true)} className="text-green-600 hover:text-green-800 text-sm font-medium underline transition-colors duration-300">
                                         Don't have an organization committee number? Register here

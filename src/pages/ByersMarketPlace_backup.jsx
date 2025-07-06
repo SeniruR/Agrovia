@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X } from 'lucide-react';
-
+import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X, Store, Award, Truck, Leaf } from 'lucide-react';
 import { Trash } from 'lucide-react';
-
-
-
 import {Link} from 'react-router-dom';
 
 
@@ -34,7 +30,9 @@ const ByersMarketplace = () => {
       availability: "5,000 kg",
       minOrder: "25 kg",
       quality: "A+ Grade",
-      organic: true
+      organic: true,
+      postedDate: "2025-07-04",
+      isLatest: true
     },
     {
       id: 2,
@@ -53,7 +51,9 @@ const ByersMarketplace = () => {
       availability: "3,200 kg",
       minOrder: "20 kg",
       quality: "A Grade",
-      organic: false
+      organic: false,
+      postedDate: "2025-07-03",
+      isLatest: true
     },
     {
       id: 3,
@@ -72,7 +72,9 @@ const ByersMarketplace = () => {
       availability: "1,800 kg",
       minOrder: "15 kg",
       quality: "Premium Quality",
-      organic: true
+      organic: true,
+      postedDate: "2025-07-02",
+      isLatest: false
     },
     {
       id: 4,
@@ -91,7 +93,9 @@ const ByersMarketplace = () => {
       availability: "2,500 kg",
       minOrder: "30 kg",
       quality: "A+ Grade",
-      organic: false
+      organic: false,
+      postedDate: "2025-07-05",
+      isLatest: true
     },
     {
       id: 5,
@@ -110,7 +114,9 @@ const ByersMarketplace = () => {
       availability: "800 kg",
       minOrder: "5 kg",
       quality: "Fresh/Crispy",
-      organic: true
+      organic: true,
+      postedDate: "2025-07-04",
+      isLatest: true
     },
     {
       id: 6,
@@ -129,7 +135,9 @@ const ByersMarketplace = () => {
       availability: "1,200 kg",
       minOrder: "10 kg",
       quality: "Fresh",
-      organic: true
+      organic: true,
+      postedDate: "2025-07-01",
+      isLatest: false
     },
     {
       id: 7,
@@ -148,7 +156,9 @@ const ByersMarketplace = () => {
       availability: "600 kg",
       minOrder: "8 kg",
       quality: "Fresh/Ripe",
-      organic: false
+      organic: false,
+      postedDate: "2025-07-05",
+      isLatest: true
     },
     {
       id: 8,
@@ -167,33 +177,45 @@ const ByersMarketplace = () => {
       availability: "400 kg",
       minOrder: "5 kg",
       quality: "Premium",
-      organic: true
+      organic: true,
+      postedDate: "2025-06-30",
+      isLatest: false
     }
   ];
 
-  const categories = ['All Products', 'Rice', 'Vegetables', 'Grains'];
-  const stats = [
-    { label: 'Products Available', value: '9', color: 'bg-green-100 text-green-800' },
-    { label: 'Active Farmers', value: '150+', color: 'bg-blue-100 text-blue-800' },
-    { label: 'Satisfied Buyers', value: '85%', color: 'bg-purple-100 text-purple-800' },
-    { label: 'Avg Rating', value: '4.7', color: 'bg-yellow-100 text-yellow-800' }
-  ];
   const [searchQuery, setSearchQuery] = useState('');
+const categories = ['All Products', 'Latest Crops', 'Rice', 'Vegetables', 'Grains'];
+const [selectedLocation, _setSelectedLocation] = useState('All');
 const [sortOption, setSortOption] = useState('Relevance');
-const [phoneProduct, setPhoneProduct] = useState(null);
+const getSortBy = (option) => {
+  switch (option) {
+    case 'Price: Low to High': return 'price';
+    case 'Price: High to Low': return 'price_desc';
+    case 'Rating': return 'rating';
+    case 'Date: Newest First': return 'date_desc';
+    case 'Date: Oldest First': return 'date';
+    default: return 'relevance';
+  }
+};
+const sortBy = getSortBy(sortOption);
 
 const filteredProducts = products
   .filter(product =>
-    (selectedCategory === 'All Products' || product.category === selectedCategory) &&
+    (selectedCategory === 'All Products' ||
+      (selectedCategory === 'Latest Crops' && product.isLatest) ||
+      product.category === selectedCategory) &&
+    (selectedLocation === 'All' || product.location === selectedLocation) &&
     (product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     product.farmer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     product.location.toLowerCase().includes(searchQuery.toLowerCase()))
+      product.farmer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.location.toLowerCase().includes(searchQuery.toLowerCase()))
   )
   .sort((a, b) => {
-    if (sortOption === 'Price: Low to High') return a.price - b.price;
-    if (sortOption === 'Price: High to Low') return b.price - a.price;
-    if (sortOption === 'Rating') return b.rating - a.rating;
-    return 0; // Relevance (no sorting)
+    if (sortBy === 'price') return a.price - b.price;
+    if (sortBy === 'price_desc') return b.price - a.price;
+    if (sortBy === 'rating') return b.rating - a.rating;
+    if (sortBy === 'date') return new Date(a.postedDate) - new Date(b.postedDate);
+    if (sortBy === 'date_desc') return new Date(b.postedDate) - new Date(a.postedDate);
+    return 0; // Default (no sorting)
   });
 
   const addToCart = (product, quantity) => {
@@ -302,7 +324,10 @@ const filteredProducts = products
         
         <h3 className="font-bold text-lg text-gray-800 mb-1">{product.name}</h3>
         <p className="text-sm text-gray-600 mb-2">{product.farmer}</p>
-        <p className="text-xs text-green-600 mb-3">📍 {product.location}</p>
+        <div className="flex justify-between items-center mb-3">
+          <p className="text-xs text-green-600">📍 {product.location}</p>
+          <p className="text-xs text-gray-500">� {new Date(product.postedDate).toLocaleDateString()}</p>
+        </div>
         
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
         
@@ -433,7 +458,7 @@ const filteredProducts = products
               <span className="text-lg font-bold">Total:</span>
               <span className="text-2xl font-bold text-green-600">Rs.{getTotalPrice()}</span>
             </div>
-            <button className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold">
+            <button className="w-full from-green-600 via-green-700 to-emerald-800 text-white py-3 rounded-xl font-semibold">
               Proceed to Checkout
             </button>
           </div>
@@ -443,102 +468,138 @@ const filteredProducts = products
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-2">Rice & Vegetables from Sri Lankan Farmers</h1>
-          <p className="text-green-100">Connect directly with certified farmers for premium quality rice grains and fresh vegetables for your business needs</p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r  from-green-600 via-green-700 to-emerald-800 text-white py-16 px-4">
+        <div className="max-w-7xl mx-auto text-center">
+          <div className="flex justify-center mb-6">
+            <div className="p-4 bg-white/20 rounded-full backdrop-blur-sm">
+              <Store className="w-12 h-12 text-white" />
+            </div>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            Crop Marketplace
+          </h1>
+          <p className="text-xl text-white/90 max-w-3xl mx-auto">
+            Fresh crops directly from certified farmers across Sri Lanka - Premium quality, competitive prices, direct trade
+          </p>
+          <div className="flex justify-center mt-6 space-x-8 text-sm text-white/80">
+            <span className="flex items-center gap-2">
+              <Award className="w-4 h-4" />
+              Certified Farmers
+            </span>
+            <span className="flex items-center gap-2">
+              <Truck className="w-4 h-4" />
+              Fresh Delivery
+            </span>
+            <span className="flex items-center gap-2">
+              <Leaf className="w-4 h-4" />
+              Organic Options
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="max-w-7xl mx-auto p-4">
-  {/* Filter & Search Bar */}
-  <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-    <div className="flex flex-col lg:flex-row gap-4 items-center">
-      {/* Search Bar */}
-      <div className="relative flex-1">
-  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-  <input
-    type="text"
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-    placeholder="Search products, farmers, or locations..."
-    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-  />
-</div>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Search and Filter Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            {/* Search Bar */}
+            <div className="relative flex-1 w-full lg:w-auto">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search for crops, farmers, or locations..."
+                className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300 bg-gray-50 hover:bg-white hover:border-gray-300"
+              />
+            </div>
 
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+              <select 
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-6 py-4 text-lg border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300 bg-white hover:border-gray-300 min-w-[200px]"
+              >
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
 
-      {/* Category & Sort Dropdowns */}
-      <div className="flex gap-3">
-        <select 
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500"
-        >
-          {categories.map(category => (
-            <option key={category} value={category}>{category}</option>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="px-6 py-4 text-lg border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300 bg-white hover:border-gray-300 min-w-[180px]"
+              >
+                <option>Relevance</option>
+                <option>Price: Low to High</option>
+                <option>Price: High to Low</option>
+                <option>Rating</option>
+                <option>Date: Newest First</option>
+                <option>Date: Oldest First</option>
+              </select>
+
+              {/* View Mode Toggle */}
+              <div className="flex border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-3 transition-all duration-300 ${
+                    viewMode === 'grid' 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Grid className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-3 transition-all duration-300 ${
+                    viewMode === 'list' 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <List className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Results Summary */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">
+              Fresh Crops
+            </h2>
+            <p className="text-gray-600">
+              {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
+            </p>
+          </div>
+        </div>
+
+        {/* Crop Grid */}
+        <div className={`grid gap-6 ${
+          viewMode === 'grid' 
+            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
+            : 'grid-cols-1'
+        }`}>
+          {filteredProducts.map(product => (
+            <ProductCard key={product.id} product={product} />
           ))}
-        </select>
-
-        <select
-          value={sortOption}
-          onChange={(e) => setSortOption(e.target.value)}
-          className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500"
-        >
-          <option>Relevance</option>
-          <option>Price: Low to High</option>
-          <option>Price: High to Low</option>
-          <option>Rating</option>
-        </select>
-      </div>
-    </div>
-  </div>
-
-  {/* Stats Section */}
-  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    {stats.map((stat, index) => (
-      <div key={index} className="bg-white rounded-xl p-4 text-center shadow-sm">
-        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold mb-2 ${stat.color}`}>
-          {stat.value}
         </div>
-        <p className="text-sm text-gray-600">{stat.label}</p>
+
+        {/* No Results */}
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-16">
+            <Store className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No products found</h3>
+            <p className="text-gray-500">Try adjusting your search terms or filters</p>
+          </div>
+        )}
       </div>
-    ))}
-  </div>
-
-  {/* View Toggle */}
-  <div className="flex justify-between items-center mb-6">
-    <p className="text-gray-600">Showing {filteredProducts.length} of {products.length} products</p>
-    <div className="flex gap-2">
-      <button
-        onClick={() => setViewMode('grid')}
-        className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}`}
-      >
-        <Grid size={20} />
-      </button>
-      <button
-        onClick={() => setViewMode('list')}
-        className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}`}
-      >
-        <List size={20} />
-      </button>
-    </div>
-  </div>
-
-  {/* Products Display */}
-  <div className={`grid gap-6 mb-8 ${
-    viewMode === 'grid' 
-      ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
-      : 'grid-cols-1'
-  }`}>
-    {filteredProducts.map(product => (
-      <ProductCard key={product.id} product={product} />
-    ))}
-  </div>
-</div>
-
 
       {/* Floating Cart Button */}
       <button

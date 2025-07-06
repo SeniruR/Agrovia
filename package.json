@@ -21,6 +21,7 @@
     "@tiptap/extension-image": "^2.23.0",
     "@tiptap/react": "^2.23.0",
     "@tiptap/starter-kit": "^2.23.0",
+    "axios": "^1.10.0",
     "lucide-react": "^0.522.0",
     "mui": "^0.0.1",
     "react": "^19.1.0",

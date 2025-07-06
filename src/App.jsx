@@ -7,7 +7,6 @@ import BuyerDashboard from "./components/dashboards/BuyerDashboard";
 import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
-import LayoutAll from "./components/LayoutAll";
 import FarmerCropViews from "./pages/Farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
@@ -23,11 +22,16 @@ import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
-import BuyersMarketplace from "./pages/ByersMarketPlace";
+import BuyersMarketplace from "./pages/ByersMarketPlace_backup";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
-import Profile from "./pages/Profile";
+import FarmerProfileEdit from "./pages/Profile";
+import FarmerProfile from "./pages/profiles/FarmerProfile";
+import BuyerProfile from "./pages/profiles/BuyerProfile";
+import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
+import TransporterProfile from "./pages/profiles/TransporterProfile";
+import ProfileRouter from "./components/ProfileRouter";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
@@ -66,6 +70,9 @@ import PriceForcasting from "./pages/PriceForcasting";
 import ContentApprovalDashboard from "./pages/ContentApproval";
 import FarmerVerificationPanel from "./pages/organization/farmerVerificationPanel";
 import CropReccomendationSystem from "./pages/CropRecommendation";
+import OrderHistory from "./components/dashboards/OrderHistory";
+import SavedItems from "./components/dashboards/SavedItems";
+import TrackOrders from "./components/dashboards/TrackOrders";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -77,9 +84,9 @@ const App = () => {
     
     <Routes>
       <Route path="/" element={
-          <LayoutAll>
+          <Layout>
             <Home />
-          </LayoutAll>
+          </Layout>
         }
       />
       <Route path="/users" element={
@@ -120,9 +127,9 @@ const App = () => {
           <ShopOwnerSignup />
         </Layout>} 
       />
-        {/* Dashboard Routes - No Layout */}
-      <Route path="/dashboard/farmer" element={<FarmerDashboard />} />
-      <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
+        {/* Dashboard Routes - Now with Layout */}
+      <Route path="/dashboard/farmer" element={<Layout><FarmerDashboard /></Layout>} />
+      <Route path="/dashboard/buyer" element={<Layout><BuyerDashboard /></Layout>} />
 {/* <Route path="/signup/moderator" element={<ModeratorSignup />} /> */}
 
       <Route path="/forgotpassword" element={
@@ -157,10 +164,40 @@ const App = () => {
          </Layout>
         }
       />
-      <Route path="/profile" element={
+      <Route path="/profile" element={<ProfileRouter />} />
+      {/* <Route path="/profile/general" element={
           <Layout>
             <Profile />
-
+         </Layout>
+        }
+      /> */}
+      <Route path="/profile/farmer" element={
+          <Layout>
+            <FarmerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/farmer/edit" element={
+          <Layout>
+            <FarmerProfileEdit />
+         </Layout>
+        }
+      />
+      <Route path="/profile/buyer" element={
+          <Layout>
+            <BuyerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/shop-owner" element={
+          <Layout>
+            <ShopOwnerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/transporter" element={
+          <Layout>
+            <TransporterProfile />
          </Layout>
         }
       />
@@ -379,6 +416,24 @@ const App = () => {
        <Route path="/cropreco" element={
         <Layout>
           <CropReccomendationSystem/>
+        </Layout>
+      }
+      />
+        <Route path="/order-history" element={
+        <Layout>
+          <OrderHistory/>
+        </Layout>
+      }
+      />
+       <Route path="/saved-items" element={
+        <Layout>
+          <SavedItems/>
+        </Layout>
+      }
+      />
+       <Route path="/track-orders" element={
+        <Layout>
+          <TrackOrders/>
         </Layout>
       }
       />
