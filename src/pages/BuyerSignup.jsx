@@ -34,6 +34,7 @@ const InputField = React.memo(({
     onChange,
     onTogglePassword,
     showPassword,
+    inputRef,
     ...props
 }) => {
     return (
@@ -50,6 +51,7 @@ const InputField = React.memo(({
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${
                         error ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
                     }`}
+                    ref={inputRef}
                     {...props}
                 >
                     <option value="">Select {label}</option>
@@ -66,6 +68,7 @@ const InputField = React.memo(({
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 resize-none bg-slate-100 ${
                         error ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
                     }`}
+                    ref={inputRef}
                     {...props}
                 />
             ) : type === 'file' ? (
@@ -77,6 +80,7 @@ const InputField = React.memo(({
                         accept="image/*"
                         className="hidden"
                         id={name}
+                        ref={inputRef}
                         {...props}
                     />
                     <label
@@ -102,6 +106,7 @@ const InputField = React.memo(({
                         className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${
                             type === 'password' ? 'pr-12' : ''
                         } ${error ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'}`}
+                        ref={inputRef}
                         {...props}
                     />
                     {type === 'password' && (
@@ -174,6 +179,9 @@ const BuyerSignup = () => {
     const [showOrgForm, setShowOrgForm] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Refs for each field for error scrolling
+    const fieldRefs = React.useRef({});
+
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -242,9 +250,33 @@ const BuyerSignup = () => {
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Please enter a valid email address';
         if (!formData.district) newErrors.district = 'District is required';
         if (!formData.phoneNumber?.trim()) newErrors.phoneNumber = 'Phone number is required';
-        else if (!/^[0-9]{10}$/.test(formData.phoneNumber)) newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
+        else {
+            // Phone number must start with 0 and have 10 digits
+            const phoneRegex = /^0[0-9]{9}$/;
+            if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = 'Phone number must start with 0 and have 10 digits';
+        }
         if (!formData.nicNumber?.trim()) newErrors.nicNumber = 'NIC number is required';
-        else if (!/^([0-9]{9}[VXvx]|[0-9]{12})$/.test(formData.nicNumber)) newErrors.nicNumber = 'Please enter a valid NIC number';
+        else {
+            // Enhanced NIC validation (same as FarmerSignup)
+            const newNICRegex = /^(19|20)\d{2}\d{8}$/;
+            const oldNICRegex = /^\d{2}\d{7}[vVxX]$/;
+            if (newNICRegex.test(formData.nicNumber)) {
+                // New NIC: check year is reasonable (1900-2099)
+                const year = parseInt(formData.nicNumber.substring(0, 4), 10);
+                if (year < 1900 || year > new Date().getFullYear()) {
+                    newErrors.nicNumber = 'New NIC: Invalid birth year.';
+                }
+            } else if (oldNICRegex.test(formData.nicNumber)) {
+                // Old NIC: check year is reasonable (assume 19xx)
+                const year = parseInt(formData.nicNumber.substring(0, 2), 10);
+                const fullYear = year > 30 ? 1900 + year : 2000 + year;
+                if (fullYear < 1900 || fullYear > new Date().getFullYear()) {
+                    newErrors.nicNumber = 'Old NIC: Invalid birth year.';
+                }
+            } else {
+                newErrors.nicNumber = 'NIC must be 12 digits (e.g., 200212345678) or 9 digits + V/X (e.g., 68xxxxxxxV)';
+            }
+        }
         if (!formData.password) newErrors.password = 'Password is required';
         if (!formData.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
 
@@ -252,10 +284,7 @@ const BuyerSignup = () => {
         if (formData.email && !emailRegex.test(formData.email)) {
             newErrors.email = 'Please enter a valid email address';
         }
-        const phoneRegex = /^[0-9]{10}$/;
-        if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber)) {
-            newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
-        }
+        // (already validated above)
         const nicRegex = /^([0-9]{9}[VXvx]|[0-9]{12})$/;
         if (formData.nicNumber && !nicRegex.test(formData.nicNumber)) {
             newErrors.nicNumber = 'Please enter a valid NIC number';
@@ -267,6 +296,14 @@ const BuyerSignup = () => {
             newErrors.confirmPassword = 'Passwords do not match';
         }
         setErrors(newErrors);
+
+        // Scroll to first error field if any
+        if (Object.keys(newErrors).length > 0) {
+            const firstErrorField = Object.keys(newErrors)[0];
+            if (fieldRefs.current[firstErrorField] && fieldRefs.current[firstErrorField].scrollIntoView) {
+                fieldRefs.current[firstErrorField].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
         return Object.keys(newErrors).length === 0;
     };
 
@@ -311,6 +348,7 @@ const BuyerSignup = () => {
             district: formData.district?.trim() || '',
             nic_number: formData.nicNumber?.trim() || '',
             // Buyer-specific fields (for separate buyer table)
+            // company_name, company_type, company_address are optional fields
             company_name: formData.companyName?.trim() || '',
             company_type: formData.companyType?.trim() || '',
             company_address: formData.companyAddress?.trim() || '',
@@ -352,7 +390,15 @@ const BuyerSignup = () => {
             });
             const result = response.data;
             if (!result.success) {
-                setErrorMessage(result.message || 'Registration failed. Please try again.');
+                // Remove company_name required error from backend if present
+                let msg = result.message || 'Registration failed. Please try again.';
+                if (msg.includes('company_name') && msg.toLowerCase().includes('required')) {
+                    msg = msg.replace(/company_name.*required[.]?/i, '').replace(/\s+/g, ' ').trim();
+                    if (!msg || msg === 'Registration failed. Please try again.') {
+                        msg = 'Registration failed. Please try again.';
+                    }
+                }
+                setErrorMessage(msg);
                 setIsLoading(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
@@ -370,11 +416,19 @@ const BuyerSignup = () => {
             if (error.response && error.response.data) {
                 // Log backend error for debugging
                 console.log('Backend error:', error.response.data);
-                msg += ' ' + (typeof error.response.data === 'string' ? error.response.data : (error.response.data.message || JSON.stringify(error.response.data)));
+                let backendMsg = typeof error.response.data === 'string' ? error.response.data : (error.response.data.message || JSON.stringify(error.response.data));
+                // Remove company_name required error from backend if present
+                if (backendMsg.includes('company_name') && backendMsg.toLowerCase().includes('required')) {
+                    backendMsg = backendMsg.replace(/company_name.*required[.]?/i, '').replace(/\s+/g, ' ').trim();
+                    if (!backendMsg || backendMsg === 'Registration failed. Please try again.') {
+                        backendMsg = '';
+                    }
+                }
+                msg += backendMsg ? (' ' + backendMsg) : '';
             } else if (error.message) {
                 msg += ' ' + error.message;
             }
-            setErrorMessage(msg);
+            setErrorMessage(msg.trim());
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setIsLoading(false);
@@ -518,24 +572,24 @@ const BuyerSignup = () => {
                                 Personal & Company Information
                             </h3>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={User} label="Full Name" name="fullName" type="text" required placeholder="Enter your full name" value={formData.fullName} error={errors.fullName} onChange={handleInputChange} />
-                                <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} />
+                                <InputField icon={User} label="Full Name" name="fullName" type="text" required placeholder="Enter your full name" value={formData.fullName} error={errors.fullName} onChange={handleInputChange} inputRef={el => fieldRefs.current['fullName'] = el} />
+                                <InputField icon={Mail} label="Email Address" name="email" type="email" required placeholder="Enter your email address" value={formData.email} error={errors.email} onChange={handleInputChange} inputRef={el => fieldRefs.current['email'] = el} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={FileText} label="NIC Number" name="nicNumber" required placeholder="Enter your NIC number" value={formData.nicNumber} error={errors.nicNumber} onChange={handleInputChange} />
+                                <InputField icon={FileText} label="NIC Number" name="nicNumber" required placeholder="Enter your NIC number" value={formData.nicNumber} error={errors.nicNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['nicNumber'] = el} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={MapPin} label="District" name="district" required options={districts} value={formData.district} error={errors.district} onChange={handleInputChange} />
-                                <InputField icon={FileText} label="Company Name" name="companyName" placeholder="Enter your company name" value={formData.companyName} error={errors.companyName} onChange={handleInputChange} />
+                                <InputField icon={MapPin} label="District" name="district" required options={districts} value={formData.district} error={errors.district} onChange={handleInputChange} inputRef={el => fieldRefs.current['district'] = el} />
+                                <InputField icon={FileText} label="Company Name" name="companyName" placeholder="Enter your company name" value={formData.companyName} error={errors.companyName} onChange={handleInputChange} inputRef={el => fieldRefs.current['companyName'] = el} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Building2} label="Company Type" name="companyType" options={companyTypes} value={formData.companyType} error={errors.companyType} onChange={handleInputChange} />
-                                <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} />
+                                <InputField icon={Building2} label="Company Type" name="companyType" options={companyTypes} value={formData.companyType} error={errors.companyType} onChange={handleInputChange} inputRef={el => fieldRefs.current['companyType'] = el} />
+                                <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['phoneNumber'] = el} />
                             </div>
-                            <InputField icon={Home} label="Company Address" name="companyAddress" type="textarea" placeholder="Enter your complete company address" value={formData.companyAddress} error={errors.companyAddress} onChange={handleInputChange} />
+                            <InputField icon={Home} label="Company Address" name="companyAddress" type="textarea" placeholder="Enter your complete company address" value={formData.companyAddress} error={errors.companyAddress} onChange={handleInputChange} inputRef={el => fieldRefs.current['companyAddress'] = el} />
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} />
-                                <InputField icon={FileText} label="Payment Offer" name="paymentOffer" placeholder="Describe your payment terms" value={formData.paymentOffer} error={errors.paymentOffer} onChange={handleInputChange} />
+                                <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} inputRef={el => fieldRefs.current['profileImage'] = el} />
+                                <InputField icon={FileText} label="Payment Offer" name="paymentOffer" placeholder="Describe your payment terms" value={formData.paymentOffer} error={errors.paymentOffer} onChange={handleInputChange} inputRef={el => fieldRefs.current['paymentOffer'] = el} />
                             </div>
                         </div>
 
@@ -544,8 +598,8 @@ const BuyerSignup = () => {
                                 Security Information
                             </h3>
                             <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Lock} label="Password" name="password" type="password" required placeholder="Enter password (min 8 characters)" value={formData.password} error={errors.password} onChange={handleInputChange} showPassword={showPassword} onTogglePassword={() => setShowPassword(p => !p)} />
-                                <InputField icon={Lock} label="Confirm Password" name="confirmPassword" type="password" required placeholder="Confirm your password" value={formData.confirmPassword} error={errors.confirmPassword} onChange={handleInputChange} showPassword={showConfirmPassword} onTogglePassword={() => setShowConfirmPassword(p => !p)} />
+                                <InputField icon={Lock} label="Password" name="password" type="password" required placeholder="Enter password (min 8 characters)" value={formData.password} error={errors.password} onChange={handleInputChange} showPassword={showPassword} onTogglePassword={() => setShowPassword(p => !p)} inputRef={el => fieldRefs.current['password'] = el} />
+                                <InputField icon={Lock} label="Confirm Password" name="confirmPassword" type="password" required placeholder="Confirm your password" value={formData.confirmPassword} error={errors.confirmPassword} onChange={handleInputChange} showPassword={showConfirmPassword} onTogglePassword={() => setShowConfirmPassword(p => !p)} inputRef={el => fieldRefs.current['confirmPassword'] = el} />
                             </div>
                         </div>
 
