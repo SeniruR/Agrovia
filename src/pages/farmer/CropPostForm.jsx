@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload, Leaf, Droplets, AlertCircle, CheckCircle } from 'lucide-react';
 
 const CropPostForm = () => {
@@ -15,7 +16,6 @@ const CropPostForm = () => {
     location: '',
     district: '',
     description: '',
-    farmerName: '',
     contactNumber: '',
     email: '',
     organicCertified: false,
@@ -28,6 +28,8 @@ const CropPostForm = () => {
   const [dragActive, setDragActive] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
   const totalSteps = 4;
 
   const vegetables = [
@@ -61,9 +63,6 @@ const CropPostForm = () => {
           value <= 0 ? 'Price must be greater than 0' : '';
       case 'harvestDate':
         return !value ? 'Harvest date is required' : '';
-      case 'farmerName':
-        return !value ? 'Farmer name is required' :
-          value.length < 2 ? 'Name must be at least 2 characters' : '';
       case 'contactNumber':
         return !value ? 'Contact number is required' :
           !/^(\+94|0)[0-9]{9}$/.test(value.replace(/\s/g, '')) ? 'Invalid Sri Lankan phone number' : '';
@@ -92,7 +91,6 @@ const CropPostForm = () => {
         stepErrors.pricePerUnit = validateField('pricePerUnit', formData.pricePerUnit);
         break;
       case 3:
-        stepErrors.farmerName = validateField('farmerName', formData.farmerName);
         stepErrors.contactNumber = validateField('contactNumber', formData.contactNumber);
         stepErrors.email = validateField('email', formData.email);
         stepErrors.district = validateField('district', formData.district);
@@ -229,7 +227,7 @@ const CropPostForm = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validate all steps
@@ -245,8 +243,117 @@ const CropPostForm = () => {
       return;
     }
 
-    console.log('Form submitted:', formData);
-    alert('Crop post submitted successfully!');
+    setIsSubmitting(true);
+    setSubmitSuccess(false);
+
+    try {
+      // Create FormData for file upload
+      const submitData = new FormData();
+      
+      // Map frontend field names to backend field names
+      const fieldMapping = {
+        cropCategory: 'crop_category',
+        cropName: 'crop_name', 
+        variety: 'variety',
+        quantity: 'quantity',
+        unit: 'unit',
+        pricePerUnit: 'price_per_unit',
+        harvestDate: 'harvest_date',
+        expiryDate: 'expiry_date',
+        location: 'location',
+        district: 'district',
+        description: 'description',
+        contactNumber: 'contact_number',
+        email: 'email',
+        organicCertified: 'organic_certified',
+        pesticideFree: 'pesticide_free',
+        freshlyHarvested: 'freshly_harvested'
+      };
+
+      // Add form fields to FormData
+      Object.keys(fieldMapping).forEach(frontendKey => {
+        const backendKey = fieldMapping[frontendKey];
+        const value = formData[frontendKey];
+        
+        if (value !== undefined && value !== null && value !== '') {
+          if (typeof value === 'boolean') {
+            submitData.append(backendKey, value ? 'true' : 'false');
+          } else {
+            submitData.append(backendKey, value);
+          }
+        }
+      });
+
+      // Add images if any
+      if (formData.images && formData.images.length > 0) {
+        formData.images.forEach((image) => {
+          if (image instanceof File) {
+            submitData.append('images', image);
+          }
+        });
+      }
+
+      // Log the data being sent for debugging
+      console.log('Submitting crop post data:', formData);
+
+      // Submit to backend API
+      const response = await axios.post('http://localhost:5000/api/v1/crop-posts', submitData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000, // 30 second timeout
+      });
+
+      console.log('✅ Crop post created successfully:', response.data);
+      
+      setSubmitSuccess(true);
+      alert('🎉 Crop post submitted successfully! Your crop is now listed on the marketplace.');
+      
+      // Reset form after successful submission
+      setFormData({
+        cropType: '',
+        cropCategory: 'vegetables',
+        cropName: '',
+        variety: '',
+        quantity: '',
+        unit: 'kg',
+        pricePerUnit: '',
+        harvestDate: '',
+        expiryDate: '',
+        location: '',
+        district: '',
+        description: '',
+        contactNumber: '',
+        email: '',
+        organicCertified: false,
+        pesticideFree: false,
+        freshlyHarvested: false,
+        images: []
+      });
+      setCurrentStep(1);
+      setErrors({});
+      setTouched({});
+
+    } catch (error) {
+      console.error('❌ Error submitting crop post:', error);
+      
+      let errorMessage = 'Failed to submit crop post. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = 'Unable to connect to server. Please check your internet connection.';
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'An unexpected error occurred.';
+      }
+      
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderStep1 = () => (
@@ -537,30 +644,6 @@ const CropPostForm = () => {
       <div className="grid md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-black mb-2">
-            Farmer Name <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <User className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              name="farmerName"
-              value={formData.farmerName}
-              onChange={handleInputChange}
-              onBlur={handleBlur}
-              placeholder="Enter your full name"
-              className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.farmerName && touched.farmerName ? 'border-red-500' : 'border-gray-300'
-              }`}
-              required
-            />
-          </div>
-          {errors.farmerName && touched.farmerName && (
-            <p className="mt-1 text-sm text-red-600">{errors.farmerName}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">
             Contact Number <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -726,7 +809,6 @@ const CropPostForm = () => {
             <p><span className="font-semibold text-black">Harvest Date:</span> <span className="text-black">{formData.harvestDate}</span></p>
           </div>
           <div className="space-y-2">
-            <p><span className="font-semibold text-black">Farmer:</span> <span className="text-black">{formData.farmerName}</span></p>
             <p><span className="font-semibold text-black">Contact:</span> <span className="text-black">{formData.contactNumber}</span></p>
             <p><span className="font-semibold text-black">District:</span> <span className="text-black">{formData.district}</span></p>
             <p><span className="font-semibold text-black">Images:</span> <span className="text-black">{formData.images.length} uploaded</span></p>
@@ -754,6 +836,21 @@ const CropPostForm = () => {
           </p>
         </div>
       </div>
+
+      {/* Success Message */}
+      {submitSuccess && (
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+              <div>
+                <h3 className="text-lg font-semibold text-green-800">Success! 🎉</h3>
+                <p className="text-green-700">Your crop post has been submitted successfully and is now live on the marketplace!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
 
@@ -827,9 +924,22 @@ const CropPostForm = () => {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  disabled={isSubmitting}
+                  className={`px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl ${
+                    isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  🌾 Post My Crop
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    '🌾 Post My Crop'
+                  )}
                 </button>
               )}
             </div>
