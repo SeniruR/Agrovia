@@ -266,10 +266,10 @@ const ShopOwnerSignup = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
-      setSuccessMessage('Shop owner registration successful! Redirecting to login page...');
+      setSuccessMessage('Shop owner registration successful! Redirecting to Home page...');
       setErrorMessage("");
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => navigate('/login'), 2000);
+      setTimeout(() => navigate('/'), 2000);
     } catch (error) {
       console.error('Registration failed:', error);
       setErrorMessage(error.response?.data?.message || error.message || 'Registration failed. Please try again.');

@@ -407,10 +407,10 @@ const BuyerSignup = () => {
                 localStorage.setItem('user', JSON.stringify(result.data.user));
                 window.dispatchEvent(new Event('userChanged'));
             }
-            setSuccessMessage('Buyer registration successful! Redirecting to login page...');
+            setSuccessMessage('Buyer registration successful! Redirecting to Home page...');
             setErrorMessage("");
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            setTimeout(() => navigate('/login'), 2000);
+            setTimeout(() => navigate('/'), 2000);
         } catch (error) {
             let msg = 'Registration failed. Please try again.';
             if (error.response && error.response.data) {
