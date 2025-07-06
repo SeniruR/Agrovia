@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload, Leaf, Droplets, AlertCircle, CheckCircle } from 'lucide-react';
+import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload, Leaf, Droplets, AlertCircle, CheckCircle, RefreshCw, LogIn } from 'lucide-react';
+import { userService } from '../../services/userService';
+import { useAuth } from '../../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 
 const CropPostForm = () => {
+  const { user, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     cropType: '',
     cropCategory: 'vegetables',
@@ -30,6 +34,8 @@ const CropPostForm = () => {
   const [touched, setTouched] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isLoadingUserData, setIsLoadingUserData] = useState(true);
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
   const totalSteps = 4;
 
   const vegetables = [
@@ -49,6 +55,66 @@ const CropPostForm = () => {
     'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla',
     'Moneragala', 'Ratnapura', 'Kegalle'
   ];
+
+  // Load user data on component mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        setIsLoadingUserData(true);
+        const userResponse = await userService.getCurrentUser();
+        
+        if (userResponse.success && userResponse.data) {
+          const userData = userResponse.data;
+          
+          // Auto-fill form with user data
+          setFormData(prevData => ({
+            ...prevData,
+            contactNumber: userData.phone_number || '',
+            email: userData.email || '',
+            district: userData.district || '',
+            location: userData.address || ''
+          }));
+          
+          setUserDataLoaded(true);
+          console.log('✅ User data loaded and form auto-filled');
+        }
+      } catch (error) {
+        console.error('❌ Error loading user data:', error);
+      } finally {
+        setIsLoadingUserData(false);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  // Function to refresh user data
+  const refreshUserData = async () => {
+    try {
+      setIsLoadingUserData(true);
+      const userResponse = await userService.getCurrentUser();
+      
+      if (userResponse.success && userResponse.data) {
+        const userData = userResponse.data;
+        
+        // Update form with fresh user data
+        setFormData(prevData => ({
+          ...prevData,
+          contactNumber: userData.phone_number || prevData.contactNumber,
+          email: userData.email || prevData.email,
+          district: userData.district || prevData.district,
+          location: userData.address || prevData.location
+        }));
+        
+        alert('✅ Your details have been refreshed!');
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing user data:', error);
+      alert('❌ Failed to refresh user data');
+    } finally {
+      setIsLoadingUserData(false);
+    }
+  };
 
   // Validation rules
   const validateField = (name, value) => {
@@ -639,7 +705,43 @@ const CropPostForm = () => {
 
   const renderStep3 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-black mb-6">Location & Contact</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-black mb-6">Location & Contact</h2>
+        <button
+          type="button"
+          onClick={refreshUserData}
+          disabled={isLoadingUserData}
+          className="inline-flex items-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-all duration-200 disabled:opacity-50"
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingUserData ? 'animate-spin' : ''}`} />
+          {isLoadingUserData ? 'Loading...' : (isAuthenticated() ? 'Refresh My Details' : 'Load Demo Data')}
+        </button>
+      </div>
+
+      {userDataLoaded && isAuthenticated() && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+            <p className="text-green-800 text-sm">
+              <strong>Auto-filled:</strong> Your contact details have been loaded from your profile ({user?.full_name || user?.name || 'User'}). You can modify them if needed.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {userDataLoaded && !isAuthenticated() && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+            <p className="text-yellow-800 text-sm">
+              <strong>Demo data:</strong> You're not logged in. The form shows demo data. 
+              <Link to="/login" className="text-blue-600 hover:underline ml-1 font-medium">
+                Login here
+              </Link> to auto-fill with your real information.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <div>
@@ -853,6 +955,19 @@ const CropPostForm = () => {
       )}
 
       <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
+
+        {/* Initial Loading Overlay */}
+        {isLoadingUserData && !userDataLoaded && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+              <div className="flex items-center justify-center mb-4">
+                <RefreshCw className="h-8 w-8 text-green-600 animate-spin" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2 text-center">Loading Your Details</h3>
+              <p className="text-gray-600 text-center">We're auto-filling the form with your profile information...</p>
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar - Enhanced */}
         <div className="mb-8 sm:mb-12">
