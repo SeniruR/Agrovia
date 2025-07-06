@@ -273,6 +273,9 @@ const FarmerSignup = () => {
     const [orgSearch, setOrgSearch] = useState('');
     const [orgOptions, setOrgOptions] = useState([]);
     const [orgSearchLoading, setOrgSearchLoading] = useState(false);
+    // Track if org was just registered in this session
+    const [orgRegistered, setOrgRegistered] = useState(false);
+    const [orgRegisteredData, setOrgRegisteredData] = useState(null);
 
     // Organization committee form data
     const [orgFormData, setOrgFormData] = useState({
@@ -320,6 +323,8 @@ const FarmerSignup = () => {
 
     // Organization search handler
     const handleOrgSearchChange = async (e) => {
+        // If orgRegistered, do not allow editing
+        if (orgRegistered) return;
         const value = e.target.value;
         setOrgSearch(value);
         setFormData(prev => ({ ...prev, organizationId: '' }));
@@ -329,7 +334,6 @@ const FarmerSignup = () => {
         }
         setOrgSearchLoading(true);
         try {
-            // Replace with your actual backend endpoint
             const res = await axios.get(`http://localhost:5000/api/v1/organizations/search?name=${encodeURIComponent(value)}`);
             if (Array.isArray(res.data)) {
                 setOrgOptions(res.data);
@@ -366,7 +370,8 @@ const FarmerSignup = () => {
         if (!formData.password) newErrors.password = 'Password is required';
         if (!formData.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
         if (!formData.divisionGramasewaNumber) newErrors.divisionGramasewaNumber = 'Division of Gramasewa Niladari is required';
-        if (!formData.organizationId) newErrors.organizationId = 'Organization selection is required';
+        // Only require organizationId if not orgRegistered
+        if (!orgRegistered && !formData.organizationId) newErrors.organizationId = 'Organization selection is required';
         if (!formData.farmingExperience) newErrors.farmingExperience = 'Farming experience is required';
         if (!formData.cultivatedCrops) newErrors.cultivatedCrops = 'Cultivated crops information is required';
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -432,11 +437,42 @@ const FarmerSignup = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!validateForm()) return;
-        // If org form was filled, validate it too
         if (isOrgFormComplete() && !validateOrgForm()) return;
         setIsLoading(true);
-
         try {
+            let organizationIdToUse = formData.organizationId;
+            // If orgRegistered, first register the org and get its id
+            if (orgRegistered && orgFormData.organizationName && orgFormData.area) {
+                try {
+                    const orgData = new FormData();
+                    orgData.append('organizationName', orgFormData.organizationName);
+                    orgData.append('area', orgFormData.area);
+                    orgData.append('govijanasewaniladariname', orgFormData.govijanasewaniladariname);
+                    orgData.append('govijanasewaniladariContact', orgFormData.govijanasewaniladariContact);
+                    orgData.append('letterofProof', orgFormData.letterofProof);
+                    orgData.append('establishedDate', orgFormData.establishedDate);
+                    orgData.append('organizationDescription', orgFormData.organizationDescription);
+                    // No contactperson_id yet, will be set after farmer is created
+                    const orgRes = await axios.post('http://localhost:5000/api/v1/organizations', orgData, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                    if (orgRes.data && orgRes.data.organization && orgRes.data.organization.id) {
+                        organizationIdToUse = orgRes.data.organization.id;
+                        setFormData(prev => ({ ...prev, organizationId: organizationIdToUse }));
+                    } else if (orgRes.data && orgRes.data.id) {
+                        organizationIdToUse = orgRes.data.id;
+                        setFormData(prev => ({ ...prev, organizationId: organizationIdToUse }));
+                    } else {
+                        setErrorMessage('Organization registration failed. Please try again.');
+                        setIsLoading(false);
+                        return;
+                    }
+                } catch (orgErr) {
+                    setErrorMessage('Organization registration failed. Please try again.');
+                    setIsLoading(false);
+                    return;
+                }
+            }
             // Map frontend fields to backend expected fields and ensure required fields are present and valid
             const mappedData = {
                 name: formData.name?.trim() || '',
@@ -446,7 +482,6 @@ const FarmerSignup = () => {
                 district: formData.district?.trim() || '',
                 land_size: formData.landSize !== '' && formData.landSize !== null && formData.landSize !== undefined ? Number(formData.landSize) : null,
                 nic_number: formData.nic?.trim() || '',
-                // organization_committee_number: formData.organizationCommitteeNumber?.trim() || '',
                 address: formData.address ?? null,
                 profile_image: formData.profileImage ?? null,
                 birth_date: formData.birthDate ?? null,
@@ -488,14 +523,11 @@ const FarmerSignup = () => {
                     }
                 }
             });
-
-            // 1. Register farmer
+            if (organizationIdToUse) {
+                data.append('organization_id', organizationIdToUse);
+            }
             let result = null;
             try {
-                // Attach selected org id if present
-                if (formData.organizationId) {
-                    data.append('organization_id', formData.organizationId);
-                }
                 const response = await axios.post('http://localhost:5000/api/v1/auth/register/farmer', data, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
@@ -511,47 +543,34 @@ const FarmerSignup = () => {
                 setIsLoading(false);
                 return;
             }
-
             if (!result.success) {
                 setErrorMessage('Registration failed. Please try again. ' + (result?.message || ''));
                 setIsLoading(false);
                 return;
             }
-
-            // 2. If org form was filled, register organization with new farmer's id as contactperson_id
-            if (isOrgFormComplete() && result.data && result.data.user && result.data.user.id) {
+            // If orgRegistered, update the org's contactperson_id to the new farmer's user id
+            if (orgRegistered && organizationIdToUse && result.data && result.data.user && result.data.user.id) {
                 try {
-                    const orgData = new FormData();
-                    orgData.append('organizationName', orgFormData.organizationName);
-                    orgData.append('area', orgFormData.area);
-                    orgData.append('govijanasewaniladariname', orgFormData.govijanasewaniladariname);
-                    orgData.append('govijanasewaniladariContact', orgFormData.govijanasewaniladariContact);
-                    orgData.append('letterofProof', orgFormData.letterofProof);
-                    orgData.append('establishedDate', orgFormData.establishedDate);
-                    orgData.append('organizationDescription', orgFormData.organizationDescription);
-                    orgData.append('contactperson_id', result.data.user.id);
-                    await axios.post('http://localhost:5000/api/v1/organizations', orgData, {
-                        headers: { 'Content-Type': 'multipart/form-data' },
+                    await axios.patch(`http://localhost:5000/api/v1/organizations/${organizationIdToUse}/contactperson`, {
+                        contactperson_id: result.data.user.id
                     });
-                } catch (orgErr) {
-                    setErrorMessage('Organization registration failed. Please try again.');
-                    setIsLoading(false);
-                    return;
+                } catch (patchErr) {
+                    // Not critical, but log or show warning if needed
+                    console.warn('Failed to update organization contact person:', patchErr);
                 }
             }
-
             if (result.data && result.data.user) {
                 if (typeof result.data.user === 'object' && result.data.user !== null) {
                     localStorage.setItem('user', JSON.stringify(result.data.user));
                     window.dispatchEvent(new Event('userChanged'));
                 }
             }
-            setSuccessMessage('Farmer registration successful! Redirecting to login page...');
+            setSuccessMessage('Farmer registration successful! Redirecting to Home page...');
             setTimeout(() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }, 50);
             setTimeout(() => {
-                navigate('/login');
+                navigate('/');
             }, 1500);
         } catch (error) {
             console.error('Registration failed:', error);
@@ -652,8 +671,17 @@ const FarmerSignup = () => {
                                     type="button"
                                     onClick={() => {
                                         if (isOrgFormComplete() && validateOrgForm()) {
+                                            // Set orgRegistered and fill orgSearch, lock field
                                             setShowOrgForm(false);
                                             setOrgErrors({});
+                                            setOrgRegistered(true);
+                                            setOrgRegisteredData({
+                                                org_name: orgFormData.organizationName,
+                                                org_area: orgFormData.area
+                                            });
+                                            setOrgSearch(orgFormData.organizationName);
+                                            setFormData(prev => ({ ...prev, organizationId: '' }));
+                                            setOrgOptions([]);
                                         } else {
                                             setOrgErrors({ ...orgErrors, form: 'Please fill all required fields correctly before confirming.' });
                                         }
@@ -787,9 +815,10 @@ const FarmerSignup = () => {
                                 placeholder="Search organization by name..."
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${errors.organizationId ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'}`}
                                 autoComplete="off"
+                                readOnly={orgRegistered}
                             />
                             {orgSearchLoading && <div className="text-green-700 text-xs">Searching...</div>}
-                            {orgOptions.length > 0 && (
+                            {!orgRegistered && orgOptions.length > 0 && (
                                 <div className="border border-green-200 rounded-xl bg-white shadow-md mt-1 max-h-56 overflow-y-auto z-10 relative">
                                     {orgOptions.map(org => (
                                         <div
