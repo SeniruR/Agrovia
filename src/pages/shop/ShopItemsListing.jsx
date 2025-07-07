@@ -6,25 +6,28 @@ const ImageWithFallback = ({ src, alt, className }) => {
   const [imgSrc, setImgSrc] = useState(src);
   const [loading, setLoading] = useState(true);
 
+  const fallback = 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg';
+
+  const handleError = () => {
+    setImgSrc(fallback);
+    setLoading(false);
+  };
+
   return (
     <div className={`relative ${className}`}>
-      {loading && (
-        <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-lg"></div>
-      )}
+      {loading && <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-lg"></div>}
       <img
         src={imgSrc}
         alt={alt}
         className={`w-full h-full object-cover ${loading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
         onLoad={() => setLoading(false)}
-        onError={() => {
-          setImgSrc('https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg');
-          setLoading(false);
-        }}
+        onError={handleError}
         loading="lazy"
       />
     </div>
   );
 };
+
 const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -140,11 +143,12 @@ useEffect(() => {
       onClick={() => onItemClick(item)}
     >
       <div className="relative overflow-hidden">
-         <ImageWithFallback
-    src={item.images[0]}
-    alt={item.productName}
-    className="group-hover:scale-110 transition-transform duration-700"
-  />
+        <ImageWithFallback
+  src={item.images[0]}
+  alt={item.productName}
+  className="group-hover:scale-110 transition-transform duration-700"
+/>
+
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         
         {/* Badges */}
