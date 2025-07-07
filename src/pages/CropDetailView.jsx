@@ -376,4 +376,4 @@ const CropDetailView = () => {
   );
 };
 
-export default CropDetailView
+export default CropDetailView;
