@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Upload, MapPin, Phone, Mail, Package, Leaf, Droplets, AlertTriangle, AlertCircle } from 'lucide-react';
 
 export default function SeedsFertilizerForm() {
@@ -17,7 +17,7 @@ export default function SeedsFertilizerForm() {
     unit: '',
     available_quantity: '',
     product_description: '',
-    features: '',
+   
     usage_history: '',
     season: '',
     organic_certified: false,
@@ -28,6 +28,8 @@ export default function SeedsFertilizerForm() {
 
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const validateStep1 = () => {
     const stepErrors = {};
@@ -115,7 +117,6 @@ export default function SeedsFertilizerForm() {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prevErrors => ({
         ...prevErrors,
@@ -123,34 +124,33 @@ export default function SeedsFertilizerForm() {
       }));
     }
   };
-  const handleImageUpload = (e) => {
-  const files = Array.from(e.target.files);
-  
-  // Create preview URLs for images
-  const previews = files.map(file => URL.createObjectURL(file));
-  
-  setFormData(prev => ({
-    ...prev,
-    images: [...prev.images, ...files],
-    imagePreviews: [...prev.imagePreviews, ...previews]
-  }));
-};
 
-const removeImage = (index) => {
-  setFormData(prev => {
-    const newImages = [...prev.images];
-    const newPreviews = [...prev.imagePreviews];
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const previews = files.map(file => URL.createObjectURL(file));
     
-    newImages.splice(index, 1);
-    newPreviews.splice(index, 1);
-    
-    return {
+    setFormData(prev => ({
       ...prev,
-      images: newImages,
-      imagePreviews: newPreviews
-    };
-  });
-};
+      images: [...prev.images, ...files],
+      imagePreviews: [...prev.imagePreviews, ...previews]
+    }));
+  };
+
+  const removeImage = (index) => {
+    setFormData(prev => {
+      const newImages = [...prev.images];
+      const newPreviews = [...prev.imagePreviews];
+      
+      newImages.splice(index, 1);
+      newPreviews.splice(index, 1);
+      
+      return {
+        ...prev,
+        images: newImages,
+        imagePreviews: newPreviews
+      };
+    });
+  };
 
   const nextStep = () => {
     let stepErrors = {};
@@ -163,7 +163,6 @@ const removeImage = (index) => {
 
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
-      // Scroll to first error
       const firstErrorField = document.querySelector('.border-red-500');
       if (firstErrorField) {
         firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -183,68 +182,63 @@ const removeImage = (index) => {
   };
 const handleSubmit = async (e) => {
   e.preventDefault();
+  setIsSubmitting(true);
+  setSubmitError('');
   
-  // Validate all steps
-  const step3Errors = validateStep3();
-  if (Object.keys(step3Errors).length > 0) {
-    setErrors(step3Errors);
-    return;
-  }
-
-  const allErrors = {
-    ...validateStep1(),
-    ...validateStep2(),
-    ...validateStep3()
-  };
-
-  if (Object.keys(allErrors).length > 0) {
-    setErrors(allErrors);
-    setCurrentStep(1);
-    return;
-  }
-
   try {
-    // Create FormData for file upload
+    // Validate all steps
+    const allErrors = {
+      ...validateStep1(),
+      ...validateStep2(),
+      ...validateStep3()
+    };
+
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
+      setCurrentStep(1);
+      throw new Error('Please fix all validation errors');
+    }
+
+    // Create FormData
     const formDataToSend = new FormData();
-    
-    // Add all form fields including the new ones
-    Object.entries(formData).forEach(([key, value]) => {
-      // Skip imagePreviews as it's only for UI
-      if (key !== 'imagePreviews') {
-        // Handle boolean fields
-        if (key === 'organic_certified' || key === 'terms_accepted') {
-          formDataToSend.append(key, value ? 'true' : 'false');
-        } 
-        // Handle images array
-        else if (key === 'images') {
-          value.forEach((image, index) => {
-            formDataToSend.append(`images`, image);
-          });
-        }
-        // Handle all other fields
-        else {
-          formDataToSend.append(key, value);
-        }
+
+    // Append all regular fields
+    Object.keys(formData).forEach(key => {
+      if (key !== 'images' && key !== 'imagePreviews') {
+        // Convert boolean values to strings
+        const value = typeof formData[key] === 'boolean' 
+          ? formData[key].toString() 
+          : formData[key];
+        formDataToSend.append(key, value);
       }
     });
 
+    // Append each image file
+    formData.images.forEach((image, index) => {
+      formDataToSend.append('images', image);
+    });
+
+    // Debug: Log FormData contents
+    for (let [key, value] of formDataToSend.entries()) {
+      console.log(key, value);
+    }
+
     // Send to backend
     const response = await fetch('http://localhost:5000/api/v1/shop-products', {
-  method: 'POST',
-  body: formDataToSend,
-  // No need to set 'Content-Type'
-});
+      method: 'POST',
+      body: formDataToSend,  // Use the FormData object we created
+      // Don't set Content-Type header - let the browser set it with boundary
+    });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || 'Submission failed');
     }
 
-    const data = await response.json();
-    console.log('Success:', data);
-    alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
-    
-    // Reset form
+    const responseData = await response.json();
+    console.log('Success:', responseData);
+
+    // Reset form after successful submission
     setFormData({
       shop_name: '',
       owner_name: '',
@@ -260,23 +254,47 @@ const handleSubmit = async (e) => {
       unit: '',
       available_quantity: '',
       product_description: '',
-      features: '',
       usage_history: '',
       season: '',
       organic_certified: false,
       images: [],
       imagePreviews: [],
       terms_accepted: false
-      
     });
+
+    // Clean up image preview URLs
+    formData.imagePreviews.forEach(preview => {
+      URL.revokeObjectURL(preview);
+    });
+
     setCurrentStep(1);
     setErrors({});
-console.log("Submitting data:", dataToSend);
+    
+    alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
+
   } catch (error) {
     console.error('Error:', error);
-    alert(`Error submitting form: ${error.message}`);
+    setSubmitError(error.message || 'Failed to submit form. Please try again.');
+  } finally {
+    setIsSubmitting(false);
   }
 };
+  console.log("Validation results:", {
+  step1: validateStep1(),
+  step2: validateStep2(),
+  step3: validateStep3()
+});
+
+  console.log("Form Data:", formData);
+
+console.log("Submitting form data:", formData);
+Object.entries(formData).forEach(([key, val]) => {
+  if (!val) console.warn(`${key} is missing or empty`);
+});
+// const sanitizedData = Object.fromEntries(
+//   Object.entries(formData).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
+// );
+
 
   const getProductIcon = (type) => {
     switch (type) {
@@ -289,7 +307,7 @@ console.log("Submitting data:", dataToSend);
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header Section - Compact for immediate form visibility */}
+      {/* Header Section */}
       <div className="bg-gradient-to-r from-green-600 to-green-800 text-white py-4 sm:py-6 px-4">
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 text-white">
@@ -302,7 +320,6 @@ console.log("Submitting data:", dataToSend);
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
-
         {/* Progress Bar */}
         <div className="mb-8 sm:mb-12">
           <div className="flex items-center justify-center space-x-4 sm:space-x-8">
@@ -359,7 +376,7 @@ console.log("Submitting data:", dataToSend);
                     value={formData.shop_name}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.shopName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                      errors.shop_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="Enter your shop name"
                   />
@@ -495,7 +512,6 @@ console.log("Submitting data:", dataToSend);
                 <p className="text-base sm:text-lg text-gray-600">Provide detailed information about your product</p>
               </div>
               
-              
               {/* Product Type Selection */}
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-4 sm:mb-6">
@@ -515,7 +531,7 @@ console.log("Submitting data:", dataToSend);
                       <div className={`p-4 sm:p-6 lg:p-8 border-2 rounded-xl text-center transition-all duration-300 transform hover:scale-105 ${
                         formData.product_type === type
                           ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200'
-                          : errors.product_type
+                          : errors.productType
                           ? 'border-red-500 bg-red-50'
                           : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-md'
                       }`}>
@@ -530,7 +546,7 @@ console.log("Submitting data:", dataToSend);
                 {errors.product_type && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.productType}</span>
+                    <span>{errors.product_type}</span>
                   </div>
                 )}
               </div>
@@ -584,7 +600,7 @@ console.log("Submitting data:", dataToSend);
                     className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
                   >
                     <option value="">Select category</option>
-                    {formData.productType === 'seeds' && (
+                    {formData.product_type === 'seeds' && (
                       <>
                         <option value="vegetable">Vegetable Seeds</option>
                         <option value="fruit">Fruit Seeds</option>
@@ -592,7 +608,7 @@ console.log("Submitting data:", dataToSend);
                         <option value="grain">Grain Seeds</option>
                       </>
                     )}
-                    {formData.productType === 'fertilizer' && (
+                    {formData.product_type === 'fertilizer' && (
                       <>
                         <option value="organic">Organic Fertilizer</option>
                         <option value="npk">NPK Fertilizer</option>
@@ -600,7 +616,7 @@ console.log("Submitting data:", dataToSend);
                         <option value="compost">Compost</option>
                       </>
                     )}
-                    {formData.productType === 'chemical' && (
+                    {formData.product_type === 'chemical' && (
                       <>
                         <option value="pesticide">Pesticide</option>
                         <option value="herbicide">Herbicide</option>
@@ -701,52 +717,54 @@ console.log("Submitting data:", dataToSend);
                   }`}
                   placeholder="Describe your product, its benefits, and key features (minimum 20 characters)"
                 />
-                {errors.description && (
+                {errors.product_description && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
                     <span>{errors.product_description}</span>
                   </div>
                 )}
               </div>
-<div className="w-full">
-  <label className="block text-sm font-semibold text-gray-700 mb-3">
-    Product Images (Max 5)
-  </label>
-  <div className="flex flex-wrap gap-4 mb-4">
-    {formData.imagePreviews.map((preview, index) => (
-      <div key={index} className="relative">
-        <img 
-          src={preview} 
-          alt={`Preview ${index}`}
-          className="w-24 h-24 object-cover rounded-lg border border-gray-200"
-        />
-        <button
-          type="button"
-          onClick={() => removeImage(index)}
-          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
-        >
-          ×
-        </button>
-      </div>
-    ))}
-    {formData.imagePreviews.length < 5 && (
-      <label className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors">
-        <div className="text-center">
-          <Upload className="w-8 h-8 mx-auto text-gray-400" />
-          <span className="text-xs text-gray-500">Add Image</span>
-        </div>
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={handleImageUpload}
-          className="hidden"
-        />
-      </label>
-    )}
-  </div>
-  <p className="text-xs text-gray-500">Upload clear images of your product (JPEG, PNG)</p>
-</div>
+              
+              <div className="w-full">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Product Images (Max 5)
+                </label>
+                <div className="flex flex-wrap gap-4 mb-4">
+                  {formData.imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative">
+                      <img 
+                        src={preview} 
+                        alt={`Preview ${index}`}
+                        className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {formData.imagePreviews.length < 5 && (
+                    <label className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors">
+                      <div className="text-center">
+                        <Upload className="w-8 h-8 mx-auto text-gray-400" />
+                        <span className="text-xs text-gray-500">Add Image</span>
+                      </div>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">Upload clear images of your product (JPEG, PNG)</p>
+              </div>
+              
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Usage Instructions
@@ -761,13 +779,13 @@ console.log("Submitting data:", dataToSend);
                 />
               </div>
 
-              {/* Organic Certification - Enhanced */}
+              {/* Organic Certification */}
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border-2 border-green-200">
                 <label className="flex items-start cursor-pointer">
                   <input
                     type="checkbox"
                     name="organic_certified"
-                    checked={formData.organicCertified}
+                    checked={formData.organic_certified}
                     onChange={handleInputChange}
                     className="w-6 h-6 text-green-600 bg-white border-2 border-gray-300 rounded-lg focus:ring-green-500 focus:ring-2 mt-1"
                   />
@@ -784,159 +802,184 @@ console.log("Submitting data:", dataToSend);
               </div>
             </div>
           )}
-
-          {/* Step 3: Review & Submit */}
-          {currentStep === 3 && (
-            <div className="space-y-6 sm:space-y-8">
-              <div className="text-center mb-8 sm:mb-12">
-                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
-                  <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">Review Your Advertisement</h2>
-                <p className="text-base sm:text-lg text-gray-600">Please review all details before submitting</p>
-              </div>
-              
-              <div className="bg-gray-50 rounded-xl p-6 sm:p-8 space-y-6 sm:space-y-8 border border-gray-200">
-                <div className="border-b border-gray-200 pb-6 sm:pb-8">
-                  <h3 className="font-bold text-xl sm:text-2xl text-gray-800 mb-4 sm:mb-6 flex items-center">
-                    <MapPin className="w-5 h-5 sm:w-6 sm:h-6 mr-3 text-green-600" />
-                    Shop Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
-                    <p><span className="font-bold text-gray-700">Shop:</span> {formData.shop_name}</p>
-                    <p><span className="font-bold text-gray-700">Owner:</span> {formData.owner_name}</p>
-                    <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone_no}</p>
-                    <p><span className="font-bold text-gray-700">Email:</span> {formData.email}</p>
-                    <p className="md:col-span-2"><span className="font-bold text-gray-700">Address:</span> {formData.shop_address}, {formData.city}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-bold text-xl sm:text-2xl text-gray-800 mb-4 sm:mb-6 flex items-center">
-                    <Package className="w-5 h-5 sm:w-6 sm:h-6 mr-3 text-green-600" />
-                    Product Information
-                  </h3>
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="flex items-center mb-3 sm:mb-4">
-                      {getProductIcon(formData.productType)}
-                      <span className="ml-3 font-bold text-lg sm:text-xl capitalize bg-green-100 text-green-800 px-3 sm:px-4 py-1 sm:py-2 rounded-full border border-green-200">
-                        {formData.product_type}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
-                      <p><span className="font-bold text-gray-700">Product:</span> {formData.product_name} {formData.brand && `(${formData.brand})`}</p>
-                      {formData.category && <p><span className="font-bold text-gray-700">Category:</span> {formData.category}</p>}
-                      <p><span className="font-bold text-gray-700">Price:</span> <span className="text-green-600 font-bold text-base sm:text-lg">LKR {parseFloat(formData.price || '0').toFixed(2)}</span> {formData.unit && `/ ${formData.unit}`}</p>
-                      {formData.available_quantity && <p><span className="font-bold text-gray-700">Available:</span> {formData.available_quantity}</p>}
-                      {formData.season && <p><span className="font-bold text-gray-700">Season:</span> {formData.season}</p>}
-                    </div>
-                    {formData.organicCertified && (
-                      <div className="bg-green-100 text-green-800 p-3 sm:p-4 rounded-xl flex items-center border border-green-200">
-                        <Leaf className="w-5 h-5 sm:w-6 sm:h-6 mr-3" />
-                        <span className="font-bold text-base sm:text-lg">✓ Organic Certified Product</span>
-                      </div>
-                    )}
-                    {formData.product_description && (
-                      <div className="mt-6">
-                        <span className="font-bold text-gray-700 text-lg">Description:</span>
-                        <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">{formData.product_description}</p>
-                      </div>
-                    )}
-                    {formData.usage_history && (
-                      <div className="mt-6">
-                        <span className="font-bold text-gray-700 text-lg">Usage Instructions:</span>
-                        <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">{formData.usage_history}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4 sm:p-6">
-                <h4 className="font-bold text-green-800 mb-4 sm:mb-6 text-lg sm:text-xl">Terms & Conditions</h4>
-                <ul className="text-sm sm:text-base text-green-700 space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    All product information must be accurate and truthful
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    You are responsible for product quality and customer service
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    Advertisement will be reviewed before publication
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    Contact information will be visible to potential buyers
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    False or misleading information may result in account suspension
-                  </li>
-                </ul>
-                <div className="bg-white p-4 sm:p-6 rounded-xl border border-green-200">
-                  <label className="flex items-start cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      name="termsAccepted"
-                      checked={formData.termsAccepted}
-                      onChange={handleInputChange}
-                      className={`w-5 h-5 sm:w-6 sm:h-6 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2 mt-1 ${
-                        errors.termsAccepted ? 'border-red-500' : ''
-                      }`}
-                    />
-                    <span className="ml-3 sm:ml-4 text-sm sm:text-base font-semibold text-gray-800">
-                      I agree to the terms and conditions and confirm that all information provided is accurate
-                    </span>
-                  </label>
-                  {errors.termsAccepted && (
-                    <div className="flex items-center mt-2 sm:mt-3 text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.termsAccepted}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Navigation Buttons */}
-          <div className="flex flex-col sm:flex-row justify-between mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 gap-4 sm:gap-0">
-            <button
-              type="button"
-              onClick={prevStep}
-              disabled={currentStep === 1}
-              className={`px-6 sm:px-8 lg:px-12 py-3 sm:py-4 rounded-lg font-semibold text-base sm:text-lg transition-all duration-300 ${
-                currentStep === 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-500 text-white hover:bg-gray-600 shadow-lg hover:shadow-xl'
-              }`}
-            >
-              ← Previous
-            </button>
-
-            {currentStep < 3 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="px-6 sm:px-8 lg:px-12 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                Next Step →
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                🚀 Post Advertisement
-              </button>
+      {/* Step 3: Review & Submit */}
+{currentStep === 3 && (
+  <div className="space-y-6 sm:space-y-8">
+    <div className="text-center mb-8 sm:mb-12">
+      <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
+        <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+      </div>
+      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">
+        Review Your Advertisement
+      </h2>
+      <p className="text-base sm:text-lg text-gray-600">
+        Please review all details before submitting
+      </p>
+    </div>
+    
+    <div className="bg-gray-50 rounded-xl p-6 sm:p-8 space-y-6 sm:space-y-8 border border-gray-200">
+      <div className="border-b border-gray-200 pb-6 sm:pb-8">
+        <h3 className="font-bold text-xl sm:text-2xl text-gray-800 mb-4 sm:mb-6 flex items-center">
+          <MapPin className="w-5 h-5 sm:w-6 sm:h-6 mr-3 text-green-600" />
+          Shop Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
+          <p><span className="font-bold text-gray-700">Shop:</span> {formData.shop_name}</p>
+          <p><span className="font-bold text-gray-700">Owner:</span> {formData.owner_name}</p>
+          <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone_no}</p>
+          <p><span className="font-bold text-gray-700">Email:</span> {formData.email}</p>
+          <p className="md:col-span-2">
+            <span className="font-bold text-gray-700">Address:</span> {formData.shop_address}, {formData.city}
+          </p>
+        </div>
+      </div>
+      
+      <div>
+        <h3 className="font-bold text-xl sm:text-2xl text-gray-800 mb-4 sm:mb-6 flex items-center">
+          <Package className="w-5 h-5 sm:w-6 sm:h-6 mr-3 text-green-600" />
+          Product Information
+        </h3>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-center mb-3 sm:mb-4">
+            {getProductIcon(formData.product_type)}
+            <span className="ml-3 font-bold text-lg sm:text-xl capitalize bg-green-100 text-green-800 px-3 sm:px-4 py-1 sm:py-2 rounded-full border border-green-200">
+              {formData.product_type}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
+            <p>
+              <span className="font-bold text-gray-700">Product:</span> {formData.product_name} {formData.brand && `(${formData.brand})`}
+            </p>
+            {formData.category && (
+              <p><span className="font-bold text-gray-700">Category:</span> {formData.category}</p>
+            )}
+            <p>
+              <span className="font-bold text-gray-700">Price:</span> 
+              <span className="text-green-600 font-bold text-base sm:text-lg">LKR {parseFloat(formData.price || '0').toFixed(2)}</span> 
+              {formData.unit && `/ ${formData.unit}`}
+            </p>
+            {formData.available_quantity && (
+              <p><span className="font-bold text-gray-700">Available:</span> {formData.available_quantity}</p>
+            )}
+            {formData.season && (
+              <p><span className="font-bold text-gray-700">Season:</span> {formData.season}</p>
             )}
           </div>
+          {formData.organic_certified && (
+            <div className="bg-green-100 text-green-800 p-3 sm:p-4 rounded-xl flex items-center border border-green-200">
+              <Leaf className="w-5 h-5 sm:w-6 sm:h-6 mr-3" />
+              <span className="font-bold text-base sm:text-lg">✓ Organic Certified Product</span>
+            </div>
+          )}
+          {formData.product_description && (
+            <div className="mt-6">
+              <span className="font-bold text-gray-700 text-lg">Description:</span>
+              <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">
+                {formData.product_description}
+              </p>
+            </div>
+          )}
+          {formData.usage_history && (
+            <div className="mt-6">
+              <span className="font-bold text-gray-700 text-lg">Usage Instructions:</span>
+              <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">
+                {formData.usage_history}
+              </p>
+            </div>
+          )}
         </div>
+      </div>
+    </div>
 
+    <div className="bg-green-50 border border-green-200 rounded-xl p-4 sm:p-6">
+      <h4 className="font-bold text-green-800 mb-4 sm:mb-6 text-lg sm:text-xl">
+        Terms & Conditions
+      </h4>
+      <ul className="text-sm sm:text-base text-green-700 space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          All product information must be accurate and truthful
+        </li>
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          You are responsible for product quality and customer service
+        </li>
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          Advertisement will be reviewed before publication
+        </li>
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          Contact information will be visible to potential buyers
+        </li>
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          False or misleading information may result in account suspension
+        </li>
+      </ul>
+      <div className="bg-white p-4 sm:p-6 rounded-xl border border-green-200">
+        <label className="flex items-start cursor-pointer">
+          <input 
+            type="checkbox" 
+            name="terms_accepted"
+            checked={formData.terms_accepted}
+            onChange={handleInputChange}
+            className={`w-5 h-5 sm:w-6 sm:h-6 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2 mt-1 ${
+              errors.termsAccepted ? 'border-red-500' : ''
+            }`}
+          />
+          <span className="ml-3 sm:ml-4 text-sm sm:text-base font-semibold text-gray-800">
+            I agree to the terms and conditions and confirm that all information provided is accurate
+          </span>
+        </label>
+        {errors.terms_accepted && (
+          <div className="flex items-center mt-2 sm:mt-3 text-red-600 text-sm">
+            <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+            <span>{errors.terms_accepted}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Navigation Buttons */}
+<div className="flex flex-col sm:flex-row justify-between mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 gap-4 sm:gap-0">
+  <button
+    type="button"
+    onClick={prevStep}
+    disabled={currentStep === 1}
+    className={`px-6 sm:px-8 lg:px-12 py-3 sm:py-4 rounded-lg font-semibold text-base sm:text-lg transition-all duration-300 ${
+      currentStep === 1
+        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+        : 'bg-gray-500 text-white hover:bg-gray-600 shadow-lg hover:shadow-xl'
+    }`}
+  >
+    ← Previous
+  </button>
+
+  {currentStep < 3 ? (
+    <button
+      type="button"
+      onClick={nextStep}
+      className="px-6 sm:px-8 lg:px-12 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+    >
+      Next Step →
+    </button>
+  ) : (
+
+    <button
+      type="button"
+      onClick={handleSubmit}
+      disabled={isSubmitting}
+      className={`px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+      {isSubmitting ? 'Posting...' : '🚀 Post Advertisement'}
+    </button>
+  )}
+</div>
+
+</div>
         {/* Footer */}
         <div className="text-center mt-6 sm:mt-10 text-gray-500 text-sm sm:text-base">
           <p>Your advertisement will be reviewed and published within 24 hours</p>
