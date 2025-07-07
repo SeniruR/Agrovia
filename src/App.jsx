@@ -73,6 +73,7 @@ import CropReccomendationSystem from "./pages/CropRecommendation";
 import OrderHistory from "./components/dashboards/OrderHistory";
 import SavedItems from "./components/dashboards/SavedItems";
 import TrackOrders from "./components/dashboards/TrackOrders";
+import MyShopItem from "./pages/shop/MyShopItem";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -434,6 +435,12 @@ const App = () => {
        <Route path="/track-orders" element={
         <Layout>
           <TrackOrders/>
+        </Layout>
+      }
+      />
+ <Route path="/myshopitem" element={
+        <Layout>
+          <MyShopItem/>
         </Layout>
       }
       />

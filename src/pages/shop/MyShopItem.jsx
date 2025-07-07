@@ -249,7 +249,7 @@ const MyShopItem = () => {
                       {renderStars(item.rating)}
                     </div>
                     <span className="text-lg font-semibold text-gray-700">({item.rating})</span>
-                  </div>
+                  </div>-
                 </div>
 
                 {/* Price and Availability */}
