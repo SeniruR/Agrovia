@@ -3,26 +3,27 @@ import { Upload, MapPin, Phone, Mail, Package, Leaf, Droplets, AlertTriangle, Al
 
 export default function SeedsFertilizerForm() {
   const [formData, setFormData] = useState({
-    shopName: '',
-    ownerName: '',
+    shop_name: '',
+    owner_name: '',
     email: '',
-    phone: '',
-    address: '',
+    phone_no: '',
+    shop_address: '',
     city: '',
-    productType: '',
-    productName: '',
+    product_type: '',
+    product_name: '',
     brand: '',
     category: '',
     price: '',
     unit: '',
-    quantity: '',
-    description: '',
+    available_quantity: '',
+    product_description: '',
     features: '',
-    usage: '',
+    usage_history: '',
     season: '',
-    organicCertified: false,
+    organic_certified: false,
     images: [],
-    termsAccepted: false
+    imagePreviews: [],
+    terms_accepted: false
   });
 
   const [errors, setErrors] = useState({});
@@ -31,16 +32,16 @@ export default function SeedsFertilizerForm() {
   const validateStep1 = () => {
     const stepErrors = {};
     
-    if (!formData.shopName.trim()) {
-      stepErrors.shopName = 'Shop name is required';
-    } else if (formData.shopName.length < 2) {
-      stepErrors.shopName = 'Shop name must be at least 2 characters';
+    if (!formData.shop_name.trim()) {
+      stepErrors.shop_name = 'Shop name is required';
+    } else if (formData.shop_name.length < 2) {
+      stepErrors.shop_name = 'Shop name must be at least 2 characters';
     }
 
-    if (!formData.ownerName.trim()) {
-      stepErrors.ownerName = 'Owner name is required';
-    } else if (formData.ownerName.length < 2) {
-      stepErrors.ownerName = 'Owner name must be at least 2 characters';
+    if (!formData.owner_name.trim()) {
+      stepErrors.owner_name = 'Owner name is required';
+    } else if (formData.owner_name.length < 2) {
+      stepErrors.owner_name = 'Owner name must be at least 2 characters';
     }
 
     if (!formData.email.trim()) {
@@ -49,16 +50,16 @@ export default function SeedsFertilizerForm() {
       stepErrors.email = 'Please enter a valid email address';
     }
 
-    if (!formData.phone.trim()) {
-      stepErrors.phone = 'Phone number is required';
-    } else if (!/^(\+94|0)?[0-9]{9,10}$/.test(formData.phone.replace(/\s/g, ''))) {
-      stepErrors.phone = 'Please enter a valid Sri Lankan phone number';
+    if (!formData.phone_no.trim()) {
+      stepErrors.phone_no = 'Phone number is required';
+    } else if (!/^(\+94|0)?[0-9]{9,10}$/.test(formData.phone_no.replace(/\s/g, ''))) {
+      stepErrors.phone_no = 'Please enter a valid Sri Lankan phone number';
     }
 
-    if (!formData.address.trim()) {
-      stepErrors.address = 'Address is required';
-    } else if (formData.address.length < 10) {
-      stepErrors.address = 'Please provide a complete address';
+    if (!formData.shop_address.trim()) {
+      stepErrors.shop_address = 'Address is required';
+    } else if (formData.shop_address.length < 10) {
+      stepErrors.shop_address = 'Please provide a complete address';
     }
 
     if (!formData.city.trim()) {
@@ -71,14 +72,14 @@ export default function SeedsFertilizerForm() {
   const validateStep2 = () => {
     const stepErrors = {};
 
-    if (!formData.productType) {
-      stepErrors.productType = 'Please select a product type';
+    if (!formData.product_type) {
+      stepErrors.product_type = 'Please select a product type';
     }
 
-    if (!formData.productName.trim()) {
-      stepErrors.productName = 'Product name is required';
-    } else if (formData.productName.length < 2) {
-      stepErrors.productName = 'Product name must be at least 2 characters';
+    if (!formData.product_name.trim()) {
+      stepErrors.product_name = 'Product name is required';
+    } else if (formData.product_name.length < 2) {
+      stepErrors.product_name = 'Product name must be at least 2 characters';
     }
 
     if (!formData.price) {
@@ -87,10 +88,10 @@ export default function SeedsFertilizerForm() {
       stepErrors.price = 'Please enter a valid price';
     }
 
-    if (!formData.description.trim()) {
-      stepErrors.description = 'Product description is required';
-    } else if (formData.description.length < 20) {
-      stepErrors.description = 'Description must be at least 20 characters';
+    if (!formData.product_description.trim()) {
+      stepErrors.product_description = 'Product description is required';
+    } else if (formData.product_description.length < 20) {
+      stepErrors.product_description = 'Description must be at least 20 characters';
     }
 
     return stepErrors;
@@ -99,8 +100,8 @@ export default function SeedsFertilizerForm() {
   const validateStep3 = () => {
     const stepErrors = {};
 
-    if (!formData.termsAccepted) {
-      stepErrors.termsAccepted = 'You must accept the terms and conditions';
+    if (!formData.terms_accepted) {
+      stepErrors.terms_accepted = 'You must accept the terms and conditions';
     }
 
     return stepErrors;
@@ -122,6 +123,34 @@ export default function SeedsFertilizerForm() {
       }));
     }
   };
+  const handleImageUpload = (e) => {
+  const files = Array.from(e.target.files);
+  
+  // Create preview URLs for images
+  const previews = files.map(file => URL.createObjectURL(file));
+  
+  setFormData(prev => ({
+    ...prev,
+    images: [...prev.images, ...files],
+    imagePreviews: [...prev.imagePreviews, ...previews]
+  }));
+};
+
+const removeImage = (index) => {
+  setFormData(prev => {
+    const newImages = [...prev.images];
+    const newPreviews = [...prev.imagePreviews];
+    
+    newImages.splice(index, 1);
+    newPreviews.splice(index, 1);
+    
+    return {
+      ...prev,
+      images: newImages,
+      imagePreviews: newPreviews
+    };
+  });
+};
 
   const nextStep = () => {
     let stepErrors = {};
@@ -152,58 +181,102 @@ export default function SeedsFertilizerForm() {
       setErrors({});
     }
   };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Validate all steps
+  const step3Errors = validateStep3();
+  if (Object.keys(step3Errors).length > 0) {
+    setErrors(step3Errors);
+    return;
+  }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const allErrors = {
+    ...validateStep1(),
+    ...validateStep2(),
+    ...validateStep3()
+  };
+
+  if (Object.keys(allErrors).length > 0) {
+    setErrors(allErrors);
+    setCurrentStep(1);
+    return;
+  }
+
+  try {
+    // Create FormData for file upload
+    const formDataToSend = new FormData();
     
-    const step3Errors = validateStep3();
-    if (Object.keys(step3Errors).length > 0) {
-      setErrors(step3Errors);
-      return;
+    // Add all form fields including the new ones
+    Object.entries(formData).forEach(([key, value]) => {
+      // Skip imagePreviews as it's only for UI
+      if (key !== 'imagePreviews') {
+        // Handle boolean fields
+        if (key === 'organic_certified' || key === 'terms_accepted') {
+          formDataToSend.append(key, value ? 'true' : 'false');
+        } 
+        // Handle images array
+        else if (key === 'images') {
+          value.forEach((image, index) => {
+            formDataToSend.append(`images`, image);
+          });
+        }
+        // Handle all other fields
+        else {
+          formDataToSend.append(key, value);
+        }
+      }
+    });
+
+    // Send to backend
+    const response = await fetch('http://localhost:5000/api/v1/shop-products', {
+  method: 'POST',
+  body: formDataToSend,
+  // No need to set 'Content-Type'
+});
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Submission failed');
     }
 
-    // Final validation of all steps
-    const allErrors = {
-      ...validateStep1(),
-      ...validateStep2(),
-      ...validateStep3()
-    };
-
-    if (Object.keys(allErrors).length > 0) {
-      setErrors(allErrors);
-      setCurrentStep(1); // Go back to first step with errors
-      return;
-    }
-
-    console.log('Form submitted:', formData);
+    const data = await response.json();
+    console.log('Success:', data);
     alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
     
     // Reset form
     setFormData({
-      shopName: '',
-      ownerName: '',
+      shop_name: '',
+      owner_name: '',
       email: '',
-      phone: '',
-      address: '',
+      phone_no: '',
+      shop_address: '',
       city: '',
-      productType: '',
-      productName: '',
+      product_type: '',
+      product_name: '',
       brand: '',
       category: '',
       price: '',
       unit: '',
-      quantity: '',
-      description: '',
+      available_quantity: '',
+      product_description: '',
       features: '',
-      usage: '',
+      usage_history: '',
       season: '',
-      organicCertified: false,
+      organic_certified: false,
       images: [],
-      termsAccepted: false
+      imagePreviews: [],
+      terms_accepted: false
+      
     });
     setCurrentStep(1);
     setErrors({});
-  };
+console.log("Submitting data:", dataToSend);
+  } catch (error) {
+    console.error('Error:', error);
+    alert(`Error submitting form: ${error.message}`);
+  }
+};
 
   const getProductIcon = (type) => {
     switch (type) {
@@ -282,18 +355,18 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <input
                     type="text"
-                    name="shopName"
-                    value={formData.shopName}
+                    name="shop_name"
+                    value={formData.shop_name}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
                       errors.shopName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="Enter your shop name"
                   />
-                  {errors.shopName && (
+                  {errors.shop_name && (
                     <div className="flex items-center mt-2 text-red-600 text-sm">
                       <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.shopName}</span>
+                      <span>{errors.shop_name}</span>
                     </div>
                   )}
                 </div>
@@ -304,18 +377,18 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <input
                     type="text"
-                    name="ownerName"
-                    value={formData.ownerName}
+                    name="owner_name"
+                    value={formData.owner_name}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.ownerName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                      errors.owner_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="Enter owner name"
                   />
-                  {errors.ownerName && (
+                  {errors.owner_name && (
                     <div className="flex items-center mt-2 text-red-600 text-sm">
                       <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.ownerName}</span>
+                      <span>{errors.owner_name}</span>
                     </div>
                   )}
                 </div>
@@ -348,18 +421,18 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <input
                     type="tel"
-                    name="phone"
-                    value={formData.phone}
+                    name="phone_no"
+                    value={formData.phone_no}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.phone ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                      errors.phone_no ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="+94 XX XXX XXXX"
                   />
-                  {errors.phone && (
+                  {errors.phone_no && (
                     <div className="flex items-center mt-2 text-red-600 text-sm">
                       <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.phone}</span>
+                      <span>{errors.phone_no}</span>
                     </div>
                   )}
                 </div>
@@ -370,19 +443,19 @@ export default function SeedsFertilizerForm() {
                   <MapPin className="inline w-5 h-5 mr-2" />Shop Address <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  name="address"
-                  value={formData.address}
+                  name="shop_address"
+                  value={formData.shop_address}
                   onChange={handleInputChange}
                   rows={4}
                   className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none text-base sm:text-lg ${
-                    errors.address ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    errors.shop_address ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                   }`}
                   placeholder="Enter complete shop address with landmarks"
                 />
-                {errors.address && (
+                {errors.shop_address && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.address}</span>
+                    <span>{errors.shop_address}</span>
                   </div>
                 )}
               </div>
@@ -422,6 +495,7 @@ export default function SeedsFertilizerForm() {
                 <p className="text-base sm:text-lg text-gray-600">Provide detailed information about your product</p>
               </div>
               
+              
               {/* Product Type Selection */}
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-4 sm:mb-6">
@@ -432,16 +506,16 @@ export default function SeedsFertilizerForm() {
                     <label key={type} className="cursor-pointer">
                       <input
                         type="radio"
-                        name="productType"
+                        name="product_type"
                         value={type}
-                        checked={formData.productType === type}
+                        checked={formData.product_type === type}
                         onChange={handleInputChange}
                         className="sr-only"
                       />
                       <div className={`p-4 sm:p-6 lg:p-8 border-2 rounded-xl text-center transition-all duration-300 transform hover:scale-105 ${
-                        formData.productType === type
+                        formData.product_type === type
                           ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200'
-                          : errors.productType
+                          : errors.product_type
                           ? 'border-red-500 bg-red-50'
                           : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-md'
                       }`}>
@@ -453,7 +527,7 @@ export default function SeedsFertilizerForm() {
                     </label>
                   ))}
                 </div>
-                {errors.productType && (
+                {errors.product_type && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
                     <span>{errors.productType}</span>
@@ -469,18 +543,18 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <input
                     type="text"
-                    name="productName"
-                    value={formData.productName}
+                    name="product_name"
+                    value={formData.product_name}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.productName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                      errors.product_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="Enter product name"
                   />
-                  {errors.productName && (
+                  {errors.product_name && (
                     <div className="flex items-center mt-2 text-red-600 text-sm">
                       <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.productName}</span>
+                      <span>{errors.product_name}</span>
                     </div>
                   )}
                 </div>
@@ -605,8 +679,8 @@ export default function SeedsFertilizerForm() {
                 </label>
                 <input
                   type="text"
-                  name="quantity"
-                  value={formData.quantity}
+                  name="available_quantity"
+                  value={formData.available_quantity}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
                   placeholder="e.g., 100 packets, 50 kg"
@@ -618,30 +692,68 @@ export default function SeedsFertilizerForm() {
                   Product Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  name="description"
-                  value={formData.description}
+                  name="product_description"
+                  value={formData.product_description}
                   onChange={handleInputChange}
                   rows={6}
                   className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none text-base sm:text-lg ${
-                    errors.description ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    errors.product_description ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                   }`}
                   placeholder="Describe your product, its benefits, and key features (minimum 20 characters)"
                 />
                 {errors.description && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.description}</span>
+                    <span>{errors.product_description}</span>
                   </div>
                 )}
               </div>
-
+<div className="w-full">
+  <label className="block text-sm font-semibold text-gray-700 mb-3">
+    Product Images (Max 5)
+  </label>
+  <div className="flex flex-wrap gap-4 mb-4">
+    {formData.imagePreviews.map((preview, index) => (
+      <div key={index} className="relative">
+        <img 
+          src={preview} 
+          alt={`Preview ${index}`}
+          className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+        />
+        <button
+          type="button"
+          onClick={() => removeImage(index)}
+          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+        >
+          ×
+        </button>
+      </div>
+    ))}
+    {formData.imagePreviews.length < 5 && (
+      <label className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors">
+        <div className="text-center">
+          <Upload className="w-8 h-8 mx-auto text-gray-400" />
+          <span className="text-xs text-gray-500">Add Image</span>
+        </div>
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
+      </label>
+    )}
+  </div>
+  <p className="text-xs text-gray-500">Upload clear images of your product (JPEG, PNG)</p>
+</div>
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Usage Instructions
                 </label>
                 <textarea
-                  name="usage"
-                  value={formData.usage}
+                  name="usage_history"
+                  value={formData.usage_history}
                   onChange={handleInputChange}
                   rows={5}
                   className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none hover:border-gray-400 text-base sm:text-lg"
@@ -654,7 +766,7 @@ export default function SeedsFertilizerForm() {
                 <label className="flex items-start cursor-pointer">
                   <input
                     type="checkbox"
-                    name="organicCertified"
+                    name="organic_certified"
                     checked={formData.organicCertified}
                     onChange={handleInputChange}
                     className="w-6 h-6 text-green-600 bg-white border-2 border-gray-300 rounded-lg focus:ring-green-500 focus:ring-2 mt-1"
@@ -691,11 +803,11 @@ export default function SeedsFertilizerForm() {
                     Shop Information
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
-                    <p><span className="font-bold text-gray-700">Shop:</span> {formData.shopName}</p>
-                    <p><span className="font-bold text-gray-700">Owner:</span> {formData.ownerName}</p>
-                    <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone}</p>
+                    <p><span className="font-bold text-gray-700">Shop:</span> {formData.shop_name}</p>
+                    <p><span className="font-bold text-gray-700">Owner:</span> {formData.owner_name}</p>
+                    <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone_no}</p>
                     <p><span className="font-bold text-gray-700">Email:</span> {formData.email}</p>
-                    <p className="md:col-span-2"><span className="font-bold text-gray-700">Address:</span> {formData.address}, {formData.city}</p>
+                    <p className="md:col-span-2"><span className="font-bold text-gray-700">Address:</span> {formData.shop_address}, {formData.city}</p>
                   </div>
                 </div>
                 
@@ -708,14 +820,14 @@ export default function SeedsFertilizerForm() {
                     <div className="flex items-center mb-3 sm:mb-4">
                       {getProductIcon(formData.productType)}
                       <span className="ml-3 font-bold text-lg sm:text-xl capitalize bg-green-100 text-green-800 px-3 sm:px-4 py-1 sm:py-2 rounded-full border border-green-200">
-                        {formData.productType}
+                        {formData.product_type}
                       </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
-                      <p><span className="font-bold text-gray-700">Product:</span> {formData.productName} {formData.brand && `(${formData.brand})`}</p>
+                      <p><span className="font-bold text-gray-700">Product:</span> {formData.product_name} {formData.brand && `(${formData.brand})`}</p>
                       {formData.category && <p><span className="font-bold text-gray-700">Category:</span> {formData.category}</p>}
                       <p><span className="font-bold text-gray-700">Price:</span> <span className="text-green-600 font-bold text-base sm:text-lg">LKR {parseFloat(formData.price || '0').toFixed(2)}</span> {formData.unit && `/ ${formData.unit}`}</p>
-                      {formData.quantity && <p><span className="font-bold text-gray-700">Available:</span> {formData.quantity}</p>}
+                      {formData.available_quantity && <p><span className="font-bold text-gray-700">Available:</span> {formData.available_quantity}</p>}
                       {formData.season && <p><span className="font-bold text-gray-700">Season:</span> {formData.season}</p>}
                     </div>
                     {formData.organicCertified && (
@@ -724,16 +836,16 @@ export default function SeedsFertilizerForm() {
                         <span className="font-bold text-base sm:text-lg">✓ Organic Certified Product</span>
                       </div>
                     )}
-                    {formData.description && (
+                    {formData.product_description && (
                       <div className="mt-6">
                         <span className="font-bold text-gray-700 text-lg">Description:</span>
-                        <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">{formData.description}</p>
+                        <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">{formData.product_description}</p>
                       </div>
                     )}
-                    {formData.usage && (
+                    {formData.usage_history && (
                       <div className="mt-6">
                         <span className="font-bold text-gray-700 text-lg">Usage Instructions:</span>
-                        <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">{formData.usage}</p>
+                        <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">{formData.usage_history}</p>
                       </div>
                     )}
                   </div>
