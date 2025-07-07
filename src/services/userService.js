@@ -1,4 +1,9 @@
+
 import axios from 'axios';
+
+// Get shop owner details by user_id
+// (move this into the userService object below)
+
 
 const API_BASE_URL = 'http://localhost:5000/api/v1';
 
@@ -14,6 +19,16 @@ const getCurrentUserFromStorage = () => {
 };
 
 export const userService = {
+  // Get shop owner details by user_id
+  getShopOwnerDetails: async (userId) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users/${userId}/shop-owner-details`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching shop owner details:', error);
+      return { success: false, message: 'Failed to fetch shop owner details' };
+    }
+  },
   // Get current user details
   getCurrentUser: async () => {
     try {
@@ -97,6 +112,50 @@ export const userService = {
     } catch (error) {
       console.error('Error fetching crop history:', error);
       return { success: false, data: [] };
+    }
+  },
+
+  // Get all users (admin)
+  getAllUsers: async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users/all`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+      return { success: false, data: [], message: 'Failed to fetch users' };
+    }
+  },
+
+  // Update user active status (activate/suspend)
+  updateUserActiveStatus: async (userId, isActive) => {
+    try {
+      const response = await axios.put(`${API_BASE_URL}/users/${userId}/active`, { is_active: isActive });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating user active status:', error);
+      return { success: false, message: 'Failed to update user status' };
+    }
+  },
+
+  // Get farmer details by user_id
+  getFarmerDetails: async (userId) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users/${userId}/farmer-details`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching farmer details:', error);
+      return { success: false, message: 'Failed to fetch farmer details' };
+    }
+  },
+
+  // Get buyer details by user_id
+  getBuyerDetails: async (userId) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users/${userId}/buyer-details`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching buyer details:', error);
+      return { success: false, message: 'Failed to fetch buyer details' };
     }
   }
 };
