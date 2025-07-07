@@ -1,7 +1,30 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock } from 'lucide-react';
 import { useCart } from './CartContext';
+// Add this component at the top of your file
+const ImageWithFallback = ({ src, alt, className }) => {
+  const [imgSrc, setImgSrc] = useState(src);
+  const [loading, setLoading] = useState(true);
 
+  return (
+    <div className={`relative ${className}`}>
+      {loading && (
+        <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-lg"></div>
+      )}
+      <img
+        src={imgSrc}
+        alt={alt}
+        className={`w-full h-full object-cover ${loading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+        onLoad={() => setLoading(false)}
+        onError={() => {
+          setImgSrc('https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg');
+          setLoading(false);
+        }}
+        loading="lazy"
+      />
+    </div>
+  );
+};
 const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -21,23 +44,25 @@ useEffect(() => {
       }
       const data = await response.json();
       
-      setShopItems(data.map(item => ({
-        ...item,
-        organicCertified: item.organic_certified,
-        termsAccepted: item.terms_accepted,
-        productType: item.product_type,
-        productName: item.product_name,
-        inStock: item.available_quantity > 0,
-        rating: item.rating || 4.0,
-        reviewCount: item.review_count || 0,
-        quantity: item.available_quantity,
-        unit: item.unit,
-        description: item.product_description,
-        usage: item.usage_history,
-        images: Array.isArray(item.images) ? item.images : [item.images || ''],
-        shopName: item.shop_name,
-        city: item.city
-      })));
+     setShopItems(data.map(item => ({
+  ...item,
+  organicCertified: Boolean(item.organic_certified),
+  termsAccepted: Boolean(item.terms_accepted),
+  productType: item.product_type,
+  productName: item.product_name,
+  inStock: item.available_quantity > 0,
+  rating: Number(item.rating) || 4.0,
+  reviewCount: Number(item.review_count) || 0,
+  quantity: Number(item.available_quantity),
+  unit: item.unit,
+  description: item.product_description,
+  usage: item.usage_history,
+  images: Array.isArray(item.images) ? 
+    item.images.filter(img => img) : // Remove empty/null images
+    [item.images || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'],
+  shopName: item.shop_name,
+  city: item.city
+})));
     } catch (err) {
       console.error('Error fetching products:', err);
       setError(err.message);
@@ -115,11 +140,11 @@ useEffect(() => {
       onClick={() => onItemClick(item)}
     >
       <div className="relative overflow-hidden">
-        <img 
-          src={item.images[0] || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'} 
-          alt={item.product_name}
-          className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-700"
-        />
+         <ImageWithFallback
+    src={item.images[0]}
+    alt={item.productName}
+    className="group-hover:scale-110 transition-transform duration-700"
+  />
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         
         {/* Badges */}
@@ -214,11 +239,11 @@ useEffect(() => {
     >
       <div className="flex">
         <div className="w-64 h-40 flex-shrink-0 relative overflow-hidden">
-          <img 
-            src={item.images[0] || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'} 
-            alt={item.product_name}
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          />
+           <ImageWithFallback
+    src={item.images[0]}
+    alt={item.product_name}
+    className="hover:scale-105 transition-transform duration-300"
+  />
           {item.organicCertified && (
             <div className="absolute top-3 left-3 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
               <Leaf className="w-3 h-3" />
