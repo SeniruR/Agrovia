@@ -26,7 +26,6 @@ import BuyersMarketplace from "./pages/ByersMarketPlace_backup";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
-import CropDetailView from "./pages/CropDetailView";
 import FarmerProfileEdit from "./pages/Profile";
 import FarmerProfile from "./pages/profiles/FarmerProfile";
 import BuyerProfile from "./pages/profiles/BuyerProfile";
@@ -162,12 +161,6 @@ const App = () => {
           <Layout>
             <CropListings />
 
-         </Layout>
-        }
-      />
-      <Route path="/crop/:id" element={
-          <Layout>
-            <CropDetailView />
          </Layout>
         }
       />
