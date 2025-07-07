@@ -9,7 +9,7 @@ export default function SeedsFertilizerForm() {
     phone_no: '',
     shop_address: '',
     city: '',
-    productType: '',
+    product_type: '',
     product_name: '',
     brand: '',
     category: '',
@@ -20,10 +20,10 @@ export default function SeedsFertilizerForm() {
     features: '',
     usage_history: '',
     season: '',
-    organicCertified: false,
+    organic_certified: false,
     images: [],
     imagePreviews: [],
-    termsAccepted: false
+    terms_accepted: false
   });
 
   const [errors, setErrors] = useState({});
@@ -72,8 +72,8 @@ export default function SeedsFertilizerForm() {
   const validateStep2 = () => {
     const stepErrors = {};
 
-    if (!formData.productType) {
-      stepErrors.productType = 'Please select a product type';
+    if (!formData.product_type) {
+      stepErrors.product_type = 'Please select a product type';
     }
 
     if (!formData.product_name.trim()) {
@@ -100,8 +100,8 @@ export default function SeedsFertilizerForm() {
   const validateStep3 = () => {
     const stepErrors = {};
 
-    if (!formData.termsAccepted) {
-      stepErrors.termsAccepted = 'You must accept the terms and conditions';
+    if (!formData.terms_accepted) {
+      stepErrors.terms_accepted = 'You must accept the terms and conditions';
     }
 
     return stepErrors;
@@ -181,8 +181,7 @@ const removeImage = (index) => {
       setErrors({});
     }
   };
-
- const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
   e.preventDefault();
   
   // Validate all steps
@@ -208,26 +207,37 @@ const removeImage = (index) => {
     // Create FormData for file upload
     const formDataToSend = new FormData();
     
-    // Add all regular fields
+    // Add all form fields including the new ones
     Object.entries(formData).forEach(([key, value]) => {
-      if (key !== 'images' && key !== 'imagePreviews' && key !== 'termsAccepted') {
-        formDataToSend.append(key, value);
+      // Skip imagePreviews as it's only for UI
+      if (key !== 'imagePreviews') {
+        // Handle boolean fields
+        if (key === 'organic_certified' || key === 'terms_accepted') {
+          formDataToSend.append(key, value ? 'true' : 'false');
+        } 
+        // Handle images array
+        else if (key === 'images') {
+          value.forEach((image, index) => {
+            formDataToSend.append(`images`, image);
+          });
+        }
+        // Handle all other fields
+        else {
+          formDataToSend.append(key, value);
+        }
       }
-    });
-    
-    // Add image files
-    formData.images.forEach((image) => {
-      formDataToSend.append('images', image);
     });
 
     // Send to backend
-    const response = await fetch('/api/products', {
-      method: 'POST',
-      body: formDataToSend,
-    });
+    const response = await fetch('http://localhost:5000/api/v1/shop-products', {
+  method: 'POST',
+  body: formDataToSend,
+  // No need to set 'Content-Type'
+});
 
     if (!response.ok) {
-      throw new Error('Submission failed');
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Submission failed');
     }
 
     const data = await response.json();
@@ -242,7 +252,7 @@ const removeImage = (index) => {
       phone_no: '',
       shop_address: '',
       city: '',
-      productType: '',
+      product_type: '',
       product_name: '',
       brand: '',
       category: '',
@@ -253,17 +263,18 @@ const removeImage = (index) => {
       features: '',
       usage_history: '',
       season: '',
-      organicCertified: false,
+      organic_certified: false,
       images: [],
-      imagePreviews: [], // Add this if you're using previews
-      termsAccepted: false
+      imagePreviews: [],
+      terms_accepted: false
+      
     });
     setCurrentStep(1);
     setErrors({});
-
+console.log("Submitting data:", dataToSend);
   } catch (error) {
     console.error('Error:', error);
-    alert('Error submitting form. Please try again.');
+    alert(`Error submitting form: ${error.message}`);
   }
 };
 
@@ -495,16 +506,16 @@ const removeImage = (index) => {
                     <label key={type} className="cursor-pointer">
                       <input
                         type="radio"
-                        name="productType"
+                        name="product_type"
                         value={type}
-                        checked={formData.productType === type}
+                        checked={formData.product_type === type}
                         onChange={handleInputChange}
                         className="sr-only"
                       />
                       <div className={`p-4 sm:p-6 lg:p-8 border-2 rounded-xl text-center transition-all duration-300 transform hover:scale-105 ${
-                        formData.productType === type
+                        formData.product_type === type
                           ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200'
-                          : errors.productType
+                          : errors.product_type
                           ? 'border-red-500 bg-red-50'
                           : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-md'
                       }`}>
@@ -516,7 +527,7 @@ const removeImage = (index) => {
                     </label>
                   ))}
                 </div>
-                {errors.productType && (
+                {errors.product_type && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
                     <span>{errors.productType}</span>
@@ -755,7 +766,7 @@ const removeImage = (index) => {
                 <label className="flex items-start cursor-pointer">
                   <input
                     type="checkbox"
-                    name="organicCertified"
+                    name="organic_certified"
                     checked={formData.organicCertified}
                     onChange={handleInputChange}
                     className="w-6 h-6 text-green-600 bg-white border-2 border-gray-300 rounded-lg focus:ring-green-500 focus:ring-2 mt-1"
@@ -792,11 +803,11 @@ const removeImage = (index) => {
                     Shop Information
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
-                    <p><span className="font-bold text-gray-700">Shop:</span> {formData.shopName}</p>
-                    <p><span className="font-bold text-gray-700">Owner:</span> {formData.ownerName}</p>
-                    <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone}</p>
+                    <p><span className="font-bold text-gray-700">Shop:</span> {formData.shop_name}</p>
+                    <p><span className="font-bold text-gray-700">Owner:</span> {formData.owner_name}</p>
+                    <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone_no}</p>
                     <p><span className="font-bold text-gray-700">Email:</span> {formData.email}</p>
-                    <p className="md:col-span-2"><span className="font-bold text-gray-700">Address:</span> {formData.address}, {formData.city}</p>
+                    <p className="md:col-span-2"><span className="font-bold text-gray-700">Address:</span> {formData.shop_address}, {formData.city}</p>
                   </div>
                 </div>
                 
@@ -809,14 +820,14 @@ const removeImage = (index) => {
                     <div className="flex items-center mb-3 sm:mb-4">
                       {getProductIcon(formData.productType)}
                       <span className="ml-3 font-bold text-lg sm:text-xl capitalize bg-green-100 text-green-800 px-3 sm:px-4 py-1 sm:py-2 rounded-full border border-green-200">
-                        {formData.productType}
+                        {formData.product_type}
                       </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
-                      <p><span className="font-bold text-gray-700">Product:</span> {formData.productName} {formData.brand && `(${formData.brand})`}</p>
+                      <p><span className="font-bold text-gray-700">Product:</span> {formData.product_name} {formData.brand && `(${formData.brand})`}</p>
                       {formData.category && <p><span className="font-bold text-gray-700">Category:</span> {formData.category}</p>}
                       <p><span className="font-bold text-gray-700">Price:</span> <span className="text-green-600 font-bold text-base sm:text-lg">LKR {parseFloat(formData.price || '0').toFixed(2)}</span> {formData.unit && `/ ${formData.unit}`}</p>
-                      {formData.quantity && <p><span className="font-bold text-gray-700">Available:</span> {formData.quantity}</p>}
+                      {formData.available_quantity && <p><span className="font-bold text-gray-700">Available:</span> {formData.available_quantity}</p>}
                       {formData.season && <p><span className="font-bold text-gray-700">Season:</span> {formData.season}</p>}
                     </div>
                     {formData.organicCertified && (
