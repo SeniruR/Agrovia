@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { userService } from '../../services/userService';
 import { 
   ChevronDownIcon, 
   ChevronRightIcon,
@@ -19,6 +20,7 @@ import {
   UserPlusIcon
 } from '@heroicons/react/24/outline';
 
+// Default menuItems for all users
 const menuItems = [
   {
     label: 'Dashboard',
@@ -88,17 +90,84 @@ const menuItems = [
   },
 ];
 
+// Farmer menu for user_type=1
+const farmerMenuItems = [
+  {
+    label: 'Dashboard',
+    icon: HomeIcon,
+    subcategories: [
+      { name: 'My Profile', path: '/profile' },
+      { name: 'My Crops', path: '/farmviewAllCrops' },
+      { name: 'My Orders', path: '/farmervieworders' },
+      { name: 'Price Forecast', path: '/priceforcast' },
+    ],
+  },
+  {
+    label: 'Marketplace',
+    icon: ShoppingBagIcon,
+    subcategories: [
+      { name: 'Agriculture Marketplace', path: '/shopitem' },
+      { name: 'Crop MarketPlace', path: '/byersmarket' },
+    ],
+  },
+  {
+    label: 'Alerts',
+    icon: BellIcon,
+    subcategories: [
+      { name: 'Pest Alerts', path: '/pestalert' },
+      { name: 'Weather Alerts', path: '/weatheralerts' },
+    ],
+  },
+  {
+    label: 'Knowledge Hub',
+    icon: BookOpenIcon,
+    path: '/knowledge-hub',
+  },
+  {
+    label: 'Contact Us',
+    icon: ChatBubbleLeftRightIcon,
+    path: '/complaintHandling',
+  },
+];
+
 const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Authentication state
   const [selectedCollapsedItem, setSelectedCollapsedItem] = useState(null); // For showing name in collapsed mode
   const [hoveredItem, setHoveredItem] = useState(null); // For hover effects
+  const [userType, setUserType] = useState(null);
+  const [filteredMenu, setFilteredMenu] = useState(menuItems);
   const location = useLocation();
 
   // Check authentication status (you can replace this with your auth logic)
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     setIsLoggedIn(!!token);
+  }, []);
+
+  // Fetch user type on mount using userService
+  useEffect(() => {
+    async function fetchUserType() {
+      try {
+        const res = await userService.getCurrentUser();
+        let type = null;
+        if (res && res.success && res.data) {
+          type = res.data.user_type || res.data.type || res.data.role;
+          if (typeof type === 'string') type = type.trim();
+        }
+        setUserType(type);
+        // Only filter for farmer, else show all (for devs)
+        if (type === '1') {
+          setFilteredMenu(farmerMenuItems);
+        } else {
+          setFilteredMenu(menuItems);
+        }
+      } catch (e) {
+        setUserType(null);
+        setFilteredMenu(menuItems);
+      }
+    }
+    fetchUserType();
   }, []);
 
   // Clear selected collapsed item when sidebar opens
@@ -232,7 +301,7 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
         <div className="flex flex-col h-full overflow-hidden">
           <nav className="flex-1 px-2 py-6 overflow-y-auto overflow-x-hidden">
             <div className="space-y-3">
-              {menuItems.map((item, index) => {
+              {filteredMenu.map((item, index) => {
                 const Icon = item.icon;
                 const isActive = isActivePath(item.path) || hasActiveSubcategory(item.subcategories);
                 const isSelected = selectedCollapsedItem?.index === index;
@@ -468,7 +537,7 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
         <div className="flex flex-col h-full">
           <nav className="flex-1 px-4 py-6 overflow-y-auto">
             <div className="space-y-2">
-              {menuItems.map((item, index) => {
+              {filteredMenu.map((item, index) => {
                 const Icon = item.icon;
                 const hasSubcategories = item.subcategories && item.subcategories.length > 0;
                 const isExpanded = expandedIndex === index;
