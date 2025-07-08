@@ -56,6 +56,7 @@ import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
+import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
@@ -82,8 +83,12 @@ import TrackOrders from "./components/dashboards/TrackOrders";
 
 const App = () => {
   return (
-    
     <Routes>
+      <Route path="/admin/organization-approval" element={
+        <Layout>
+          <AdminOrganizationApproval />
+        </Layout>
+      } />
       <Route path="/" element={
           <Layout>
             <Home />
