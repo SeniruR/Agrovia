@@ -33,29 +33,43 @@ const FarmerProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+
+
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
       setError(null);
       try {
         const token = localStorage.getItem('token');
-        // Try absolute URL for dev, fallback to relative for prod
-        let apiUrl = '/api/v1/auth/profile-full';
-        if (import.meta && import.meta.env && import.meta.env.DEV) {
-          apiUrl = 'http://localhost:5000/api/v1/auth/profile-full';
+        if (!token) {
+          setError('No authentication token found. Please log in again.');
+          setLoading(false);
+          return;
         }
+        // Use VITE_API_URL if set, otherwise fallback
+        let apiUrl = import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
+          : (import.meta.env.DEV
+              ? 'http://localhost:5000/api/v1/auth/profile-full'
+              : '/api/v1/auth/profile-full');
+
         const res = await fetch(apiUrl, {
           credentials: 'include',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
-        // If response is not JSON, throw a clear error
         const contentType = res.headers.get('content-type');
         if (!res.ok) {
-          let msg = 'Failed to fetch profile';
+          let msg = `Failed to fetch profile (status ${res.status})`;
           if (contentType && contentType.includes('text/html')) {
             msg = 'API endpoint not reachable. Check your Vite proxy or backend server.';
+          } else {
+            // Try to get error message from response
+            try {
+              const errJson = await res.json();
+              if (errJson && errJson.message) msg += `: ${errJson.message}`;
+            } catch {}
           }
           throw new Error(msg);
         }
@@ -93,7 +107,9 @@ const FarmerProfile = () => {
           totalSales: details.total_sales || 0,
         });
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Unknown error');
+        // Optionally log error for debugging
+        // console.error('Profile fetch error:', err);
       } finally {
         setLoading(false);
       }
@@ -254,14 +270,27 @@ const FarmerProfile = () => {
 
   const navigate = useNavigate();
 
+
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-xl">Loading profile...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        Loading profile...
+      </div>
+    );
   }
   if (error) {
-    return <div className="min-h-screen flex items-center justify-center text-red-600 text-xl">{error}</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
   }
   if (!farmerData) {
-    return <div className="min-h-screen flex items-center justify-center text-xl">No profile data found.</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        No profile data found.
+      </div>
+    );
   }
 
   return (
