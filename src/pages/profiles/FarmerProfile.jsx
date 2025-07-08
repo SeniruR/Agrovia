@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -28,41 +28,86 @@ const FarmerProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Mock farmer data
-  // eslint-disable-next-line no-unused-vars
-  const [farmerData, setFarmerData] = useState({
-    fullName: "Kamal Perera",
-    email: "kamal.perera@email.com",
-    phoneNumber: "077-123-4567",
-    nic: "198512345678",
-    birthDate: "1985-03-15",
-    district: "Anuradhapura",
-    address: "123 Farming Road, Anuradhapura",
-    farmingExperience: "10-20 years",
-    landSize: "5.5 acres",
-    primaryCrops: "Rice, Vegetables",
-    secondaryCrops: "Coconut, Fruits",
-    farmingMethods: "Organic, Traditional",
-    irrigationSystem: "Canal Irrigation, Well Water",
-    soilType: "Clay, Loamy",
-    education: "Advanced Level",
-    annualIncome: "Rs. 500,000 - 1,000,000",
-    organizationMember: "Yes",
-    profileImage: "https://images.pexels.com/photos/1300402/pexels-photo-1300402.jpeg?auto=compress&cs=tinysrgb&w=400",
-    verified: true,
-    rating: 4.8,
-    totalCrops: 15,
-    totalSales: 89,
-    joinedDate: "2020-01-15"
-  });
+  // Farmer data from backend
+  const [farmerData, setFarmerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem('token');
+        // Try absolute URL for dev, fallback to relative for prod
+        let apiUrl = '/api/v1/auth/profile-full';
+        if (import.meta && import.meta.env && import.meta.env.DEV) {
+          apiUrl = 'http://localhost:5000/api/v1/auth/profile-full';
+        }
+        const res = await fetch(apiUrl, {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        // If response is not JSON, throw a clear error
+        const contentType = res.headers.get('content-type');
+        if (!res.ok) {
+          let msg = 'Failed to fetch profile';
+          if (contentType && contentType.includes('text/html')) {
+            msg = 'API endpoint not reachable. Check your Vite proxy or backend server.';
+          }
+          throw new Error(msg);
+        }
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('API did not return JSON. Check your proxy and backend.');
+        }
+        const data = await res.json();
+        // Merge users and farmer_details fields
+        const user = data.user || {};
+        const details = user.farmer_details || {};
+        setFarmerData({
+          fullName: user.full_name || '',
+          email: user.email || '',
+          phoneNumber: user.phone_number || '',
+          nic: user.nic || '',
+          birthDate: user.birth_date || '',
+          district: user.district || '',
+          address: user.address || '',
+          profileImage: user.profile_image || '',
+          joinedDate: user.created_at || '',
+          verified: user.is_active === 1,
+          // Farmer details
+          farmingExperience: details.farming_experience || '',
+          landSize: details.land_size ? `${details.land_size} acres` : '',
+          primaryCrops: details.cultivated_crops || '',
+          secondaryCrops: details.secondary_crops || '',
+          farmingMethods: details.farming_methods || '',
+          irrigationSystem: details.irrigation_system || '',
+          soilType: details.soil_type || '',
+          education: details.education || '',
+          annualIncome: details.annual_income || '',
+          organizationMember: details.organization_id ? 'Yes' : 'No',
+          rating: details.rating || 0,
+          totalCrops: details.total_crops || 0,
+          totalSales: details.total_sales || 0,
+        });
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Mock statistics
-  const stats = [
+  const stats = farmerData ? [
     { title: 'Total Crops Posted', value: farmerData.totalCrops, icon: Package, color: 'green' },
     { title: 'Total Sales', value: farmerData.totalSales, icon: TrendingUp, color: 'green' },
     { title: 'Rating', value: farmerData.rating, icon: Star, color: 'green' },
     { title: 'Experience', value: farmerData.farmingExperience, icon: Award, color: 'green' }
-  ];
+  ] : [];
 
   // Mock recent activities
   const recentActivities = [
@@ -209,13 +254,21 @@ const FarmerProfile = () => {
 
   const navigate = useNavigate();
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-xl">Loading profile...</div>;
+  }
+  if (error) {
+    return <div className="min-h-screen flex items-center justify-center text-red-600 text-xl">{error}</div>;
+  }
+  if (!farmerData) {
+    return <div className="min-h-screen flex items-center justify-center text-xl">No profile data found.</div>;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
       <ProfileHeader />
-
       <div className="max-w-6xl mx-auto px-6 py-8">
         <StatsSection />
-
         {/* Navigation Tabs */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-2xl">
@@ -225,7 +278,6 @@ const FarmerProfile = () => {
             <TabButton id="activity" label="Recent Activity" icon={Activity} />
           </div>
         </div>
-
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -249,7 +301,7 @@ const FarmerProfile = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Birth Date</label>
-                    <p className="text-gray-800 font-medium">{new Date(farmerData.birthDate).toLocaleDateString()}</p>
+                    <p className="text-gray-800 font-medium">{farmerData.birthDate ? new Date(farmerData.birthDate).toLocaleDateString() : ''}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Education</label>
@@ -266,7 +318,6 @@ const FarmerProfile = () => {
                 </div>
               </div>
             </div>
-
             {/* Farming Overview */}
             <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -304,7 +355,6 @@ const FarmerProfile = () => {
             </div>
           </div>
         )}
-
         {activeTab === 'farming' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -336,7 +386,6 @@ const FarmerProfile = () => {
             </div>
           </div>
         )}
-
         {activeTab === 'contact' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -371,7 +420,6 @@ const FarmerProfile = () => {
             </div>
           </div>
         )}
-
         {activeTab === 'activity' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -379,26 +427,8 @@ const FarmerProfile = () => {
               Recent Activity
             </h2>
             <div className="space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                  <div className={`p-2 rounded-full ${
-                    activity.type === 'post' ? 'bg-green-100 text-green-600' :
-                    activity.type === 'order' ? 'bg-blue-100 text-blue-600' :
-                    activity.type === 'update' ? 'bg-yellow-100 text-yellow-600' :
-                    'bg-purple-100 text-purple-600'
-                  }`}>
-                    {activity.type === 'post' && <Package size={16} />}
-                    {activity.type === 'order' && <TrendingUp size={16} />}
-                    {activity.type === 'update' && <Edit3 size={16} />}
-                    {activity.type === 'delivery' && <CheckCircle size={16} />}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">{activity.action}</p>
-                    <p className="text-sm text-gray-600">{activity.item}</p>
-                  </div>
-                  <span className="text-sm text-gray-500">{activity.date}</span>
-                </div>
-              ))}
+              {/* You can fetch and display real activities here if available */}
+              <div className="text-gray-500">No recent activities to display.</div>
             </div>
           </div>
         )}
