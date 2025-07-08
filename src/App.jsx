@@ -27,7 +27,6 @@ import CartPage from "./pages/CartPage";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
-import CropDetailView from "./pages/CropDetailView";
 import FarmerProfileEdit from "./pages/Profile";
 import FarmerProfile from "./pages/profiles/FarmerProfile";
 import BuyerProfile from "./pages/profiles/BuyerProfile";
@@ -57,6 +56,7 @@ import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
+import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
@@ -75,6 +75,7 @@ import CropReccomendationSystem from "./pages/CropRecommendation";
 import OrderHistory from "./components/dashboards/OrderHistory";
 import SavedItems from "./components/dashboards/SavedItems";
 import TrackOrders from "./components/dashboards/TrackOrders";
+import MyShopItem from "./pages/shop/MyShopItem";
 
 import NavigationTest from "./pages/NavigationTest";
 
@@ -85,8 +86,12 @@ import NavigationTest from "./pages/NavigationTest";
 
 const App = () => {
   return (
-    
     <Routes>
+      <Route path="/admin/organization-approval" element={
+        <Layout>
+          <AdminOrganizationApproval />
+        </Layout>
+      } />
       <Route path="/" element={
           <Layout>
             <Home />
@@ -171,12 +176,6 @@ const App = () => {
           <Layout>
             <CropListings />
 
-         </Layout>
-        }
-      />
-      <Route path="/crop/:id" element={
-          <Layout>
-            <CropDetailView />
          </Layout>
         }
       />
@@ -454,6 +453,12 @@ const App = () => {
        <Route path="/track-orders" element={
         <Layout>
           <TrackOrders/>
+        </Layout>
+      }
+      />
+ <Route path="/myshopitem" element={
+        <Layout>
+          <MyShopItem/>
         </Layout>
       }
       />

@@ -53,7 +53,16 @@ const ItemDetail = ({ item, onBack }) => {
   };
 
   const features = item.features.split(', ');
-
+useEffect(() => {
+    fetch('http://localhost:5000/api/v1/shop-products')
+      .then((res) => res.json())
+      .then((data) => {
+        setProducts(data);
+      })
+      .catch((err) => {
+        console.error('Error fetching products:', err);
+      });
+  }, []);
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50">
       {/* Header */}
@@ -76,13 +85,13 @@ const ItemDetail = ({ item, onBack }) => {
             <div className="relative bg-white rounded-3xl overflow-hidden shadow-2xl border border-emerald-100">
               <img
                 src={item.images[selectedImage] || item.images[0] || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'}
-                alt={item.productName}
+                alt={item.product_name}
                 className="w-full h-[500px] object-cover"
               />
               
               {/* Floating Badges */}
               <div className="absolute top-6 left-6 flex flex-col gap-3">
-                {item.organicCertified && (
+                {item.organic_certified && (
                   <div className="bg-emerald-500 text-white px-4 py-2 rounded-full font-bold flex items-center gap-2 shadow-lg">
                     <Leaf className="w-4 h-4" />
                     Organic Certified
@@ -118,7 +127,7 @@ const ItemDetail = ({ item, onBack }) => {
                         : 'border-gray-200 hover:border-emerald-300'
                     }`}
                   >
-                    <img src={image} alt={`${item.productName} ${index + 1}`} className="w-full h-full object-cover" />
+                    <img src={image} alt={`${item.product_name} ${index + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -181,7 +190,7 @@ const ItemDetail = ({ item, onBack }) => {
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-emerald-100 font-semibold text-lg">
-                    📦 {item.quantity} {item.unit}s in stock
+                    📦 {item.available_quantity} {item.unit}s in stock
                   </p>
                   <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
                     <Truck className="w-4 h-4" />
@@ -196,7 +205,7 @@ const ItemDetail = ({ item, onBack }) => {
             {/* Quantity and Add to Cart */}
             <div className="bg-white rounded-3xl p-8 shadow-xl border border-emerald-100">
               <div className="flex items-center gap-6 mb-6">
-                <label htmlFor="quantity" className="text-xl font-bold text-gray-900">
+                <label htmlFor="available_quantity" className="text-xl font-bold text-gray-900">
                   Quantity:
                 </label>
                 <div className="flex items-center bg-white rounded-2xl">
@@ -208,9 +217,9 @@ const ItemDetail = ({ item, onBack }) => {
                   </button>
                   <input
                     type="number"
-                    id="quantity"
+                    id="abvailable_quantity"
                     min="1"
-                    max={item.quantity}
+                    max={item.available_quantity}
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-20 bg-white px-4 py-3 text-center border-0 bg-transparent font-bold text-lg focus:ring-0"
@@ -240,7 +249,7 @@ const ItemDetail = ({ item, onBack }) => {
                 <div className="text-right">
                   <p className="text-sm text-gray-500 mb-1">Total Amount</p>
                   <p className="text-3xl font-bold text-emerald-600">
-                    LKR {(item.price * quantity).toLocaleString('en-LK')}
+                    LKR {(item.price * available_quantity).toLocaleString('en-LK')}
                   </p>
                 </div>
               </div>
@@ -288,7 +297,7 @@ const ItemDetail = ({ item, onBack }) => {
                   Product Overview
                 </h3>
                 <div className="bg-emerald-50 rounded-2xl p-6 mb-6">
-                  <p className="text-gray-700 text-lg leading-relaxed">{item.description}</p>
+                  <p className="text-gray-700 text-lg leading-relaxed">{item.product_description}</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
@@ -301,7 +310,7 @@ const ItemDetail = ({ item, onBack }) => {
                   </div>
                   <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
                     <h4 className="font-bold text-emerald-800 mb-3">Product Type</h4>
-                    <p className="text-emerald-700 text-lg capitalize">{item.productType}</p>
+                    <p className="text-emerald-700 text-lg capitalize">{item.product_type}</p>
                   </div>
                 </div>
               </div>
@@ -335,7 +344,7 @@ const ItemDetail = ({ item, onBack }) => {
                   Usage Instructions
                 </h3>
                 <div className="bg-emerald-50 rounded-2xl p-8 border border-emerald-100">
-                  <p className="text-gray-800 text-lg leading-relaxed mb-6">{item.usage}</p>
+                  <p className="text-gray-800 text-lg leading-relaxed mb-6">{item.usage_history}</p>
                   <div className="flex items-center gap-3 text-emerald-700">
                     <Calendar className="w-5 h-5" />
                     <span className="font-semibold">Best planting season: {item.season}</span>
@@ -357,15 +366,15 @@ const ItemDetail = ({ item, onBack }) => {
                       <Package className="w-8 h-8" />
                     </div>
                     <div>
-                      <h4 className="text-2xl font-bold">{item.shopName}</h4>
-                      <p className="text-emerald-100">Owner: {item.ownerName}</p>
+                      <h4 className="text-2xl font-bold">{item.shop_name}</h4>
+                      <p className="text-emerald-100">Owner: {item.owner_name}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
                         <Phone className="w-5 h-5" />
-                        <span>{item.phone}</span>
+                        <span>{item.phone_no}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <Mail className="w-5 h-5" />
@@ -375,7 +384,7 @@ const ItemDetail = ({ item, onBack }) => {
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
                         <MapPin className="w-5 h-5" />
-                        <span>{item.address}</span>
+                        <span>{item.shop_address}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <MapPin className="w-5 h-5" />

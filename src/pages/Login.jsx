@@ -63,6 +63,10 @@ const Login = () => {
                 } else {
                     navigate('/');
                 }
+            } else if (data.success && user) {
+                // Fallback: user but no token
+                localStorage.setItem('user', JSON.stringify(user));
+                setError('Login succeeded but no token received. Please contact support.');
             } else {
                 setError(data.message || 'Invalid credentials');
             }
