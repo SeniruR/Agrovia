@@ -20,7 +20,7 @@ import {
   UserPlusIcon
 } from '@heroicons/react/24/outline';
 
-// Default menuItems for all users
+// Default menuItems for all users (with admin org approval)
 const menuItems = [
   {
     label: 'Dashboard',
@@ -59,6 +59,11 @@ const menuItems = [
     label: 'Manage Users',
     icon: UserGroupIcon,
     path: '/usermanagement',
+  },
+  {
+    label: 'Organization Approval',
+    icon: UserPlusIcon,
+    path: '/admin/organization-approval',
   },
   {
     label: 'Approve Contents',
