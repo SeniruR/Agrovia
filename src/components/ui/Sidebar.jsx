@@ -141,6 +141,7 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   const [hoveredItem, setHoveredItem] = useState(null); // For hover effects
   const [userType, setUserType] = useState(null);
   const [filteredMenu, setFilteredMenu] = useState(menuItems);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
 
   // Check authentication status (you can replace this with your auth logic)

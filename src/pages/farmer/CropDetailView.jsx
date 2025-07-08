@@ -16,9 +16,9 @@ import {
   CheckCircle,
   Truck
 } from 'lucide-react';
-import { cropService } from '../services/cropService';
-import { useCart } from '../hooks/useCart';
-import CartNotification from '../components/CartNotification';
+import { cropService } from '../../services/cropService';
+import { useCart } from '../../hooks/useCart';
+import CartNotification from '../../components/CartNotification';
 
 const CropDetailView = () => {
   const { id } = useParams();

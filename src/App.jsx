@@ -79,6 +79,8 @@ import MyShopItem from "./pages/shop/MyShopItem";
 
 import NavigationTest from "./pages/NavigationTest";
 
+import CropDetailView from "./pages/farmer/CropDetailView";
+
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
 // import TransporterSignup from "./pages/TransporterSignup";
@@ -462,8 +464,11 @@ const App = () => {
         </Layout>
       }
       />
-
-
+      <Route path="/crop/:id" element={
+          <Layout>
+            <CropDetailView />
+          </Layout>
+        } />
     </Routes>
   );
 };
