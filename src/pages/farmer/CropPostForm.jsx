@@ -15,6 +15,7 @@ const CropPostForm = () => {
     quantity: '',
     unit: 'kg',
     pricePerUnit: '',
+    minimumQuantityBulk: '',
     harvestDate: '',
     expiryDate: '',
     location: '',
@@ -127,6 +128,9 @@ const CropPostForm = () => {
       case 'pricePerUnit':
         return !value ? 'Price is required' :
           value <= 0 ? 'Price must be greater than 0' : '';
+      case 'minimumQuantityBulk':
+        return value && value <= 0 ? 'Minimum bulk quantity must be greater than 0' :
+          value && formData.quantity && parseFloat(value) > parseFloat(formData.quantity) ? 'Minimum bulk quantity cannot exceed available quantity' : '';
       case 'harvestDate':
         return !value ? 'Harvest date is required' : '';
       case 'contactNumber':
@@ -155,6 +159,7 @@ const CropPostForm = () => {
       case 2:
         stepErrors.quantity = validateField('quantity', formData.quantity);
         stepErrors.pricePerUnit = validateField('pricePerUnit', formData.pricePerUnit);
+        stepErrors.minimumQuantityBulk = validateField('minimumQuantityBulk', formData.minimumQuantityBulk);
         break;
       case 3:
         stepErrors.contactNumber = validateField('contactNumber', formData.contactNumber);
@@ -324,6 +329,7 @@ const CropPostForm = () => {
         quantity: 'quantity',
         unit: 'unit',
         pricePerUnit: 'price_per_unit',
+        minimumQuantityBulk: 'minimum_quantity_bulk',
         harvestDate: 'harvest_date',
         expiryDate: 'expiry_date',
         location: 'location',
@@ -401,6 +407,7 @@ const CropPostForm = () => {
         quantity: '',
         unit: 'kg',
         pricePerUnit: '',
+        minimumQuantityBulk: '',
         harvestDate: '',
         expiryDate: '',
         location: '',
@@ -695,6 +702,34 @@ const CropPostForm = () => {
             <p className="mt-1 text-sm text-red-600">{errors.pricePerUnit}</p>
           )}
         </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-black mb-2">
+            Minimum Quantity for Bulk Orders ({formData.unit || 'unit'}) <span className="text-gray-500">(Optional)</span>
+          </label>
+          <div className="relative">
+            <Package className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+            <input
+              type="number"
+              name="minimumQuantityBulk"
+              value={formData.minimumQuantityBulk}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              placeholder="Enter minimum bulk quantity"
+              className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
+                errors.minimumQuantityBulk && touched.minimumQuantityBulk ? 'border-red-500' : 'border-gray-300'
+              }`}
+              min="1"
+              max={formData.quantity || ''}
+            />
+          </div>
+          {errors.minimumQuantityBulk && touched.minimumQuantityBulk && (
+            <p className="mt-1 text-sm text-red-600">{errors.minimumQuantityBulk}</p>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            Set a minimum quantity buyers must purchase for bulk orders. Leave empty if not applicable.
+          </p>
+        </div>
       </div>
 
       {formData.quantity && formData.pricePerUnit && (
@@ -925,6 +960,9 @@ const CropPostForm = () => {
             <p><span className="font-semibold text-black">Category:</span> <span className="text-black">{formData.cropCategory}</span></p>
             <p><span className="font-semibold text-black">Quantity:</span> <span className="text-black">{formData.quantity} {formData.unit}</span></p>
             <p><span className="font-semibold text-black">Price:</span> <span className="text-black">LKR {formData.pricePerUnit} per {formData.unit}</span></p>
+            {formData.minimumQuantityBulk && (
+              <p><span className="font-semibold text-black">Min. Bulk Quantity:</span> <span className="text-black">{formData.minimumQuantityBulk} {formData.unit}</span></p>
+            )}
             <p><span className="font-semibold text-black">Harvest Date:</span> <span className="text-black">{formData.harvestDate}</span></p>
           </div>
           <div className="space-y-2">
