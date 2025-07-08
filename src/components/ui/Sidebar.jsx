@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   ChevronDownIcon, 
   ChevronRightIcon,
@@ -90,16 +91,12 @@ const menuItems = [
 
 const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   const [expandedIndex, setExpandedIndex] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Authentication state
   const [selectedCollapsedItem, setSelectedCollapsedItem] = useState(null); // For showing name in collapsed mode
   const [hoveredItem, setHoveredItem] = useState(null); // For hover effects
   const location = useLocation();
-
-  // Check authentication status (you can replace this with your auth logic)
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    setIsLoggedIn(!!token);
-  }, []);
+  const { isAuthenticated, logout } = useAuth();
+  
+  const isLoggedIn = isAuthenticated(); // Helper for easier migration
 
   // Clear selected collapsed item when sidebar opens
   useEffect(() => {
@@ -109,15 +106,13 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   }, [isOpen]);
 
   const handleLogin = () => {
-    // Add your login logic here
-    localStorage.setItem('authToken', 'demo-token');
-    setIsLoggedIn(true);
+    // Redirect to login page instead of setting demo token
+    window.location.href = '/login';
   };
 
   const handleLogout = () => {
-    // Add your logout logic here
-    localStorage.removeItem('authToken');
-    setIsLoggedIn(false);
+    // Use AuthContext logout function
+    logout();
     onClose(); // Close sidebar after logout
   };
 

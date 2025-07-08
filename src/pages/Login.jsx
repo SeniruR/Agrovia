@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 const Login = () => {
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [form, setForm] = useState({ email: "", password: "" });
     const [error, setError] = useState("");
 
@@ -34,11 +36,12 @@ const Login = () => {
             return res.json();
         })
         .then((data) => {
-            // The backend returns user as data.data.user
+            // The backend returns user as data.data.user and token as data.data.token
             const user = data?.data?.user;
-            if (data.success && user) {
-                localStorage.setItem('user', JSON.stringify(user));
-                window.dispatchEvent(new Event('userChanged'));
+            const token = data?.data?.token;
+            if (data.success && user && token) {
+                // Use the AuthContext login function to store both user and token
+                login(user, token);
                 // Redirect based on user role
                 if (user.role === 'farmer') {
                     navigate('/dashboard');

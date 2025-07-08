@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 
 const CropPostForm = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const [formData, setFormData] = useState({
     cropType: '',
     cropCategory: 'vegetables',
@@ -366,6 +366,7 @@ const CropPostForm = () => {
       const response = await axios.post('http://localhost:5000/api/v1/crop-posts', submitData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          ...getAuthHeaders(), // Add authentication headers
         },
         timeout: 30000, // 30 second timeout
       });
