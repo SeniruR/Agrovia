@@ -7,7 +7,7 @@ import BuyerDashboard from "./components/dashboards/BuyerDashboard";
 import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
-import FarmerCropViews from "./pages/Farmer/AllCropsViews";
+import FarmerCropViews from "./pages/farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
 import ShopDashBoard from "./pages/shop/ShopDashboard";
@@ -22,7 +22,8 @@ import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
-import BuyersMarketplace from "./pages/ByersMarketPlace_backup";
+import BuyersMarketplace from "./pages/ByersMarketPlace";
+import CartPage from "./pages/CartPage";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
@@ -74,6 +75,8 @@ import CropReccomendationSystem from "./pages/CropRecommendation";
 import OrderHistory from "./components/dashboards/OrderHistory";
 import SavedItems from "./components/dashboards/SavedItems";
 import TrackOrders from "./components/dashboards/TrackOrders";
+
+import NavigationTest from "./pages/NavigationTest";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -142,6 +145,12 @@ const App = () => {
       <Route path="/byersmarket" element={
           <Layout>
             <BuyersMarketplace />
+          </Layout>
+        }
+      />
+      <Route path="/cart" element={
+          <Layout>
+            <CartPage />
           </Layout>
         }
       />
@@ -223,7 +232,12 @@ const App = () => {
          </Layout>
         }
       />
-
+      <Route path="/navigation-test" element={
+          <Layout>
+            <NavigationTest />
+          </Layout>
+        }
+      />
       <Route path="/footer" element={
           <Layout>
             <Footer />
@@ -311,7 +325,6 @@ const App = () => {
         }
 
       />
-
       <Route path="/admindashboard" element={
           <Layout>
             <AdminDashboard/>

@@ -17,12 +17,16 @@ import {
 } from '@heroicons/react/24/outline';
 import logo from '../../assets/images/agrovia.png';
 import { Link } from 'react-router-dom';
+import { useCart } from '../../hooks/useCart';
+import CartPopup from '../CartPopup';
 
 const Navigation = ({ onSidebarToggle }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [notificationCount, setNotificationCount] = useState(3);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showCartPopup, setShowCartPopup] = useState(false);
+  const { getCartItemCount } = useCart();
 
   // Handle scroll effect for navbar
   useEffect(() => {
@@ -234,7 +238,7 @@ const Navigation = ({ onSidebarToggle }) => {
                 </Link>
 
                 <Link to="/cart">
-                  <button 
+                  <button
                     className="group relative p-3 text-green-600 hover:text-green-800 rounded-xl transition-all duration-300 backdrop-blur-sm"
                     style={{
                       background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%)',
@@ -243,6 +247,11 @@ const Navigation = ({ onSidebarToggle }) => {
                     title="Shopping Cart"
                   >
                     <ShoppingCartOutlinedIcon className="!w-5 !h-5 transform group-hover:scale-110 transition-transform duration-200" />
+                    {getCartItemCount() > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg animate-pulse">
+                        {getCartItemCount() > 99 ? '99+' : getCartItemCount()}
+                      </span>
+                    )}
                     <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-400/20 to-green-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </button>
                 </Link>
@@ -336,6 +345,12 @@ const Navigation = ({ onSidebarToggle }) => {
           )}
         </div>
       </div>
+
+      {/* Cart Popup */}
+      <CartPopup 
+        isOpen={showCartPopup} 
+        onClose={() => setShowCartPopup(false)} 
+      />
     </nav>
   );
 };
