@@ -161,15 +161,31 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
           if (typeof type === 'string') type = type.trim();
         }
         setUserType(type);
-        // Only filter for farmer, else show all (for devs)
-        if (type === '1') {
-          setFilteredMenu(farmerMenuItems);
-        } else {
-          setFilteredMenu(menuItems);
+        // Show Organization Approval for all users (add to menu if not present)
+        let menu = type === '1' ? [...farmerMenuItems] : [...menuItems];
+        const orgApprovalItem = {
+          label: 'Organization Approval',
+          icon: UserPlusIcon,
+          path: '/admin/organization-approval',
+        };
+        // Only add if not already present
+        if (!menu.some(item => item.label === 'Organization Approval')) {
+          menu.push(orgApprovalItem);
         }
+        setFilteredMenu(menu);
       } catch (e) {
         setUserType(null);
-        setFilteredMenu(menuItems);
+        // Fallback: add Organization Approval to default menu
+        let menu = [...menuItems];
+        const orgApprovalItem = {
+          label: 'Organization Approval',
+          icon: UserPlusIcon,
+          path: '/admin/organization-approval',
+        };
+        if (!menu.some(item => item.label === 'Organization Approval')) {
+          menu.push(orgApprovalItem);
+        }
+        setFilteredMenu(menu);
       }
     }
     fetchUserType();
