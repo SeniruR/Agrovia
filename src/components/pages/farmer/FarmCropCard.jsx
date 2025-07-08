@@ -1,7 +1,10 @@
 import React from 'react';
-import { MapPin, Calendar, Edit, Trash2, Eye, Star } from 'lucide-react';
+import { MapPin, Calendar, Edit, Trash2, Eye, Star, Camera } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const FarmCropCard = ({ crop, viewMode }) => {
+  const navigate = useNavigate();
+  
   const getStatusColor = (status) => {
     switch (status) {
       case 'available':
@@ -25,11 +28,22 @@ const FarmCropCard = ({ crop, viewMode }) => {
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <img
-                src={crop.image}
-                alt={crop.name}
-                className="w-16 h-16 rounded-lg object-cover"
-              />
+              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                {crop.image ? (
+                  <img
+                    src={crop.image}
+                    alt={crop.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                    <div className="text-center">
+                      <Camera className="w-6 h-6 text-gray-400 mx-auto mb-1" />
+                      <span className="text-xs text-gray-500">No Image Available</span>
+                    </div>
+                  </div>
+                )}
+              </div>
               <div>
                 <div className="flex items-center space-x-2 mb-1">
                   <h3 className="text-lg font-semibold text-gray-900">{crop.name}</h3>
@@ -66,7 +80,14 @@ const FarmCropCard = ({ crop, viewMode }) => {
                   <span className="text-sm text-gray-600 ml-1">{crop.rating}</span>
                 </div>
                 <div className="flex space-x-1">
-                  <button className="icon p-2 rounded-md text-blue-600 hover:bg-blue-50">
+                  <button 
+                    className="icon p-2 rounded-md text-blue-600 hover:bg-blue-50"
+                    onClick={() => {
+                      console.log('View Details clicked for crop:', crop.id, crop.name);
+                      navigate(`/crop/${crop.id}`);
+                    }}
+                    title="View Details"
+                  >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button className="icon p-2 rounded-md text-green-600 hover:bg-green-50">
@@ -87,11 +108,20 @@ const FarmCropCard = ({ crop, viewMode }) => {
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 overflow-hidden group">
       <div className="relative">
-        <img
-          src={crop.image}
-          alt={crop.name}
-          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        {crop.image ? (
+          <img
+            src={crop.image}
+            alt={crop.name}
+            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+            <div className="text-center">
+              <Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+              <span className="text-sm text-gray-500 font-medium">No Image Available</span>
+            </div>
+          </div>
+        )}
         <div className="absolute top-3 left-3 flex space-x-2">
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(crop.type)}`}>
             {crop.type}
@@ -131,7 +161,13 @@ const FarmCropCard = ({ crop, viewMode }) => {
         </div>
 
         <div className="flex justify-between items-center">
-          <button className="next-button px-4 py-2 rounded-md text-sm font-medium flex items-center">
+          <button 
+            className="next-button px-4 py-2 rounded-md text-sm font-medium flex items-center"
+            onClick={() => {
+              console.log('View Details clicked for crop:', crop.id, crop.name);
+              navigate(`/crop/${crop.id}`);
+            }}
+          >
             <Eye className="w-4 h-4 mr-2" />
             View Details
           </button>

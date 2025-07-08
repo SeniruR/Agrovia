@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 const Login = () => {
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [form, setForm] = useState({ email: "", password: "" });
     const [error, setError] = useState("");
 
@@ -34,14 +36,27 @@ const Login = () => {
             return res.json();
         })
         .then((data) => {
-            // The backend returns user as data.data.user and token as data.token or data.data.token
+            // The backend returns user as data.data.user and token as data.data.token
             const user = data?.data?.user;
-            // Try to get token from common places
-            const token = data.token || data?.data?.token;
+            const token = data?.data?.token;
+            
+            console.log('🔍 Login Response Debug:');
+            console.log('- Full response:', data);
+            console.log('- User:', user);
+            console.log('- Token:', token);
+            console.log('- Token length:', token?.length);
+            
             if (data.success && user && token) {
-                localStorage.setItem('user', JSON.stringify(user));
-                localStorage.setItem('token', token);
-                window.dispatchEvent(new Event('userChanged'));
+                // Use the AuthContext login function to store both user and token
+                login(user, token);
+                
+                // Verify storage
+                setTimeout(() => {
+                    console.log('✅ Post-login verification:');
+                    console.log('- localStorage user:', localStorage.getItem('user'));
+                    console.log('- localStorage token:', localStorage.getItem('authToken'));
+                }, 100);
+                
                 // Redirect based on user role
                 if (user.role === 'farmer') {
                     navigate('/dashboard');

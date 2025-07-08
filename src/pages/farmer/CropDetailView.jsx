@@ -13,8 +13,12 @@ import {
   MessageCircle,
   ShoppingCart,
   Camera,
-  CheckCircle
+  CheckCircle,
+  Truck
 } from 'lucide-react';
+import { cropService } from '../services/cropService';
+import { useCart } from '../hooks/useCart';
+import CartNotification from '../components/CartNotification';
 
 const CropDetailView = () => {
   const { id } = useParams();
@@ -22,50 +26,112 @@ const CropDetailView = () => {
   const [crop, setCrop] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const { addToCart } = useCart();
+  const [notification, setNotification] = useState({ show: false, product: null, quantity: 0 });
 
-  // Mock data based on crop post form fields
+  // Fetch real crop data from API
   useEffect(() => {
-    const mockCrop = {
-      id: 1,
-      // Basic crop info from form
-      cropType: "Rice",
-      cropCategory: "grains",
-      cropName: "Organic Basmati Rice",
-      quantity: 500,
-      unit: "kg",
-      pricePerUnit: 120,
-      harvestDate: "2024-11-15",
-      expiryDate: "2025-11-15",
-      
-      // Location info from form
-      location: "Village Khanna",
-      district: "Ludhiana",
-      
-      // Description from form
-      description: "Premium quality aromatic basmati rice, aged for 2 years. Grown using traditional organic farming methods without any chemical fertilizers or pesticides. Perfect for biryani and pulao preparations.",
-      
-      // Contact info from form
-      contactNumber: "+91 98765 43210",
-      email: "rajesh.kumar@agrovia.com",
-      
-      // Certification flags from form
-      organicCertified: true,
-      pesticideFree: true,
-      freshlyHarvested: true,
-      
-      // Images from form
-      images: [
-        "https://images.pexels.com/photos/1099680/pexels-photo-1099680.jpeg?auto=compress&cs=tinysrgb&w=800"
-      ],
-      
-      // Farmer name (derived from user)
-      farmerName: "Rajesh Kumar"
+    const fetchCropData = async () => {
+      try {
+        setLoading(true);
+        const response = await cropService.getByIdEnhanced(id);
+        
+        if (response.success && response.data) {
+          // Map API response to component state
+          const cropData = response.data;
+          setCrop({
+            id: cropData.id,
+            cropType: cropData.crop_name,
+            cropCategory: cropData.crop_category,
+            cropName: cropData.crop_name,
+            variety: cropData.variety,
+            quantity: cropData.quantity,
+            unit: cropData.unit,
+            pricePerUnit: cropData.price_per_unit,
+            minimumQuantityBulk: cropData.minimum_quantity_bulk,
+            harvestDate: cropData.harvest_date,
+            expiryDate: cropData.expiry_date,
+            location: cropData.location,
+            district: cropData.district,
+            description: cropData.description,
+            contactNumber: cropData.contact_number,
+            email: cropData.email,
+            organicCertified: cropData.organic_certified,
+            pesticideFree: cropData.pesticide_free,
+            freshlyHarvested: cropData.freshly_harvested,
+            images: cropData.images && cropData.images.length > 0 ? cropData.images : [],
+            farmerName: cropData.farmer_name,
+            farmerPhone: cropData.farmer_phone,
+            farmerEmail: cropData.farmer_email,
+            bulkInfo: cropData.bulk_info,
+            hasBulkMinimum: cropData.has_minimum_bulk,
+            bulkEligible: cropData.bulk_eligible,
+            totalValue: cropData.total_value,
+            bulkMinimumValue: cropData.bulk_minimum_value
+          });
+        } else {
+          console.error('Failed to fetch crop data:', response.message);
+          // Fallback to mock data if API fails
+          const mockCrop = {
+            id: 1,
+            cropType: "Rice",
+            cropCategory: "grains",
+            cropName: "Organic Basmati Rice",
+            quantity: 500,
+            unit: "kg",
+            pricePerUnit: 120,
+            harvestDate: "2024-11-15",
+            expiryDate: "2025-11-15",
+            location: "Village Khanna",
+            district: "Ludhiana",
+            description: "Premium quality aromatic basmati rice, aged for 2 years. Grown using traditional organic farming methods without any chemical fertilizers or pesticides. Perfect for biryani and pulao preparations.",
+            contactNumber: "+91 98765 43210",
+            email: "rajesh.kumar@agrovia.com",
+            organicCertified: true,
+            pesticideFree: true,
+            freshlyHarvested: true,
+            images: [
+              "https://images.pexels.com/photos/1099680/pexels-photo-1099680.jpeg?auto=compress&cs=tinysrgb&w=800"
+            ],
+            farmerName: "Rajesh Kumar"
+          };
+          setCrop(mockCrop);
+        }
+      } catch (error) {
+        console.error('Error fetching crop data:', error);
+        // Fallback to mock data
+        const mockCrop = {
+          id: 1,
+          cropType: "Rice",
+          cropCategory: "grains",
+          cropName: "Organic Basmati Rice",
+          quantity: 500,
+          unit: "kg",
+          pricePerUnit: 120,
+          harvestDate: "2024-11-15",
+          expiryDate: "2025-11-15",
+          location: "Village Khanna",
+          district: "Ludhiana",
+          description: "Premium quality aromatic basmati rice, aged for 2 years.",
+          contactNumber: "+91 98765 43210",
+          email: "rajesh.kumar@agrovia.com",
+          organicCertified: true,
+          pesticideFree: true,
+          freshlyHarvested: true,
+          images: [
+            "https://images.pexels.com/photos/1099680/pexels-photo-1099680.jpeg?auto=compress&cs=tinysrgb&w=800"
+          ],
+          farmerName: "Rajesh Kumar"
+        };
+        setCrop(mockCrop);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setTimeout(() => {
-      setCrop(mockCrop);
-      setLoading(false);
-    }, 1000);
+    if (id) {
+      fetchCropData();
+    }
   }, [id]);
 
   const formatDate = (dateString) => {
@@ -77,8 +143,24 @@ const CropDetailView = () => {
   };
 
   const handleAddToCart = () => {
-    // Add to cart logic
-    console.log(`Adding ${quantity} ${crop.unit} of ${crop.cropName} to cart`);
+    if (!crop) return;
+    // Use the global cart context to add to cart
+    addToCart({
+      id: crop.id,
+      name: crop.cropName,
+      price: Number(crop.pricePerUnit),
+      unit: crop.unit,
+      farmer: crop.farmerName,
+      location: crop.location,
+      image: crop.images && crop.images.length > 0 ? crop.images[0] : null
+    }, quantity);
+    setNotification({ show: true, product: {
+      id: crop.id,
+      name: crop.cropName,
+      unit: crop.unit,
+      farmer: crop.farmerName
+    }, quantity });
+    // Optionally, show a notification or feedback here
   };
 
   const handleContactFarmer = () => {
@@ -131,11 +213,20 @@ const CropDetailView = () => {
             {/* Crop Image */}
             <div className="lg:col-span-2">
               <div className="relative w-full h-24 rounded-xl overflow-hidden shadow-md">
-                <img
-                  src={crop.images[0]}
-                  alt={crop.cropName}
-                  className="w-full h-full object-cover"
-                />
+                {crop.images && crop.images.length > 0 ? (
+                  <img
+                    src={crop.images[0]}
+                    alt={crop.cropName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                    <div className="text-center">
+                      <Camera className="w-6 h-6 text-gray-400 mx-auto mb-1" />
+                      <span className="text-xs text-gray-500">No Image Available</span>
+                    </div>
+                  </div>
+                )}
                 {/* Certification badges */}
                 <div className="absolute top-1 right-1 flex flex-col space-y-1">
                   {crop.organicCertified && (
@@ -174,6 +265,12 @@ const CropDetailView = () => {
                 <div className="text-sm text-green-600 font-medium mt-1">
                   {crop.quantity} {crop.unit} available
                 </div>
+                {crop.minimumQuantityBulk && (
+                  <div className="text-xs text-blue-600 font-medium mt-1 flex items-center justify-center lg:justify-start">
+                    <Truck className="w-3 h-3 mr-1" />
+                    Bulk: {crop.minimumQuantityBulk} {crop.unit} min
+                  </div>
+                )}
               </div>
             </div>
 
@@ -222,7 +319,7 @@ const CropDetailView = () => {
             <div className="bg-green-50 rounded-lg p-3 text-center">
               <Calendar className="w-5 h-5 text-green-600 mx-auto mb-1" />
               <div className="text-xs text-gray-600">Best Before</div>
-              <div className="text-sm font-medium text-gray-900">{formatDate(crop.expiryDate)}</div>
+              <div className="text-sm font-medium text-gray-900">{crop.expiryDate ? formatDate(crop.expiryDate) : 'Not specified'}</div>
             </div>
             <div className="bg-blue-50 rounded-lg p-3 text-center">
               <Phone className="w-5 h-5 text-blue-600 mx-auto mb-1" />
@@ -235,6 +332,42 @@ const CropDetailView = () => {
               <div className="text-sm font-medium text-gray-900">LKR {(crop.pricePerUnit * crop.quantity).toLocaleString()}</div>
             </div>
           </div>
+
+          {/* Bulk Order Information */}
+          {crop.minimumQuantityBulk && (
+            <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center mb-3">
+                <div className="bg-blue-500 rounded-full p-2 mr-3">
+                  <Truck className="w-5 h-5 text-white" />
+                </div>
+                <h4 className="text-lg font-semibold text-blue-900">Bulk Order Available</h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{crop.minimumQuantityBulk}</div>
+                  <div className="text-sm text-blue-800">Minimum {crop.unit}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    LKR {crop.bulkMinimumValue ? crop.bulkMinimumValue.toLocaleString() : (crop.pricePerUnit * crop.minimumQuantityBulk).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-green-800">Minimum Order Value</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {Math.floor(crop.quantity / crop.minimumQuantityBulk)}
+                  </div>
+                  <div className="text-sm text-purple-800">Bulk Orders Available</div>
+                </div>
+              </div>
+              <div className="mt-3 text-center">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                  <Truck className="w-4 h-4 mr-2" />
+                  {crop.bulkInfo}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -244,11 +377,21 @@ const CropDetailView = () => {
           {/* Single Image Display */}
           <div className="lg:col-span-2 space-y-4">
             <div className="relative bg-white rounded-2xl overflow-hidden shadow-lg">
-              <img
-                src={crop.images[0]}
-                alt={crop.cropName}
-                className="w-full h-96 lg:h-[500px] object-cover"
-              />
+              {crop.images && crop.images.length > 0 ? (
+                <img
+                  src={crop.images[0]}
+                  alt={crop.cropName}
+                  className="w-full h-96 lg:h-[500px] object-cover"
+                />
+              ) : (
+                <div className="w-full h-96 lg:h-[500px] bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                  <div className="text-center">
+                    <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No Image Available</h3>
+                    <p className="text-gray-500">Image for this crop is not available</p>
+                  </div>
+                </div>
+              )}
               
               {/* Certification badges */}
               <div className="absolute top-6 left-6 space-y-2">
@@ -336,7 +479,7 @@ const CropDetailView = () => {
                   onClick={handleAddToCart}
                   className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-agrovia-500 to-agrovia-600 text-white rounded-xl hover:from-agrovia-600 hover:to-agrovia-700 transition-all duration-300 font-bold text-lg shadow-lg transform hover:scale-105"
                 >
-                  <ShoppingCart className="w-6 h-6 mr-2" />
+                  <ShoppingCart className="w-6 h-6 mr-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate('/cart'); }} />
                   Add to Cart
                 </button>
                 <button
@@ -372,6 +515,13 @@ const CropDetailView = () => {
           </div>
         </div>
       </div>
+
+      <CartNotification
+        show={notification.show}
+        product={notification.product}
+        quantity={notification.quantity}
+        onClose={() => setNotification({ show: false, product: null, quantity: 0 })}
+      />
     </div>
   );
 };

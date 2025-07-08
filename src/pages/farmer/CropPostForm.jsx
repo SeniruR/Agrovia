@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 
 const CropPostForm = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const [formData, setFormData] = useState({
     cropType: '',
     cropCategory: 'vegetables',
@@ -15,6 +15,7 @@ const CropPostForm = () => {
     quantity: '',
     unit: 'kg',
     pricePerUnit: '',
+    minimumQuantityBulk: '',
     harvestDate: '',
     expiryDate: '',
     location: '',
@@ -127,11 +128,30 @@ const CropPostForm = () => {
       case 'pricePerUnit':
         return !value ? 'Price is required' :
           value <= 0 ? 'Price must be greater than 0' : '';
-      case 'harvestDate':
-        return !value ? 'Harvest date is required' : '';
+      case 'minimumQuantityBulk':
+        return value && value <= 0 ? 'Minimum bulk quantity must be greater than 0' :
+          value && formData.quantity && parseFloat(value) > parseFloat(formData.quantity) ? 'Minimum bulk quantity cannot exceed available quantity' : '';
+      case 'harvestDate': {
+        if (!value) return 'Harvest date is required';
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const selected = new Date(value);
+        selected.setHours(0,0,0,0);
+        if (selected > today) return 'Harvest date cannot be in the future';
+        return '';
+      }
+      case 'expiryDate': {
+        if (!value) return '';
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const selected = new Date(value);
+        selected.setHours(0,0,0,0);
+        if (selected <= today) return 'Best before date must be a future date';
+        return '';
+      }
       case 'contactNumber':
         return !value ? 'Contact number is required' :
-          !/^(\+94|0)[0-9]{9}$/.test(value.replace(/\s/g, '')) ? 'Invalid Sri Lankan phone number' : '';
+          !/^(	4|0)[0-9]{9}$/.test(value.replace(/\s/g, '')) ? 'Invalid Sri Lankan phone number' : '';
       case 'email':
         return value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'Invalid email format' : '';
       case 'district':
@@ -151,10 +171,12 @@ const CropPostForm = () => {
       case 1:
         stepErrors.cropName = validateField('cropName', formData.cropName);
         stepErrors.harvestDate = validateField('harvestDate', formData.harvestDate);
+        stepErrors.expiryDate = validateField('expiryDate', formData.expiryDate);
         break;
       case 2:
         stepErrors.quantity = validateField('quantity', formData.quantity);
         stepErrors.pricePerUnit = validateField('pricePerUnit', formData.pricePerUnit);
+        stepErrors.minimumQuantityBulk = validateField('minimumQuantityBulk', formData.minimumQuantityBulk);
         break;
       case 3:
         stepErrors.contactNumber = validateField('contactNumber', formData.contactNumber);
@@ -313,17 +335,18 @@ const CropPostForm = () => {
     setSubmitSuccess(false);
 
     try {
+
       // Create FormData for file upload
       const submitData = new FormData();
-      
       // Map frontend field names to backend field names
       const fieldMapping = {
         cropCategory: 'crop_category',
-        cropName: 'crop_name', 
+        cropName: 'crop_name',
         variety: 'variety',
         quantity: 'quantity',
         unit: 'unit',
         pricePerUnit: 'price_per_unit',
+        minimumQuantityBulk: 'minimum_quantity_bulk',
         harvestDate: 'harvest_date',
         expiryDate: 'expiry_date',
         location: 'location',
@@ -333,22 +356,56 @@ const CropPostForm = () => {
         email: 'email',
         organicCertified: 'organic_certified',
         pesticideFree: 'pesticide_free',
-        freshlyHarvested: 'freshly_harvested'
+        freshlyHarvested: 'freshly_harvested',
+        farmerName: 'farmer_name', // Add farmer_name for backend validation
       };
 
       // Add form fields to FormData
       Object.keys(fieldMapping).forEach(frontendKey => {
         const backendKey = fieldMapping[frontendKey];
-        const value = formData[frontendKey];
-        
-        if (value !== undefined && value !== null && value !== '') {
-          if (typeof value === 'boolean') {
-            submitData.append(backendKey, value ? 'true' : 'false');
-          } else {
-            submitData.append(backendKey, value);
+        let value;
+        if (frontendKey === 'farmerName') {
+          // Use user.full_name or user.name for farmer_name
+          value = (user && (user.full_name || user.name)) ? (user.full_name || user.name) : '';
+        } else {
+          value = formData[frontendKey];
+        }
+        // Only send minimum_quantity_bulk if it is a valid, non-empty, non-null, non-undefined, and not NaN value
+        if (frontendKey === 'minimumQuantityBulk') {
+          // Accept only if value is a positive number (> 0)
+          if (
+            value !== undefined &&
+            value !== null &&
+            String(value).trim() !== '' &&
+            !isNaN(Number(value)) &&
+            Number(value) > 0
+          ) {
+            submitData.append(backendKey, Number(value));
+          }
+          // If not valid, do NOT append at all
+          return;
+        }
+        // Ensure numbers are sent as numbers for numeric fields
+        if (["quantity", "pricePerUnit"].includes(frontendKey)) {
+          if (value !== '' && value !== undefined && value !== null) {
+            value = Number(value);
           }
         }
+        // Send booleans as actual booleans for backend Joi validation
+        if (["organicCertified", "pesticideFree", "freshlyHarvested"].includes(frontendKey)) {
+          // Always send as boolean
+          submitData.append(backendKey, value === true || value === 'true');
+        } else if (typeof value === 'boolean') {
+          submitData.append(backendKey, value);
+        } else if (value !== undefined && value !== null && value !== '') {
+          submitData.append(backendKey, value);
+        }
       });
+
+      // Debug: Log all FormData entries
+      for (let pair of submitData.entries()) {
+        console.log('FormData:', pair[0], '=', pair[1]);
+      }
 
       // Add images if any
       if (formData.images && formData.images.length > 0) {
@@ -360,13 +417,30 @@ const CropPostForm = () => {
       }
 
       // Log the data being sent for debugging
-      console.log('Submitting crop post data:', formData);
+      console.log('🔍 Pre-submission Debug:');
+      console.log('- isAuthenticated():', isAuthenticated());
+      console.log('- user:', user);
+      console.log('- getAuthHeaders():', getAuthHeaders());
+      console.log('- localStorage token:', localStorage.getItem('authToken'));
+      console.log('- localStorage user:', localStorage.getItem('user'));
 
-      // Submit to backend API
+      // Ensure we have a token before making the request
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('❌ You are not logged in. Please login first.');
+        return;
+      }
+
+      // Submit to backend API with explicit token handling
+      const headers = {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${authToken}`, // Use token directly from localStorage
+      };
+
+      console.log('📤 Request headers:', headers);
+
       const response = await axios.post('http://localhost:5000/api/v1/crop-posts', submitData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers,
         timeout: 30000, // 30 second timeout
       });
 
@@ -384,6 +458,7 @@ const CropPostForm = () => {
         quantity: '',
         unit: 'kg',
         pricePerUnit: '',
+        minimumQuantityBulk: '',
         harvestDate: '',
         expiryDate: '',
         location: '',
@@ -501,11 +576,11 @@ const CropPostForm = () => {
             onChange={handleInputChange}
             onBlur={handleBlur}
             className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-              errors.harvestDate && touched.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+              errors.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
             }`}
             required
           />
-          {errors.harvestDate && touched.harvestDate && (
+          {errors.harvestDate && (
             <div className="flex items-center mt-2 text-red-600 text-sm">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               <span>{errors.harvestDate}</span>
@@ -522,8 +597,17 @@ const CropPostForm = () => {
             name="expiryDate"
             value={formData.expiryDate}
             onChange={handleInputChange}
-            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+            onBlur={handleBlur}
+            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+              errors.expiryDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+            }`}
           />
+          {errors.expiryDate && (
+            <div className="flex items-center mt-2 text-red-600 text-sm">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span>{errors.expiryDate}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -645,7 +729,6 @@ const CropPostForm = () => {
             required
           >
             <option value="kg">Kilograms (kg)</option>
-            <option value="g">Grams (g)</option>
             <option value="tons">Tons</option>
             <option value="bags">Bags</option>
             <option value="pieces">Pieces</option>
@@ -671,12 +754,40 @@ const CropPostForm = () => {
               }`}
               required
               min="0"
-              step="0.01"
+              step="1"
             />
           </div>
           {errors.pricePerUnit && touched.pricePerUnit && (
             <p className="mt-1 text-sm text-red-600">{errors.pricePerUnit}</p>
           )}
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-black mb-2">
+            Minimum Quantity for Bulk Orders ({formData.unit || 'unit'}) <span className="text-gray-500">(Optional)</span>
+          </label>
+          <div className="relative">
+            <Package className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+            <input
+              type="number"
+              name="minimumQuantityBulk"
+              value={formData.minimumQuantityBulk}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              placeholder="Enter minimum bulk quantity"
+              className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
+                errors.minimumQuantityBulk && touched.minimumQuantityBulk ? 'border-red-500' : 'border-gray-300'
+              }`}
+              min="1"
+              max={formData.quantity || ''}
+            />
+          </div>
+          {errors.minimumQuantityBulk && touched.minimumQuantityBulk && (
+            <p className="mt-1 text-sm text-red-600">{errors.minimumQuantityBulk}</p>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            Set a minimum quantity buyers must purchase for bulk orders. Leave empty if not applicable.
+          </p>
         </div>
       </div>
 
@@ -908,6 +1019,9 @@ const CropPostForm = () => {
             <p><span className="font-semibold text-black">Category:</span> <span className="text-black">{formData.cropCategory}</span></p>
             <p><span className="font-semibold text-black">Quantity:</span> <span className="text-black">{formData.quantity} {formData.unit}</span></p>
             <p><span className="font-semibold text-black">Price:</span> <span className="text-black">LKR {formData.pricePerUnit} per {formData.unit}</span></p>
+            {formData.minimumQuantityBulk && (
+              <p><span className="font-semibold text-black">Min. Bulk Quantity:</span> <span className="text-black">{formData.minimumQuantityBulk} {formData.unit}</span></p>
+            )}
             <p><span className="font-semibold text-black">Harvest Date:</span> <span className="text-black">{formData.harvestDate}</span></p>
           </div>
           <div className="space-y-2">
