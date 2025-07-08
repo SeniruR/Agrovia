@@ -61,6 +61,26 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  // Helper to check if a JWT token is expired (works for most JWTs)
+  const isTokenExpired = (jwt) => {
+    if (!jwt) return true;
+    try {
+      const payload = JSON.parse(atob(jwt.split('.')[1]));
+      if (!payload.exp) return false; // If no exp, assume not expired
+      return Date.now() >= payload.exp * 1000;
+    } catch (e) {
+      return true;
+    }
+  };
+
+  // Auto-logout if token is expired
+  useEffect(() => {
+    if (token && isTokenExpired(token)) {
+      logout();
+    }
+    // eslint-disable-next-line
+  }, [token]);
+
   const login = (userData, authToken) => {
     setUser(userData);
     setToken(authToken);
@@ -78,11 +98,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAuthenticated = () => {
-    return user !== null && token !== null;
+    return user !== null && token !== null && !isTokenExpired(token);
   };
 
   const getAuthHeaders = () => {
-    if (token) {
+    // Always use the latest token from state
+    if (token && !isTokenExpired(token)) {
       return {
         'Authorization': `Bearer ${token}`
       };

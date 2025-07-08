@@ -345,8 +345,16 @@ const CropPostForm = () => {
       // Add form fields to FormData
       Object.keys(fieldMapping).forEach(frontendKey => {
         const backendKey = fieldMapping[frontendKey];
-        const value = formData[frontendKey];
-        
+        let value = formData[frontendKey];
+        // For minimumQuantityBulk, always send as number or blank
+        if (frontendKey === 'minimumQuantityBulk') {
+          if (value === '' || value === undefined || value === null) {
+            value = '';
+          } else {
+            value = Number(value);
+            if (isNaN(value)) value = '';
+          }
+        }
         if (value !== undefined && value !== null && value !== '') {
           if (typeof value === 'boolean') {
             submitData.append(backendKey, value ? 'true' : 'false');
@@ -669,7 +677,6 @@ const CropPostForm = () => {
             required
           >
             <option value="kg">Kilograms (kg)</option>
-            <option value="g">Grams (g)</option>
             <option value="tons">Tons</option>
             <option value="bags">Bags</option>
             <option value="pieces">Pieces</option>
@@ -695,7 +702,7 @@ const CropPostForm = () => {
               }`}
               required
               min="0"
-              step="0.01"
+              step="1"
             />
           </div>
           {errors.pricePerUnit && touched.pricePerUnit && (
