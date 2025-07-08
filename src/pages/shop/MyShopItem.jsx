@@ -360,152 +360,312 @@ const MyShopItem = () => {
                     </div>
 
                     <form onSubmit={handleEditSubmit} className="p-6">
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-gray-700 font-medium mb-2" htmlFor="product_name">
-                                    Product Name*
-                                </label>
-                                <input
-                                    type="text"
-                                    id="product_name"
-                                    name="product_name"
-                                    value={editFormData.product_name}
-                                    onChange={handleEditChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    required
-                                />
-                            </div>
+  <div className="space-y-4">
+    {/* Product Name */}
+    <div>
+      <label className="block text-gray-700 font-medium mb-2" htmlFor="product_name">
+        Product Name*
+      </label>
+      <input
+        type="text"
+        id="product_name"
+        name="product_name"
+        value={editFormData.product_name}
+        onChange={handleEditChange}
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        required
+      />
+    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="price">
-                                        Price (LKR)*
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="price"
-                                        name="price"
-                                        value={editFormData.price}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                        min="0"
-                                        step="0.01"
-                                        required
-                                    />
-                                </div>
+    {/* Owner Name & Shop Name */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="owner_name">
+          Owner Name
+        </label>
+        <input
+          type="text"
+          id="owner_name"
+          name="owner_name"
+          value={editFormData.owner_name}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="shop_name">
+          Shop Name
+        </label>
+        <input
+          type="text"
+          id="shop_name"
+          name="shop_name"
+          value={editFormData.shop_name}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+    </div>
 
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="available_quantity">
-                                        Available Quantity*
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="available_quantity"
-                                        name="available_quantity"
-                                        value={editFormData.available_quantity}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                        min="0"
-                                        required
-                                    />
-                                </div>
-                            </div>
+    {/* Phone & City */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="phone_no">
+          Phone No
+        </label>
+        <input
+          type="text"
+          id="phone_no"
+          name="phone_no"
+          value={editFormData.phone_no}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="city">
+          City
+        </label>
+        <input
+          type="text"
+          id="city"
+          name="city"
+          value={editFormData.city}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+    </div>
 
-                            <div>
-                                <label className="block text-gray-700 font-medium mb-2" htmlFor="product_description">
-                                    Description*
-                                </label>
-                                <textarea
-                                    id="product_description"
-                                    name="product_description"
-                                    value={editFormData.product_description}
-                                    onChange={handleEditChange}
-                                    rows="4"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    required
-                                />
-                            </div>
+    {/* Address */}
+    <div>
+      <label className="block text-gray-700 font-medium mb-2" htmlFor="shop_address">
+        Shop Address
+      </label>
+      <input
+        type="text"
+        id="shop_address"
+        name="shop_address"
+        value={editFormData.shop_address}
+        onChange={handleEditChange}
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+      />
+    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="category">
-                                        Category
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="category"
-                                        name="category"
-                                        value={editFormData.category}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    />
-                                </div>
+    {/* Product Type & Brand */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="product_type">
+          Product Type
+        </label>
+        <input
+          type="text"
+          id="product_type"
+          name="product_type"
+          value={editFormData.product_type}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="brand">
+          Brand
+        </label>
+        <input
+          type="text"
+          id="brand"
+          name="brand"
+          value={editFormData.brand}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+    </div>
 
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="product_type">
-                                        Product Type
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="product_type"
-                                        name="product_type"
-                                        value={editFormData.product_type}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    />
-                                </div>
-                            </div>
+    {/* Category & Season */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="category">
+          Category
+        </label>
+        <input
+          type="text"
+          id="category"
+          name="category"
+          value={editFormData.category}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="season">
+          Season
+        </label>
+        <input
+          type="text"
+          id="season"
+          name="season"
+          value={editFormData.season}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="city">
-                                        City
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="city"
-                                        name="city"
-                                        value={editFormData.city}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    />
-                                </div>
+    {/* Price & Quantity */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="price">
+          Price (LKR)*
+        </label>
+        <input
+          type="number"
+          id="price"
+          name="price"
+          value={editFormData.price}
+          onChange={handleEditChange}
+          min="0"
+          step="0.01"
+          required
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="available_quantity">
+          Available Quantity*
+        </label>
+        <input
+          type="number"
+          id="available_quantity"
+          name="available_quantity"
+          value={editFormData.available_quantity}
+          onChange={handleEditChange}
+          min="0"
+          required
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+    </div>
 
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="unit">
-                                        Unit
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="unit"
-                                        name="unit"
-                                        value={editFormData.unit}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+    {/* Description */}
+    <div>
+      <label className="block text-gray-700 font-medium mb-2" htmlFor="product_description">
+        Description*
+      </label>
+      <textarea
+        id="product_description"
+        name="product_description"
+        value={editFormData.product_description}
+        onChange={handleEditChange}
+        rows="4"
+        required
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+      />
+    </div>
 
-                        <div className="mt-8 flex justify-end gap-4">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowEditModal(false);
-                                    setSelectedItem(null);
-                                }}
-                                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                                Save Changes
-                            </button>
-                        </div>
-                    </form>
+    {/* Unit & Usage History */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="unit">
+          Unit
+        </label>
+        <input
+          type="text"
+          id="unit"
+          name="unit"
+          value={editFormData.unit}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="usage_history">
+          Usage History
+        </label>
+        <input
+          type="text"
+          id="usage_history"
+          name="usage_history"
+          value={editFormData.usage_history}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+    </div>
+
+    {/* Organic Certified & Terms Accepted */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="organic_certified">
+          Organic Certified
+        </label>
+        <select
+          id="organic_certified"
+          name="organic_certified"
+          value={editFormData.organic_certified}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        >
+          <option value="">Select</option>
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="terms_accepted">
+          Terms Accepted
+        </label>
+        <select
+          id="terms_accepted"
+          name="terms_accepted"
+          value={editFormData.terms_accepted}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        >
+          <option value="">Select</option>
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      </div>
+    </div>
+
+    {/* Images */}
+    <div>
+      <label className="block text-gray-700 font-medium mb-2" htmlFor="images">
+        Image URL / Base64 String
+      </label>
+      <input
+        type="text"
+        id="images"
+        name="images"
+        value={editFormData.images}
+        onChange={handleEditChange}
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+      />
+    </div>
+  </div>
+
+  {/* Footer Buttons */}
+  <div className="mt-8 flex justify-end gap-4">
+    <button
+      type="button"
+      onClick={() => {
+        setShowEditModal(false);
+        setSelectedItem(null);
+      }}
+      className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+    >
+      Cancel
+    </button>
+    <button
+      type="submit"
+      className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+    >
+      Save Changes
+    </button>
+  </div>
+</form>
+
                 </div>
             </div>
         );
