@@ -43,18 +43,7 @@ const MyShopItem = () => {
     }, []);
 
     // Handle delete confirmation
-    const handleDeleteConfirm = async () => {
-        try {
-            await axios.delete(`http://localhost:5000/api/v1/shop-products`);
-            setShopItems(prevItems => prevItems.filter(item => item.id !== itemToDelete));
-            setShowDeleteModal(false);
-            setItemToDelete(null);
-        } catch (err) {
-            console.error('Error deleting item:', err);
-            alert('Failed to delete item. Please try again.');
-        }
-    };
-
+   
     // Handle edit form submission
     const handleEditSubmit = async (e) => {
         e.preventDefault();
@@ -103,12 +92,7 @@ const MyShopItem = () => {
         setShowEditModal(true);
     };
 
-    // Set item to delete when opening delete modal
-    const handleDelete = (itemId) => {
-        setItemToDelete(itemId);
-        setShowDeleteModal(true);
-    };
-
+   
     // Extract unique categories and cities from data
     const categories = ['all', ...new Set(shopItems.map(item => item.category).filter(Boolean))];
     const cities = ['all', ...new Set(shopItems.map(item => item.city).filter(Boolean))];
@@ -153,7 +137,34 @@ const MyShopItem = () => {
         }
         return stars;
     };
+const handleDelete = (shopitemid) => {
+  setItemToDelete(shopitemid);
+  setShowDeleteModal(true);
+};
 
+// Then in your DeleteModal component:
+const handleDeleteConfirm = async () => {
+  try {
+    const res = await fetch(`http://localhost:5000/api/v1/shop-products/${itemToDelete}`, {
+      method: 'DELETE',
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      alert('Product deleted successfully');
+      setShopItems(prev => prev.filter(item => item.shopitemid !== itemToDelete));
+    } else {
+      alert(`Failed to delete: ${data.message}`);
+    }
+  } catch (err) {
+    console.error('Error:', err);
+    alert('Network error - could not connect to server');
+  } finally {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+  }
+};
     // Detail View Component
     const DetailView = ({ item, onClose }) => {
         return (
@@ -729,7 +740,7 @@ const MyShopItem = () => {
                                         <Edit className="h-4 w-4" />
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(item.id)}
+                                        onClick={() => handleDelete(item.shopitemid)}
                                         className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
                                     >
                                         <Trash2 className="h-4 w-4" />
