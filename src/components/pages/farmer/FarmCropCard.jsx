@@ -29,9 +29,9 @@ const FarmCropCard = ({ crop, viewMode }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                {crop.image ? (
+                {Array.isArray(crop.images) && crop.images.length > 0 ? (
                   <img
-                    src={crop.image}
+                    src={crop.images[0]}
                     alt={crop.name}
                     className="w-full h-full object-cover"
                   />
@@ -108,9 +108,9 @@ const FarmCropCard = ({ crop, viewMode }) => {
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 overflow-hidden group">
       <div className="relative">
-        {crop.image ? (
+        {Array.isArray(crop.images) && crop.images.length > 0 ? (
           <img
-            src={crop.image}
+            src={crop.images[0]}
             alt={crop.name}
             className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
           />

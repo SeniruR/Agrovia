@@ -131,27 +131,11 @@ const CropPostForm = () => {
       case 'minimumQuantityBulk':
         return value && value <= 0 ? 'Minimum bulk quantity must be greater than 0' :
           value && formData.quantity && parseFloat(value) > parseFloat(formData.quantity) ? 'Minimum bulk quantity cannot exceed available quantity' : '';
-      case 'harvestDate': {
-        if (!value) return 'Harvest date is required';
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const selected = new Date(value);
-        selected.setHours(0,0,0,0);
-        if (selected > today) return 'Harvest date cannot be in the future';
-        return '';
-      }
-      case 'expiryDate': {
-        if (!value) return '';
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const selected = new Date(value);
-        selected.setHours(0,0,0,0);
-        if (selected <= today) return 'Best before date must be a future date';
-        return '';
-      }
+      case 'harvestDate':
+        return !value ? 'Harvest date is required' : '';
       case 'contactNumber':
         return !value ? 'Contact number is required' :
-          !/^(	4|0)[0-9]{9}$/.test(value.replace(/\s/g, '')) ? 'Invalid Sri Lankan phone number' : '';
+          !/^(\+94|0)[0-9]{9}$/.test(value.replace(/\s/g, '')) ? 'Invalid Sri Lankan phone number' : '';
       case 'email':
         return value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'Invalid email format' : '';
       case 'district':
@@ -171,7 +155,6 @@ const CropPostForm = () => {
       case 1:
         stepErrors.cropName = validateField('cropName', formData.cropName);
         stepErrors.harvestDate = validateField('harvestDate', formData.harvestDate);
-        stepErrors.expiryDate = validateField('expiryDate', formData.expiryDate);
         break;
       case 2:
         stepErrors.quantity = validateField('quantity', formData.quantity);
@@ -335,13 +318,13 @@ const CropPostForm = () => {
     setSubmitSuccess(false);
 
     try {
-
       // Create FormData for file upload
       const submitData = new FormData();
+      
       // Map frontend field names to backend field names
       const fieldMapping = {
         cropCategory: 'crop_category',
-        cropName: 'crop_name',
+        cropName: 'crop_name', 
         variety: 'variety',
         quantity: 'quantity',
         unit: 'unit',
@@ -356,56 +339,30 @@ const CropPostForm = () => {
         email: 'email',
         organicCertified: 'organic_certified',
         pesticideFree: 'pesticide_free',
-        freshlyHarvested: 'freshly_harvested',
-        farmerName: 'farmer_name', // Add farmer_name for backend validation
+        freshlyHarvested: 'freshly_harvested'
       };
 
       // Add form fields to FormData
       Object.keys(fieldMapping).forEach(frontendKey => {
         const backendKey = fieldMapping[frontendKey];
-        let value;
-        if (frontendKey === 'farmerName') {
-          // Use user.full_name or user.name for farmer_name
-          value = (user && (user.full_name || user.name)) ? (user.full_name || user.name) : '';
-        } else {
-          value = formData[frontendKey];
-        }
-        // Only send minimum_quantity_bulk if it is a valid, non-empty, non-null, non-undefined, and not NaN value
+        let value = formData[frontendKey];
+        // For minimumQuantityBulk, always send as number or blank
         if (frontendKey === 'minimumQuantityBulk') {
-          // Accept only if value is a positive number (> 0)
-          if (
-            value !== undefined &&
-            value !== null &&
-            String(value).trim() !== '' &&
-            !isNaN(Number(value)) &&
-            Number(value) > 0
-          ) {
-            submitData.append(backendKey, Number(value));
-          }
-          // If not valid, do NOT append at all
-          return;
-        }
-        // Ensure numbers are sent as numbers for numeric fields
-        if (["quantity", "pricePerUnit"].includes(frontendKey)) {
-          if (value !== '' && value !== undefined && value !== null) {
+          if (value === '' || value === undefined || value === null) {
+            value = '';
+          } else {
             value = Number(value);
+            if (isNaN(value)) value = '';
           }
         }
-        // Send booleans as actual booleans for backend Joi validation
-        if (["organicCertified", "pesticideFree", "freshlyHarvested"].includes(frontendKey)) {
-          // Always send as boolean
-          submitData.append(backendKey, value === true || value === 'true');
-        } else if (typeof value === 'boolean') {
-          submitData.append(backendKey, value);
-        } else if (value !== undefined && value !== null && value !== '') {
-          submitData.append(backendKey, value);
+        if (value !== undefined && value !== null && value !== '') {
+          if (typeof value === 'boolean') {
+            submitData.append(backendKey, value ? 'true' : 'false');
+          } else {
+            submitData.append(backendKey, value);
+          }
         }
       });
-
-      // Debug: Log all FormData entries
-      for (let pair of submitData.entries()) {
-        console.log('FormData:', pair[0], '=', pair[1]);
-      }
 
       // Add images if any
       if (formData.images && formData.images.length > 0) {
@@ -576,11 +533,11 @@ const CropPostForm = () => {
             onChange={handleInputChange}
             onBlur={handleBlur}
             className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-              errors.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+              errors.harvestDate && touched.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
             }`}
             required
           />
-          {errors.harvestDate && (
+          {errors.harvestDate && touched.harvestDate && (
             <div className="flex items-center mt-2 text-red-600 text-sm">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               <span>{errors.harvestDate}</span>
@@ -597,17 +554,8 @@ const CropPostForm = () => {
             name="expiryDate"
             value={formData.expiryDate}
             onChange={handleInputChange}
-            onBlur={handleBlur}
-            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-              errors.expiryDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-            }`}
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
           />
-          {errors.expiryDate && (
-            <div className="flex items-center mt-2 text-red-600 text-sm">
-              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span>{errors.expiryDate}</span>
-            </div>
-          )}
         </div>
       </div>
 
