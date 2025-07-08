@@ -360,14 +360,30 @@ const CropPostForm = () => {
       }
 
       // Log the data being sent for debugging
-      console.log('Submitting crop post data:', formData);
+      console.log('🔍 Pre-submission Debug:');
+      console.log('- isAuthenticated():', isAuthenticated());
+      console.log('- user:', user);
+      console.log('- getAuthHeaders():', getAuthHeaders());
+      console.log('- localStorage token:', localStorage.getItem('authToken'));
+      console.log('- localStorage user:', localStorage.getItem('user'));
 
-      // Submit to backend API
+      // Ensure we have a token before making the request
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('❌ You are not logged in. Please login first.');
+        return;
+      }
+
+      // Submit to backend API with explicit token handling
+      const headers = {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${authToken}`, // Use token directly from localStorage
+      };
+
+      console.log('📤 Request headers:', headers);
+
       const response = await axios.post('http://localhost:5000/api/v1/crop-posts', submitData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...getAuthHeaders(), // Add authentication headers
-        },
+        headers,
         timeout: 30000, // 30 second timeout
       });
 

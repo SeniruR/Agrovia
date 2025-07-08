@@ -39,9 +39,24 @@ const Login = () => {
             // The backend returns user as data.data.user and token as data.data.token
             const user = data?.data?.user;
             const token = data?.data?.token;
+            
+            console.log('🔍 Login Response Debug:');
+            console.log('- Full response:', data);
+            console.log('- User:', user);
+            console.log('- Token:', token);
+            console.log('- Token length:', token?.length);
+            
             if (data.success && user && token) {
                 // Use the AuthContext login function to store both user and token
                 login(user, token);
+                
+                // Verify storage
+                setTimeout(() => {
+                    console.log('✅ Post-login verification:');
+                    console.log('- localStorage user:', localStorage.getItem('user'));
+                    console.log('- localStorage token:', localStorage.getItem('authToken'));
+                }, 100);
+                
                 // Redirect based on user role
                 if (user.role === 'farmer') {
                     navigate('/dashboard');
