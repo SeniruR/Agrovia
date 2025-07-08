@@ -34,10 +34,13 @@ const Login = () => {
             return res.json();
         })
         .then((data) => {
-            // The backend returns user as data.data.user
+            // The backend returns user as data.data.user and token as data.token or data.data.token
             const user = data?.data?.user;
-            if (data.success && user) {
+            // Try to get token from common places
+            const token = data.token || data?.data?.token;
+            if (data.success && user && token) {
                 localStorage.setItem('user', JSON.stringify(user));
+                localStorage.setItem('token', token);
                 window.dispatchEvent(new Event('userChanged'));
                 // Redirect based on user role
                 if (user.role === 'farmer') {
@@ -45,6 +48,10 @@ const Login = () => {
                 } else {
                     navigate('/');
                 }
+            } else if (data.success && user) {
+                // Fallback: user but no token
+                localStorage.setItem('user', JSON.stringify(user));
+                setError('Login succeeded but no token received. Please contact support.');
             } else {
                 setError(data.message || 'Invalid credentials');
             }
