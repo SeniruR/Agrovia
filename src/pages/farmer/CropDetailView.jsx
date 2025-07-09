@@ -18,9 +18,13 @@ import {
 } from 'lucide-react';
 import { cropService } from '../../services/cropService';
 import { useCart } from '../../hooks/useCart';
+
 import CartNotification from '../../components/CartNotification';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CropDetailView = () => {
+  const { user } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
   const [crop, setCrop] = useState(null);
@@ -39,7 +43,7 @@ const CropDetailView = () => {
         if (response.success && response.data) {
           // Map API response to component state
           const cropData = response.data;
-          setCrop({
+            setCrop({
             id: cropData.id,
             cropType: cropData.crop_name,
             cropCategory: cropData.crop_category,
@@ -67,9 +71,10 @@ const CropDetailView = () => {
             hasBulkMinimum: cropData.has_minimum_bulk,
             bulkEligible: cropData.bulk_eligible,
             totalValue: cropData.total_value,
-            bulkMinimumValue: cropData.bulk_minimum_value
-          });
-        } else {
+            bulkMinimumValue: cropData.bulk_minimum_value,
+            farmer_Id: cropData.farmer_id // Added farmer_id
+            });
+          } else {
           console.error('Failed to fetch crop data:', response.message);
           // Fallback to mock data if API fails
           const mockCrop = {
@@ -305,6 +310,20 @@ const CropDetailView = () => {
                   <MessageCircle className="w-4 h-4 mr-1" />
                   Contact
                 </button>
+                {user && crop && user.id === crop.farmer_Id && (
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-red-500 via-pink-500 to-yellow-500 text-white rounded-lg shadow-lg hover:from-red-600 hover:to-yellow-600 hover:scale-105 transition-all duration-300 text-sm font-bold border-2 border-red-400 group"
+                    style={{ position: 'relative', overflow: 'hidden' }}
+                  >
+                    <span className="absolute left-0 top-0 h-full w-1 bg-red-700 opacity-60 group-hover:w-full group-hover:opacity-10 transition-all duration-500"></span>
+                    {/* Bin (trash) icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-2 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
+                    </svg>
+                    <span className="z-10">Delete</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -489,6 +508,55 @@ const CropDetailView = () => {
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Contact Farmer
                 </button>
+                {user && crop && user.id === crop.farmerId && (
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-red-500 via-pink-500 to-yellow-500 text-white rounded-xl shadow-xl border-3 border-red-400 hover:from-red-600 hover:to-yellow-600 hover:scale-105 transition-all duration-300 font-bold relative group overflow-hidden"
+                    style={{ position: 'relative', overflow: 'hidden' }}
+                  >
+                    <span className="absolute left-0 top-0 h-full w-2 bg-red-700 opacity-20 group-hover:w-full group-hover:opacity-10 transition-all duration-500"></span>
+                    {/* Bin (trash) icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-2 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
+                    </svg>
+                    <span className="z-10">Delete</span>
+                  </button>
+                )}
+  {/* Delete Confirmation Modal */}
+  {showDeleteModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border-2 border-red-400 relative animate-fade-in">
+        <div className="flex flex-col items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-14 h-14 text-red-500 mb-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
+          </svg>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Are you sure?</h2>
+          <p className="text-gray-700 mb-6 text-center">This action will permanently delete this crop listing. This cannot be undone.</p>
+          <div className="flex space-x-4 w-full">
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {/* TODO: implement delete logic */}}
+              className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold shadow hover:from-red-600 hover:to-pink-600 transition-all"
+            >
+              Yes, Delete
+            </button>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowDeleteModal(false)}
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold"
+          aria-label="Close"
+        >
+          &times;
+        </button>
+      </div>
+    </div>
+  )}
               </div>
 
               {/* Availability Badge */}
