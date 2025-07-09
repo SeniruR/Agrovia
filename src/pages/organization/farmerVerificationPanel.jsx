@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle, 
   XCircle, 
@@ -16,84 +16,160 @@ import {
   Calendar
 } from 'lucide-react';
 
+
 const FarmerVerificationPanel = () => {
   const [activeTab, setActiveTab] = useState('pending');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedFarmer, setSelectedFarmer] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [farmersData, setFarmersData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample farmer data
-  const farmersData = [
-    {
-      id: 1,
-      name: 'K.A. Perera',
-      email: 'kaperera@gmail.com',
-      phone: '+94 77 123 4567',
-      location: 'Anuradhapura, North Central Province',
-      farmSize: '2.5 acres',
-      cropTypes: ['Rice', 'Vegetables'],
-      submittedDate: '2024-01-15',
-      status: 'pending',
-      documents: ['NIC Copy', 'Land Ownership', 'Farmer Registration'],
-      organizationApplied: 'Anuradhapura Farmers Association',
-      experience: '8 years',
-      profileImage: '/api/placeholder/150/150'
-    },
-    {
-      id: 2,
-      name: 'S.M. Fernando',
-      email: 'smfernando@gmail.com',
-      phone: '+94 71 987 6543',
-      location: 'Kurunegala, North Western Province',
-      farmSize: '4.2 acres',
-      cropTypes: ['Tea', 'Coconut'],
-      submittedDate: '2024-01-10',
-      status: 'approved',
-      documents: ['NIC Copy', 'Land Ownership', 'Farmer Registration'],
-      organizationApplied: 'Kurunegala Tea Growers Cooperative',
-      experience: '12 years',
-      profileImage: '/api/placeholder/150/150'
-    },
-    {
-      id: 3,
-      name: 'R.P. Silva',
-      email: 'rpsilva@gmail.com',
-      phone: '+94 75 456 7890',
-      location: 'Matale, Central Province',
-      farmSize: '1.8 acres',
-      cropTypes: ['Spices', 'Fruits'],
-      submittedDate: '2024-01-12',
-      status: 'rejected',
-      documents: ['NIC Copy', 'Land Ownership'],
-      organizationApplied: 'Central Province Spice Growers',
-      experience: '5 years',
-      profileImage: '/api/placeholder/150/150'
-    },
-    {
-      id: 4,
-      name: 'N.K. Wijesinghe',
-      email: 'nkwijesinghe@gmail.com',
-      phone: '+94 78 234 5678',
-      location: 'Polonnaruwa, North Central Province',
-      farmSize: '3.7 acres',
-      cropTypes: ['Rice', 'Maize'],
-      submittedDate: '2024-01-18',
-      status: 'pending',
-      documents: ['NIC Copy', 'Land Ownership', 'Farmer Registration', 'Tax Records'],
-      organizationApplied: 'Polonnaruwa Agricultural Society',
-      experience: '15 years',
-      profileImage: '/api/placeholder/150/150'
+  const [organization, setOrganization] = useState(null);
+  const [isContactPerson, setIsContactPerson] = useState(null); // null = not checked yet
+  const [userId, setUserId] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return localStorage.getItem('userId') || '';
     }
-  ];
+    return '';
+  });
+  const [orgContactPersonId, setOrgContactPersonId] = useState('');
 
+  // Phase 1: Access check only (no UI rendered until check is done)
+  useEffect(() => {
+    const checkContactPerson = async () => {
+      let storedUserId = userId;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        storedUserId = localStorage.getItem('userId') || '';
+        if (storedUserId !== userId) setUserId(storedUserId);
+      }
+      if (!storedUserId) {
+        setIsContactPerson(false);
+        setLoading(false);
+        return;
+      }
+      // Try to get orgId from localStorage or API (minimal fetch)
+      let orgId = null;
+      try {
+        // Try to get orgId from localStorage (if stored)
+        if (typeof window !== 'undefined' && window.localStorage) {
+          orgId = localStorage.getItem('orgId') || null;
+        }
+        // If not in localStorage, try to fetch from API (by userId)
+        if (!orgId) {
+          const orgRes = await fetch(`/api/v1/organizations/by-contact-person/${storedUserId}`);
+          if (orgRes.ok) {
+            const orgData = await orgRes.json();
+            if (orgData && orgData.id) {
+              orgId = orgData.id;
+            }
+          }
+        }
+        if (!orgId) {
+          setIsContactPerson(false);
+          setLoading(false);
+          return;
+        }
+        // Fetch org info to get contact person id
+        const orgRes = await fetch(`/api/v1/organizations/${orgId}`);
+        if (orgRes.ok) {
+          const orgData = await orgRes.json();
+          if (orgData && orgData.org_contactperson_id) {
+            setOrgContactPersonId(orgData.org_contactperson_id);
+            if (String(orgData.org_contactperson_id) === String(storedUserId)) {
+              setIsContactPerson(true);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+      setIsContactPerson(false);
+      setLoading(false);
+    };
+    checkContactPerson();
+    // eslint-disable-next-line
+  }, []);
+
+  // Phase 2: If not contact person, redirect before rendering any UI
+  useEffect(() => {
+    if (isContactPerson === false && typeof window !== 'undefined') {
+      window.location.replace('/');
+    }
+  }, [isContactPerson]);
+
+  // Phase 3: Only fetch data if contact person
+  useEffect(() => {
+    if (isContactPerson !== true) return;
+    const fetchFarmersAndOrg = async () => {
+      setLoading(true);
+      try {
+        let storedUserId = userId;
+        if (typeof window !== 'undefined' && window.localStorage) {
+          storedUserId = localStorage.getItem('userId') || '';
+          if (storedUserId !== userId) setUserId(storedUserId);
+        }
+        if (!storedUserId) {
+          setFarmersData([]);
+          setOrganization(null);
+          setLoading(false);
+          return;
+        }
+        // Fetch farmers from API
+        const res = await fetch(`/api/v1/farmers?userId=${storedUserId}`);
+        const data = await res.json();
+        setFarmersData(
+          data.map(farmer => ({
+            id: farmer.id,
+            name: farmer.full_name,
+            email: farmer.email,
+            phone: farmer.phone_number,
+            location: `${farmer.district}${farmer.address ? ', ' + farmer.address : ''}`,
+            farmSize: farmer.land_size ? `${farmer.land_size} acres` : '',
+            cropTypes: farmer.cultivated_crops ? farmer.cultivated_crops.split(',').map(c => c.trim()) : [],
+            submittedDate: farmer.created_at ? farmer.created_at.split('T')[0] : '',
+            status: farmer.status || 'pending',
+            documents: [],
+            organizationApplied: farmer.org_name || '',
+            experience: farmer.farming_experience || '',
+            profileImage: farmer.profile_image || '/api/placeholder/150/150',
+            organization_id: farmer.organization_id,
+            org_name: farmer.org_name,
+            org_area: farmer.org_area,
+            org_description: farmer.org_description
+          }))
+        );
+        // Set org info if available
+        if (data.length > 0 && (data[0].org_name || data[0].org_area || data[0].org_description)) {
+          setOrganization({
+            name: data[0].org_name,
+            id: data[0].organization_id,
+            area: data[0].org_area,
+            description: data[0].org_description
+          });
+        } else {
+          setOrganization(null);
+        }
+      } catch (err) {
+        setFarmersData([]);
+        setOrganization(null);
+      }
+      setLoading(false);
+    };
+    fetchFarmersAndOrg();
+    // eslint-disable-next-line
+  }, [isContactPerson]);
+
+  // Show all org applications to all org members in 'All Applications' tab
   const filteredFarmers = farmersData.filter(farmer => {
-    const matchesSearch = farmer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         farmer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         farmer.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = farmer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      farmer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      farmer.location?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || farmer.status === filterStatus;
-    const matchesTab = activeTab === 'all' || farmer.status === activeTab;
-    
+    const matchesTab = activeTab === 'all' ? true : farmer.status === activeTab;
     return matchesSearch && matchesStatus && matchesTab;
   });
 
@@ -120,34 +196,225 @@ const FarmerVerificationPanel = () => {
     setShowModal(true);
   };
 
-  const handleVerificationAction = (farmerId, action) => {
-    // Handle verification action (approve/reject)
-    console.log(`${action} farmer with ID: ${farmerId}`);
-    setShowModal(false);
+  const handleVerificationAction = async (farmerId, action) => {
+    if (!farmerId) return;
+    if (action === 'approve') {
+      try {
+        const res = await fetch(`/api/v1/farmers/${farmerId}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          setShowModal(false);
+          setLoading(true);
+          let storedUserId = userId;
+          if (typeof window !== 'undefined' && window.localStorage) {
+            storedUserId = localStorage.getItem('userId') || '';
+            if (storedUserId !== userId) setUserId(storedUserId);
+          }
+          if (!storedUserId) {
+            setFarmersData([]);
+            setOrganization(null);
+            setLoading(false);
+            return;
+          }
+          const res2 = await fetch(`/api/v1/farmers?userId=${storedUserId}`);
+          const data = await res2.json();
+          setFarmersData(
+            data.map(farmer => ({
+              id: farmer.id,
+              name: farmer.full_name,
+              email: farmer.email,
+              phone: farmer.phone_number,
+              location: `${farmer.district}${farmer.address ? ', ' + farmer.address : ''}`,
+              farmSize: farmer.land_size ? `${farmer.land_size} acres` : '',
+              cropTypes: farmer.cultivated_crops ? farmer.cultivated_crops.split(',').map(c => c.trim()) : [],
+              submittedDate: farmer.created_at ? farmer.created_at.split('T')[0] : '',
+              status: farmer.status || 'pending',
+              documents: [],
+              organizationApplied: farmer.org_name || '',
+              experience: farmer.farming_experience || '',
+              profileImage: farmer.profile_image || '/api/placeholder/150/150',
+              organization_id: farmer.organization_id,
+              org_name: farmer.org_name,
+              org_area: farmer.org_area,
+              org_description: farmer.org_description
+            }))
+          );
+          if (data.length > 0 && (data[0].org_name || data[0].org_area || data[0].org_description)) {
+            setOrganization({
+              name: data[0].org_name,
+              id: data[0].organization_id,
+              area: data[0].org_area,
+              description: data[0].org_description
+            });
+          } else {
+            const orgRes = await fetch(`/api/v1/organizations/by-contact-person/${storedUserId}`);
+            if (orgRes.ok) {
+              const orgData = await orgRes.json();
+              if (orgData && orgData.id) {
+                setOrganization({
+                  name: orgData.name,
+                  id: orgData.id,
+                  area: orgData.org_area,
+                  description: orgData.org_description
+                });
+              } else {
+                setOrganization(null);
+              }
+            } else {
+              setOrganization(null);
+            }
+          }
+          setLoading(false);
+        } else {
+          alert('Failed to approve farmer.');
+        }
+      } catch (err) {
+        alert('Error approving farmer.');
+      }
+    } else if (action === 'reject') {
+      try {
+        const res = await fetch(`/api/v1/farmers/${farmerId}/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          setShowModal(false);
+          setLoading(true);
+          let storedUserId = userId;
+          if (typeof window !== 'undefined' && window.localStorage) {
+            storedUserId = localStorage.getItem('userId') || '';
+            if (storedUserId !== userId) setUserId(storedUserId);
+          }
+          if (!storedUserId) {
+            setFarmersData([]);
+            setOrganization(null);
+            setLoading(false);
+            return;
+          }
+          const res2 = await fetch(`/api/v1/farmers?userId=${storedUserId}`);
+          const data = await res2.json();
+          setFarmersData(
+            data.map(farmer => ({
+              id: farmer.id,
+              name: farmer.full_name,
+              email: farmer.email,
+              phone: farmer.phone_number,
+              location: `${farmer.district}${farmer.address ? ', ' + farmer.address : ''}`,
+              farmSize: farmer.land_size ? `${farmer.land_size} acres` : '',
+              cropTypes: farmer.cultivated_crops ? farmer.cultivated_crops.split(',').map(c => c.trim()) : [],
+              submittedDate: farmer.created_at ? farmer.created_at.split('T')[0] : '',
+              status: farmer.status || 'pending',
+              documents: [],
+              organizationApplied: farmer.org_name || '',
+              experience: farmer.farming_experience || '',
+              profileImage: farmer.profile_image || '/api/placeholder/150/150',
+              organization_id: farmer.organization_id,
+              org_name: farmer.org_name,
+              org_area: farmer.org_area,
+              org_description: farmer.org_description
+            }))
+          );
+          if (data.length > 0 && (data[0].org_name || data[0].org_area || data[0].org_description)) {
+            setOrganization({
+              name: data[0].org_name,
+              id: data[0].organization_id,
+              area: data[0].org_area,
+              description: data[0].org_description
+            });
+          } else {
+            const orgRes = await fetch(`/api/v1/organizations/by-contact-person/${storedUserId}`);
+            if (orgRes.ok) {
+              const orgData = await orgRes.json();
+              if (orgData && orgData.id) {
+                setOrganization({
+                  name: orgData.name,
+                  id: orgData.id,
+                  area: orgData.org_area,
+                  description: orgData.org_description
+                });
+              } else {
+                setOrganization(null);
+              }
+            } else {
+              setOrganization(null);
+            }
+          }
+          setLoading(false);
+        } else {
+          alert('Failed to reject farmer.');
+        }
+      } catch (err) {
+        alert('Error rejecting farmer.');
+      }
+    }
   };
 
   const getTabCounts = () => {
     const pending = farmersData.filter(f => f.status === 'pending').length;
-    const approved = farmersData.filter(f => f.status === 'approved').length;
-    const rejected = farmersData.filter(f => f.status === 'rejected').length;
-    return { pending, approved, rejected, all: farmersData.length };
+    return { pending, all: farmersData.length };
   };
 
   const counts = getTabCounts();
 
+  // If not contact person, hide pending tab and actions
+  const visibleTabs = isContactPerson
+    ? [
+        { id: 'all', label: 'All Applications', count: counts.all },
+        { id: 'pending', label: 'Pending', count: counts.pending }
+      ]
+    : [
+        { id: 'all', label: 'All Applications', count: counts.all }
+      ];
+
+  // If not contact person and activeTab is 'pending', force to 'all'
+  useEffect(() => {
+    if (isContactPerson === false && activeTab === 'pending') {
+      setActiveTab('all');
+    }
+  }, [isContactPerson, activeTab]);
+
+  // Only render UI if access check is done and user is contact person
+  if (isContactPerson !== true || loading) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header / Hero Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
+              {/* Debug info: userId and org_contactperson_id */}
+              {/* <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                <strong>Debug:</strong> userId = {userId} | org_contactperson_id = {orgContactPersonId}
+              </div> */}
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                 Farmer Verification Panel
               </h1>
               <p className="text-gray-600">
                 Manage and verify farmer registrations for Agrovia platform
               </p>
+              {organization && (
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="text-green-800 font-semibold text-lg flex items-center gap-2">
+                    <User className="w-5 h-5 text-green-600" />
+                    {organization.name}
+                  </div>
+                  {organization.area && (
+                    <div className="text-green-700 text-sm mt-1">
+                      <span className="font-semibold">Area:</span> {organization.area}
+                    </div>
+                  )}
+                  {organization.description && (
+                    <div className="text-green-700 text-sm mt-1">
+                      <span className="font-semibold">Description:</span> {organization.description}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
               <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
@@ -159,7 +426,7 @@ const FarmerVerificationPanel = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -179,28 +446,6 @@ const FarmerVerificationPanel = () => {
               </div>
               <div className="bg-yellow-100 p-3 rounded-full">
                 <Clock className="w-6 h-6 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Approved</p>
-                <p className="text-2xl font-bold text-green-600">{counts.approved}</p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-red-600">{counts.rejected}</p>
-              </div>
-              <div className="bg-red-100 p-3 rounded-full">
-                <XCircle className="w-6 h-6 text-red-600" />
               </div>
             </div>
           </div>
@@ -244,12 +489,7 @@ const FarmerVerificationPanel = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 px-6" aria-label="Tabs">
-              {[
-                { id: 'all', label: 'All Applications', count: counts.all },
-                { id: 'pending', label: 'Pending', count: counts.pending },
-                { id: 'approved', label: 'Approved', count: counts.approved },
-                { id: 'rejected', label: 'Rejected', count: counts.rejected }
-              ].map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -274,7 +514,11 @@ const FarmerVerificationPanel = () => {
 
           {/* Farmers List */}
           <div className="p-6">
-            {filteredFarmers.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-12">
+                <span className="text-gray-500">Loading farmers...</span>
+              </div>
+            ) : filteredFarmers.length === 0 ? (
               <div className="text-center py-12">
                 <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No farmers found</h3>
@@ -453,7 +697,7 @@ const FarmerVerificationPanel = () => {
               </div>
 
               {/* Action Buttons */}
-              {selectedFarmer.status === 'pending' && (
+              {selectedFarmer.status === 'pending' && isContactPerson && (
                 <div className="p-6 border-t border-gray-200 bg-gray-50">
                   <div className="flex flex-col sm:flex-row gap-3 justify-end">
                     <button

@@ -560,18 +560,15 @@ const FarmerSignup = () => {
                 }
             }
             if (result.data && result.data.user) {
-                if (typeof result.data.user === 'object' && result.data.user !== null) {
-                    localStorage.setItem('user', JSON.stringify(result.data.user));
-                    window.dispatchEvent(new Event('userChanged'));
-                }
+                // Do not auto-login. Instead, notify and redirect to login page.
             }
-            setSuccessMessage('Farmer registration successful! Redirecting to Home page...');
+            setSuccessMessage('Registration successful! Your account will be reviewed by your organization and activated as appropriate. You will be able to log in once your account is approved. Redirecting to login page...');
             setTimeout(() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }, 50);
             setTimeout(() => {
-                navigate('/');
-            }, 1500);
+                navigate('/login');
+            }, 20000);
         } catch (error) {
             console.error('Registration failed:', error);
             let msg = 'Registration failed. Please try again.';
