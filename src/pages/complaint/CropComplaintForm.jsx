@@ -8,7 +8,7 @@ const CropComplaintForm = ({ onBack }) => {
     submittedBy: '',
     priority: 'medium',
     cropType: '',
-    location: '',
+    farmer: '',
     category: '',
     orderNumber: ''
   });
@@ -62,7 +62,7 @@ const CropComplaintForm = ({ onBack }) => {
       formPayload.append('priority', formData.priority);
       formPayload.append('submittedBy', formData.submittedBy);
       formPayload.append('cropType', formData.cropType);
-      formPayload.append('location', formData.location);
+      formPayload.append('farmer', formData.farmer);
       formPayload.append('category', formData.category);
       formPayload.append('orderNumber', formData.orderNumber || '');
       attachments.forEach(file => formPayload.append('attachments', file));
@@ -74,7 +74,7 @@ const CropComplaintForm = ({ onBack }) => {
       if (response.ok) {
         setSuccess(true);
         setFormData({
-          title: '', description: '', submittedBy: '', priority: 'medium', cropType: '', location: '', category: '', orderNumber: ''
+          title: '', description: '', submittedBy: '', priority: 'medium', cropType: '', farmer: '', category: '', orderNumber: ''
         });
         setAttachments([]);
       } else {
@@ -239,12 +239,12 @@ const CropComplaintForm = ({ onBack }) => {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Location/Farm Block
+                   Farmer Name
                   </label>
                   <input
                     type="text"
-                    value={formData.location}
-                    onChange={(e) => handleInputChange('location', e.target.value)}
+                    value={formData.farmer}
+                    onChange={(e) => handleInputChange('farmer', e.target.value)}
                     className="w-full px-4 py-3 bg-white rounded-xl border border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-colors"
                     placeholder="e.g., Farm Block A-12"
                   />
