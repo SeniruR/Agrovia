@@ -16,6 +16,12 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
   });
 
   const [errors, setErrors] = useState({});
+  const [attachments, setAttachments] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [apiError, setApiError] = useState('');
+
+  const fileInputRef = React.useRef();
 
   const categories = [
     'Late Delivery', 'Damaged Goods', 'Lost Package', 'Wrong Delivery Address', 'Poor Handling',
@@ -35,23 +41,53 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+  const handleFileChange = (e) => {
+    setAttachments(Array.from(e.target.files));
+  };
 
-    onSubmit({
-      type: 'transport',
-      title: formData.title,
-      description: formData.description,
-      status: 'consider',
-      priority: formData.priority,
-      submittedBy: formData.submittedBy,
-      transportCompany: formData.transportCompany,
-      location: formData.location,
-      category: formData.category,
-      orderNumber: formData.orderNumber || undefined
-    });
+  const handleAttachmentClick = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setApiError('');
+    setSuccess(false);
+    if (!validateForm()) return;
+    setSubmitting(true);
+    try {
+      const formPayload = new FormData();
+      formPayload.append('title', formData.title);
+      formPayload.append('description', formData.description);
+      formPayload.append('status', 'not consider');
+      formPayload.append('priority', formData.priority);
+      formPayload.append('submittedBy', formData.submittedBy);
+      formPayload.append('transportCompany', formData.transportCompany);
+      formPayload.append('location', formData.location);
+      formPayload.append('category', formData.category);
+      formPayload.append('orderNumber', formData.orderNumber || '');
+      formPayload.append('deliveryDate', formData.deliveryDate || '');
+      formPayload.append('trackingNumber', formData.trackingNumber || '');
+      attachments.forEach(file => formPayload.append('attachments', file));
+      const response = await fetch('/api/v1/transport-complaints', {
+        method: 'POST',
+        body: formPayload
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess(true);
+        setFormData({
+          title: '', description: '', submittedBy: '', priority: 'medium', transportCompany: '', location: '', category: '', orderNumber: '', deliveryDate: '', trackingNumber: ''
+        });
+        setAttachments([]);
+      } else {
+        setApiError(data.error || 'Submission failed');
+      }
+    } catch (err) {
+      setApiError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -252,10 +288,28 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
               <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Attach Evidence (Optional)
               </label>
-              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-purple-400 transition-colors cursor-pointer">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleFileChange}
+                className="mb-2 hidden"
+                ref={fileInputRef}
+              />
+              <div
+                className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-purple-400 transition-colors cursor-pointer"
+                onClick={handleAttachmentClick}
+              >
                 <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Upload photos of damage, delivery receipts, or other evidence</p>
                 <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 10MB each</p>
+                {attachments.length > 0 && (
+                  <div className="mt-2 text-xs text-slate-600">
+                    {attachments.map((file, idx) => (
+                      <div key={idx}>{file.name}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -297,6 +351,16 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
             >
               Submit Complaint
             </button>
+          </div>
+
+          {/* Notifications */}
+          <div className="p-4">
+            {success && (
+              <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-xl">Complaint submitted successfully!</div>
+            )}
+            {apiError && (
+              <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-xl">{apiError}</div>
+            )}
           </div>
         </form>
       </div>

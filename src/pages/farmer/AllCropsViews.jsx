@@ -55,7 +55,7 @@ function AllCropsView() {
             location: `${crop.location}, ${crop.district}`,
             postedDate: new Date(crop.created_at).toLocaleDateString(),
             status: crop.status,
-            image: crop.images && crop.images.length > 0 ? crop.images[0] : null,
+            images: crop.images || [],
             rating: 4.5, // Default rating - can be enhanced later
             description: crop.description || 'Fresh quality produce',
             minimumQuantityBulk: crop.minimum_quantity_bulk,

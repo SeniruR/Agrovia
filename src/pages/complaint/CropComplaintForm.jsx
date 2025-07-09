@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ArrowLeft, Upload, Wheat, AlertCircle } from 'lucide-react';
 
-const CropComplaintForm = ({ onSubmit, onBack }) => {
+const CropComplaintForm = ({ onBack }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -12,8 +12,12 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
     category: '',
     orderNumber: ''
   });
-
   const [errors, setErrors] = useState({});
+  const [attachments, setAttachments] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const fileInputRef = useRef();
 
   const cropTypes = [
     'Wheat', 'Rice', 'Corn', 'Tomatoes', 'Potatoes', 'Onions', 'Carrots', 'Lettuce', 'Peppers', 'Other'
@@ -36,23 +40,51 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+  const handleFileChange = (e) => {
+    setAttachments(Array.from(e.target.files));
+  };
 
-    onSubmit({
-      type: 'crop',
-      title: formData.title,
-      description: formData.description,
-      status: 'consider',
-      priority: formData.priority,
-      submittedBy: formData.submittedBy,
-      cropType: formData.cropType,
-      location: formData.location,
-      category: formData.category,
-      orderNumber: formData.orderNumber || undefined
-    });
+  const handleAttachmentClick = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setApiError('');
+    setSuccess(false);
+    if (!validateForm()) return;
+    setSubmitting(true);
+    try {
+      const formPayload = new FormData();
+      formPayload.append('title', formData.title);
+      formPayload.append('description', formData.description);
+      formPayload.append('status', 'consider');
+      formPayload.append('priority', formData.priority);
+      formPayload.append('submittedBy', formData.submittedBy);
+      formPayload.append('cropType', formData.cropType);
+      formPayload.append('location', formData.location);
+      formPayload.append('category', formData.category);
+      formPayload.append('orderNumber', formData.orderNumber || '');
+      attachments.forEach(file => formPayload.append('attachments', file));
+      const response = await fetch('/api/v1/crop-complaints', {
+        method: 'POST',
+        body: formPayload
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess(true);
+        setFormData({
+          title: '', description: '', submittedBy: '', priority: 'medium', cropType: '', location: '', category: '', orderNumber: ''
+        });
+        setAttachments([]);
+      } else {
+        setApiError(data.error || 'Submission failed');
+      }
+    } catch (err) {
+      setApiError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -83,6 +115,13 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
             </div>
           </div>
         </div>
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-xl">Complaint submitted successfully!</div>
+        )}
+        {apiError && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-xl">{apiError}</div>
+        )}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-8">
@@ -228,10 +267,28 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Attach Photos (Optional)
                   </label>
-                  <div className="border-2 border-dashed bg-white border-slate-300 rounded-xl p-6 text-center hover:border-green-400 transition-colors cursor-pointer">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="mb-2 hidden"
+                    ref={fileInputRef}
+                  />
+                  <div
+                    className="border-2 border-dashed bg-white border-slate-300 rounded-xl p-6 text-center hover:border-green-400 transition-colors cursor-pointer"
+                    onClick={handleAttachmentClick}
+                  >
                     <Upload className="w-8 h-8  text-slate-400 mx-auto mb-2" />
                     <p className="text-sm text-slate-500">Click to upload images or drag and drop</p>
                     <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 10MB each</p>
+                    {attachments.length > 0 && (
+                      <div className="mt-2 text-xs text-slate-600">
+                        {attachments.map((file, idx) => (
+                          <div key={idx}>{file.name}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -266,14 +323,16 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
               type="button"
               onClick={onBack}
               className="px-6 py-3 bg-slate-100 text-slate-600 hover:text-slate-800 font-medium transition-colors"
+              disabled={submitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              disabled={submitting}
             >
-              Submit Complaint
+              {submitting ? 'Submitting...' : 'Submit Complaint'}
             </button>
           </div>
         </form>
