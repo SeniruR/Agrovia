@@ -108,14 +108,25 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
           
           <div className="space-y-4">
             {complaints.slice(0, 3).map((complaint) => (
-              <div key={complaint.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+              <div key={complaint.type + '-' + complaint.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
                 <div className="flex items-center space-x-4">
                   <div className={`w-3 h-3 rounded-full ${
                     complaint.status === 'consider' ? 'bg-green-400' : 'bg-red-400'
                   }`}></div>
                   <div>
                     <h4 className="font-medium text-slate-800">{complaint.title}</h4>
-                    <p className="text-sm text-slate-500">By {complaint.submittedBy} • {complaint.submittedAt.toDateString()}</p>
+                    <p className="text-sm text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
+                      let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+                      if (date) {
+                        if (typeof date === 'string' || typeof date === 'number') {
+                          date = new Date(date);
+                        }
+                        if (date instanceof Date && !isNaN(date)) {
+                          return date.toDateString();
+                        }
+                      }
+                      return '';
+                    })()}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -133,7 +144,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
                     {complaint.status === 'consider' ? 'Consider' : 'Not Consider'}
                   </span>
                   <button
-                    onClick={() => onViewComplaint(complaint.id)}
+                    onClick={() => onViewComplaint(complaint.id, complaint.type)}
                     className="p-2 bg-white hover:bg-white rounded-lg transition-colors"
                   >
                     <Eye className="w-4 h-4 text-slate-600" />
