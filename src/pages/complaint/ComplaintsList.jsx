@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Filter, Search, Eye, MoreVertical, CheckCircle, XCircle } from 'lucide-react';
 
-const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack }) => {
+const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [selectedComplaint, setSelectedComplaint] = useState(null);
 
   const filteredComplaints = complaints.filter(complaint => {
-    const matchesSearch = complaint.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.submittedBy.toLowerCase().includes(searchTerm.toLowerCase());
+    const title = complaint.title || '';
+    const submittedBy = complaint.submittedBy || complaint.submittedByName || '';
+    const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         submittedBy.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || complaint.status === statusFilter;
     const matchesType = typeFilter === 'all' || complaint.type === typeFilter;
     
@@ -114,7 +116,7 @@ const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack })
         {/* Complaints List */}
         <div className="space-y-4">
           {filteredComplaints.map((complaint) => (
-            <div key={complaint.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all">
+            <div key={complaint.type + '-' + complaint.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all">
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -140,9 +142,20 @@ const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack })
                     <p className="text-slate-600 mb-3 line-clamp-2">{complaint.description}</p>
                     
                     <div className="flex items-center text-sm text-slate-500 space-x-4">
-                      <span>By {complaint.submittedBy}</span>
+                      <span>By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'}</span>
                       <span>•</span>
-                      <span>{complaint.submittedAt.toDateString()}</span>
+                      <span>{(() => {
+  let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+  if (date) {
+    if (typeof date === 'string' || typeof date === 'number') {
+      date = new Date(date);
+    }
+    if (date instanceof Date && !isNaN(date)) {
+      return date.toDateString();
+    }
+  }
+  return '';
+})()}</span>
                       {complaint.orderNumber && (
                         <>
                           <span>•</span>
@@ -155,7 +168,7 @@ const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack })
                   <div className="flex items-center space-x-2 ml-4">
                     <select
                       value={complaint.status}
-                      onChange={(e) => onUpdateStatus(complaint.id, e.target.value)}
+                      onChange={(e) => onUpdateStatus(complaint.id, complaint.type, e.target.value)}
                       className="px-3 py-2 text-sm rounded-lg border bg-slate-100 border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-colors"
                     >
                       <option value="consider">Consider</option>
@@ -163,7 +176,7 @@ const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack })
                     </select>
                     
                     <button 
-                      onClick={() => onViewComplaint(complaint.id)}
+                      onClick={() => onViewComplaint(complaint.id, complaint.type)}
                       className="p-2 hover:bg-slate-100 bg-slate-100 rounded-lg transition-colors"
                     >
                       <Eye className="w-4 h-4 text-slate-600" />
