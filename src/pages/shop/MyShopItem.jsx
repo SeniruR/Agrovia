@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, MapPin, Phone, Mail, Star, Award, Package, DollarSign, Eye, Heart, Edit, Trash2, X, ArrowLeft } from 'lucide-react';
+import { Search, MapPin, Phone, Mail, Star, Award, Package, DollarSign, Eye, Heart, Edit, Trash2, X, ArrowLeft, Upload } from 'lucide-react';
 import axios from 'axios';
 
 const MyShopItem = () => {
@@ -14,15 +14,28 @@ const MyShopItem = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    
     const [editFormData, setEditFormData] = useState({
+        shopitemid: '',
+        shop_name: '',
+        owner_name: '',
+        phone_no: '',
+        shop_address: '',
+        city: '',
+        product_type: '',
         product_name: '',
+        brand: '',
+        category: '',
+        season: '',
         price: 0,
+        unit: '',
         available_quantity: 0,
         product_description: '',
-        category: '',
-        product_type: '',
-        city: '',
-        unit: ''
+        usage_history: '',
+        organic_certified: false,
+       // terms_accepted: false,
+        images: [],
+        existingImages: []
     });
 
     // Fetch data from backend
@@ -42,57 +55,226 @@ const MyShopItem = () => {
         fetchShopItems();
     }, []);
 
-    // Handle delete confirmation
-   
-    // Handle edit form submission
-    const handleEditSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const response = await axios.put(
-                `http://localhost:5000/api/v1/shop-products`,
-                editFormData
-            );
-            setShopItems(prevItems =>
-                prevItems.map(item =>
-                    item.id === selectedItem.id ? { ...item, ...response.data } : item
-                )
-            );
-            setShowEditModal(false);
-            setSelectedItem(null);
-        } catch (err) {
-            console.error('Error updating item:', err);
-            alert('Failed to update item. Please try again.');
+    // Clean up image previews when component unmounts
+    useEffect(() => {
+        return () => {
+            if (editFormData.images) {
+                editFormData.images.forEach(img => {
+                    if (img?.preview) URL.revokeObjectURL(img.preview);
+                });
+            }
+        };
+    }, [editFormData.images]);
+
+    const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        const newImages = files.map(file => {
+            return {
+                file,
+                preview: URL.createObjectURL(file)
+            };
+        });
+        
+        setEditFormData(prev => ({
+            ...prev,
+            images: [...prev.images, ...newImages]
+        }));
+    };
+
+    const removeImage = (index, isExisting) => {
+        if (isExisting) {
+            // Mark existing image for deletion
+            setEditFormData(prev => {
+                const newExistingImages = [...prev.existingImages];
+                newExistingImages[index].markedForDeletion = true;
+                return { ...prev, existingImages: newExistingImages };
+            });
+        } else {
+            // Remove new image and revoke URL
+            setEditFormData(prev => {
+                const newImages = [...prev.images];
+                URL.revokeObjectURL(newImages[index].preview);
+                newImages.splice(index, 1);
+                return { ...prev, images: newImages };
+            });
         }
     };
 
+    // Handle edit form submission
+ const handleEditSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const formData = new FormData();
+
+    // Append fields except image arrays
+    Object.keys(editFormData).forEach(key => {
+      if (key !== 'images' && key !== 'existingImages') {
+        formData.append(key, editFormData[key]);
+      }
+    });
+
+    // Append new images
+    editFormData.images.forEach(img => {
+      formData.append('images', img.file);
+    });
+
+    // Remaining old images
+    const remainingImages = editFormData.existingImages
+      .filter(img => !img.markedForDeletion)
+      .map(img => img.url);
+    formData.append('remainingImages', JSON.stringify(remainingImages));
+
+    // Axios PUT request
+    const response = await axios.put(
+      `http://localhost:5000/api/v1/shop-products/${editFormData.shopitemid}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+
+    //  Use response.data.product, not itemData
+    const updatedItem = response.data.product;
+
+    setShopItems(prevItems =>
+      prevItems.map(item =>
+        item.shopitemid === updatedItem.shopitemid ? updatedItem : item
+      )
+    );
+
+    setShowEditModal(false);
+    setSelectedItem(null);
+    setEditFormData({
+      shopitemid: '',
+      shop_name: '',
+      owner_name: '',
+      phone_no: '',
+      shop_address: '',
+      city: '',
+      product_type: '',
+      product_name: '',
+      brand: '',
+      category: '',
+      season: '',
+      price: 0,
+      unit: '',
+      available_quantity: 0,
+      product_description: '',
+      usage_history: '',
+      organic_certified: false,
+      terms_accepted: false,
+      images: [],
+      existingImages: []
+    });
+     alert('Product updated successfully!');
+  window.location.reload();
+  } catch (error) {
+    console.error('Error updating item:', error);
+    console.error('Detailed error:', error);
+    console.error('Error response:', error.response?.data);
+    alert('Failed to update item');
+  }
+};
+
+
     // Handle edit form changes
     const handleEditChange = (e) => {
-        const { name, value } = e.target;
+        const { name, value, type, checked } = e.target;
         setEditFormData(prev => ({
             ...prev,
-            [name]: name === 'price' || name === 'available_quantity'
-                ? parseFloat(value)
-                : value
-        }));
+            [name]: type === 'checkbox' ? checked : 
+                   (type === 'number' ? parseFloat(value) : value)
+
+                   
+        })
+        
+      );
     };
 
     // Set edit form data when opening edit modal
     const handleEdit = (item) => {
         setSelectedItem(item);
         setEditFormData({
+            shopitemid: item.shopitemid || '',
+            shop_name: item.shop_name || '',
+            owner_name: item.owner_name || '',
+            phone_no: item.phone_no || '',
+            shop_address: item.shop_address || '',
+            city: item.city || '',
+            product_type: item.product_type || '',
             product_name: item.product_name || '',
+            brand: item.brand || '',
+            category: item.category || '',
+            season: item.season || '',
             price: item.price || 0,
+            unit: item.unit || '',
             available_quantity: item.available_quantity || 0,
             product_description: item.product_description || '',
-            category: item.category || '',
-            product_type: item.product_type || '',
-            city: item.city || '',
-            unit: item.unit || ''
+            usage_history: item.usage_history || '',
+            organic_certified: item.organic_certified || false,
+            terms_accepted: item.terms_accepted || false,
+            images: [],
+            existingImages: item.images ? item.images.map(img => ({ 
+                url: img,
+                markedForDeletion: false 
+            })) : []
         });
+     let imagesArray = [];
+
+  if (Array.isArray(item.images)) {
+    imagesArray = item.images;
+  } else if (typeof item.images === 'string' && item.images.trim() !== '') {
+    imagesArray = item.images.split(',').map(url => url.trim());
+  }
+
+  setEditFormData({
+    ...item,
+    images: [], // for new uploaded files (empty at start)
+    existingImages: imagesArray.map(url => ({
+      url,
+      markedForDeletion: false
+    })),
+  });
+
+  setSelectedItem(item);
+  setShowEditModal(true);
         setShowEditModal(true);
     };
 
-   
+    const handleDelete = (shopitemid) => {
+        setItemToDelete(shopitemid);
+        setShowDeleteModal(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/v1/shop-products/${itemToDelete}`, {
+                method: 'DELETE',
+            });
+
+            const data = await res.json();
+            
+
+            if (res.ok) {
+                alert('Product deleted successfully');
+                setShopItems(prev => prev.filter(item => item.shopitemid !== itemToDelete));
+               
+            } else {
+                alert(`Failed to delete: ${data.message}`);
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            alert('Network error - could not connect to server');
+        } finally {
+            setShowDeleteModal(false);
+            setItemToDelete(null);
+        }
+      
+
+    };
+
     // Extract unique categories and cities from data
     const categories = ['all', ...new Set(shopItems.map(item => item.category).filter(Boolean))];
     const cities = ['all', ...new Set(shopItems.map(item => item.city).filter(Boolean))];
@@ -100,8 +282,8 @@ const MyShopItem = () => {
     const filteredItems = shopItems.filter(item => {
         const matchesSearch =
             (item.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (item.shop_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (item.category?.toLowerCase().includes(searchTerm.toLowerCase())));
+            item.shop_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.category?.toLowerCase().includes(searchTerm.toLowerCase()));
         const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
         const matchesCity = selectedCity === 'all' || item.city === selectedCity;
         return matchesSearch && matchesCategory && matchesCity;
@@ -137,220 +319,288 @@ const MyShopItem = () => {
         }
         return stars;
     };
-const handleDelete = (shopitemid) => {
-  setItemToDelete(shopitemid);
-  setShowDeleteModal(true);
-};
 
-// Then in your DeleteModal component:
-const handleDeleteConfirm = async () => {
-  try {
-    const res = await fetch(`http://localhost:5000/api/v1/shop-products/${itemToDelete}`, {
-      method: 'DELETE',
-    });
-
-    const data = await res.json();
-
-    if (res.ok) {
-      alert('Product deleted successfully');
-      setShopItems(prev => prev.filter(item => item.shopitemid !== itemToDelete));
-    } else {
-      alert(`Failed to delete: ${data.message}`);
-    }
-  } catch (err) {
-    console.error('Error:', err);
-    alert('Network error - could not connect to server');
-  } finally {
-    setShowDeleteModal(false);
-    setItemToDelete(null);
-  }
-};
     // Detail View Component
-    const DetailView = ({ item, onClose }) => {
-        return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                    <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-green-800">Product Details</h2>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                        >
-                            <X className="h-6 w-6" />
-                        </button>
-                    </div>
+ 
+// Replace 'your-icon-library' with your actual icon imports
 
-                    <div className="p-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Product Image */}
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    {item.images && item.images.length > 0 && typeof item.images[0] === 'string' ? (
-                                        <img
-                                            src={item.images[0]}
-                                            alt={item.product_name}
-                                            className="w-full h-64 object-cover rounded-lg"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
-                                            <Package className="h-16 w-16 text-gray-400" />
-                                        </div>
-                                    )}
-                                    {item.organic_certified && (
-                                        <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
-                                            <Award className="h-4 w-4 mr-1" />
-                                            Organic Certified
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+const DetailView = ({ item, onClose, handleEdit }) => {
+  // Helper to safely parse images (array or CSV string)
+  const renderImages = () => {
+    let images = [];
 
-                            {/* Product Information */}
-                            <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-3xl font-bold text-green-800 mb-2">{item.product_name}</h3>
-                                    <div className="flex items-center gap-4 mb-4">
-                                        {item.category && (
-                                            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                                {item.category}
-                                            </span>
-                                        )}
-                                        {item.product_type && (
-                                            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                                {item.product_type}
-                                            </span>
-                                        )}
-                                    </div>
-                                    {item.rating && (
-                                        <div className="flex items-center mb-4">
-                                            <div className="flex items-center mr-3">
-                                                {renderStars(item.rating)}
-                                            </div>
-                                            <span className="text-lg font-semibold text-gray-700">({item.rating})</span>
-                                        </div>
-                                    )}
-                                </div>
+    if (Array.isArray(item.images)) {
+      images = item.images;
+    } else if (typeof item.images === 'string' && item.images.trim() !== '') {
+      images = item.images.split(',').map(url => url.trim());
+    }
 
-                                {/* Price and Availability */}
-                                <div className="bg-green-50 p-4 rounded-lg">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center text-green-700 font-bold text-2xl">
-                                            <DollarSign className="h-6 w-6 mr-1" />
-                                            LKR {item.price?.toLocaleString()}
-                                            {item.unit && <span className="text-lg text-gray-500 ml-2">per {item.unit}</span>}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center text-gray-600">
-                                        <Package className="h-4 w-4 mr-2" />
-                                        <span className="font-semibold">
-                                            {item.available_quantity || 0} {item.unit || 'units'} available
-                                        </span>
-                                    </div>
-                                </div>
+    if (images.length === 0) {
+      return (
+        <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+          <Package className="h-16 w-16 text-gray-400" />
+        </div>
+      );
+    }
 
-                                {/* Product Details */}
-                                <div className="space-y-4">
-                                    <div>
-                                        <h4 className="text-lg font-semibold text-gray-800 mb-2">Description</h4>
-                                        <p className="text-gray-600 leading-relaxed">{item.product_description || 'No description available'}</p>
-                                    </div>
+    return (
+      <div className="flex flex-col gap-4">
+        <img
+          src={images[0]}
+          alt={item.product_name}
+          className="w-full h-64 object-cover rounded-lg"
+        />
+        {images.length > 1 && (
+          <div className="grid grid-cols-3 gap-2">
+            {images.slice(1).map((img, index) => (
+              <img
+                key={index}
+                src={img}
+                alt={`${item.product_name} ${index + 1}`}
+                className="h-20 object-cover rounded"
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {item.brand && (
-                                            <div>
-                                                <h5 className="font-semibold text-gray-800 mb-1">Brand</h5>
-                                                <p className="text-gray-600">{item.brand}</p>
-                                            </div>
-                                        )}
-                                        {item.season && (
-                                            <div>
-                                                <h5 className="font-semibold text-gray-800 mb-1">Season</h5>
-                                                <p className="text-gray-600">{item.season}</p>
-                                            </div>
-                                        )}
-                                    </div>
+  // Helper to render stars (optional, define or import as needed)
+  const renderStars = (rating) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const halfStar = rating % 1 >= 0.5;
+    const totalStars = 5;
 
-                                    {item.usage_history && (
-                                        <div>
-                                            <h4 className="text-lg font-semibold text-gray-800 mb-2">Usage History</h4>
-                                            <p className="text-gray-600 leading-relaxed">{item.usage_history}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(<span key={`full-${i}`} className="text-yellow-400">★</span>);
+    }
+    if (halfStar) {
+      stars.push(<span key="half" className="text-yellow-400">☆</span>);
+    }
+    while (stars.length < totalStars) {
+      stars.push(<span key={`empty-${stars.length}`} className="text-gray-300">★</span>);
+    }
+    return stars;
+  };
 
-                        {/* Shop Information */}
-                        <div className="mt-8 border-t pt-6">
-                            <h4 className="text-xl font-bold text-green-800 mb-4">Shop Information</h4>
-                            <div className="bg-gray-50 p-6 rounded-lg">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h5 className="font-semibold text-gray-800 mb-3">Shop Details</h5>
-                                        <div className="space-y-2">
-                                            {item.shop_name && (
-                                                <p className="text-gray-700"><span className="font-medium">Shop Name:</span> {item.shop_name}</p>
-                                            )}
-                                            {item.owner_name && (
-                                                <p className="text-gray-700"><span className="font-medium">Owner:</span> {item.owner_name}</p>
-                                            )}
-                                            {item.shop_address && (
-                                                <div className="flex items-center text-gray-700">
-                                                    <MapPin className="h-4 w-4 mr-2 text-green-500" />
-                                                    <span>{item.shop_address}</span>
-                                                </div>
-                                            )}
-                                            {item.city && (
-                                                <p className="text-gray-700"><span className="font-medium">City:</span> {item.city}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h5 className="font-semibold text-gray-800 mb-3">Contact Information</h5>
-                                        <div className="space-y-2">
-                                            {item.phone_no && (
-                                                <div className="flex items-center text-gray-700">
-                                                    <Phone className="h-4 w-4 mr-2 text-green-500" />
-                                                    <span>{item.phone_no}</span>
-                                                </div>
-                                            )}
-                                            {item.email && (
-                                                <div className="flex items-center text-gray-700">
-                                                    <Mail className="h-4 w-4 mr-2 text-green-500" />
-                                                    <span>{item.email}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-green-800">Product Details</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
 
-                        {/* Action Buttons */}
-                        <div className="mt-8 flex justify-center gap-4">
-                            <button
-                                onClick={() => {
-                                    onClose();
-                                    handleEdit(item);
-                                }}
-                                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-                            >
-                                <Edit className="h-5 w-5 mr-2" />
-                                Edit Product
-                            </button>
-                            <button
-                                onClick={onClose}
-                                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                            >
-                                <ArrowLeft className="h-5 w-5 mr-2" />
-                                Back to Products
-                            </button>
-                        </div>
-                    </div>
-                </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Product Image */}
+            <div className="space-y-4">
+              <div className="relative">
+                {renderImages()}
+                {item.organic_certified && (
+                  <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
+                    <Award className="h-4 w-4 mr-1" />
+                    Organic Certified
+                  </div>
+                )}
+              </div>
             </div>
-        );
-    };
+
+            {/* Product Information */}
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-3xl font-bold text-green-800 mb-2">{item.product_name}</h3>
+                <div className="flex items-center gap-4 mb-4">
+                  {item.category && (
+                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                      {item.category}
+                    </span>
+                  )}
+                  {item.product_type && (
+                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
+                      {item.product_type}
+                    </span>
+                  )}
+                </div>
+                {item.rating && (
+                  <div className="flex items-center mb-4">
+                    <div className="flex items-center mr-3">
+                      {renderStars(item.rating)}
+                    </div>
+                    <span className="text-lg font-semibold text-gray-700">({item.rating})</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Price and Availability */}
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center text-green-700 font-bold text-2xl">
+                    <DollarSign className="h-6 w-6 mr-1" />
+                    LKR {item.price?.toLocaleString()}
+                    {item.unit && <span className="text-lg text-gray-500 ml-2">per {item.unit}</span>}
+                  </div>
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <Package className="h-4 w-4 mr-2" />
+                  <span className="font-semibold">
+                    {item.available_quantity || 0} {item.unit || 'units'} available
+                  </span>
+                </div>
+              </div>
+
+              {/* Product Details */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">Description</h4>
+                  <p className="text-gray-600 leading-relaxed">{item.product_description || 'No description available'}</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {item.brand && (
+                    <div>
+                      <h5 className="font-semibold text-gray-800 mb-1">Brand</h5>
+                      <p className="text-gray-600">{item.brand}</p>
+                    </div>
+                  )}
+                  {item.season && (
+                    <div>
+                      <h5 className="font-semibold text-gray-800 mb-1">Season</h5>
+                      <p className="text-gray-600">{item.season}</p>
+                    </div>
+                  )}
+                </div>
+
+                {item.usage_history && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-2">Usage History</h4>
+                    <p className="text-gray-600 leading-relaxed">{item.usage_history}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Shop Information */}
+          <div className="mt-8 border-t pt-6">
+            <h4 className="text-xl font-bold text-green-800 mb-4">Shop Information</h4>
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h5 className="font-semibold text-gray-800 mb-3">Shop Details</h5>
+                  <div className="space-y-2">
+                    {item.shop_name && (
+                      <p className="text-gray-700"><span className="font-medium">Shop Name:</span> {item.shop_name}</p>
+                    )}
+                    {item.owner_name && (
+                      <p className="text-gray-700"><span className="font-medium">Owner:</span> {item.owner_name}</p>
+                    )}
+                    {item.shop_address && (
+                      <div className="flex items-center text-gray-700">
+                        <MapPin className="h-4 w-4 mr-2 text-green-500" />
+                        <span>{item.shop_address}</span>
+                      </div>
+                    )}
+                    {item.city && (
+                      <p className="text-gray-700"><span className="font-medium">City:</span> {item.city}</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h5 className="font-semibold text-gray-800 mb-3">Contact Information</h5>
+                  <div className="space-y-2">
+                    {item.phone_no && (
+                      <div className="flex items-center text-gray-700">
+                        <Phone className="h-4 w-4 mr-2 text-green-500" />
+                        <span>{item.phone_no}</span>
+                      </div>
+                    )}
+                    {item.email && (
+                      <div className="flex items-center text-gray-700">
+                        <Mail className="h-4 w-4 mr-2 text-green-500" />
+                        <span>{item.email}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-8 flex justify-center gap-4">
+            <button
+              onClick={() => {
+                onClose();
+                handleEdit(item);
+              }}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+            >
+              <Edit className="h-5 w-5 mr-2" />
+              Edit Product
+            </button>
+            <button
+              onClick={onClose}
+              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Back to Products
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const renderCategoryOptions = () => {
+  if (!editFormData.product_type) {
+    return (
+      <>
+        <option value="">Select product type first</option>
+      </>
+    );
+  }
+
+  const optionsMap = {
+    seeds: [
+      { value: "vegetable", label: "Vegetable Seeds" },
+      { value: "fruit", label: "Fruit Seeds" },
+      { value: "flower", label: "Flower Seeds" },
+      { value: "grain", label: "Grain Seeds" }
+    ],
+    fertilizer: [
+      { value: "organic", label: "Organic Fertilizer" },
+      { value: "npk", label: "NPK Fertilizer" },
+      { value: "liquid", label: "Liquid Fertilizer" },
+      { value: "compost", label: "Compost" }
+    ],
+    chemical: [
+      { value: "pesticide", label: "Pesticide" },
+      { value: "herbicide", label: "Herbicide" },
+      { value: "fungicide", label: "Fungicide" },
+      { value: "insecticide", label: "Insecticide" }
+    ]
+  };
+
+  return (
+    <>
+      <option value="">Select category</option>
+      {optionsMap[editFormData.product_type]?.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </>
+  );
+};
 
     // Edit Modal Component
     const EditModal = () => {
@@ -363,6 +613,18 @@ const handleDeleteConfirm = async () => {
                             onClick={() => {
                                 setShowEditModal(false);
                                 setSelectedItem(null);
+                                // Clean up image previews
+                                editFormData.images.forEach(img => {
+                                    if (img?.preview) URL.revokeObjectURL(img.preview);
+                                });
+                                setEditFormData(prev => ({
+                                    ...prev,
+                                    images: [],
+                                    existingImages: prev.existingImages.map(img => ({
+                                        ...img,
+                                        markedForDeletion: false
+                                    }))
+                                }));
                             }}
                             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                         >
@@ -371,147 +633,321 @@ const handleDeleteConfirm = async () => {
                     </div>
 
                     <form onSubmit={handleEditSubmit} className="p-6">
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label className="block text-gray-700 font-medium mb-2" htmlFor="product_name">
-                                    Product Name*
-                                </label>
+                                <label className="block mb-1">Shop Name*</label>
                                 <input
                                     type="text"
-                                    id="product_name"
-                                    name="product_name"
-                                    value={editFormData.product_name}
+                                    name="shop_name"
+                                    value={editFormData.shop_name}
                                     onChange={handleEditChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                                    className="w-full p-2 border rounded"
                                     required
                                 />
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="price">
-                                        Price (LKR)*
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="price"
-                                        name="price"
-                                        value={editFormData.price}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                        min="0"
-                                        step="0.01"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="available_quantity">
-                                        Available Quantity*
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="available_quantity"
-                                        name="available_quantity"
-                                        value={editFormData.available_quantity}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                        min="0"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
                             <div>
-                                <label className="block text-gray-700 font-medium mb-2" htmlFor="product_description">
-                                    Description*
-                                </label>
-                                <textarea
-                                    id="product_description"
-                                    name="product_description"
-                                    value={editFormData.product_description}
+                                <label className="block mb-1">Owner Name*</label>
+                                <input
+                                    type="text"
+                                    name="owner_name"
+                                    value={editFormData.owner_name}
                                     onChange={handleEditChange}
-                                    rows="4"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                                    className="w-full p-2 border rounded"
                                     required
                                 />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="category">
-                                        Category
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="category"
-                                        name="category"
-                                        value={editFormData.category}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="product_type">
-                                        Product Type
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="product_type"
-                                        name="product_type"
-                                        value={editFormData.product_type}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="city">
-                                        City
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="city"
-                                        name="city"
-                                        value={editFormData.city}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 font-medium mb-2" htmlFor="unit">
-                                        Unit
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="unit"
-                                        name="unit"
-                                        value={editFormData.unit}
-                                        onChange={handleEditChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-                                    />
-                                </div>
                             </div>
                         </div>
 
-                        <div className="mt-8 flex justify-end gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block mb-1">Phone Number*</label>
+                                <input
+                                    type="tel"
+                                    name="phone_no"
+                                    value={editFormData.phone_no}
+                                    onChange={handleEditChange}
+                                    className="w-full p-2 border rounded"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block mb-1">Shop Address*</label>
+                                <input
+                                    type="text"
+                                    name="shop_address"
+                                    value={editFormData.shop_address}
+                                    onChange={handleEditChange}
+                                    className="w-full p-2 border rounded"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block mb-1">Product Name*</label>
+                                <input
+                                    type="text"
+                                    name="product_name"
+                                    value={editFormData.product_name}
+                                    onChange={handleEditChange}
+                                    className="w-full p-2 border rounded"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-2" htmlFor="product_type">
+                                    Product Type*
+                                </label>
+                                <select
+                                    id="product_type"
+                                    name="product_type"
+                                    value={editFormData.product_type}
+                                    onChange={handleEditChange}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                                    required
+                                >
+                                    <option value="">Select product type</option>
+                                    <option value="seeds">Seeds</option>
+                                    <option value="fertilizer">Fertilizer</option>
+                                    <option value="chemical">Chemical</option>
+                                </select>
+                            </div>
+ <div>
+                                <label className="block text-gray-700 font-medium mb-2" htmlFor="brand">
+                                    Brand
+                                </label>
+                                <input
+                                    type="text"
+                                    id="brand"
+                                    name="brand"
+                                    value={editFormData.brand}
+                                    onChange={handleEditChange}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                                />
+                            </div>
+
+                            {/* Category Dropdown (dynamic based on product type) */}
+   <div className="mb-4">
+  <label className="block text-gray-700 font-medium mb-2" htmlFor="category">
+    Category
+  </label>
+  <select
+    id="category"
+    name="category"
+    value={editFormData.category || ''}
+    onChange={handleEditChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+    disabled={!editFormData.product_type}
+  >
+    {renderCategoryOptions()}
+  </select>
+</div>
+                            {/* Season Dropdown */}
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-2" htmlFor="season">
+                                    Season
+                                </label>
+                                <select
+                                    id="season"
+                                    name="season"
+                                    value={editFormData.season}
+                                    onChange={handleEditChange}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                                >
+                                    <option value="">Select season</option>
+                                    <option value="yala">Yala Season</option>
+                                    <option value="maha">Maha Season</option>
+                                    <option value="all-year">All Year Round</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block mb-1">Price (LKR)*</label>
+                                <input
+                                    type="number"
+                                    name="price"
+                                    value={editFormData.price}
+                                    onChange={handleEditChange}
+                                    className="w-full p-2 border rounded"
+                                    min="0"
+                                    step="0.01"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block mb-1">Category</label>
+                                <input
+                                    type="text"
+                                    name="category"
+                                    value={editFormData.category}
+                                    onChange={handleEditChange}
+                                    className="w-full p-2 border rounded"
+                                />
+                            </div>
+                            <div>
+                                <label className="block mb-1">Available Quantity*</label>
+                                <input
+                                    type="number"
+                                    name="available_quantity"
+                                    value={editFormData.available_quantity}
+                                    onChange={handleEditChange}
+                                    className="w-full p-2 border rounded"
+                                    min="0"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Images Section */}
+                       <div className="mb-4">
+  <label className="block mb-1 font-medium">Product Images</label>
+  
+  {/* File Input for Uploading New Images */}
+  <input
+    type="file"
+    name="images"
+    onChange={handleImageUpload}
+    className="w-full p-2 border rounded"
+    multiple
+    accept="image/*"
+  />
+
+  {/* Existing Images Preview */}
+  {editFormData.existingImages?.length > 0 && (
+    <div className="mt-4">
+      <h4 className="font-medium mb-2">Current Images</h4>
+      <div className="flex flex-wrap gap-2">
+        {editFormData.existingImages?.map((img, index) => (
+  !img.markedForDeletion && (
+    <div key={`existing-${index}`} className="relative">
+      <img
+        src={img.url}
+        alt={`Product ${index}`}
+        className="h-20 w-20 object-cover rounded border"
+      />
+      <button
+        type="button"
+        onClick={() => removeImage(index, true)}
+        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+      >
+        ×
+      </button>
+    </div>
+  )
+))}
+      </div>
+    </div>
+  )}
+
+  {/* New Images Preview */}
+  {editFormData.images?.length > 0 && (
+    <div className="mt-4">
+      <h4 className="font-medium mb-2">New Images</h4>
+      <div className="flex flex-wrap gap-2">
+        {editFormData.images.map((img, index) => (
+          <div key={`new-${index}`} className="relative">
+            <img
+              src={img.preview}
+              alt={`New Product ${index}`}
+              className="h-20 w-20 object-cover rounded border"
+            />
+            <button
+              type="button"
+              onClick={() => removeImage(index, false)}
+              className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="unit">
+          Unit
+        </label>
+        <input
+          type="text"
+          id="unit"
+          name="unit"
+          value={editFormData.unit}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+      <div>
+        <label className="block text-gray-700 font-medium mb-2" htmlFor="usage_history">
+          Usage History
+        </label>
+        <input
+          type="text"
+          id="usage_history"
+          name="usage_history"
+          value={editFormData.usage_history}
+          onChange={handleEditChange}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+        />
+      </div>
+    </div>
+
+                        {/* Description */}
+                        <div className="mb-4">
+                            <label className="block mb-1">Description*</label>
+                            <textarea
+                                name="product_description"
+                                value={editFormData.product_description}
+                                onChange={handleEditChange}
+                                rows="4"
+                                className="w-full p-2 border rounded"
+                                required
+                            />
+                        </div>
+
+                        {/* Organic Certified Checkbox */}
+                        <div className="flex items-center mb-6">
+                            <input
+                                type="checkbox"
+                                name="organic_certified"
+                                checked={editFormData.organic_certified}
+                                onChange={handleEditChange}
+                                className="mr-2"
+                            />
+                            <label>Organic Certified</label>
+                        </div>
+
+                        {/* Form Actions */}
+                        <div className="flex justify-end gap-2">
                             <button
                                 type="button"
                                 onClick={() => {
                                     setShowEditModal(false);
                                     setSelectedItem(null);
+                                    editFormData.images.forEach(img => {
+                                        if (img?.preview) URL.revokeObjectURL(img.preview);
+                                    });
+                                    setEditFormData(prev => ({
+                                        ...prev,
+                                        images: [],
+                                        existingImages: prev.existingImages.map(img => ({
+                                            ...img,
+                                            markedForDeletion: false
+                                        }))
+                                    }));
                                 }}
-                                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                                className="px-4 py-2 border rounded"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
-                                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                                className="px-4 py-2 bg-blue-500 text-white rounded"
                             >
                                 Save Changes
                             </button>
@@ -661,10 +1097,10 @@ const handleDeleteConfirm = async () => {
             <div className="max-w-7xl mx-auto px-4 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredItems.map(item => (
-                        <div key={item.id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
+                        <div key={item.shopitemid} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
                             {/* Product Image */}
                             <div className="relative">
-                                {item.images && item.images.length > 0 && typeof item.images[0] === 'string' ? (
+                                {item.images && item.images.length > 0 ? (
                                     <img
                                         src={item.images[0]}
                                         alt={item.product_name}
@@ -683,8 +1119,8 @@ const handleDeleteConfirm = async () => {
                                         </div>
                                     )}
                                     <button
-                                        onClick={() => toggleLike(item.id)}
-                                        className={`p-2 rounded-full ${likedItems.has(item.id) ? 'bg-red-500 text-white' : 'bg-white text-gray-600'} hover:scale-110 transition-transform`}
+                                        onClick={() => toggleLike(item.shopitemid)}
+                                        className={`p-2 rounded-full ${likedItems.has(item.shopitemid) ? 'bg-red-500 text-white' : 'bg-white text-gray-600'} hover:scale-110 transition-transform`}
                                     >
                                         <Heart className="h-4 w-4" />
                                     </button>
