@@ -90,12 +90,8 @@ const FarmCropCard = ({ crop, viewMode }) => {
                   >
                     <Eye className="w-4 h-4" />
                   </button>
-                  <button className="icon p-2 rounded-md text-green-600 hover:bg-green-50">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button className="icon p-2 rounded-md text-red-600 hover:bg-red-50">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  
+                  
                 </div>
               </div>
             </div>
@@ -172,12 +168,8 @@ const FarmCropCard = ({ crop, viewMode }) => {
             View Details
           </button>
           <div className="flex space-x-1">
-            <button className="icon p-2 rounded-md text-green-600 hover:bg-green-50">
-              <Edit className="w-4 h-4" />
-            </button>
-            <button className="icon p-2 rounded-md text-red-600 hover:bg-red-50">
-              <Trash2 className="w-4 h-4" />
-            </button>
+            
+          
           </div>
         </div>
       </div>
