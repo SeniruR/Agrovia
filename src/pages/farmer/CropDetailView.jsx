@@ -549,7 +549,7 @@ const CropDetailView = () => {
                   });
                   if (res.ok) {
                     setShowDeleteModal(false);
-                    navigate('/farmer/crops');
+                    navigate('/farmviewAllCrops');
                   } else {
                     alert('Failed to delete crop post.');
                   }

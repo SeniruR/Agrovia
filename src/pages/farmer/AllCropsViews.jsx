@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from "../../contexts/AuthContext";
 import StatsCards from "../../components/pages/Farmer/FarmStatsCard";
 import FilterBar from "../../components/pages/Farmer/FarmFilterBar";
 import CropCard from "../../components/pages/Farmer/FarmCropCard";
@@ -7,6 +8,7 @@ import { cropService } from "../../services/cropService";
 import { Package } from 'lucide-react';
 
 function AllCropsView() {
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState('grid');
   const [selectedType, setSelectedType] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -34,7 +36,8 @@ function AllCropsView() {
         rating: 4.8,
         description: 'High-quality premium basmati rice with excellent aroma and long grains. Perfect for export quality standards.',
         minimumQuantityBulk: 25,
-        hasBulkMinimum: true
+        hasBulkMinimum: true,
+        farmer_id: user && user.id ? user.id : 1 // ensure sample crop matches current user
       }
     ];
 
@@ -62,7 +65,8 @@ function AllCropsView() {
             hasBulkMinimum: crop.minimum_quantity_bulk !== null,
             organicCertified: crop.organic_certified,
             pesticideFree: crop.pesticide_free,
-            freshlyHarvested: crop.freshly_harvested
+            freshlyHarvested: crop.freshly_harvested,
+            farmer_id: crop.farmer_id // ensure farmer_id is present for filtering
           }));
           setCrops(mappedCrops);
         } else {
@@ -83,7 +87,14 @@ function AllCropsView() {
     fetchCrops();
   }, []);
 
+  // Only show crops posted by the current farmer (any status)
   const filteredCrops = crops
+    .filter(crop => {
+      // If user or user.id is not available, show nothing
+      if (!user || !user.id) return false;
+      // The crop object must have farmer_id (adjust if your field is different)
+      return crop.farmer_id === user.id;
+    })
     .filter(crop =>
       crop.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       crop.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,7 +106,7 @@ function AllCropsView() {
       switch (sortBy) {
         case 'oldest': return a.id - b.id;
         case 'price-high': return b.price - a.price;
-        case 'price-low': return a.price - b.price;
+        case 'price-low': return b.price - a.price;
         case 'rating': return b.rating - a.rating;
         default: return b.id - a.id;
       }
