@@ -35,37 +35,63 @@ const Login = () => {
             }
             return res.json();
         })
-        .then((data) => {
+        .then(async (data) => {
             // The backend returns user as data.data.user and token as data.data.token
             const user = data?.data?.user;
             const token = data?.data?.token;
-            
+
             console.log('🔍 Login Response Debug:');
             console.log('- Full response:', data);
             console.log('- User:', user);
             console.log('- Token:', token);
             console.log('- Token length:', token?.length);
-            
+
+            // Check if user is disabled (is_active === 0)
+            if (user && user.is_active === 0) {
+                // Fetch disable reason from backend
+                try {
+                    const reasonRes = await fetch(`http://localhost:5000/api/v1/auth/disable-reason/${user.id}`);
+                    if (reasonRes.ok) {
+                        const reasonData = await reasonRes.json();
+                        const reason = reasonData?.case_name || reasonData?.reason || 'Your account is disabled.';
+                        setError(`Your account is disabled. Reason: ${reason}`);
+                    } else {
+                        setError('Your account is disabled. Please contact support.');
+                    }
+                } catch (err) {
+                    setError('Your account is disabled. Please contact support.');
+                }
+                return;
+            }
+
             if (data.success && user && token) {
                 // Use the AuthContext login function to store both user and token
                 login(user, token);
-                
+                // Store userId separately for other components
+                if (user && user.id) {
+                  localStorage.setItem('userId', user.id);
+                }
+
                 // Verify storage
                 setTimeout(() => {
                     console.log('✅ Post-login verification:');
                     console.log('- localStorage user:', localStorage.getItem('user'));
                     console.log('- localStorage token:', localStorage.getItem('authToken'));
+                    console.log('- localStorage userId:', localStorage.getItem('userId'));
                 }, 100);
-                
+
                 // Redirect based on user role
                 if (user.role === 'farmer') {
-                    navigate('/dashboard');
+                    navigate('/profile/farmer');
                 } else {
                     navigate('/');
                 }
             } else if (data.success && user) {
                 // Fallback: user but no token
                 localStorage.setItem('user', JSON.stringify(user));
+                if (user && user.id) {
+                  localStorage.setItem('userId', user.id);
+                }
                 setError('Login succeeded but no token received. Please contact support.');
             } else {
                 setError(data.message || 'Invalid credentials');
