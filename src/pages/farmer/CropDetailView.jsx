@@ -23,7 +23,7 @@ import CartNotification from '../../components/CartNotification';
 import { useAuth } from '../../contexts/AuthContext';
 
 const CropDetailView = () => {
-  const { user } = useAuth();
+  const { user, getAuthHeaders } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
@@ -540,7 +540,23 @@ const CropDetailView = () => {
               Cancel
             </button>
             <button
-              onClick={() => {/* TODO: implement delete logic */}}
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/v1/crop-posts/${crop.id}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ status: 'deleted' }),
+                  });
+                  if (res.ok) {
+                    setShowDeleteModal(false);
+                    navigate('/farmer/crops');
+                  } else {
+                    alert('Failed to delete crop post.');
+                  }
+                } catch {
+                  alert('An error occurred while deleting.');
+                }
+              }}
               className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold shadow hover:from-red-600 hover:to-pink-600 transition-all"
             >
               Yes, Delete
