@@ -19,6 +19,7 @@ const ShopComplaintForm = ({ onBack }) => {
   const [success, setSuccess] = useState(false);
   const [apiError, setApiError] = useState('');
   const [attachments, setAttachments] = useState([]);
+  const fileInputRef = React.useRef();
 
   const categories = [
     'Defective Seeds', 'Wrong Product', 'Poor Service', 'Overcharging', 'Contaminated Products', 
@@ -85,6 +86,10 @@ const ShopComplaintForm = ({ onBack }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleAttachmentClick = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
   };
 
   return (
@@ -277,9 +282,13 @@ const ShopComplaintForm = ({ onBack }) => {
                 multiple
                 accept="image/*"
                 onChange={handleFileChange}
-                className="mb-2"
+                className="mb-2 hidden"
+                ref={fileInputRef}
               />
-              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
+              <div
+                className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                onClick={handleAttachmentClick}
+              >
                 <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Upload photos of receipts, products, or other evidence</p>
                 <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 10MB each</p>
