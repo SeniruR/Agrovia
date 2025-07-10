@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { Upload, MapPin, Phone, Mail, Package, Leaf, Droplets, AlertTriangle, AlertCircle } from 'lucide-react';
-
+import { ChevronDown } from 'lucide-react';
 export default function SeedsFertilizerForm() {
+  const sriLankanCities = [
+  "Colombo", "Dehiwala-Mount Lavinia", "Moratuwa", "Sri Jayawardenepura Kotte", "Negombo", "Kandy", "Kalmunai", "Vavuniya", "Galle", "Trincomalee", "Batticaloa", "Jaffna", "Matara", "Kurunegala", "Ratnapura", "Badulla", "Anuradhapura", "Polonnaruwa", "Puttalam", "Chilaw", "Matale", "Nuwara Eliya", "Gampaha", "Hambantota", "Monaragala", "Kilinochchi", "Mannar", "Mullaitivu", "Ampara", "Kegalle", "Hatton", "Wattala", "Panadura", "Beruwala", "Kotikawatta", "Katunayake", "Kolonnawa", "Kotikawatta", "Eravur", "Valvettithurai", "Point Pedro", "Kalutara", "Horana", "Ja-Ela", "Kadawatha", "Homagama", "Avissawella", "Gampola", "Weligama", "Ambalangoda", "Balangoda", "Dambulla", "Embilipitiya", "Kegalle", "Kuliyapitiya", "Maharagama", "Minuwangoda", "Nawalapitiya", "Peliyagoda", "Seethawakapura", "Talawakele", "Tangalle", "Wennappuwa", "Chavakachcheri", "Kilinochchi", "Kinniya", "Mannar", "Vavuniya", "Kilinochchi", "Mullaitivu"
+];
+
   const [formData, setFormData] = useState({
     shop_name: '',
     owner_name: '',
@@ -184,7 +188,23 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   setIsSubmitting(true);
   setSubmitError('');
-  
+ let categoryToSend = formData.category;
+  if (formData.category === "Other" && formData.category_other) {
+    categoryToSend = formData.category_other;
+  }
+
+  // Create FormData and ensure correct category is sent
+  const formDataToSend = new FormData();
+  Object.keys(formData).forEach(key => {
+    if (key === 'category') {
+      formDataToSend.append('category', categoryToSend);
+    } else if (key !== 'images' && key !== 'imagePreviews' && key !== 'category_other') {
+      const value = typeof formData[key] === 'boolean' 
+        ? formData[key].toString() 
+        : formData[key];
+      formDataToSend.append(key, value);
+    }
+  });
   try {
     // Validate all steps
     const allErrors = {
@@ -477,27 +497,33 @@ Object.entries(formData).forEach(([key, val]) => {
                 )}
               </div>
 
-              <div className="w-full">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  City <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                    errors.city ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                  placeholder="Enter city"
-                />
-                {errors.city && (
-                  <div className="flex items-center mt-2 text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.city}</span>
-                  </div>
-                )}
-              </div>
+             <div className="w-full">
+  <label className="block text-sm font-semibold text-gray-700 mb-3">
+    City <span className="text-red-500">*</span>
+  </label>
+  <div className="relative">
+    <select
+      name="city"
+      value={formData.city}
+      onChange={handleInputChange}
+      className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+        errors.city ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+      }`}
+    >
+      <option value="">Select city</option>
+      {sriLankanCities.map(city => (
+        <option key={city} value={city}>{city}</option>
+      ))}
+    </select>
+    <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+  </div>
+  {errors.city && (
+    <div className="flex items-center mt-2 text-red-600 text-sm">
+      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+      <span>{errors.city}</span>
+    </div>
+  )}
+</div>
             </div>
           )}
 
@@ -595,17 +621,46 @@ Object.entries(formData).forEach(([key, val]) => {
                   </label>
                   <select
                     name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
+                    value={
+    formData.category === "Other" && formData.category_other
+      ? formData.category_other
+      : formData.category
+  }
+              onChange={e => {
+    const value = e.target.value;
+    if (value === "Other") {
+      setFormData(prev => ({
+        ...prev,
+        category: "Other",
+        category_other: ""
+      }));
+    } else if (
+      formData.category === "Other" &&
+      formData.category_other &&
+      value === formData.category_other
+    ) {
+      setFormData(prev => ({
+        ...prev,
+        category: "Other",
+        category_other: value
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        category: value,
+        category_other: ""
+      }));
+    }
+  }}
                     className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
                   >
                     <option value="">Select category</option>
                     {formData.product_type === 'seeds' && (
                       <>
                         <option value="vegetable">Vegetable Seeds</option>
-                        <option value="fruit">Fruit Seeds</option>
-                        <option value="flower">Flower Seeds</option>
-                        <option value="grain">Grain Seeds</option>
+                         <option value="grain">Grain Seeds</option>
+                             <option value="Other">Other</option>
+                     
                       </>
                     )}
                     {formData.product_type === 'fertilizer' && (
@@ -614,6 +669,7 @@ Object.entries(formData).forEach(([key, val]) => {
                         <option value="npk">NPK Fertilizer</option>
                         <option value="liquid">Liquid Fertilizer</option>
                         <option value="compost">Compost</option>
+                        <option value="Other">Other</option>
                       </>
                     )}
                     {formData.product_type === 'chemical' && (
@@ -622,11 +678,34 @@ Object.entries(formData).forEach(([key, val]) => {
                         <option value="herbicide">Herbicide</option>
                         <option value="fungicide">Fungicide</option>
                         <option value="insecticide">Insecticide</option>
+                        <option value="Other">Other</option>
                       </>
                     )}
+                    {/* Show custom entered category as an option if present */}
+      {formData.category === "Other" && formData.category_other && (
+    <option value={formData.category_other}>{formData.category_other}</option>
+  )}
                   </select>
+                  <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
-
+  {/* Show input if "Other" is selected */}
+  {formData.category === "Other" && (
+    <input
+      type="text"
+      name="category"
+      value={formData.category_other || ""}
+      onChange={e =>
+        setFormData(prev => ({
+          ...prev,
+          category: "Other",
+          category_other: e.target.value
+        }))
+      }
+      className="mt-3 w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg"
+      placeholder="Please specify category"
+      autoFocus
+    />
+  )}
                 <div className="w-full">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Season
