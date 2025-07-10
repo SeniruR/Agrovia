@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Phone, Mail, Star, Award, Package, DollarSign, Eye, Heart, Edit, Trash2, X, ArrowLeft, Upload } from 'lucide-react';
 import axios from 'axios';
+import { useNavigate } from "react-router-dom";
+import ItemPostedForm from './ItemPostedForm';
 
 const MyShopItem = () => {
+   const navigate = useNavigate();
+   const [showAddPage, setShowAddPage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedCity, setSelectedCity] = useState('all');
@@ -14,7 +18,7 @@ const MyShopItem = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
-    
+    const [showAddModal, setShowAddModal] = useState(false);
     const [editFormData, setEditFormData] = useState({
         shopitemid: '',
         shop_name: '',
@@ -320,7 +324,7 @@ const MyShopItem = () => {
         return stars;
     };
 
-    // Detail View Component
+   
  
 // Replace 'your-icon-library' with your actual icon imports
 
@@ -1033,20 +1037,13 @@ const renderCategoryOptions = () => {
     if (selectedItem && !showEditModal) {
         return <DetailView item={selectedItem} onClose={() => setSelectedItem(null)} />;
     }
-
+ 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
             {/* Header */}
             <div className="bg-white shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 py-6">
-                    <div className="text-center mb-6">
-                        <h1 className="text-3xl md:text-4xl font-bold text-green-800 mb-2">
-                            Agrovia Marketplace
-                        </h1>
-                        <p className="text-green-600 text-lg">
-                            Discover quality agricultural products from trusted suppliers
-                        </p>
-                    </div>
+                    
 
                     {/* Search and Filter Bar */}
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -1090,6 +1087,15 @@ const renderCategoryOptions = () => {
                     <div className="mt-4 text-sm text-green-600">
                         Showing {filteredItems.length} of {shopItems.length} products
                     </div>
+                      {/* Add Item Button */}
+                    <div className="mt-6 flex justify-end">
+        <button
+            onClick={() => navigate('/itempostedForm')}
+            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow transition-colors flex items-center"
+        >
+            + Add Item
+        </button>
+    </div>
                 </div>
             </div>
 
