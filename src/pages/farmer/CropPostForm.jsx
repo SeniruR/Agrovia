@@ -339,7 +339,8 @@ const CropPostForm = () => {
         email: 'email',
         organicCertified: 'organic_certified',
         pesticideFree: 'pesticide_free',
-        freshlyHarvested: 'freshly_harvested'
+        freshlyHarvested: 'freshly_harvested',
+        farmerName: 'farmer_name', // Add farmer_name for backend validation
       };
 
       // Add form fields to FormData
@@ -354,6 +355,10 @@ const CropPostForm = () => {
             value = Number(value);
             if (isNaN(value)) value = '';
           }
+        }
+        // For farmerName, use user full name or fallback
+        if (frontendKey === 'farmerName') {
+          value = (user && (user.full_name || user.name)) ? (user.full_name || user.name) : '';
         }
         if (value !== undefined && value !== null && value !== '') {
           if (typeof value === 'boolean') {
