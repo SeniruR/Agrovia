@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import Select from "react-select";
 
 const districts = [
@@ -90,8 +90,6 @@ const initialProfile = {
   phoneNumber: "",
   description: "",
   profileImage: null,
-  password: "",
-  confirmPassword: "",
   divisionGramasewaNumber: "",
   organizationCommitteeNumber: "",
   farmingExperience: "",
@@ -111,16 +109,101 @@ const initialProfile = {
   sustainabilityPractices: ""
 };
 
+import { useNavigate, useLocation } from "react-router-dom";
+
 const Profile = () => {
   const [profile, setProfile] = useState(initialProfile);
+  const [originalProfile, setOriginalProfile] = useState(initialProfile);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [saveEnabled, setSaveEnabled] = useState(false);
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Helper: map backend data to form fields
+  const mapBackendToProfile = (data) => {
+    const user = data.user || {};
+    const details = user.farmer_details || {};
+    return {
+      fullName: user.full_name || "",
+      email: user.email || "",
+      district: user.district || "",
+      landSize: details.land_size || "",
+      nic: user.nic || "",
+      birthDate: details.birth_date || user.birth_date || "",
+      address: user.address || "",
+      phoneNumber: user.phone_number || "",
+      description: details.description || "",
+      profileImage: user.profile_image || null,
+      divisionGramasewaNumber: details.division_gramasewa_number || "",
+      organizationCommitteeNumber: details.organization_committee_number || "",
+      farmingExperience: details.farming_experience || "",
+      primaryCrops: details.cultivated_crops || "",
+      secondaryCrops: details.secondary_crops || "",
+      farmingMethods: details.farming_methods || "",
+      irrigationSystem: details.irrigation_system || "",
+      soilType: details.soil_type || "",
+      farmingGoals: details.farming_goals || "",
+      annualIncome: details.annual_income || "",
+      educationLevel: details.education || "",
+      farmingCertifications: details.farming_certifications || "",
+      equipmentOwned: details.equipment_owned || "",
+      marketingChannels: details.marketing_channels || "",
+      challenges: details.challenges || "",
+      technologyUsage: details.technology_usage || "",
+      sustainabilityPractices: details.sustainability_practices || "",
+    };
+  };
+
+  // Fetch profile data on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setError("No authentication token found. Please log in again.");
+          setLoading(false);
+          return;
+        }
+        let apiUrl = import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
+          : (import.meta.env.DEV
+              ? 'http://localhost:5000/api/v1/auth/profile-full'
+              : '/api/v1/auth/profile-full');
+        const res = await fetch(apiUrl, {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        const data = await res.json();
+        const mapped = mapBackendToProfile(data);
+        setProfile(mapped);
+        setOriginalProfile(mapped);
+      } catch (err) {
+        setError(err.message || 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  // Detect changes
+  useEffect(() => {
+    setSaveEnabled(JSON.stringify(profile) !== JSON.stringify(originalProfile));
+  }, [profile, originalProfile]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
-    setProfile({
-      ...profile,
+    setProfile((prev) => ({
+      ...prev,
       [name]: files ? files[0] : value,
-    });
+    }));
   };
 
   // For react-select
@@ -135,10 +218,75 @@ const Profile = () => {
     fileInputRef.current.click();
   };
 
-  const handleSubmit = (e) => {
+  // Save changes to backend
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert("Profile updated successfully!");
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No authentication token found.");
+      let apiUrl = import.meta.env.VITE_API_URL
+        ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
+        : (import.meta.env.DEV
+            ? 'http://localhost:5000/api/v1/auth/profile-full'
+            : '/api/v1/auth/profile-full');
+
+      // Prepare form data for file upload
+      const formData = new FormData();
+      Object.entries(profile).forEach(([key, value]) => {
+        let v = value;
+        // Convert empty strings to null
+        if (v === "") v = null;
+        // Convert landSize to number or null
+        if (key === "landSize") {
+          v = v === null ? null : (isNaN(Number(v)) ? null : Number(v));
+        }
+        // Only append file if it's a File
+        if (key === "profileImage") {
+          if (v && typeof v !== "string") {
+            formData.append(key, v);
+          }
+        } else if (v !== undefined && v !== null) {
+          formData.append(key, v);
+        }
+      });
+
+      const res = await fetch(apiUrl, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Failed to update profile');
+      const updated = await res.json();
+      const mapped = mapBackendToProfile(updated);
+      setProfile(mapped);
+      setOriginalProfile(mapped);
+      alert("Profile updated successfully!");
+    } catch (err) {
+      setError(err.message || 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        Loading profile...
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-12 px-4 flex items-center justify-center">
@@ -153,11 +301,19 @@ const Profile = () => {
               title="Click to change profile image"
             >
               {profile.profileImage ? (
-                <img
-                  src={URL.createObjectURL(profile.profileImage)}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
+                typeof profile.profileImage === 'string' ? (
+                  <img
+                    src={profile.profileImage}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={URL.createObjectURL(profile.profileImage)}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                )
               ) : (
                 <span className="text-gray-400 text-5xl">👤</span>
               )}
@@ -354,13 +510,14 @@ const Profile = () => {
             <textarea name="description" value={profile.description} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
           </div>
 
-          {/* Submit Button */}
+          {/* Save Changes Button */}
           <div>
             <button
               type="submit"
-              className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition"
+              className={`w-full py-3 rounded-lg font-semibold transition ${saveEnabled ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+              disabled={!saveEnabled}
             >
-              Update Profile
+              Save Changes
             </button>
           </div>
         </form>
