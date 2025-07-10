@@ -50,12 +50,6 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
     }
   };
 
-  const getStatusColor = (status) => {
-    return status === 'consider' 
-      ? 'bg-green-100 text-green-700 border-green-200'
-      : 'bg-red-100 text-red-700 border-red-200';
-  };
-
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
@@ -91,10 +85,6 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
                     </span>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
                       {complaint.priority}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center space-x-1 ${getStatusColor(complaint.status)}`}>
-                      {complaint.status === 'consider' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                      <span>{complaint.status === 'consider' ? 'consider' : 'not consider'}</span>
                     </span>
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 mb-4">{complaint.title}</h2>
@@ -168,12 +158,25 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
                 </div>
               </div>
 
+              {/* Attachments for crop, shop, and transport complaints */}
               {complaint.attachments && complaint.attachments.length > 0 && (
                 <div className="mb-6">
                   <p className="text-sm text-slate-500 mb-1">Attachments</p>
                   <div className="flex flex-wrap gap-4">
                     {complaint.attachments.map((file, idx) => {
-                      // If file is a base64 string, display as image
+                      // Shop complaint: file is {data, mimetype, filename}
+                      if (file && typeof file === 'object' && file.data) {
+                        return (
+                          <img
+                            key={idx}
+                            src={`data:${file.mimetype || 'image/jpeg'};base64,${file.data}`}
+                            alt={file.filename || `Attachment ${idx + 1}`}
+                            className="max-w-xs rounded-xl border border-slate-200"
+                            style={{ maxHeight: 240 }}
+                          />
+                        );
+                      }
+                      // Crop/transport: file is base64 string
                       if (file && typeof file === 'string' && file.length > 100) {
                         return (
                           <img
@@ -185,27 +188,11 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
                           />
                         );
                       }
-                      // fallback: show as text if not image
-                      return (
-                        <span key={idx} className="text-slate-500 italic">Unsupported attachment</span>
-                      );
+                      return null;
                     })}
                   </div>
                 </div>
               )}
-
-              <div className="flex items-center space-x-3 mb-4">
-                <label htmlFor="status-select" className="text-sm text-slate-500">Status:</label>
-                <select
-                  id="status-select"
-                  value={complaint.status}
-                  onChange={e => onUpdateStatus(complaint.id, complaint.type, e.target.value)}
-                  className="px-3 py-1 rounded-lg border bg-slate-100 border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-xs font-medium capitalize"
-                >
-                  <option value="consider">Consider</option>
-                  <option value="not-consider">Not Consider</option>
-                </select>
-              </div>
             </div>
 
             {/* Admin Reply Section */}

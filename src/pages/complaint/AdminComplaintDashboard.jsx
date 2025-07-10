@@ -4,12 +4,10 @@ import { MessageSquareX, Wheat, Store, Truck, CheckCircle, XCircle, Eye, LogOut,
 const AdminDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, currentUser }) => {
   const getComplaintStats = () => {
     const total = complaints.length;
-    const consider = complaints.filter(c => c.status === 'consider').length;
-    const notConsider = complaints.filter(c => c.status === 'not-consider').length;
     const urgent = complaints.filter(c => c.priority === 'urgent').length;
     const needsReply = complaints.filter(c => c.status === 'consider' && !c.adminReply).length;
 
-    return { total, consider, notConsider, urgent, needsReply };
+    return { total, urgent, needsReply };
   };
 
   const stats = getComplaintStats();
@@ -40,8 +38,6 @@ const AdminDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, cur
 
   const statCards = [
     { title: 'Total Complaints', value: stats.total, icon: MessageSquareX, color: 'text-slate-600' },
-    { title: 'Considered', value: stats.consider, icon: CheckCircle, color: 'text-green-600' },
-    { title: 'Not Considered', value: stats.notConsider, icon: XCircle, color: 'text-red-600' },
     { title: 'Urgent', value: stats.urgent, icon: MessageSquareX, color: 'text-red-600' },
     { title: 'Needs Reply', value: stats.needsReply, icon: MessageSquareX, color: 'text-orange-600' }
   ];
