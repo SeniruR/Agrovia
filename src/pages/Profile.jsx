@@ -105,7 +105,7 @@ const initialProfile = {
   equipmentOwned: "",
   marketingChannels: "",
   challenges: "",
-  technologyUsage: "",
+  // technologyUsage: "",
   sustainabilityPractices: ""
 };
 
@@ -151,7 +151,7 @@ const Profile = () => {
       equipmentOwned: details.equipment_owned || "",
       marketingChannels: details.marketing_channels || "",
       challenges: details.challenges || "",
-      technologyUsage: details.technology_usage || "",
+      // technologyUsage: details.technology_usage || "",
       sustainabilityPractices: details.sustainability_practices || "",
     };
   };
@@ -454,10 +454,6 @@ const Profile = () => {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Marketing Channels</label>
                 <input type="text" name="marketingChannels" value={profile.marketingChannels} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Technology Usage</label>
-                <input type="text" name="technologyUsage" value={profile.technologyUsage} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Sustainability Practices</label>
