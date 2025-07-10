@@ -80,6 +80,7 @@ import MyShopItem from "./pages/shop/MyShopItem";
 import NavigationTest from "./pages/NavigationTest";
 
 import CropDetailView from "./pages/farmer/CropDetailView";
+import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -469,7 +470,16 @@ const App = () => {
             <CropDetailView />
           </Layout>
         } />
+
+         <Route path="/buyer-com-dash" element={
+        <Layout>
+          <BuyerComplaintDashboard/>
+        </Layout>
+      }
+      />
     </Routes>
+    
+    
   );
 };
 
