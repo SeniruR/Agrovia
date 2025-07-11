@@ -2,13 +2,9 @@ import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-    User, Mail, MapPin, Phone, Calendar, Home, FileText,
-    Camera, Lock, Eye, EyeOff, ArrowLeft, Check, AlertCircle,
-    Truck, Gauge, Ruler, Award,
+    User, Mail, MapPin, Phone, FileText, Camera, Lock, Eye, EyeOff, ArrowLeft, Check, AlertCircle, Link as LinkIcon, IdCard
 } from 'lucide-react';
 
-
-// --- Corrected InputField Component (Moved Outside) ---
 const InputField = React.memo(({
     icon,
     label,
@@ -117,70 +113,35 @@ const InputField = React.memo(({
     );
 });
 
-
-const TransporterSignup = () => {
+const ModeratorSignup = () => {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-
-    // For notification banners
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
-
-    // Refs for each field for error scrolling
     const fieldRefs = React.useRef({});
-
-    // Main Transporter form data
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
         district: '',
         nic: '',
-        birthDate: '',
         address: '',
         phoneNumber: '',
         profileImage: null,
         password: '',
         confirmPassword: '',
-        // Transporter-specific fields
-        vehicleType: '',
-        vehicleNumber: '',
-        vehicleCapacity: '',
-        capacityUnit: 'kg',
-        // maxTravelDistance and distanceUnit removed
-        licenseNumber: '',
-        licenseExpiry: '',
-        // experienceYears removed
-        additionalInfo: '',
+        skillUrls: [''],
+        workerIds: [''],
+        skillDescription: '', // Optional description for skill demonstration
     });
-
     const [errors, setErrors] = useState({});
-
-    // Sri Lankan districts
     const districts = [
         'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 'Galle', 'Gampaha',
         'Hambantota', 'Jaffna', 'Kalutara', 'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala',
         'Mannar', 'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya', 'Polonnaruwa',
         'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
     ];
-
-    // Vehicle types
-    const vehicleTypes = [
-        'Truck', 'Lorry', 'Van', 'Three Wheeler', 'Pickup', 'Mini Truck', 'Other'
-    ];
-
-    // Capacity units
-    const capacityUnits = ['kg', 'tons', 'liters'];
-
-    // Distance units
-    const distanceUnits = ['km', 'miles'];
-
-    // Experience options
-    const experienceOptions = [
-        'Less than 1 year', '1-3 years', '3-5 years', '5-10 years', 'More than 10 years'
-    ];
-
     const handleInputChange = useCallback((e) => {
         const { name, value, files } = e.target;
         setFormData(prev => ({
@@ -191,7 +152,24 @@ const TransporterSignup = () => {
             setErrors(prev => ({ ...prev, [name]: '' }));
         }
     }, [errors]);
-
+    // For dynamic skill URLs and worker IDs
+    const handleArrayChange = (type, idx, val) => {
+        setFormData(prev => {
+            const arr = [...prev[type]];
+            arr[idx] = val;
+            return { ...prev, [type]: arr };
+        });
+    };
+    const addArrayField = (type) => {
+        setFormData(prev => ({ ...prev, [type]: [...prev[type], ''] }));
+    };
+    const removeArrayField = (type, idx) => {
+        setFormData(prev => {
+            const arr = [...prev[type]];
+            arr.splice(idx, 1);
+            return { ...prev, [type]: arr.length ? arr : [''] };
+        });
+    };
     const validateForm = () => {
         const newErrors = {};
         if (!formData.fullName?.trim()) newErrors.fullName = 'Full name is required';
@@ -201,12 +179,20 @@ const TransporterSignup = () => {
         if (!formData.phoneNumber?.trim()) newErrors.phoneNumber = 'Phone number is required';
         if (!formData.password) newErrors.password = 'Password is required';
         if (!formData.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
-        if (!formData.vehicleType) newErrors.vehicleType = 'Vehicle type is required';
-        if (!formData.vehicleNumber?.trim()) newErrors.vehicleNumber = 'Vehicle number is required';
-        if (!formData.vehicleCapacity) newErrors.vehicleCapacity = 'Vehicle capacity is required';
-        if (!formData.licenseNumber?.trim()) newErrors.licenseNumber = 'License number is required';
-        if (!formData.licenseExpiry) newErrors.licenseExpiry = 'License expiry date is required';
-
+        // At least one skill URL
+        if (!formData.skillUrls.some(url => url && url.trim())) newErrors.skillUrls = 'At least one skill URL is required';
+        // Validate URLs
+        formData.skillUrls.forEach((url, idx) => {
+            if (url && !/^https?:\/\//.test(url)) {
+                newErrors[`skillUrls_${idx}`] = 'Enter a valid URL (http/https)';
+            }
+        });
+        // Validate worker IDs (optional, but if present, must be non-empty)
+        formData.workerIds.forEach((id, idx) => {
+            if (id && !/^\w+$/.test(id)) {
+                newErrors[`workerIds_${idx}`] = 'Worker ID must be alphanumeric';
+            }
+        });
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (formData.email && !emailRegex.test(formData.email)) newErrors.email = 'Please enter a valid email address';
         const nicRegex = /^([0-9]{9}[x|X|v|V]|[0-9]{12})$/;
@@ -215,11 +201,8 @@ const TransporterSignup = () => {
         if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = 'Please enter a valid 10-digit phone number';
         if (formData.password && formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
         if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
-        if (formData.vehicleCapacity && (isNaN(formData.vehicleCapacity) || parseFloat(formData.vehicleCapacity) <= 0)) newErrors.vehicleCapacity = 'Please enter a valid vehicle capacity';
-
+        // No validation for skillDescription (optional)
         setErrors(newErrors);
-
-        // Scroll to first error field if any
         if (Object.keys(newErrors).length > 0) {
             const firstErrorField = Object.keys(newErrors)[0];
             if (fieldRefs.current[firstErrorField] && fieldRefs.current[firstErrorField].scrollIntoView) {
@@ -228,14 +211,12 @@ const TransporterSignup = () => {
         }
         return Object.keys(newErrors).length === 0;
     };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSuccessMessage("");
         setErrorMessage("");
         if (!validateForm()) return;
         setIsLoading(true);
-
         // Map frontend fields to backend expected fields
         const mappedData = {
             full_name: formData.fullName?.trim() || '',
@@ -246,63 +227,22 @@ const TransporterSignup = () => {
             nic: formData.nic?.trim() || '',
             address: formData.address ?? null,
             profile_image: formData.profileImage ?? null,
-            birth_date: formData.birthDate ?? null,
-            // Transporter-specific
-            vehicle_type: formData.vehicleType ?? '',
-            vehicle_number: formData.vehicleNumber ?? '',
-            vehicle_capacity: formData.vehicleCapacity ?? '',
-            capacity_unit: formData.capacityUnit ?? '',
-            license_number: formData.licenseNumber ?? '',
-            license_expiry: formData.licenseExpiry ?? '',
-            additional_info: formData.additionalInfo ?? ''
+            // Skill demonstration fields
+            skill_urls: formData.skillUrls.filter(url => url && url.trim()),
+            worker_ids: formData.workerIds.filter(id => id && id.trim()),
+            skill_description: formData.skillDescription?.trim() || '',
         };
 
         // Only append fields that are required and non-empty for backend validation
         const requiredFields = [
-            'full_name', 'email', 'password', 'phone_number', 'district', 'nic',
-            'vehicle_type', 'vehicle_number', 'vehicle_capacity', 'capacity_unit', 'license_number', 'license_expiry'
+            'full_name', 'email', 'password', 'phone_number', 'district', 'nic'
         ];
-        for (const field of requiredFields) {
-            if (
-                mappedData[field] === undefined ||
-                mappedData[field] === null ||
-                mappedData[field] === ''
-            ) {
-                // Map backend field to frontend field name for error state and ref
-                const fieldMap = {
-                    full_name: 'fullName',
-                    email: 'email',
-                    password: 'password',
-                    phone_number: 'phoneNumber',
-                    district: 'district',
-                    nic: 'nic',
-                    vehicle_type: 'vehicleType',
-                    vehicle_number: 'vehicleNumber',
-                    vehicle_capacity: 'vehicleCapacity',
-                    capacity_unit: 'capacityUnit',
-                    license_number: 'licenseNumber',
-                    license_expiry: 'licenseExpiry',
-                };
-                const frontendField = fieldMap[field] || field;
-                setErrors(prev => ({ ...prev, [frontendField]: 'This field is required' }));
-                setErrorMessage(`Field "${field}" is required and missing or invalid.`);
-                setIsLoading(false);
-                // Scroll to the relevant input field if ref exists
-                setTimeout(() => {
-                    if (fieldRefs.current[frontendField] && fieldRefs.current[frontendField].scrollIntoView) {
-                        fieldRefs.current[frontendField].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    } else {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                }, 100);
-                return;
-            }
-        }
-
-        // Prepare form data for file upload
         const data = new FormData();
         Object.entries(mappedData).forEach(([key, value]) => {
-            if (requiredFields.includes(key)) {
+            if (['skill_urls', 'worker_ids'].includes(key)) {
+                // Send arrays as repeated fields (backend should expect skill_urls[], worker_ids[])
+                value.forEach((v) => data.append(`${key}[]`, v));
+            } else if (requiredFields.includes(key)) {
                 data.append(key, value);
             } else {
                 if (value !== undefined && value !== null && value !== '') {
@@ -312,7 +252,8 @@ const TransporterSignup = () => {
         });
 
         try {
-            const response = await axios.post('http://localhost:5000/api/v1/auth/register/transporter', data, {
+            // Register moderator (backend now handles disable_accounts logic)
+            const response = await axios.post('http://localhost:5000/api/v1/auth/register/moderator', data, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             const result = response.data;
@@ -323,24 +264,9 @@ const TransporterSignup = () => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
-            let transporterUserId = null;
             if (result.data && result.data.user) {
-                transporterUserId = result.data.user.id;
                 localStorage.setItem('user', JSON.stringify(result.data.user));
                 window.dispatchEvent(new Event('userChanged'));
-            }
-            // Create disable_account row for transporter (case_id = 3)
-            if (transporterUserId) {
-                try {
-                    await axios.post('http://localhost:5000/api/v1/disable-accounts', {
-                        user_id: transporterUserId,
-                        case_id: 3,
-                        reason: 'Transporter registration pending review',
-                    });
-                } catch (disableErr) {
-                    // Not critical, just log
-                    console.warn('Failed to create disable_account row:', disableErr);
-                }
             }
             setSuccessMessage('Registration successful! Your account will be reviewed and activated as appropriate. You will be able to log in once your account is approved. Redirecting to login page...');
             setErrorMessage("");
@@ -360,7 +286,6 @@ const TransporterSignup = () => {
             setIsLoading(false);
         }
     };
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-12 px-4">
             <div className="max-w-6xl mx-auto">
@@ -373,18 +298,16 @@ const TransporterSignup = () => {
                         <span>Back to Role Selection</span>
                     </button>
                     <div className="inline-flex items-center space-x-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
-                        <Truck className="w-4 h-4" />
-                        <span>Transporter Registration</span>
+                        <User className="w-4 h-4" />
+                        <span>Moderator Registration</span>
                     </div>
                     <h1 className="text-4xl font-bold bg-gradient-to-r from-green-800 to-emerald-800 bg-clip-text text-transparent mb-4">
-                        Join as a Transport Partner
+                        Join as a Content Moderator
                     </h1>
                     <p className="text-green-700 max-w-2xl mx-auto">
-                        Register to offer your logistics and transportation services to the Agrovia network.
+                        Register to help manage and create content for the Agrovia platform. Please provide links to your previous work and any worker IDs if available.
                     </p>
                 </div>
-
-                {/* Success and error messages */}
                 {(successMessage || errorMessage) && (
                     <div className="max-w-xl mx-auto mb-6">
                         {successMessage && (
@@ -401,15 +324,13 @@ const TransporterSignup = () => {
                         )}
                     </div>
                 )}
-
                 <div className="bg-white rounded-2xl shadow-xl border border-green-200 overflow-hidden">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
                         <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
-                            <Truck className="w-6 h-6" />
-                            <span>Transporter Registration Form</span>
+                            <User className="w-6 h-6" />
+                            <span>Moderator Registration Form</span>
                         </h2>
                     </div>
-
                     <form onSubmit={handleSubmit} className="p-8 space-y-8">
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Personal Information</h3>
@@ -424,39 +345,88 @@ const TransporterSignup = () => {
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['phoneNumber'] = el} />
                             </div>
-                            <InputField icon={Home} label="Address" name="address" type="textarea" placeholder="Enter your complete address" value={formData.address} error={errors.address} onChange={handleInputChange} inputRef={el => fieldRefs.current['address'] = el} />
+                            <InputField icon={FileText} label="Address" name="address" type="textarea" placeholder="Enter your complete address" value={formData.address} error={errors.address} onChange={handleInputChange} inputRef={el => fieldRefs.current['address'] = el} />
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} inputRef={el => fieldRefs.current['profileImage'] = el} />
                             </div>
                         </div>
-
                         <div className="space-y-6">
-                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Vehicle & Logistics Details</h3>
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Truck} label="Vehicle Type" name="vehicleType" required options={vehicleTypes} value={formData.vehicleType} error={errors.vehicleType} onChange={handleInputChange} inputRef={el => fieldRefs.current['vehicleType'] = el} />
-                                <InputField icon={FileText} label="Vehicle Number" name="vehicleNumber" required placeholder="Enter vehicle registration number" value={formData.vehicleNumber} error={errors.vehicleNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['vehicleNumber'] = el} />
+                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Skill Demonstration</h3>
+                            {/* Optional description section */}
+                            <div className="space-y-2">
+                                <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
+                                    <FileText className="w-4 h-4" />
+                                    <span>Skill Demonstration Description <span className="text-gray-400">(optional)</span></span>
+                                </label>
+                                <textarea
+                                    name="skillDescription"
+                                    value={formData.skillDescription}
+                                    onChange={handleInputChange}
+                                    rows={3}
+                                    placeholder="Describe your content writing, moderation, or other relevant skills..."
+                                    className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 resize-none bg-slate-100 border-green-200 focus:border-green-400"
+                                    ref={el => fieldRefs.current['skillDescription'] = el}
+                                />
                             </div>
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <div className="flex gap-2">
-                                    <div className="flex-1">
-                                        <InputField icon={Gauge} label="Vehicle Capacity" name="vehicleCapacity" required type="number" step="0.01" placeholder="Enter capacity" value={formData.vehicleCapacity} error={errors.vehicleCapacity} onChange={handleInputChange} inputRef={el => fieldRefs.current['vehicleCapacity'] = el} />
+                            <div className="space-y-2">
+                                <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
+                                    <LinkIcon className="w-4 h-4" />
+                                    <span>Previous Work URLs <span className="text-red-500">*</span></span>
+                                </label>
+                                {formData.skillUrls.map((url, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 mb-2">
+                                        <input
+                                            type="url"
+                                            name={`skillUrls_${idx}`}
+                                            value={url}
+                                            onChange={e => handleArrayChange('skillUrls', idx, e.target.value)}
+                                            placeholder="https://your-portfolio-or-article.com"
+                                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${errors[`skillUrls_${idx}`] || errors.skillUrls ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'}`}
+                                            ref={el => fieldRefs.current[`skillUrls_${idx}`] = el}
+                                        />
+                                        {formData.skillUrls.length > 1 && (
+                                            <button type="button" onClick={() => removeArrayField('skillUrls', idx)} className="text-red-500 hover:text-red-700 font-bold text-lg">&times;</button>
+                                        )}
                                     </div>
-                                    <div className="w-32">
-                                        <InputField label="Unit" name="capacityUnit" options={capacityUnits} value={formData.capacityUnit} error={errors.capacityUnit} onChange={handleInputChange} inputRef={el => fieldRefs.current['capacityUnit'] = el} />
+                                ))}
+                                <button type="button" onClick={() => addArrayField('skillUrls')} className="text-green-700 hover:underline text-sm">+ Add another URL</button>
+                                {(errors.skillUrls || formData.skillUrls.some((_, idx) => errors[`skillUrls_${idx}`])) && (
+                                    <div className="flex items-center space-x-1 text-red-500 text-sm mt-1">
+                                        <AlertCircle className="w-4 h-4" />
+                                        <span>{errors.skillUrls || formData.skillUrls.map((_, idx) => errors[`skillUrls_${idx}`]).filter(Boolean).join(', ')}</span>
                                     </div>
-                                </div>
+                                )}
+                            </div>
+                            <div className="space-y-2">
+                                <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
+                                    <IdCard className="w-4 h-4" />
+                                    <span>Worker IDs (if any)</span>
+                                </label>
+                                {formData.workerIds.map((id, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 mb-2">
+                                        <input
+                                            type="text"
+                                            name={`workerIds_${idx}`}
+                                            value={id}
+                                            onChange={e => handleArrayChange('workerIds', idx, e.target.value)}
+                                            placeholder="Enter worker ID"
+                                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${errors[`workerIds_${idx}`] ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'}`}
+                                            ref={el => fieldRefs.current[`workerIds_${idx}`] = el}
+                                        />
+                                        {formData.workerIds.length > 1 && (
+                                            <button type="button" onClick={() => removeArrayField('workerIds', idx)} className="text-red-500 hover:text-red-700 font-bold text-lg">&times;</button>
+                                        )}
+                                    </div>
+                                ))}
+                                <button type="button" onClick={() => addArrayField('workerIds')} className="text-green-700 hover:underline text-sm">+ Add another Worker ID</button>
+                                {formData.workerIds.some((_, idx) => errors[`workerIds_${idx}`]) && (
+                                    <div className="flex items-center space-x-1 text-red-500 text-sm mt-1">
+                                        <AlertCircle className="w-4 h-4" />
+                                        <span>{formData.workerIds.map((_, idx) => errors[`workerIds_${idx}`]).filter(Boolean).join(', ')}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
-
-                        <div className="space-y-6">
-                            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">License & Experience</h3>
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <InputField icon={Award} label="License Number" name="licenseNumber" required placeholder="Enter your driving license number" value={formData.licenseNumber} error={errors.licenseNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['licenseNumber'] = el} />
-                                <InputField icon={Calendar} label="License Expiry Date" name="licenseExpiry" type="date" required value={formData.licenseExpiry} error={errors.licenseExpiry} onChange={handleInputChange} inputRef={el => fieldRefs.current['licenseExpiry'] = el} />
-                            </div>
-                            <InputField icon={FileText} label="Additional Information" name="additionalInfo" type="textarea" placeholder="Any additional info about your logistics services" value={formData.additionalInfo} error={errors.additionalInfo} onChange={handleInputChange} inputRef={el => fieldRefs.current['additionalInfo'] = el} />
-                        </div>
-
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Security Information</h3>
                             <div className="grid md:grid-cols-2 gap-6">
@@ -464,7 +434,6 @@ const TransporterSignup = () => {
                                 <InputField icon={Lock} label="Confirm Password" name="confirmPassword" type="password" required placeholder="Confirm your password" value={formData.confirmPassword} error={errors.confirmPassword} onChange={handleInputChange} showPassword={showConfirmPassword} onTogglePassword={() => setShowConfirmPassword(p => !p)} inputRef={el => fieldRefs.current['confirmPassword'] = el} />
                             </div>
                         </div>
-
                         <div className="pt-6">
                             <button
                                 type="submit"
@@ -479,7 +448,7 @@ const TransporterSignup = () => {
                                 ) : (
                                     <>
                                         <Check className="w-5 h-5" />
-                                        <span>Create Transporter Account</span>
+                                        <span>Create Moderator Account</span>
                                     </>
                                 )}
                             </button>
@@ -491,4 +460,4 @@ const TransporterSignup = () => {
     );
 };
 
-export default TransporterSignup;
+export default ModeratorSignup;
