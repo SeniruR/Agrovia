@@ -2,11 +2,13 @@ import React from 'react';
 import { MessageSquareX, Wheat, Store, Truck, CheckCircle, XCircle, Eye } from 'lucide-react';
 
 const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
-  // Remove all consider/not-consider stats and tags
   const getComplaintStats = () => {
     const total = complaints.length;
     const urgent = complaints.filter(c => c.priority === 'urgent').length;
-    return { total, urgent };
+    const high = complaints.filter(c => c.priority === 'high').length;
+    const medium = complaints.filter(c => c.priority === 'medium').length;
+    const low = complaints.filter(c => c.priority === 'low').length;
+    return { total, urgent, high, medium, low };
   };
 
   const stats = getComplaintStats();
@@ -40,7 +42,10 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
 
   const statCards = [
     { title: 'Total Complaints', value: stats.total, icon: MessageSquareX, color: 'text-slate-600' },
-    { title: 'Urgent', value: stats.urgent, icon: MessageSquareX, color: 'text-orange-600' }
+    { title: 'Urgent Priority', value: stats.urgent, icon: MessageSquareX, color: 'text-red-600' },
+    { title: 'High Priority', value: stats.high, icon: MessageSquareX, color: 'text-orange-600' },
+    { title: 'Medium Priority', value: stats.medium, icon: MessageSquareX, color: 'text-yellow-600' },
+    { title: 'Low Priority', value: stats.low, icon: MessageSquareX, color: 'text-green-600' }
   ];
 
   return (
@@ -102,44 +107,165 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
             </button>
           </div>
           
-          <div className="space-y-4">
-            {complaints.slice(0, 3).map((complaint) => (
-              <div key={complaint.type + '-' + complaint.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <h4 className="font-medium text-slate-800">{complaint.title}</h4>
-                    <p className="text-sm text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
-                      let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
-                      if (date) {
-                        if (typeof date === 'string' || typeof date === 'number') {
-                          date = new Date(date);
-                        }
-                        if (date instanceof Date && !isNaN(date)) {
-                          return date.toDateString();
-                        }
-                      }
-                      return '';
-                    })()}</p>
+          <div className="space-y-8">
+            {/* Crop Complaints */}
+            <div>
+              <h3 className="text-lg font-medium text-slate-800 mb-3 flex items-center">
+                <Wheat className="w-5 h-5 text-green-600 mr-2" />
+                Crop Complaints
+              </h3>
+              <div className="space-y-3">
+                {complaints.filter(c => c.type === 'crop').slice(0, 2).map((complaint) => (
+                  <div key={complaint.type + '-' + complaint.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      <div>
+                        <h4 className="font-medium text-slate-800">{complaint.title}</h4>
+                        <p className="text-sm text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
+                          let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+                          if (date) {
+                            if (typeof date === 'string' || typeof date === 'number') {
+                              date = new Date(date);
+                            }
+                            if (date instanceof Date && !isNaN(date)) {
+                              return date.toDateString();
+                            }
+                          }
+                          return '';
+                        })()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        complaint.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                        complaint.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                        complaint.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
+                        {complaint.priority}
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        crop
+                      </span>
+                      <button
+                        onClick={() => onViewComplaint(complaint.id, complaint.type)}
+                        className="p-2 bg-white hover:bg-white rounded-lg transition-colors"
+                      >
+                        <Eye className="w-4 h-4 text-slate-600" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    complaint.priority === 'urgent' ? 'bg-red-100 text-red-700' :
-                    complaint.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                    complaint.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-slate-100 text-slate-700'
-                  }`}>
-                    {complaint.priority}
-                  </span>
-                  <button
-                    onClick={() => onViewComplaint(complaint.id, complaint.type)}
-                    className="p-2 bg-white hover:bg-white rounded-lg transition-colors"
-                  >
-                    <Eye className="w-4 h-4 text-slate-600" />
-                  </button>
-                </div>
+                ))}
+                {complaints.filter(c => c.type === 'crop').length === 0 && (
+                  <p className="text-sm text-slate-500 italic p-3">No crop complaints found</p>
+                )}
               </div>
-            ))}
+            </div>
+            
+            {/* Shop Complaints */}
+            <div>
+              <h3 className="text-lg font-medium text-slate-800 mb-3 flex items-center">
+                <Store className="w-5 h-5 text-blue-600 mr-2" />
+                Shop Complaints
+              </h3>
+              <div className="space-y-3">
+                {complaints.filter(c => c.type === 'shop').slice(0, 2).map((complaint) => (
+                  <div key={complaint.type + '-' + complaint.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      <div>
+                        <h4 className="font-medium text-slate-800">{complaint.title}</h4>
+                        <p className="text-sm text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
+                          let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+                          if (date) {
+                            if (typeof date === 'string' || typeof date === 'number') {
+                              date = new Date(date);
+                            }
+                            if (date instanceof Date && !isNaN(date)) {
+                              return date.toDateString();
+                            }
+                          }
+                          return '';
+                        })()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        complaint.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                        complaint.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                        complaint.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
+                        {complaint.priority}
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        shop
+                      </span>
+                      <button
+                        onClick={() => onViewComplaint(complaint.id, complaint.type)}
+                        className="p-2 bg-white hover:bg-white rounded-lg transition-colors"
+                      >
+                        <Eye className="w-4 h-4 text-slate-600" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {complaints.filter(c => c.type === 'shop').length === 0 && (
+                  <p className="text-sm text-slate-500 italic p-3">No shop complaints found</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Transport Complaints */}
+            <div>
+              <h3 className="text-lg font-medium text-slate-800 mb-3 flex items-center">
+                <Truck className="w-5 h-5 text-purple-600 mr-2" />
+                Transport Complaints
+              </h3>
+              <div className="space-y-3">
+                {complaints.filter(c => c.type === 'transport').slice(0, 2).map((complaint) => (
+                  <div key={complaint.type + '-' + complaint.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      <div>
+                        <h4 className="font-medium text-slate-800">{complaint.title}</h4>
+                        <p className="text-sm text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
+                          let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+                          if (date) {
+                            if (typeof date === 'string' || typeof date === 'number') {
+                              date = new Date(date);
+                            }
+                            if (date instanceof Date && !isNaN(date)) {
+                              return date.toDateString();
+                            }
+                          }
+                          return '';
+                        })()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        complaint.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                        complaint.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                        complaint.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
+                        {complaint.priority}
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                        transport
+                      </span>
+                      <button
+                        onClick={() => onViewComplaint(complaint.id, complaint.type)}
+                        className="p-2 bg-white hover:bg-white rounded-lg transition-colors"
+                      >
+                        <Eye className="w-4 h-4 text-slate-600" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {complaints.filter(c => c.type === 'transport').length === 0 && (
+                  <p className="text-sm text-slate-500 italic p-3">No transport complaints found</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

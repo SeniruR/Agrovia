@@ -5,9 +5,12 @@ const AdminDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, cur
   const getComplaintStats = () => {
     const total = complaints.length;
     const urgent = complaints.filter(c => c.priority === 'urgent').length;
+    const high = complaints.filter(c => c.priority === 'high').length;
+    const medium = complaints.filter(c => c.priority === 'medium').length;
+    const low = complaints.filter(c => c.priority === 'low').length;
     const needsReply = complaints.filter(c => c.status === 'consider' && !c.adminReply).length;
 
-    return { total, urgent, needsReply };
+    return { total, urgent, high, medium, low, needsReply };
   };
 
   const stats = getComplaintStats();
@@ -38,8 +41,11 @@ const AdminDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, cur
 
   const statCards = [
     { title: 'Total Complaints', value: stats.total, icon: MessageSquareX, color: 'text-slate-600' },
-    { title: 'Urgent', value: stats.urgent, icon: MessageSquareX, color: 'text-red-600' },
-    { title: 'Needs Reply', value: stats.needsReply, icon: MessageSquareX, color: 'text-orange-600' }
+    { title: 'Urgent Priority', value: stats.urgent, icon: MessageSquareX, color: 'text-red-600' },
+    { title: 'High Priority', value: stats.high, icon: MessageSquareX, color: 'text-orange-600' },
+    { title: 'Medium Priority', value: stats.medium, icon: MessageSquareX, color: 'text-yellow-600' },
+    { title: 'Low Priority', value: stats.low, icon: MessageSquareX, color: 'text-green-600' },
+    { title: 'Needs Reply', value: stats.needsReply, icon: MessageSquareX, color: 'text-blue-600' }
   ];
 
   return (
@@ -69,7 +75,7 @@ const AdminDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, cur
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           {statCards.map((stat, index) => (
             <div key={index} className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
