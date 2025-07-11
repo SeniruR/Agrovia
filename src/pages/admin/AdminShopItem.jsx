@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Phone, Mail, Star, Award, Package, DollarSign, Eye, Heart, Edit, Trash2, X, ArrowLeft, Upload } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
-import ItemPostedForm from './ItemPostedForm';
 
-const MyShopItem = () => {
+
+const AdminMyShopItem = () => {
    const navigate = useNavigate();
    const [showAddPage, setShowAddPage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -60,15 +60,7 @@ const MyShopItem = () => {
     }, []);
 
     // Clean up image previews when component unmounts
-    useEffect(() => {
-        return () => {
-            if (editFormData.images) {
-                editFormData.images.forEach(img => {
-                    if (img?.preview) URL.revokeObjectURL(img.preview);
-                });
-            }
-        };
-    }, [editFormData.images]);
+    
 
     const handleImageUpload = (e) => {
         const files = Array.from(e.target.files);
@@ -104,148 +96,9 @@ const MyShopItem = () => {
         }
     };
 
-    // Handle edit form submission
- const handleEditSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const formData = new FormData();
+    
 
-    // Append fields except image arrays
-    Object.keys(editFormData).forEach(key => {
-      if (key !== 'images' && key !== 'existingImages') {
-        formData.append(key, editFormData[key]);
-      }
-    });
-
-    // Append new images
-    editFormData.images.forEach(img => {
-      formData.append('images', img.file);
-    });
-
-    // Remaining old images
-    const remainingImages = editFormData.existingImages
-      .filter(img => !img.markedForDeletion)
-      .map(img => img.url);
-    formData.append('remainingImages', JSON.stringify(remainingImages));
-
-    // Axios PUT request
-    const response = await axios.put(
-      `http://localhost:5000/api/v1/shop-products/${editFormData.shopitemid}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }
-    );
-
-    //  Use response.data.product, not itemData
-    const updatedItem = response.data.product;
-
-    setShopItems(prevItems =>
-      prevItems.map(item =>
-        item.shopitemid === updatedItem.shopitemid ? updatedItem : item
-      )
-    );
-
-    setShowEditModal(false);
-    setSelectedItem(null);
-    setEditFormData({
-      shopitemid: '',
-      shop_name: '',
-      owner_name: '',
-      phone_no: '',
-      shop_address: '',
-      city: '',
-      product_type: '',
-      product_name: '',
-      brand: '',
-      category: '',
-      season: '',
-      price: 0,
-      unit: '',
-      available_quantity: 0,
-      product_description: '',
-      usage_history: '',
-      organic_certified: false,
-      terms_accepted: false,
-      images: [],
-      existingImages: []
-    });
-     alert('Product updated successfully!');
-  window.location.reload();
-  } catch (error) {
-    console.error('Error updating item:', error);
-    console.error('Detailed error:', error);
-    console.error('Error response:', error.response?.data);
-    alert('Failed to update item');
-  }
-};
-
-
-    // Handle edit form changes
-    const handleEditChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setEditFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : 
-                   (type === 'number' ? parseFloat(value) : value)
-
-                   
-        })
-        
-      );
-    };
-
-    // Set edit form data when opening edit modal
-    const handleEdit = (item) => {
-        setSelectedItem(item);
-        setEditFormData({
-            shopitemid: item.shopitemid || '',
-            shop_name: item.shop_name || '',
-            owner_name: item.owner_name || '',
-            phone_no: item.phone_no || '',
-            shop_address: item.shop_address || '',
-            city: item.city || '',
-            product_type: item.product_type || '',
-            product_name: item.product_name || '',
-            brand: item.brand || '',
-            category: item.category || '',
-            season: item.season || '',
-            price: item.price || 0,
-            unit: item.unit || '',
-            available_quantity: item.available_quantity || 0,
-            product_description: item.product_description || '',
-            usage_history: item.usage_history || '',
-            organic_certified: item.organic_certified || false,
-            terms_accepted: item.terms_accepted || false,
-            images: [],
-            existingImages: item.images ? item.images.map(img => ({ 
-                url: img,
-                markedForDeletion: false 
-            })) : []
-        });
-     let imagesArray = [];
-
-  if (Array.isArray(item.images)) {
-    imagesArray = item.images;
-  } else if (typeof item.images === 'string' && item.images.trim() !== '') {
-    imagesArray = item.images.split(',').map(url => url.trim());
-  }
-
-  setEditFormData({
-    ...item,
-    images: [], // for new uploaded files (empty at start)
-    existingImages: imagesArray.map(url => ({
-      url,
-      markedForDeletion: false
-    })),
-  });
-
-  setSelectedItem(item);
-  setShowEditModal(true);
-        setShowEditModal(true);
-    };
+   
 
     const handleDelete = (shopitemid) => {
         setItemToDelete(shopitemid);
@@ -605,316 +458,7 @@ const renderCategoryOptions = () => {
 };
 
     // Edit Modal Component
-    const EditModal = () => {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all">
-            <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-green-100 animate-fade-in">
-                {/* Header */}
-                <div className="sticky top-0 bg-gradient-to-r from-green-50 to-green-100 border-b p-6 flex items-center justify-between rounded-t-3xl">
-                    <h2 className="text-2xl font-extrabold text-green-800 tracking-tight">Edit Product</h2>
-                    <button
-                        onClick={() => {
-                            setShowEditModal(false);
-                            setSelectedItem(null);
-                            // Clean up image previews
-                            editFormData.images.forEach(img => {
-                                if (img?.preview) URL.revokeObjectURL(img.preview);
-                            });
-                            setEditFormData(prev => ({
-                                ...prev,
-                                images: [],
-                                existingImages: prev.existingImages.map(img => ({
-                                    ...img,
-                                    markedForDeletion: false
-                                }))
-                            }));
-                        }}
-                        className="p-2 hover:bg-green-100 rounded-full transition-colors"
-                        title="Close"
-                    >
-                        <X className="h-6 w-6 text-green-700" />
-                    </button>
-                </div>
-
-                <form onSubmit={handleEditSubmit} className="p-8 space-y-6">
-                    {/* Grid Inputs */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Shop Name*</label>
-                            <input
-                                type="text"
-                                name="shop_name"
-                                value={editFormData.shop_name}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Owner Name*</label>
-                            <input
-                                type="text"
-                                name="owner_name"
-                                value={editFormData.owner_name}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Phone Number*</label>
-                            <input
-                                type="tel"
-                                name="phone_no"
-                                value={editFormData.phone_no}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Shop Address*</label>
-                            <input
-                                type="text"
-                                name="shop_address"
-                                value={editFormData.shop_address}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Product Name*</label>
-                            <input
-                                type="text"
-                                name="product_name"
-                                value={editFormData.product_name}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Product Type*</label>
-                            <select
-                                name="product_type"
-                                value={editFormData.product_type}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            >
-                                <option value="">Select product type</option>
-                                <option value="seeds">Seeds</option>
-                                <option value="fertilizer">Fertilizer</option>
-                                <option value="chemical">Chemical</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Brand</label>
-                            <input
-                                type="text"
-                                name="brand"
-                                value={editFormData.brand}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Category</label>
-                            <select
-                                name="category"
-                                value={editFormData.category || ''}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                disabled={!editFormData.product_type}
-                            >
-                                {renderCategoryOptions()}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Season</label>
-                            <select
-                                name="season"
-                                value={editFormData.season}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                            >
-                                <option value="">Select season</option>
-                                <option value="yala">Yala Season</option>
-                                <option value="maha">Maha Season</option>
-                                <option value="all-year">All Year Round</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Price (LKR)*</label>
-                            <input
-                                type="number"
-                                name="price"
-                                value={editFormData.price}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                min="0"
-                                step="0.01"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Available Quantity*</label>
-                            <input
-                                type="number"
-                                name="available_quantity"
-                                value={editFormData.available_quantity}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                min="0"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Unit</label>
-                            <input
-                                type="text"
-                                name="unit"
-                                value={editFormData.unit}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-medium text-green-900">Usage History</label>
-                            <input
-                                type="text"
-                                name="usage_history"
-                                value={editFormData.usage_history}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                        <label className="block mb-1 font-medium text-green-900">Description*</label>
-                        <textarea
-                            name="product_description"
-                            value={editFormData.product_description}
-                            onChange={handleEditChange}
-                            rows="3"
-                            className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                            required
-                        />
-                    </div>
-
-                    {/* Images Section */}
-                    <div>
-                        <label className="block mb-2 font-medium text-green-900">Product Images</label>
-                        <input
-                            type="file"
-                            name="images"
-                            onChange={handleImageUpload}
-                            className="w-full p-2 border rounded"
-                            multiple
-                            accept="image/*"
-                        />
-                        {/* Existing Images Preview */}
-                        {editFormData.existingImages?.length > 0 && (
-                            <div className="mt-4">
-                                <h4 className="font-medium mb-2">Current Images</h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {editFormData.existingImages?.map((img, index) => (
-                                        !img.markedForDeletion && (
-                                            <div key={`existing-${index}`} className="relative">
-                                                <img
-                                                    src={img.url}
-                                                    alt={`Product ${index}`}
-                                                    className="h-20 w-20 object-cover rounded border"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeImage(index, true)}
-                                                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-                                        )
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {/* New Images Preview */}
-                        {editFormData.images?.length > 0 && (
-                            <div className="mt-4">
-                                <h4 className="font-medium mb-2">New Images</h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {editFormData.images.map((img, index) => (
-                                        <div key={`new-${index}`} className="relative">
-                                            <img
-                                                src={img.preview}
-                                                alt={`New Product ${index}`}
-                                                className="h-20 w-20 object-cover rounded border"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeImage(index, false)}
-                                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Organic Certified Checkbox */}
-                    <div className="flex items-center mb-4">
-                        <input
-                            type="checkbox"
-                            name="organic_certified"
-                            checked={editFormData.organic_certified}
-                            onChange={handleEditChange}
-                            className="mr-2 accent-green-600"
-                        />
-                        <label className="font-medium text-green-900">Organic Certified</label>
-                    </div>
-
-                    {/* Form Actions */}
-                    <div className="flex justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setShowEditModal(false);
-                                setSelectedItem(null);
-                                editFormData.images.forEach(img => {
-                                    if (img?.preview) URL.revokeObjectURL(img.preview);
-                                });
-                                setEditFormData(prev => ({
-                                    ...prev,
-                                    images: [],
-                                    existingImages: prev.existingImages.map(img => ({
-                                        ...img,
-                                        markedForDeletion: false
-                                    }))
-                                }));
-                            }}
-                            className="px-6 py-2 border border-green-300 rounded-lg text-green-800 hover:bg-green-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow"
-                        >
-                            Save Changes
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
+   
 
     // Delete Confirmation Modal
     const DeleteModal = () => {
@@ -997,7 +541,7 @@ const renderCategoryOptions = () => {
             {/* Header */}
             <div className="bg-white shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 py-6">
-                    
+                       <h1 className="text-3xl font-bold text-green-800">Shop Items</h1>
 
                     {/* Search and Filter Bar */}
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -1043,12 +587,7 @@ const renderCategoryOptions = () => {
                     </div>
                       {/* Add Item Button */}
                     <div className="mt-6 flex justify-end">
-        <button
-            onClick={() => navigate('/itempostedForm')}
-            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow transition-colors flex items-center"
-        >
-            + Add Item
-        </button>
+       
     </div>
                 </div>
             </div>
@@ -1129,12 +668,8 @@ const renderCategoryOptions = () => {
                                         <Eye className="h-4 w-4 mr-2" />
                                         View Details
                                     </button>
-                                    <button
-                                        onClick={() => handleEdit(item)}
-                                        className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                                    >
-                                        <Edit className="h-4 w-4" />
-                                    </button>
+                                   
+                                   
                                     <button
                                         onClick={() => handleDelete(item.shopitemid)}
                                         className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
@@ -1164,4 +699,4 @@ const renderCategoryOptions = () => {
     );
 };
 
-export default MyShopItem;
+export default AdminMyShopItem;

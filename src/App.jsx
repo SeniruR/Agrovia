@@ -80,7 +80,11 @@ import MyShopItem from "./pages/shop/MyShopItem";
 import NavigationTest from "./pages/NavigationTest";
 
 import CropDetailView from "./pages/farmer/CropDetailView";
+
+import AdminMyShopItem from "./pages/admin/AdminShopItem";
+
 import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
+
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -471,12 +475,20 @@ const App = () => {
           </Layout>
         } />
 
+
+         <Route path="/adminshopitems" element={
+          <Layout>
+            <AdminMyShopItem />
+          </Layout>
+        } />
+
          <Route path="/buyer-com-dash" element={
         <Layout>
           <BuyerComplaintDashboard/>
         </Layout>
       }
       />
+
     </Routes>
     
     
