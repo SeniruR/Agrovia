@@ -100,6 +100,12 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
                     <p className="font-medium text-slate-800">{complaint.submittedAt.toDateString()}</p>
                   </div>
                 </div>
+                {complaint.category && (
+                  <div>
+                    <p className="text-sm text-slate-500">Category</p>
+                    <p className="font-medium text-slate-800">{complaint.category}</p>
+                  </div>
+                )}
               </div>
               <div className="space-y-4">
                 {complaint.location && (
@@ -120,6 +126,12 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
                     <p className="font-medium text-slate-800">{complaint.cropType}</p>
                   </div>
                 )}
+                {complaint.farmer && (
+                  <div>
+                    <p className="text-sm text-slate-500">Farmer</p>
+                    <p className="font-medium text-slate-800">{complaint.farmer}</p>
+                  </div>
+                )}
                 {complaint.shopName && (
                   <div>
                     <p className="text-sm text-slate-500">Shop Name</p>
@@ -130,6 +142,24 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
                   <div>
                     <p className="text-sm text-slate-500">Transport Company</p>
                     <p className="font-medium text-slate-800">{complaint.transportCompany}</p>
+                  </div>
+                )}
+                {complaint.purchaseDate && (
+                  <div>
+                    <p className="text-sm text-slate-500">Purchase Date</p>
+                    <p className="font-medium text-slate-800">{complaint.purchaseDate}</p>
+                  </div>
+                )}
+                {complaint.deliveryDate && (
+                  <div>
+                    <p className="text-sm text-slate-500">Delivery Date</p>
+                    <p className="font-medium text-slate-800">{complaint.deliveryDate}</p>
+                  </div>
+                )}
+                {complaint.trackingNumber && (
+                  <div>
+                    <p className="text-sm text-slate-500">Tracking Number</p>
+                    <p className="font-medium text-slate-800">{complaint.trackingNumber}</p>
                   </div>
                 )}
               </div>
@@ -155,26 +185,14 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
           )}
 
           {/* Status Message */}
-          {!complaint.adminReply && complaint.status === 'consider' && (
+          {!complaint.adminReply && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
               <div className="text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
                   <MessageCircle className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">Under Review</h3>
-                <p className="text-slate-600">Your complaint is being considered. You will receive an admin response soon.</p>
-              </div>
-            </div>
-          )}
-
-          {complaint.status === 'not-consider' && !complaint.adminReply && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <XCircle className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">Not Considered</h3>
-                <p className="text-slate-600">Unfortunately, your complaint was not considered for resolution.</p>
+                <p className="text-slate-600">Your complaint is being reviewed. You will receive an admin response soon.</p>
               </div>
             </div>
           )}
