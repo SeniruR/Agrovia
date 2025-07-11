@@ -80,6 +80,7 @@ import MyShopItem from "./pages/shop/MyShopItem";
 import NavigationTest from "./pages/NavigationTest";
 
 import CropDetailView from "./pages/farmer/CropDetailView";
+import AdminMyShopItem from "./pages/admin/AdminShopItem";
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -469,7 +470,15 @@ const App = () => {
             <CropDetailView />
           </Layout>
         } />
+
+         <Route path="/adminshopitems" element={
+          <Layout>
+            <AdminMyShopItem />
+          </Layout>
+        } />
     </Routes>
+    
+    
   );
 };
 
