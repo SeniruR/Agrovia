@@ -323,14 +323,29 @@ const TransporterSignup = () => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
+            let transporterUserId = null;
             if (result.data && result.data.user) {
+                transporterUserId = result.data.user.id;
                 localStorage.setItem('user', JSON.stringify(result.data.user));
                 window.dispatchEvent(new Event('userChanged'));
             }
-            setSuccessMessage('Transporter registration successful! Redirecting to Home page...');
+            // Create disable_account row for transporter (case_id = 3)
+            if (transporterUserId) {
+                try {
+                    await axios.post('http://localhost:5000/api/v1/disable-accounts', {
+                        user_id: transporterUserId,
+                        case_id: 3,
+                        reason: 'Transporter registration pending review',
+                    });
+                } catch (disableErr) {
+                    // Not critical, just log
+                    console.warn('Failed to create disable_account row:', disableErr);
+                }
+            }
+            setSuccessMessage('Registration successful! Your account will be reviewed and activated as appropriate. You will be able to log in once your account is approved. Redirecting to login page...');
             setErrorMessage("");
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            setTimeout(() => navigate('/'), 2000);
+            setTimeout(() => navigate('/login'), 20000);
         } catch (error) {
             let msg = 'Registration failed. Please try again.';
             if (error.response && error.response.data) {
