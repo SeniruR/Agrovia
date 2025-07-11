@@ -7,7 +7,7 @@ import BuyerDashboard from "./components/dashboards/BuyerDashboard";
 import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
-import FarmerCropViews from "./pages/Farmer/AllCropsViews";
+import FarmerCropViews from "./pages/farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
 import ShopDashBoard from "./pages/shop/ShopDashboard";
@@ -22,11 +22,12 @@ import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
-import BuyersMarketplace from "./pages/ByersMarketPlace_backup";
+import BuyersMarketplace from "./pages/ByersMarketPlace";
+import CartPage from "./pages/CartPage";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
-import Profile from "./pages/Profile";
+import FarmerProfileEdit from "./pages/Profile";
 import FarmerProfile from "./pages/profiles/FarmerProfile";
 import BuyerProfile from "./pages/profiles/BuyerProfile";
 import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
@@ -55,6 +56,7 @@ import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
+import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
@@ -70,6 +72,19 @@ import PriceForcasting from "./pages/PriceForcasting";
 import ContentApprovalDashboard from "./pages/ContentApproval";
 import FarmerVerificationPanel from "./pages/organization/farmerVerificationPanel";
 import CropReccomendationSystem from "./pages/CropRecommendation";
+import OrderHistory from "./components/dashboards/OrderHistory";
+import SavedItems from "./components/dashboards/SavedItems";
+import TrackOrders from "./components/dashboards/TrackOrders";
+import MyShopItem from "./pages/shop/MyShopItem";
+
+import NavigationTest from "./pages/NavigationTest";
+
+import CropDetailView from "./pages/farmer/CropDetailView";
+
+import AdminMyShopItem from "./pages/admin/AdminShopItem";
+
+import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
+
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -78,8 +93,12 @@ import CropReccomendationSystem from "./pages/CropRecommendation";
 
 const App = () => {
   return (
-    
     <Routes>
+      <Route path="/admin/organization-approval" element={
+        <Layout>
+          <AdminOrganizationApproval />
+        </Layout>
+      } />
       <Route path="/" element={
           <Layout>
             <Home />
@@ -124,9 +143,9 @@ const App = () => {
           <ShopOwnerSignup />
         </Layout>} 
       />
-        {/* Dashboard Routes - No Layout */}
-      <Route path="/dashboard/farmer" element={<FarmerDashboard />} />
-      <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
+        {/* Dashboard Routes - Now with Layout */}
+      <Route path="/dashboard/farmer" element={<Layout><FarmerDashboard /></Layout>} />
+      <Route path="/dashboard/buyer" element={<Layout><BuyerDashboard /></Layout>} />
 {/* <Route path="/signup/moderator" element={<ModeratorSignup />} /> */}
 
       <Route path="/forgotpassword" element={
@@ -138,6 +157,12 @@ const App = () => {
       <Route path="/byersmarket" element={
           <Layout>
             <BuyersMarketplace />
+          </Layout>
+        }
+      />
+      <Route path="/cart" element={
+          <Layout>
+            <CartPage />
           </Layout>
         }
       />
@@ -162,15 +187,21 @@ const App = () => {
         }
       />
       <Route path="/profile" element={<ProfileRouter />} />
-      <Route path="/profile/general" element={
+      {/* <Route path="/profile/general" element={
           <Layout>
             <Profile />
          </Layout>
         }
-      />
+      /> */}
       <Route path="/profile/farmer" element={
           <Layout>
             <FarmerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/farmer/edit" element={
+          <Layout>
+            <FarmerProfileEdit />
          </Layout>
         }
       />
@@ -207,7 +238,12 @@ const App = () => {
          </Layout>
         }
       />
-
+      <Route path="/navigation-test" element={
+          <Layout>
+            <NavigationTest />
+          </Layout>
+        }
+      />
       <Route path="/footer" element={
           <Layout>
             <Footer />
@@ -295,7 +331,6 @@ const App = () => {
         }
 
       />
-
       <Route path="/admindashboard" element={
           <Layout>
             <AdminDashboard/>
@@ -410,9 +445,53 @@ const App = () => {
         </Layout>
       }
       />
+        <Route path="/order-history" element={
+        <Layout>
+          <OrderHistory/>
+        </Layout>
+      }
+      />
+       <Route path="/saved-items" element={
+        <Layout>
+          <SavedItems/>
+        </Layout>
+      }
+      />
+       <Route path="/track-orders" element={
+        <Layout>
+          <TrackOrders/>
+        </Layout>
+      }
+      />
+ <Route path="/myshopitem" element={
+        <Layout>
+          <MyShopItem/>
+        </Layout>
+      }
+      />
+      <Route path="/crop/:id" element={
+          <Layout>
+            <CropDetailView />
+          </Layout>
+        } />
 
+
+         <Route path="/adminshopitems" element={
+          <Layout>
+            <AdminMyShopItem />
+          </Layout>
+        } />
+
+         <Route path="/buyer-com-dash" element={
+        <Layout>
+          <BuyerComplaintDashboard/>
+        </Layout>
+      }
+      />
 
     </Routes>
+    
+    
   );
 };
 

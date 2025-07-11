@@ -1,180 +1,84 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone } from 'lucide-react';
 import { useCart } from './CartContext';
+// Add this component at the top of your file
+const ImageWithFallback = ({ src, alt, className }) => {
+  const [imgSrc, setImgSrc] = useState(src);
+  const [loading, setLoading] = useState(true);
+
+  const fallback = 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg';
+
+  const handleError = () => {
+    setImgSrc(fallback);
+    setLoading(false);
+  };
+
+  return (
+    <div className={`relative ${className}`}>
+      {loading && <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-lg"></div>}
+      <img
+        src={imgSrc}
+        alt={alt}
+        className={`w-full h-full object-cover ${loading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+        onLoad={() => setLoading(false)}
+        onError={handleError}
+        loading="lazy"
+      />
+    </div>
+  );
+};
 
 const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('rating');
   const [viewMode, setViewMode] = useState('grid');
+  const [shopItems, setShopItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showPhonePopup, setShowPhonePopup] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
   
   const { addToCart, getCartItemsCount } = useCart();
-
-  // Dynamic shop items data
-  const shopItems = [
-    {
-      id: '1',
-      shopName: 'Green Valley Seeds',
-      ownerName: 'Rajesh Kumar',
-      email: 'rajesh@greenvalley.com',
-      phone: '+94-98765-43210',
-      address: '123 Farm Road, Sector 15',
-      city: 'Colombo',
-      productType: 'seeds',
-      productName: 'Premium Basmati Rice Seeds',
-      brand: 'Heritage Agro',
-      category: 'Cereal Seeds',
-      price: 850,
-      unit: 'kg',
-      quantity: 500,
-      description: 'Premium quality basmati rice seeds with excellent aroma and long grain characteristics. Perfect for commercial farming with high yield potential.',
-      features: 'High yield, Disease resistant, Aromatic, Premium quality',
-      usage: 'Soak seeds for 24 hours before sowing. Plant during monsoon season for best results.',
-      season: 'Kharif',
-      organicCertified: true,
-      images: ['https://i.pinimg.com/736x/8d/82/d2/8d82d28f79c84c3ff64d835e9eb7d8c7.jpg'],
-      termsAccepted: true,
-      rating: 4.8,
-      reviewCount: 245,
-      inStock: true,
-      trending: true
-    },
-    {
-      id: '2',
-      shopName: 'Nutrient Pro Agri',
-      ownerName: 'Priya Sharma',
-      email: 'priya@nutrientpro.com',
-      phone: '+94-87654-32109',
-      address: '456 Agriculture Complex',
-      city: 'Kandy',
-      productType: 'fertilizer',
-      productName: 'Organic Vermi Compost',
-      brand: 'EcoGrow Lanka',
-      category: 'Organic Fertilizer',
-      price: 1200,
-      unit: '50kg bag',
-      quantity: 150,
-      description: 'Premium organic vermi compost enriched with essential nutrients. Improves soil fertility and promotes healthy plant growth naturally.',
-      features: 'Organic certified, Nutrient rich, Soil conditioner, Eco-friendly',
-      usage: 'Mix 2-3 kg per square meter of soil. Apply before sowing or transplanting.',
-      season: 'All seasons',
-      organicCertified: true,
-      images: ['https://i.pinimg.com/736x/d6/a1/8d/d6a18d8a85324be36346d7509188e07e.jpg'],
-      termsAccepted: true,
-      rating: 4.6,
-      reviewCount: 189,
-      inStock: true,
-      trending: false
-    },
-    {
-      id: '3',
-      shopName: 'AgroChem Solutions',
-      ownerName: 'Vikram Singh',
-      email: 'vikram@agrochem.com',
-      phone: '+94-76543-21098',
-      address: '789 Industrial Area, Phase 2',
-      city: 'Galle',
-      productType: 'chemical',
-      productName: 'Bio Pesticide Spray',
-      brand: 'CropGuard Pro',
-      category: 'Bio Pesticide',
-      price: 450,
-      unit: '500ml bottle',
-      quantity: 200,
-      description: 'Advanced bio-pesticide for effective control of common crop pests. Safe for beneficial insects and environmentally friendly.',
-      features: 'Bio-degradable, Safe for bees, Residue free, Quick action',
-      usage: 'Dilute 5ml per liter of water. Spray during early morning or evening hours.',
-      season: 'All seasons',
-      organicCertified: true,
-      images: ['https://i.pinimg.com/736x/be/57/4e/be574e4d5eb53ce8334384d49940d1d9.jpg'],
-      termsAccepted: true,
-      rating: 4.4,
-      reviewCount: 156,
-      inStock: true,
-      trending: true
-    },
-    {
-      id: '4',
-      shopName: 'Seed Paradise',
-      ownerName: 'Sunita Devi',
-      email: 'sunita@seedparadise.com',
-      phone: '+94-65432-10987',
-      address: '321 Garden Colony',
-      city: 'Negombo',
-      productType: 'seeds',
-      productName: 'Hybrid Tomato Seeds',
-      brand: 'Golden Harvest',
-      category: 'Vegetable Seeds',
-      price: 320,
-      unit: '100g packet',
-      quantity: 300,
-      description: 'High-yielding hybrid tomato seeds suitable for both greenhouse and open field cultivation. Excellent disease resistance.',
-      features: 'Hybrid variety, High yield, Disease resistant, Market preferred',
-      usage: 'Start in nursery beds, transplant after 25-30 days when seedlings are 4-5 inches tall.',
-      season: 'Rabi/Summer',
-      organicCertified: false,
-      images: ['https://i.pinimg.com/736x/a5/44/71/a54471167b262609069d656fc59faa29.jpg'],
-      termsAccepted: true,
-      rating: 4.7,
-      reviewCount: 298,
-      inStock: true,
-      trending: false
-    },
-    {
-      id: '5',
-      shopName: 'FertiliMax Lanka',
-      ownerName: 'Harpreet Kaur',
-      email: 'harpreet@fertilimax.com',
-      phone: '+94-54321-09876',
-      address: '654 Fertilizer Market',
-      city: 'Matara',
-      productType: 'fertilizer',
-      productName: 'NPK Complex Fertilizer',
-      brand: 'GreenPro Max',
-      category: 'Chemical Fertilizer',
-      price: 1800,
-      unit: '50kg bag',
-      quantity: 80,
-      description: 'Balanced NPK fertilizer (19:19:19) for all crops. Provides essential nutrients for healthy plant growth and maximum yield.',
-      features: 'Balanced nutrition, Water soluble, Quick absorption, All crop suitable',
-      usage: 'Apply 200-250 kg per hectare depending on crop and soil condition.',
-      season: 'All seasons',
-      organicCertified: false,
-      images: ['https://i.pinimg.com/736x/96/7f/06/967f06768d5422b6c16f5f56210c9a3b.jpg'],
-      termsAccepted: true,
-      rating: 4.5,
-      reviewCount: 167,
-      inStock: true,
-      trending: true
-    },
-    {
-      id: '6',
-      shopName: 'Pest Control Pro',
-      ownerName: 'Manjeet Singh',
-      email: 'manjeet@pestcontrol.com',
-      phone: '+94-43210-98765',
-      address: '987 Chemical Hub',
-      city: 'Jaffna',
-      productType: 'chemical',
-      productName: 'Fungicide Solution',
-      brand: 'BioDefend Plus',
-      category: 'Fungicide',
-      price: 680,
-      unit: '250ml bottle',
-      quantity: 120,
-      description: 'Systemic fungicide for prevention and control of fungal diseases in crops. Effective against powdery mildew, rust, and blight.',
-      features: 'Systemic action, Preventive & curative, Long lasting, Broad spectrum',
-      usage: 'Mix 2ml per liter of water. Spray at first sign of disease or as preventive measure.',
-      season: 'Monsoon/Winter',
-      organicCertified: false,
-      images: ['https://i.pinimg.com/736x/fa/19/89/fa19896297f0b29d0cedd7bea2faab57.jpg'],
-      termsAccepted: true,
-      rating: 4.3,
-      reviewCount: 134,
-      inStock: false,
-      trending: false
+useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/v1/shop-products');
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      const data = await response.json();
+      
+     setShopItems(data.map(item => ({
+  ...item,
+  organicCertified: Boolean(item.organic_certified),
+  termsAccepted: Boolean(item.terms_accepted),
+  productType: item.product_type,
+  productName: item.product_name,
+  inStock: item.available_quantity > 0,
+  rating: Number(item.rating) || 4.0,
+  reviewCount: Number(item.review_count) || 0,
+  quantity: Number(item.available_quantity),
+  unit: item.unit,
+  description: item.product_description,
+  usage: item.usage_history,
+  images: Array.isArray(item.images) ? 
+    item.images.filter(img => img) : // Remove empty/null images
+    [item.images || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'],
+  shopName: item.shop_name,
+  city: item.city
+})));
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
+
+  fetchProducts();
+}, []);
 
   const categories = [
     { value: 'all', label: 'All Products', icon: Package, count: shopItems.length },
@@ -185,10 +89,10 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
 
   const filteredAndSortedItems = useMemo(() => {
     let filtered = shopItems.filter(item => {
-      const matchesSearch = item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           item.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           item.shopName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = item.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.shopName?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || item.productType === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -202,14 +106,16 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         case 'rating':
           return (b.rating || 0) - (a.rating || 0);
         case 'name':
-          return a.productName.localeCompare(b.productName);
+          return a.productName?.localeCompare(b.productName);
         case 'trending':
           return (b.trending ? 1 : 0) - (a.trending ? 1 : 0);
         default:
           return 0;
       }
     });
-  }, [searchTerm, selectedCategory, sortBy]);
+  }, [searchTerm, selectedCategory, sortBy, shopItems]);
+
+  // ... rest of your component code remains the same ...
 
   const handleAddToCart = (item, e) => {
     e.stopPropagation();
@@ -234,22 +140,49 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     }
   };
 
+  const handleViewMore = (item, e) => {
+    e.stopPropagation();
+    setSelectedProduct(item);
+  };
+
+  const handleItemClick = (item) => {
+    setSelectedProduct(item);
+  };
+
+  const closePopup = () => {
+    setSelectedProduct(null);
+  };
+
+  const handleCallClick = (phone, e) => {
+    e.stopPropagation();
+    setPhoneNumber(phone);
+    setShowPhonePopup(true);
+  };
+
+  const closePhonePopup = () => {
+    setShowPhonePopup(false);
+    setPhoneNumber('');
+  };
+
   const ProductCard = ({ item }) => (
     <div 
-      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer group border border-emerald-100 hover:border-emerald-300 transform hover:-translate-y-2"
-      onClick={() => onItemClick(item)}
+      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer group border border-emerald-100 hover:border-emerald-300 transform hover:-translate-y-2
+      w-full min-h-[480px] max-h-[600px] flex flex-col"
+      style={{ minWidth: 320, maxWidth: 380 }} // Enhance grid width
+      onClick={() => handleItemClick(item)}
     >
-      <div className="relative overflow-hidden">
-        <img 
-          src={item.images[0] || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'} 
+      <div className="relative overflow-hidden h-64">
+        <ImageWithFallback
+          src={item.images[0]}
           alt={item.productName}
-          className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-700"
+          className="group-hover:scale-110 transition-transform duration-700 h-full"
         />
+
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         
         {/* Badges */}
         <div className="absolute top-4 left-4 flex flex-col gap-2">
-          {item.organicCertified && (
+          {item.organic_certified && (
             <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
               <Leaf className="w-3 h-3" />
               Organic
@@ -276,17 +209,17 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         </div>
       </div>
       
-      <div className="p-6">
+      <div className="p-8 flex flex-col flex-1 justify-between">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors line-clamp-2 mb-1">
-              {item.productName}
+              {item.product_name}
             </h3>
             <p className="text-emerald-600 font-semibold text-sm">{item.brand}</p>
           </div>
         </div>
         
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.description}</p>
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.product_description}</p>
         
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -307,26 +240,38 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
             <span className="text-2xl font-bold text-emerald-600">LKR {item.price.toLocaleString('en-LK')}</span>
             <span className="text-sm text-gray-600">per {item.unit}</span>
           </div>
-          <p className="text-emerald-700 text-sm font-medium">{item.quantity} {item.unit}s available</p>
+          <p className="text-emerald-700 text-sm font-medium">{item.available_quantity} {item.unit}s available</p>
         </div>
         
         <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-xs text-gray-500">Shop</span>
-            <span className="text-sm font-semibold text-gray-700">{item.shopName}</span>
+          <div />
+          <div className="flex items-center gap-2">
+            <button 
+              className={`px- py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 ${
+                item.inStock 
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              onClick={(e) => handleAddToCart(item, e)}
+              disabled={!item.inStock}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              {item.inStock ? 'Add to Cart' : 'Out of Stock'}
+            </button>
+            <button 
+              className="px-9 py-2 rounded-xl text-sm font-bold bg-green-500 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+              onClick={(e) => handleViewMore(item, e)}
+            >
+              View More
+            </button>
+            <button
+              className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-900 transition"
+              onClick={(e) => handleCallClick(item.phone_no, e)}
+              title="Call Seller"
+            >
+              <Phone className="w-5 h-5" />
+            </button>
           </div>
-          <button 
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 ${
-              item.inStock 
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-            onClick={(e) => handleAddToCart(item, e)}
-            disabled={!item.inStock}
-          >
-            <ShoppingCart className="w-4 h-4" />
-            {item.inStock ? 'Add to Cart' : 'Out of Stock'}
-          </button>
         </div>
       </div>
     </div>
@@ -335,15 +280,15 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const ProductListItem = ({ item }) => (
     <div 
       className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer border border-emerald-100 hover:border-emerald-300"
-      onClick={() => onItemClick(item)}
+      onClick={() => handleItemClick(item)}
     >
       <div className="flex">
         <div className="w-64 h-40 flex-shrink-0 relative overflow-hidden">
-          <img 
-            src={item.images[0] || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'} 
-            alt={item.productName}
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          />
+           <ImageWithFallback
+    src={item.images[0]}
+    alt={item.product_name}
+    className="hover:scale-105 transition-transform duration-300"
+  />
           {item.organicCertified && (
             <div className="absolute top-3 left-3 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
               <Leaf className="w-3 h-3" />
@@ -355,7 +300,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
           <div className="flex justify-between items-start mb-3">
             <div className="flex-1">
               <h3 className="font-bold text-gray-900 text-xl hover:text-emerald-700 transition-colors mb-1">
-                {item.productName}
+                {item.product_name}
               </h3>
               <p className="text-emerald-600 font-semibold">{item.brand}</p>
             </div>
@@ -372,7 +317,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
               )}
             </div>
           </div>
-          <p className="text-gray-600 mb-4 leading-relaxed">{item.description}</p>
+          <p className="text-gray-600 mb-4 leading-relaxed">{item.product_description}</p>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-1">
@@ -384,7 +329,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
                 <MapPin className="w-4 h-4" />
                 {item.city}
               </div>
-              <span className="text-sm font-semibold text-gray-700">{item.shopName}</span>
+              <span className="text-sm font-semibold text-gray-700">{item.shop_name}</span>
             </div>
             <button 
               className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl ${
@@ -404,11 +349,44 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     </div>
   );
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-emerald-500 border-opacity-75 mx-auto mb-4"></div>
+          <p className="text-lg font-semibold text-gray-700">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center">
+        <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Error loading products</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50">
       {/* Hero Header */}
       <div className="bg-gradient-to-r from-emerald-600 via-emerald-700 to-green-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-20xl mx-auto px-4 sm:px-6 lg:px-10 py-12">
           <div className="flex items-center justify-between mb-8">
             <div className="text-center flex-1">
               <h1 className="text-5xl font-bold mb-4">🌱 Agricultural Marketplace</h1>
@@ -418,7 +396,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
             </div>
             <button
               onClick={onViewCart}
-              className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-2xl font-bold transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 relative"
+              className="bg-white/20 hover:bg-white/30 text-white px-9 py-3 rounded-2xl font-bold transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 relative"
             >
               <ShoppingCart className="w-6 h-6" />
               View Cart
@@ -536,7 +514,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
                       : 'text-gray-400 bg-slate-200 hover:text-gray-600 bg hover:bg-gray-50'
                   }`}
                 >
-                  <Grid className="w-5 h-5" />
+                  <Grid className="w-9 h-5" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
@@ -552,7 +530,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
             </div>
             
             {/* Products Grid/List */}
-            {filteredAndSortedItems.length === 0 ? (
+          {filteredAndSortedItems.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Search className="w-12 h-12 text-emerald-600" />
@@ -563,8 +541,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
             ) : (
               <div className={
                 viewMode === 'grid' 
-                  ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8'
-                  : 'space-y-6'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-24' // Increased gap to gap-10 (2.5rem)
+                  : 'space-y-8'
               }>
                 {filteredAndSortedItems.map((item) => 
                   viewMode === 'grid' 
@@ -576,6 +554,195 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
           </div>
         </div>
       </div>
+
+      {selectedProduct && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl p-6 relative animate-fade-in overflow-hidden" style={{ maxHeight: '90vh' }}>
+            {/* Close Button */}
+            <button
+              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold shadow z-50"
+              onClick={closePopup}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left: Image */}
+              <div className="flex flex-col items-center justify-start bg-gradient-to-br from-emerald-50 to-white p-6">
+                <img
+                  src={selectedProduct.images[0]}
+                  alt={selectedProduct.product_name}
+                  className="w-full h-64 object-cover rounded-xl shadow-lg border-4 border-emerald-100"
+                />
+                <div className="mt-4 w-full">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm font-medium text-blue-600">Shop Address</p>
+                    <p className="font-semibold text-gray-800 break-words">{selectedProduct.shop_address}</p>
+                  </div>
+                </div>
+                
+                {/* Add farming tips card to fill white space */}
+                <div className="mt-6 w-full bg-emerald-50/80 p-4 rounded-xl border border-emerald-200">
+                  <h3 className="text-emerald-700 font-bold text-lg flex items-center gap-2">
+                    <Leaf className="w-5 h-5" /> Farming Tips
+                  </h3>
+                  <div className="mt-3 text-gray-700 text-sm">
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className="bg-emerald-100 rounded-full p-1 mt-0.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                      </div>
+                      <p>Use this {selectedProduct.product_type} during early morning or late evening for best results.</p>
+                    </div>
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className="bg-emerald-100 rounded-full p-1 mt-0.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                      </div>
+                      <p>Store in a cool, dry place away from direct sunlight.</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="bg-emerald-100 rounded-full p-1 mt-0.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                      </div>
+                      <p>Follow recommended dosage for optimal crop yield and health.</p>
+                    </div>
+                  </div>
+                  
+                  {/* Add to cart button */}
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 ${
+                        selectedProduct.inStock 
+                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                      onClick={(e) => handleAddToCart(selectedProduct, e)}
+                      disabled={!selectedProduct.inStock}
+                    >
+                      <ShoppingCart className="w-5 h-5" />
+                      {selectedProduct.inStock ? 'Add to Cart' : 'Out of Stock'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {/* Right: Details */}
+              <div className="flex flex-col gap-4 p-6 bg-white">
+                <h2 className="text-3xl font-bold text-emerald-700 break-words line-clamp-2">
+                  {selectedProduct.product_name}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Column 1 */}
+                  <div className="space-y-3">
+                    <div className="bg-emerald-50 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-emerald-600">Shop</p>
+                      <p className="font-semibold text-gray-800">{selectedProduct.shop_name}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600">Owner</p>
+                      <p className="font-semibold text-gray-800">{selectedProduct.owner_name}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600">Email</p>
+                      <input
+                        type="email"
+                        value={selectedProduct.email}
+                        readOnly
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                      />
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600">Phone</p>
+                      <input
+                        type="text"
+                        value={selectedProduct.phone_no}
+                        readOnly
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  {/* Column 2 */}
+                  <div className="space-y-3">
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-blue-600">City</p>
+                      <input
+                        type="text"
+                        value={selectedProduct.city}
+                        readOnly
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                      />
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600">Product Type</p>
+                      <input
+                        type="text"
+                        value={selectedProduct.product_type}
+                        readOnly
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                      />
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600">Brand</p>
+                      <input
+                        type="text"
+                        value={selectedProduct.brand}
+                        readOnly
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                      />
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600">Category</p>
+                      <input
+                        type="text"
+                        value={selectedProduct.category}
+                        readOnly
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Pricing Section */}
+                <div className="bg-emerald-100 p-4 rounded-lg border border-emerald-200">
+                  <p className="text-sm font-medium text-emerald-600">Price</p>
+                  <p className="text-2xl font-bold text-emerald-700">
+                    LKR {selectedProduct.price.toLocaleString('en-LK')}
+                    <span className="text-sm font-normal text-gray-600 ml-1">per {selectedProduct.unit}</span>
+                  </p>
+                  <p className="text-sm font-medium text-gray-600 mt-2">Available Quantity</p>
+                  <p className="text-lg font-bold text-gray-800">
+                    {selectedProduct.available_quantity} {selectedProduct.unit}s
+                  </p>
+                </div>
+                {/* Description Section */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-gray-600 mb-2">Product Description</p>
+                  <textarea
+                    value={selectedProduct.product_description}
+                    readOnly
+                    className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none resize-none"
+                    rows="4"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPhonePopup && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xs w-full p-6 relative">
+            <button
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              onClick={closePhonePopup}
+            >
+              ✕
+            </button>
+            <h2 className="text-xl font-bold text-emerald-700 mb-4 flex items-center gap-2">
+              <Phone className="w-5 h-5" /> Seller Phone Number
+            </h2>
+            <p className="text-2xl font-bold text-gray-800 text-center">{phoneNumber}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
