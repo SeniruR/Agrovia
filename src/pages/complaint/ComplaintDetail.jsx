@@ -1,21 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MessageSquareX, User, Calendar, AlertCircle, CheckCircle, XCircle, Plus, Send, Users, Clock, FileText, Wheat, Store, Truck, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle } from 'lucide-react';
 
-const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddReply, onAssign }) => {
-  const [newNote, setNewNote] = useState('');
+const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   const [newReply, setNewReply] = useState('');
-  const [showNoteForm, setShowNoteForm] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
-  const [showAssignForm, setShowAssignForm] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState('');
-
-  const agents = [
-    'Sarah Johnson',
-    'Mike Davis',
-    'Emily Rodriguez',
-    'David Wilson',
-    'Lisa Chen'
-  ];
 
   if (!complaint) {
     return (
@@ -62,47 +50,6 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddRe
     }
   };
 
-  const getStatusColor = (status) => {
-    return status === 'consider' 
-      ? 'bg-green-100 text-green-700 border-green-200'
-      : 'bg-red-100 text-red-700 border-red-200';
-  };
-
-  const handleAddNote = () => {
-    if (newNote.trim()) {
-      onAddNote(complaint.id, newNote);
-      setNewNote('');
-      setShowNoteForm(false);
-    }
-  };
-
-  const handleAddReply = () => {
-    if (newReply.trim()) {
-      onAddReply(complaint.id, newReply);
-      setNewReply('');
-      setShowReplyForm(false);
-    }
-  };
-
-  const handleAssign = () => {
-    if (selectedAgent) {
-      onAssign(complaint.id, selectedAgent);
-      setSelectedAgent('');
-      setShowAssignForm(false);
-    }
-  };
-
-  const getActionIcon = (actionType) => {
-    switch (actionType) {
-      case 'created': return <Plus className="w-4 h-4" />;
-      case 'status_change': return <AlertCircle className="w-4 h-4" />;
-      case 'assignment': return <Users className="w-4 h-4" />;
-      case 'note_added': return <FileText className="w-4 h-4" />;
-      case 'admin_reply': return <MessageCircle className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
-    }
-  };
-
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
@@ -139,10 +86,6 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddRe
                     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
                       {complaint.priority}
                     </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center space-x-1 ${getStatusColor(complaint.status)}`}>
-                      {complaint.status === 'consider' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                      <span>{complaint.status === 'consider' ? 'Consider' : 'Not Consider'}</span>
-                    </span>
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 mb-4">{complaint.title}</h2>
                 </div>
@@ -166,9 +109,26 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddRe
                     <Calendar className="w-5 h-5 text-slate-400" />
                     <div>
                       <p className="text-sm text-slate-500">Submitted on</p>
-                      <p className="font-medium text-slate-800">{complaint.submittedAt.toDateString()}</p>
+                      <p className="font-medium text-slate-800">{(() => {
+                        let date = complaint.submittedAt;
+                        if (date) {
+                          if (typeof date === 'string' || typeof date === 'number') {
+                            date = new Date(date);
+                          }
+                          if (date instanceof Date && !isNaN(date)) {
+                            return date.toLocaleString(); // Show date and time
+                          }
+                        }
+                        return '';
+                      })()}</p>
                     </div>
                   </div>
+                  {complaint.category && (
+                    <div>
+                      <p className="text-sm text-slate-500">Category</p>
+                      <p className="font-medium text-slate-800">{complaint.category}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-4">
                   {complaint.location && (
@@ -189,6 +149,12 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddRe
                       <p className="font-medium text-slate-800">{complaint.cropType}</p>
                     </div>
                   )}
+                  {complaint.farmer && (
+                    <div>
+                      <p className="text-sm text-slate-500">Farmer</p>
+                      <p className="font-medium text-slate-800">{complaint.farmer}</p>
+                    </div>
+                  )}
                   {complaint.shopName && (
                     <div>
                       <p className="text-sm text-slate-500">Shop Name</p>
@@ -201,15 +167,159 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddRe
                       <p className="font-medium text-slate-800">{complaint.transportCompany}</p>
                     </div>
                   )}
+                  {complaint.purchaseDate && (
+                    <div>
+                      <p className="text-sm text-slate-500">Purchase Date</p>
+                      <p className="font-medium text-slate-800">{typeof complaint.purchaseDate === 'string' ? complaint.purchaseDate : complaint.purchaseDate.toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  {complaint.deliveryDate && (
+                    <div>
+                      <p className="text-sm text-slate-500">Delivery Date</p>
+                      <p className="font-medium text-slate-800">{typeof complaint.deliveryDate === 'string' ? complaint.deliveryDate : complaint.deliveryDate.toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  {complaint.trackingNumber && (
+                    <div>
+                      <p className="text-sm text-slate-500">Tracking Number</p>
+                      <p className="font-medium text-slate-800">{complaint.trackingNumber}</p>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Debug information for troubleshooting */}
+              <div className="hidden">
+                {console.log('Complaint data:', complaint.id, complaint.type)}
+                {console.log('Image data available:', 
+                  complaint.attachments ? 'attachments: ' + complaint.attachments.length : 'no attachments',
+                  complaint.image ? 'image present' : 'no image',
+                  complaint.images ? 'images: ' + complaint.images.length : 'no images'
+                )}
+              </div>
+              
+              {/* Attachments for crop, shop, and transport complaints */}
+              {((complaint.attachments && complaint.attachments.length > 0) || 
+                 complaint.image || 
+                 (complaint.images && complaint.images.length > 0)) && (
+                <div className="mt-6 mb-6 pt-6 border-t border-slate-100">
+                  <p className="text-sm font-medium text-slate-700 mb-3">Attachments</p>
+                  <div className="flex flex-wrap gap-4">
+                    {/* Handle complaint.attachments array (crop/transport complaints) */}
+                    {complaint.attachments && complaint.attachments.map((file, idx) => {
+                      console.log('Rendering attachment:', idx, typeof file, file ? file.substring(0, 30) + '...' : 'null');
+                      if (file && typeof file === 'string') {
+                        return (
+                          <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
+                            <img
+                              src={`data:image/jpeg;base64,${file}`}
+                              alt={`Attachment ${idx + 1}`}
+                              className="w-full h-auto"
+                              style={{ maxHeight: 240 }}
+                              onError={(e) => {
+                                console.error("Attachment image load error", idx);
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        );
+                      }
+                      return null;
+                    }                    )}
+                    
+                    {/* Handle complaint.image (single image for shop complaints) */}
+                    {complaint.image && (
+                      <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
+                        {console.log('Rendering shop image:', typeof complaint.image, complaint.image ? (complaint.image.length > 100 ? 'Length: ' + complaint.image.length : complaint.image) : 'null')}
+                        {/* Extra validation before rendering */}
+                        {(() => {
+                          // For debugging - check the actual content of the image data
+                          if (typeof complaint.image === 'string') {
+                            const firstChars = complaint.image.substring(0, 20);
+                            console.log('Image data starts with:', firstChars);
+                            
+                            // If it's a JSON string or has brackets, it might be incorrectly formatted
+                            if (firstChars.includes('[') || firstChars.includes('{')) {
+                              console.log('Warning: Image data appears to be JSON, not base64');
+                            }
+                          }
+                          
+                          // Try to clean the image data if necessary
+                          let imageData = '';
+                          if (typeof complaint.image === 'string') {
+                            // Remove any wrapping quotes, brackets, etc.
+                            imageData = complaint.image.replace(/^["'\[\{]+|["'\]\}]+$/g, '');
+                            
+                            // Check if it's already a data URL
+                            if (imageData.startsWith('data:')) {
+                              return (
+                                <img
+                                  src={imageData}
+                                  alt="Shop Attachment"
+                                  className="w-full h-auto"
+                                  style={{ maxHeight: 240 }}
+                                  onError={(e) => {
+                                    console.error("Shop image load error with data URL");
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              );
+                            } else {
+                              // Assume it's a base64 string and add the prefix
+                              return (
+                                <img
+                                  src={`data:image/jpeg;base64,${imageData}`}
+                                  alt="Shop Attachment"
+                                  className="w-full h-auto"
+                                  style={{ maxHeight: 240 }}
+                                  onError={(e) => {
+                                    console.error("Shop image load error with base64");
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              );
+                            }
+                          }
+                          
+                          return (
+                            <div className="p-4 bg-gray-100 text-gray-500 rounded-xl">
+                              Image data is not in the expected format
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    
+                    {/* Handle complaint.images array (multiple images for shop complaints) */}
+                    {complaint.images && complaint.images.map((file, idx) => {
+                      if (file && typeof file === 'string') {
+                        return (
+                          <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
+                            <img
+                              src={`data:image/jpeg;base64,${file}`}
+                              alt={`Attachment ${idx + 1}`}
+                              className="w-full h-auto"
+                              style={{ maxHeight: 240 }}
+                              onError={(e) => {
+                                console.error("Image load error");
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Admin Reply Section */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
-                {!complaint.adminReply && complaint.status === 'consider' && (
+                {!complaint.adminReply && (
                   <button
                     onClick={() => setShowReplyForm(!showReplyForm)}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
@@ -237,10 +347,9 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddRe
                       Cancel
                     </button>
                     <button
-                      onClick={handleAddReply}
+                      onClick={() => { onAddReply(complaint.id, newReply); setShowReplyForm(false); setNewReply(''); }}
                       className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                     >
-                      <Send className="w-4 h-4" />
                       <span>Send Reply</span>
                     </button>
                   </div>
@@ -253,153 +362,9 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddNote, onAddRe
                 </div>
               ) : (
                 <p className="text-slate-500 text-center py-8">
-                  {complaint.status === 'consider' ? 'No reply sent yet.' : 'No reply needed for this complaint.'}
+                  No reply sent yet.
                 </p>
               )}
-            </div>
-
-            {/* Notes Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-slate-800">Internal Notes</h3>
-                <button
-                  onClick={() => setShowNoteForm(!showNoteForm)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Note</span>
-                </button>
-              </div>
-
-              {showNoteForm && (
-                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-                  <textarea
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Add an internal note about this complaint..."
-                    rows={3}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors resize-none"
-                  />
-                  <div className="flex justify-end space-x-3 mt-3">
-                    <button
-                      onClick={() => setShowNoteForm(false)}
-                      className="px-4 py-2 text-slate-600 bg-white hover:text-slate-800 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleAddNote}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                    >
-                      <Send className="w-4 h-4" />
-                      <span>Add Note</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {complaint.notes.length === 0 ? (
-                  <p className="text-slate-500 text-center py-8">No internal notes added yet.</p>
-                ) : (
-                  complaint.notes.map((note) => (
-                    <div key={note.id} className="p-4 bg-slate-50 rounded-xl">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-slate-800">{note.author}</span>
-                        <span className="text-sm text-slate-500">{note.timestamp.toLocaleString()}</span>
-                      </div>
-                      <p className="text-slate-700">{note.content}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Actions */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">Actions</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
-                  <select
-                    value={complaint.status}
-                    onChange={(e) => onUpdateStatus(complaint.id, e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border bg-white border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-colors"
-                  >
-                    <option value="consider">Consider</option>
-                    <option value="not-consider">Not Consider</option>
-                  </select>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-slate-700">Assigned Agent</label>
-                    <button
-                      onClick={() => setShowAssignForm(!showAssignForm)}
-                      className="text-xs bg-white text-blue-600 hover:text-blue-700"
-                    >
-                      Change
-                    </button>
-                  </div>
-                  {complaint.assignedTo ? (
-                    <p className="text-sm text-slate-800 px-3 py-2 bg-slate-50 rounded-lg">{complaint.assignedTo}</p>
-                  ) : (
-                    <p className="text-sm text-slate-500 px-3 py-2 bg-slate-50 rounded-lg">Not assigned</p>
-                  )}
-                </div>
-
-                {showAssignForm && (
-                  <div className="p-3 bg-slate-50 rounded-lg">
-                    <select
-                      value={selectedAgent}
-                      onChange={(e) => setSelectedAgent(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-colors mb-3"
-                    >
-                      <option value="">Select agent...</option>
-                      {agents.map(agent => (
-                        <option key={agent} value={agent}>{agent}</option>
-                      ))}
-                    </select>
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => setShowAssignForm(false)}
-                        className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleAssign}
-                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Assign
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Activity Timeline */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">Activity Timeline</h3>
-              <div className="space-y-4">
-                {complaint.actions.map((action) => (
-                  <div key={action.id} className="flex items-start space-x-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
-                      {getActionIcon(action.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-800">{action.description}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {action.author} • {action.timestamp.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </div>

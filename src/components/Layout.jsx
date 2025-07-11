@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import Navigation from "./pages/Navigation";
 import ModernSidebar from "./ui/Sidebar";
 import BottomFooter from "./pages/BottomFooter";
+import FloatingAddCropPost from "./ui/FloatingAddCropPost";
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -74,6 +75,9 @@ const Layout = ({ children }) => {
       >
         <BottomFooter />
       </div>
+      
+      {/* Floating Add Crop Post Button */}
+      <FloatingAddCropPost />
     </div>
   );
 };

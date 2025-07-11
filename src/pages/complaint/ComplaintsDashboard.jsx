@@ -2,13 +2,11 @@ import React from 'react';
 import { MessageSquareX, Wheat, Store, Truck, CheckCircle, XCircle, Eye } from 'lucide-react';
 
 const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
+  // Remove all consider/not-consider stats and tags
   const getComplaintStats = () => {
     const total = complaints.length;
-    const consider = complaints.filter(c => c.status === 'consider').length;
-    const notConsider = complaints.filter(c => c.status === 'not-consider').length;
     const urgent = complaints.filter(c => c.priority === 'urgent').length;
-
-    return { total, consider, notConsider, urgent };
+    return { total, urgent };
   };
 
   const stats = getComplaintStats();
@@ -42,8 +40,6 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
 
   const statCards = [
     { title: 'Total Complaints', value: stats.total, icon: MessageSquareX, color: 'text-slate-600' },
-    { title: 'Consider', value: stats.consider, icon: CheckCircle, color: 'text-green-600' },
-    { title: 'Not Consider', value: stats.notConsider, icon: XCircle, color: 'text-red-600' },
     { title: 'Urgent', value: stats.urgent, icon: MessageSquareX, color: 'text-orange-600' }
   ];
 
@@ -108,14 +104,22 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
           
           <div className="space-y-4">
             {complaints.slice(0, 3).map((complaint) => (
-              <div key={complaint.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+              <div key={complaint.type + '-' + complaint.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
                 <div className="flex items-center space-x-4">
-                  <div className={`w-3 h-3 rounded-full ${
-                    complaint.status === 'consider' ? 'bg-green-400' : 'bg-red-400'
-                  }`}></div>
                   <div>
                     <h4 className="font-medium text-slate-800">{complaint.title}</h4>
-                    <p className="text-sm text-slate-500">By {complaint.submittedBy} • {complaint.submittedAt.toDateString()}</p>
+                    <p className="text-sm text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
+                      let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+                      if (date) {
+                        if (typeof date === 'string' || typeof date === 'number') {
+                          date = new Date(date);
+                        }
+                        if (date instanceof Date && !isNaN(date)) {
+                          return date.toDateString();
+                        }
+                      }
+                      return '';
+                    })()}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -127,13 +131,8 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
                   }`}>
                     {complaint.priority}
                   </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
-                    complaint.status === 'consider' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {complaint.status === 'consider' ? 'Consider' : 'Not Consider'}
-                  </span>
                   <button
-                    onClick={() => onViewComplaint(complaint.id)}
+                    onClick={() => onViewComplaint(complaint.id, complaint.type)}
                     className="p-2 bg-white hover:bg-white rounded-lg transition-colors"
                   >
                     <Eye className="w-4 h-4 text-slate-600" />

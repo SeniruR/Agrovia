@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Upload, Store, AlertCircle } from 'lucide-react';
 
-const ShopComplaintForm = ({ onSubmit, onBack }) => {
+const ShopComplaintForm = ({ onBack }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -15,6 +15,11 @@ const ShopComplaintForm = ({ onSubmit, onBack }) => {
   });
 
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const fileInputRef = React.useRef();
 
   const categories = [
     'Defective Seeds', 'Wrong Product', 'Poor Service', 'Overcharging', 'Contaminated Products', 
@@ -23,34 +28,57 @@ const ShopComplaintForm = ({ onSubmit, onBack }) => {
 
   const validateForm = () => {
     const newErrors = {};
-
     if (!formData.title.trim()) newErrors.title = 'Title is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
     if (!formData.submittedBy.trim()) newErrors.submittedBy = 'Your name is required';
     if (!formData.shopName.trim()) newErrors.shopName = 'Shop name is required';
     if (!formData.category) newErrors.category = 'Category is required';
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+  const handleFileChange = (e) => {
+    setAttachments(Array.from(e.target.files));
+  };
 
-    onSubmit({
-      type: 'shop',
-      title: formData.title,
-      description: formData.description,
-      status: 'consider',
-      priority: formData.priority,
-      submittedBy: formData.submittedBy,
-      shopName: formData.shopName,
-      location: formData.location,
-      category: formData.category,
-      orderNumber: formData.orderNumber || undefined
-    });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setApiError('');
+    setSuccess(false);
+    if (!validateForm()) return;
+    setSubmitting(true);
+    try {
+      const formPayload = new FormData();
+      formPayload.append('title', formData.title);
+      formPayload.append('description', formData.description);
+      formPayload.append('status', 'consider');
+      formPayload.append('priority', formData.priority);
+      formPayload.append('submittedBy', formData.submittedBy);
+      formPayload.append('shopName', formData.shopName);
+      formPayload.append('location', formData.location);
+      formPayload.append('category', formData.category);
+      formPayload.append('orderNumber', formData.orderNumber || '');
+      formPayload.append('purchaseDate', formData.purchaseDate || '');
+      attachments.forEach(file => formPayload.append('attachments', file));
+      const response = await fetch('/api/v1/shop-complaints', {
+        method: 'POST',
+        body: formPayload
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess(true);
+        setFormData({
+          title: '', description: '', submittedBy: '', priority: 'medium', shopName: '', location: '', category: '', orderNumber: '', purchaseDate: ''
+        });
+        setAttachments([]);
+      } else {
+        setApiError(data.error || 'Submission failed');
+      }
+    } catch (err) {
+      setApiError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -58,6 +86,10 @@ const ShopComplaintForm = ({ onSubmit, onBack }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleAttachmentClick = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
   };
 
   return (
@@ -81,6 +113,13 @@ const ShopComplaintForm = ({ onSubmit, onBack }) => {
             </div>
           </div>
         </div>
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-xl">Complaint submitted successfully!</div>
+        )}
+        {apiError && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-xl">{apiError}</div>
+        )}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-8">
@@ -238,10 +277,28 @@ const ShopComplaintForm = ({ onSubmit, onBack }) => {
               <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Attach Evidence (Optional)
               </label>
-              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleFileChange}
+                className="mb-2 hidden"
+                ref={fileInputRef}
+              />
+              <div
+                className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                onClick={handleAttachmentClick}
+              >
                 <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Upload photos of receipts, products, or other evidence</p>
                 <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 10MB each</p>
+                {attachments.length > 0 && (
+                  <div className="mt-2 text-xs text-slate-600">
+                    {attachments.map((file, idx) => (
+                      <div key={idx}>{file.name}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -274,14 +331,16 @@ const ShopComplaintForm = ({ onSubmit, onBack }) => {
               type="button"
               onClick={onBack}
               className="px-6 py-3 bg-white text-slate-600 hover:text-slate-800 font-medium transition-colors"
+              disabled={submitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              disabled={submitting}
             >
-              Submit Complaint
+              {submitting ? 'Submitting...' : 'Submit Complaint'}
             </button>
           </div>
         </form>
@@ -290,4 +349,4 @@ const ShopComplaintForm = ({ onSubmit, onBack }) => {
   );
 };
 
-export default ShopComplaintForm; 
+export default ShopComplaintForm;

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import MyShopItem from './MyShopItem';
 import { 
   BarChart3, 
   Package, 
@@ -138,6 +139,7 @@ export default function Dashboard() {
             {[
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'products', label: 'Products', icon: Package },
+              { id: 'myitem', label: 'MyItem', icon: Package },
               { id: 'orders', label: 'Orders', icon: ShoppingCart },
               { id: 'customers', label: 'Customers', icon: Users }
             ].map((tab) => (
@@ -263,7 +265,9 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
+{activeTab === 'myitem' && (
+  <MyShopItem />
+)}
         {/* Products Tab */}
         {activeTab === 'products' && (
           <div className="space-y-6">

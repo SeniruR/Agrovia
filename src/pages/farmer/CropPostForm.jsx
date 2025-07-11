@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
-import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload, Leaf, Droplets, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload, Leaf, Droplets, AlertCircle, CheckCircle, RefreshCw, LogIn } from 'lucide-react';
+import { userService } from '../../services/userService';
+import { useAuth } from '../../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 
 const CropPostForm = () => {
+  const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const [formData, setFormData] = useState({
     cropType: '',
     cropCategory: 'vegetables',
@@ -10,12 +15,12 @@ const CropPostForm = () => {
     quantity: '',
     unit: 'kg',
     pricePerUnit: '',
+    minimumQuantityBulk: '',
     harvestDate: '',
     expiryDate: '',
     location: '',
     district: '',
     description: '',
-    farmerName: '',
     contactNumber: '',
     email: '',
     organicCertified: false,
@@ -28,6 +33,10 @@ const CropPostForm = () => {
   const [dragActive, setDragActive] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isLoadingUserData, setIsLoadingUserData] = useState(true);
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
   const totalSteps = 4;
 
   const vegetables = [
@@ -48,6 +57,66 @@ const CropPostForm = () => {
     'Moneragala', 'Ratnapura', 'Kegalle'
   ];
 
+  // Load user data on component mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        setIsLoadingUserData(true);
+        const userResponse = await userService.getCurrentUser();
+        
+        if (userResponse.success && userResponse.data) {
+          const userData = userResponse.data;
+          
+          // Auto-fill form with user data
+          setFormData(prevData => ({
+            ...prevData,
+            contactNumber: userData.phone_number || '',
+            email: userData.email || '',
+            district: userData.district || '',
+            location: userData.address || ''
+          }));
+          
+          setUserDataLoaded(true);
+          console.log('✅ User data loaded and form auto-filled');
+        }
+      } catch (error) {
+        console.error('❌ Error loading user data:', error);
+      } finally {
+        setIsLoadingUserData(false);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  // Function to refresh user data
+  const refreshUserData = async () => {
+    try {
+      setIsLoadingUserData(true);
+      const userResponse = await userService.getCurrentUser();
+      
+      if (userResponse.success && userResponse.data) {
+        const userData = userResponse.data;
+        
+        // Update form with fresh user data
+        setFormData(prevData => ({
+          ...prevData,
+          contactNumber: userData.phone_number || prevData.contactNumber,
+          email: userData.email || prevData.email,
+          district: userData.district || prevData.district,
+          location: userData.address || prevData.location
+        }));
+        
+        alert('✅ Your details have been refreshed!');
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing user data:', error);
+      alert('❌ Failed to refresh user data');
+    } finally {
+      setIsLoadingUserData(false);
+    }
+  };
+
   // Validation rules
   const validateField = (name, value) => {
     switch (name) {
@@ -59,11 +128,11 @@ const CropPostForm = () => {
       case 'pricePerUnit':
         return !value ? 'Price is required' :
           value <= 0 ? 'Price must be greater than 0' : '';
+      case 'minimumQuantityBulk':
+        return value && value <= 0 ? 'Minimum bulk quantity must be greater than 0' :
+          value && formData.quantity && parseFloat(value) > parseFloat(formData.quantity) ? 'Minimum bulk quantity cannot exceed available quantity' : '';
       case 'harvestDate':
         return !value ? 'Harvest date is required' : '';
-      case 'farmerName':
-        return !value ? 'Farmer name is required' :
-          value.length < 2 ? 'Name must be at least 2 characters' : '';
       case 'contactNumber':
         return !value ? 'Contact number is required' :
           !/^(\+94|0)[0-9]{9}$/.test(value.replace(/\s/g, '')) ? 'Invalid Sri Lankan phone number' : '';
@@ -90,9 +159,9 @@ const CropPostForm = () => {
       case 2:
         stepErrors.quantity = validateField('quantity', formData.quantity);
         stepErrors.pricePerUnit = validateField('pricePerUnit', formData.pricePerUnit);
+        stepErrors.minimumQuantityBulk = validateField('minimumQuantityBulk', formData.minimumQuantityBulk);
         break;
       case 3:
-        stepErrors.farmerName = validateField('farmerName', formData.farmerName);
         stepErrors.contactNumber = validateField('contactNumber', formData.contactNumber);
         stepErrors.email = validateField('email', formData.email);
         stepErrors.district = validateField('district', formData.district);
@@ -229,7 +298,7 @@ const CropPostForm = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validate all steps
@@ -245,8 +314,149 @@ const CropPostForm = () => {
       return;
     }
 
-    console.log('Form submitted:', formData);
-    alert('Crop post submitted successfully!');
+    setIsSubmitting(true);
+    setSubmitSuccess(false);
+
+    try {
+      // Create FormData for file upload
+      const submitData = new FormData();
+      
+      // Map frontend field names to backend field names
+      const fieldMapping = {
+        cropCategory: 'crop_category',
+        cropName: 'crop_name', 
+        variety: 'variety',
+        quantity: 'quantity',
+        unit: 'unit',
+        pricePerUnit: 'price_per_unit',
+        minimumQuantityBulk: 'minimum_quantity_bulk',
+        harvestDate: 'harvest_date',
+        expiryDate: 'expiry_date',
+        location: 'location',
+        district: 'district',
+        description: 'description',
+        contactNumber: 'contact_number',
+        email: 'email',
+        organicCertified: 'organic_certified',
+        pesticideFree: 'pesticide_free',
+        freshlyHarvested: 'freshly_harvested',
+        farmerName: 'farmer_name', // Add farmer_name for backend validation
+      };
+
+      // Add form fields to FormData
+      Object.keys(fieldMapping).forEach(frontendKey => {
+        const backendKey = fieldMapping[frontendKey];
+        let value = formData[frontendKey];
+        // For minimumQuantityBulk, always send as number or blank
+        if (frontendKey === 'minimumQuantityBulk') {
+          if (value === '' || value === undefined || value === null) {
+            value = '';
+          } else {
+            value = Number(value);
+            if (isNaN(value)) value = '';
+          }
+        }
+        // For farmerName, use user full name or fallback
+        if (frontendKey === 'farmerName') {
+          value = (user && (user.full_name || user.name)) ? (user.full_name || user.name) : '';
+        }
+        if (value !== undefined && value !== null && value !== '') {
+          if (typeof value === 'boolean') {
+            submitData.append(backendKey, value ? 'true' : 'false');
+          } else {
+            submitData.append(backendKey, value);
+          }
+        }
+      });
+
+      // Add images if any
+      if (formData.images && formData.images.length > 0) {
+        formData.images.forEach((image) => {
+          if (image instanceof File) {
+            submitData.append('images', image);
+          }
+        });
+      }
+
+      // Log the data being sent for debugging
+      console.log('🔍 Pre-submission Debug:');
+      console.log('- isAuthenticated():', isAuthenticated());
+      console.log('- user:', user);
+      console.log('- getAuthHeaders():', getAuthHeaders());
+      console.log('- localStorage token:', localStorage.getItem('authToken'));
+      console.log('- localStorage user:', localStorage.getItem('user'));
+
+      // Ensure we have a token before making the request
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('❌ You are not logged in. Please login first.');
+        return;
+      }
+
+      // Submit to backend API with explicit token handling
+      const headers = {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${authToken}`, // Use token directly from localStorage
+      };
+
+      console.log('📤 Request headers:', headers);
+
+      const response = await axios.post('http://localhost:5000/api/v1/crop-posts', submitData, {
+        headers,
+        timeout: 30000, // 30 second timeout
+      });
+
+      console.log('✅ Crop post created successfully:', response.data);
+      
+      setSubmitSuccess(true);
+      alert('🎉 Crop post submitted successfully! Your crop is now listed on the marketplace.');
+      
+      // Reset form after successful submission
+      setFormData({
+        cropType: '',
+        cropCategory: 'vegetables',
+        cropName: '',
+        variety: '',
+        quantity: '',
+        unit: 'kg',
+        pricePerUnit: '',
+        minimumQuantityBulk: '',
+        harvestDate: '',
+        expiryDate: '',
+        location: '',
+        district: '',
+        description: '',
+        contactNumber: '',
+        email: '',
+        organicCertified: false,
+        pesticideFree: false,
+        freshlyHarvested: false,
+        images: []
+      });
+      setCurrentStep(1);
+      setErrors({});
+      setTouched({});
+
+    } catch (error) {
+      console.error('❌ Error submitting crop post:', error);
+      
+      let errorMessage = 'Failed to submit crop post. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = 'Unable to connect to server. Please check your internet connection.';
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'An unexpected error occurred.';
+      }
+      
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderStep1 = () => (
@@ -472,7 +682,6 @@ const CropPostForm = () => {
             required
           >
             <option value="kg">Kilograms (kg)</option>
-            <option value="g">Grams (g)</option>
             <option value="tons">Tons</option>
             <option value="bags">Bags</option>
             <option value="pieces">Pieces</option>
@@ -498,12 +707,40 @@ const CropPostForm = () => {
               }`}
               required
               min="0"
-              step="0.01"
+              step="1"
             />
           </div>
           {errors.pricePerUnit && touched.pricePerUnit && (
             <p className="mt-1 text-sm text-red-600">{errors.pricePerUnit}</p>
           )}
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-black mb-2">
+            Minimum Quantity for Bulk Orders ({formData.unit || 'unit'}) <span className="text-gray-500">(Optional)</span>
+          </label>
+          <div className="relative">
+            <Package className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+            <input
+              type="number"
+              name="minimumQuantityBulk"
+              value={formData.minimumQuantityBulk}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              placeholder="Enter minimum bulk quantity"
+              className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
+                errors.minimumQuantityBulk && touched.minimumQuantityBulk ? 'border-red-500' : 'border-gray-300'
+              }`}
+              min="1"
+              max={formData.quantity || ''}
+            />
+          </div>
+          {errors.minimumQuantityBulk && touched.minimumQuantityBulk && (
+            <p className="mt-1 text-sm text-red-600">{errors.minimumQuantityBulk}</p>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            Set a minimum quantity buyers must purchase for bulk orders. Leave empty if not applicable.
+          </p>
         </div>
       </div>
 
@@ -532,33 +769,45 @@ const CropPostForm = () => {
 
   const renderStep3 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-black mb-6">Location & Contact</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-black mb-6">Location & Contact</h2>
+        <button
+          type="button"
+          onClick={refreshUserData}
+          disabled={isLoadingUserData}
+          className="inline-flex items-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-all duration-200 disabled:opacity-50"
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingUserData ? 'animate-spin' : ''}`} />
+          {isLoadingUserData ? 'Loading...' : (isAuthenticated() ? 'Refresh My Details' : 'Load Demo Data')}
+        </button>
+      </div>
+
+      {userDataLoaded && isAuthenticated() && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+            <p className="text-green-800 text-sm">
+              <strong>Auto-filled:</strong> Your contact details have been loaded from your profile ({user?.full_name || user?.name || 'User'}). You can modify them if needed.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {userDataLoaded && !isAuthenticated() && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+            <p className="text-yellow-800 text-sm">
+              <strong>Demo data:</strong> You're not logged in. The form shows demo data. 
+              <Link to="/login" className="text-blue-600 hover:underline ml-1 font-medium">
+                Login here
+              </Link> to auto-fill with your real information.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">
-            Farmer Name <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <User className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              name="farmerName"
-              value={formData.farmerName}
-              onChange={handleInputChange}
-              onBlur={handleBlur}
-              placeholder="Enter your full name"
-              className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.farmerName && touched.farmerName ? 'border-red-500' : 'border-gray-300'
-              }`}
-              required
-            />
-          </div>
-          {errors.farmerName && touched.farmerName && (
-            <p className="mt-1 text-sm text-red-600">{errors.farmerName}</p>
-          )}
-        </div>
-
         <div>
           <label className="block text-sm font-medium text-black mb-2">
             Contact Number <span className="text-red-500">*</span>
@@ -723,10 +972,12 @@ const CropPostForm = () => {
             <p><span className="font-semibold text-black">Category:</span> <span className="text-black">{formData.cropCategory}</span></p>
             <p><span className="font-semibold text-black">Quantity:</span> <span className="text-black">{formData.quantity} {formData.unit}</span></p>
             <p><span className="font-semibold text-black">Price:</span> <span className="text-black">LKR {formData.pricePerUnit} per {formData.unit}</span></p>
+            {formData.minimumQuantityBulk && (
+              <p><span className="font-semibold text-black">Min. Bulk Quantity:</span> <span className="text-black">{formData.minimumQuantityBulk} {formData.unit}</span></p>
+            )}
             <p><span className="font-semibold text-black">Harvest Date:</span> <span className="text-black">{formData.harvestDate}</span></p>
           </div>
           <div className="space-y-2">
-            <p><span className="font-semibold text-black">Farmer:</span> <span className="text-black">{formData.farmerName}</span></p>
             <p><span className="font-semibold text-black">Contact:</span> <span className="text-black">{formData.contactNumber}</span></p>
             <p><span className="font-semibold text-black">District:</span> <span className="text-black">{formData.district}</span></p>
             <p><span className="font-semibold text-black">Images:</span> <span className="text-black">{formData.images.length} uploaded</span></p>
@@ -755,7 +1006,35 @@ const CropPostForm = () => {
         </div>
       </div>
 
+      {/* Success Message */}
+      {submitSuccess && (
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+              <div>
+                <h3 className="text-lg font-semibold text-green-800">Success! 🎉</h3>
+                <p className="text-green-700">Your crop post has been submitted successfully and is now live on the marketplace!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
+
+        {/* Initial Loading Overlay */}
+        {isLoadingUserData && !userDataLoaded && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+              <div className="flex items-center justify-center mb-4">
+                <RefreshCw className="h-8 w-8 text-green-600 animate-spin" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2 text-center">Loading Your Details</h3>
+              <p className="text-gray-600 text-center">We're auto-filling the form with your profile information...</p>
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar - Enhanced */}
         <div className="mb-8 sm:mb-12">
@@ -827,9 +1106,22 @@ const CropPostForm = () => {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  disabled={isSubmitting}
+                  className={`px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl ${
+                    isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  🌾 Post My Crop
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    '🌾 Post My Crop'
+                  )}
                 </button>
               )}
             </div>

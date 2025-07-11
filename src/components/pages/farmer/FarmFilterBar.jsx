@@ -1,6 +1,6 @@
 import React from 'react';
 import { Filter, Grid, List, Plus, Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import AddCropPostButton from '../../ui/AddCropPostButton';
 const FarmFilterBar = ({
   viewMode,
   onViewModeChange,
@@ -13,7 +13,6 @@ const FarmFilterBar = ({
   searchTerm,
   onSearchChange,
 }) => {
-  const navigate = useNavigate();
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -94,10 +93,9 @@ const FarmFilterBar = ({
             </button>
           </div>
 
-          <button className="accept-button px-4 py-2 rounded-md text-sm font-medium flex items-center text-white" onClick={()=> navigate('/croppostform')}>
-            <Plus className="w-4 h-4 mr-2" />
+          <AddCropPostButton variant="primary" size="md" className="text-white">
             Add New Crop
-          </button>
+          </AddCropPostButton>
         </div>
       </div>
     </div>

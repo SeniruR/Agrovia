@@ -1,4 +1,5 @@
 import React from 'react';
+import AdminShopItem from './AdminShopItem';
 import { 
   Users, 
   ShoppingCart, 
@@ -117,6 +118,7 @@ const AgroviaAdminDashboard = () => {
   );
 
   return (
+    
     <>
       {/* Add custom styles for better scrolling */}
       <style>{`
@@ -220,7 +222,65 @@ const AgroviaAdminDashboard = () => {
             />
           </div>
         </section>
+<div>
 
+  <div className="flex space-x-6">
+    <div className="text-center">
+      <h5 className="text-sm font-medium text-gray-700 mb-2">Shop Management</h5>
+      <button 
+        onClick={() => window.location.href = '/adminshopitems'} 
+        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+      >
+        View Shop Items
+      </button>
+    </div>
+    <div className="text-center">
+      <h5 className="text-sm font-medium text-gray-700 mb-2">Crop Management</h5>
+      <button 
+        onClick={() => window.location.href = '/usermanagement'} 
+        className="px-5 py-2 bg-green-600 text-white rounded hover:green-blue-700 transition-colors"
+      >
+        View All crops
+      </button>
+    </div>
+    <div className="text-center">
+      <h5 className="text-sm font-medium text-gray-700 mb-2">User Management</h5>
+      <button 
+        onClick={() => window.location.href = '/usermanagement'} 
+        className="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+      >
+        View Users
+      </button>
+    </div>
+    <div className="text-center">
+      <h5 className="text-sm font-medium text-gray-700 mb-2">Transport Management</h5>
+      <button 
+        onClick={() => window.location.href = '/usermanagement'} 
+        className="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+      >
+        View All Transports
+      </button>
+    </div>
+    <div className="text-center">
+      <h5 className="text-sm font-medium text-gray-700 mb-2">Complanin Management</h5>
+      <button 
+        onClick={() => window.location.href = '/usermanagement'} 
+        className="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+      >
+        View Complains
+      </button>
+    </div>
+    <div className="text-center">
+      <h5 className="text-sm font-medium text-gray-700 mb-2">Subscription Management</h5>
+      <button 
+        onClick={() => window.location.href = '/usermanagement'} 
+        className="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+      >
+        View Subscription Plans
+      </button>
+    </div>
+  </div>
+</div>
         {/* Charts Section */}
         <section>
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Analytics & Insights</h2>

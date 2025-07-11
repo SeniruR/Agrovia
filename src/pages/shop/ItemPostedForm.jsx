@@ -1,46 +1,53 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Upload, MapPin, Phone, Mail, Package, Leaf, Droplets, AlertTriangle, AlertCircle } from 'lucide-react';
-
+import { ChevronDown } from 'lucide-react';
 export default function SeedsFertilizerForm() {
+  const sriLankanCities = [
+  "Colombo", "Dehiwala-Mount Lavinia", "Moratuwa", "Sri Jayawardenepura Kotte", "Negombo", "Kandy", "Kalmunai", "Vavuniya", "Galle", "Trincomalee", "Batticaloa", "Jaffna", "Matara", "Kurunegala", "Ratnapura", "Badulla", "Anuradhapura", "Polonnaruwa", "Puttalam", "Chilaw", "Matale", "Nuwara Eliya", "Gampaha", "Hambantota", "Monaragala", "Kilinochchi", "Mannar", "Mullaitivu", "Ampara", "Kegalle", "Hatton", "Wattala", "Panadura", "Beruwala", "Kotikawatta", "Katunayake", "Kolonnawa", "Kotikawatta", "Eravur", "Valvettithurai", "Point Pedro", "Kalutara", "Horana", "Ja-Ela", "Kadawatha", "Homagama", "Avissawella", "Gampola", "Weligama", "Ambalangoda", "Balangoda", "Dambulla", "Embilipitiya", "Kegalle", "Kuliyapitiya", "Maharagama", "Minuwangoda", "Nawalapitiya", "Peliyagoda", "Seethawakapura", "Talawakele", "Tangalle", "Wennappuwa", "Chavakachcheri", "Kilinochchi", "Kinniya", "Mannar", "Vavuniya", "Kilinochchi", "Mullaitivu"
+];
+
   const [formData, setFormData] = useState({
-    shopName: '',
-    ownerName: '',
+    shop_name: '',
+    owner_name: '',
     email: '',
-    phone: '',
-    address: '',
+    phone_no: '',
+    shop_address: '',
     city: '',
-    productType: '',
-    productName: '',
+    product_type: '',
+    product_name: '',
     brand: '',
     category: '',
     price: '',
     unit: '',
-    quantity: '',
-    description: '',
-    features: '',
-    usage: '',
+    available_quantity: '',
+    product_description: '',
+   
+    usage_history: '',
     season: '',
-    organicCertified: false,
+    organic_certified: false,
     images: [],
-    termsAccepted: false
+    imagePreviews: [],
+    terms_accepted: false
   });
 
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const validateStep1 = () => {
     const stepErrors = {};
     
-    if (!formData.shopName.trim()) {
-      stepErrors.shopName = 'Shop name is required';
-    } else if (formData.shopName.length < 2) {
-      stepErrors.shopName = 'Shop name must be at least 2 characters';
+    if (!formData.shop_name.trim()) {
+      stepErrors.shop_name = 'Shop name is required';
+    } else if (formData.shop_name.length < 2) {
+      stepErrors.shop_name = 'Shop name must be at least 2 characters';
     }
 
-    if (!formData.ownerName.trim()) {
-      stepErrors.ownerName = 'Owner name is required';
-    } else if (formData.ownerName.length < 2) {
-      stepErrors.ownerName = 'Owner name must be at least 2 characters';
+    if (!formData.owner_name.trim()) {
+      stepErrors.owner_name = 'Owner name is required';
+    } else if (formData.owner_name.length < 2) {
+      stepErrors.owner_name = 'Owner name must be at least 2 characters';
     }
 
     if (!formData.email.trim()) {
@@ -49,16 +56,16 @@ export default function SeedsFertilizerForm() {
       stepErrors.email = 'Please enter a valid email address';
     }
 
-    if (!formData.phone.trim()) {
-      stepErrors.phone = 'Phone number is required';
-    } else if (!/^(\+94|0)?[0-9]{9,10}$/.test(formData.phone.replace(/\s/g, ''))) {
-      stepErrors.phone = 'Please enter a valid Sri Lankan phone number';
+    if (!formData.phone_no.trim()) {
+      stepErrors.phone_no = 'Phone number is required';
+    } else if (!/^(\+94|0)?[0-9]{9,10}$/.test(formData.phone_no.replace(/\s/g, ''))) {
+      stepErrors.phone_no = 'Please enter a valid Sri Lankan phone number';
     }
 
-    if (!formData.address.trim()) {
-      stepErrors.address = 'Address is required';
-    } else if (formData.address.length < 10) {
-      stepErrors.address = 'Please provide a complete address';
+    if (!formData.shop_address.trim()) {
+      stepErrors.shop_address = 'Address is required';
+    } else if (formData.shop_address.length < 10) {
+      stepErrors.shop_address = 'Please provide a complete address';
     }
 
     if (!formData.city.trim()) {
@@ -71,14 +78,14 @@ export default function SeedsFertilizerForm() {
   const validateStep2 = () => {
     const stepErrors = {};
 
-    if (!formData.productType) {
-      stepErrors.productType = 'Please select a product type';
+    if (!formData.product_type) {
+      stepErrors.product_type = 'Please select a product type';
     }
 
-    if (!formData.productName.trim()) {
-      stepErrors.productName = 'Product name is required';
-    } else if (formData.productName.length < 2) {
-      stepErrors.productName = 'Product name must be at least 2 characters';
+    if (!formData.product_name.trim()) {
+      stepErrors.product_name = 'Product name is required';
+    } else if (formData.product_name.length < 2) {
+      stepErrors.product_name = 'Product name must be at least 2 characters';
     }
 
     if (!formData.price) {
@@ -87,10 +94,10 @@ export default function SeedsFertilizerForm() {
       stepErrors.price = 'Please enter a valid price';
     }
 
-    if (!formData.description.trim()) {
-      stepErrors.description = 'Product description is required';
-    } else if (formData.description.length < 20) {
-      stepErrors.description = 'Description must be at least 20 characters';
+    if (!formData.product_description.trim()) {
+      stepErrors.product_description = 'Product description is required';
+    } else if (formData.product_description.length < 20) {
+      stepErrors.product_description = 'Description must be at least 20 characters';
     }
 
     return stepErrors;
@@ -99,8 +106,8 @@ export default function SeedsFertilizerForm() {
   const validateStep3 = () => {
     const stepErrors = {};
 
-    if (!formData.termsAccepted) {
-      stepErrors.termsAccepted = 'You must accept the terms and conditions';
+    if (!formData.terms_accepted) {
+      stepErrors.terms_accepted = 'You must accept the terms and conditions';
     }
 
     return stepErrors;
@@ -114,13 +121,39 @@ export default function SeedsFertilizerForm() {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prevErrors => ({
         ...prevErrors,
         [name]: ''
       }));
     }
+  };
+
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const previews = files.map(file => URL.createObjectURL(file));
+    
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, ...files],
+      imagePreviews: [...prev.imagePreviews, ...previews]
+    }));
+  };
+
+  const removeImage = (index) => {
+    setFormData(prev => {
+      const newImages = [...prev.images];
+      const newPreviews = [...prev.imagePreviews];
+      
+      newImages.splice(index, 1);
+      newPreviews.splice(index, 1);
+      
+      return {
+        ...prev,
+        images: newImages,
+        imagePreviews: newPreviews
+      };
+    });
   };
 
   const nextStep = () => {
@@ -134,7 +167,6 @@ export default function SeedsFertilizerForm() {
 
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
-      // Scroll to first error
       const firstErrorField = document.querySelector('.border-red-500');
       if (firstErrorField) {
         firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -152,17 +184,29 @@ export default function SeedsFertilizerForm() {
       setErrors({});
     }
   };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  setSubmitError('');
+ let categoryToSend = formData.category;
+  if (formData.category === "Other" && formData.category_other) {
+    categoryToSend = formData.category_other;
+  }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    const step3Errors = validateStep3();
-    if (Object.keys(step3Errors).length > 0) {
-      setErrors(step3Errors);
-      return;
+  // Create FormData and ensure correct category is sent
+  const formDataToSend = new FormData();
+  Object.keys(formData).forEach(key => {
+    if (key === 'category') {
+      formDataToSend.append('category', categoryToSend);
+    } else if (key !== 'images' && key !== 'imagePreviews' && key !== 'category_other') {
+      const value = typeof formData[key] === 'boolean' 
+        ? formData[key].toString() 
+        : formData[key];
+      formDataToSend.append(key, value);
     }
-
-    // Final validation of all steps
+  });
+  try {
+    // Validate all steps
     const allErrors = {
       ...validateStep1(),
       ...validateStep2(),
@@ -171,39 +215,106 @@ export default function SeedsFertilizerForm() {
 
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
-      setCurrentStep(1); // Go back to first step with errors
-      return;
+      setCurrentStep(1);
+      throw new Error('Please fix all validation errors');
     }
 
-    console.log('Form submitted:', formData);
-    alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
-    
-    // Reset form
+    // Create FormData
+    const formDataToSend = new FormData();
+
+    // Append all regular fields
+    Object.keys(formData).forEach(key => {
+      if (key !== 'images' && key !== 'imagePreviews') {
+        // Convert boolean values to strings
+        const value = typeof formData[key] === 'boolean' 
+          ? formData[key].toString() 
+          : formData[key];
+        formDataToSend.append(key, value);
+      }
+    });
+
+    // Append each image file
+    formData.images.forEach((image, index) => {
+      formDataToSend.append('images', image);
+    });
+
+    // Debug: Log FormData contents
+    for (let [key, value] of formDataToSend.entries()) {
+      console.log(key, value);
+    }
+
+    // Send to backend
+    const response = await fetch('http://localhost:5000/api/v1/shop-products', {
+      method: 'POST',
+      body: formDataToSend,  // Use the FormData object we created
+      // Don't set Content-Type header - let the browser set it with boundary
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Submission failed');
+    }
+
+    const responseData = await response.json();
+    console.log('Success:', responseData);
+
+    // Reset form after successful submission
     setFormData({
-      shopName: '',
-      ownerName: '',
+      shop_name: '',
+      owner_name: '',
       email: '',
-      phone: '',
-      address: '',
+      phone_no: '',
+      shop_address: '',
       city: '',
-      productType: '',
-      productName: '',
+      product_type: '',
+      product_name: '',
       brand: '',
       category: '',
       price: '',
       unit: '',
-      quantity: '',
-      description: '',
-      features: '',
-      usage: '',
+      available_quantity: '',
+      product_description: '',
+      usage_history: '',
       season: '',
-      organicCertified: false,
+      organic_certified: false,
       images: [],
-      termsAccepted: false
+      imagePreviews: [],
+      terms_accepted: false
     });
+
+    // Clean up image preview URLs
+    formData.imagePreviews.forEach(preview => {
+      URL.revokeObjectURL(preview);
+    });
+
     setCurrentStep(1);
     setErrors({});
-  };
+    
+    alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
+
+  } catch (error) {
+    console.error('Error:', error);
+    setSubmitError(error.message || 'Failed to submit form. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+  console.log("Validation results:", {
+  step1: validateStep1(),
+  step2: validateStep2(),
+  step3: validateStep3()
+});
+
+  console.log("Form Data:", formData);
+
+console.log("Submitting form data:", formData);
+Object.entries(formData).forEach(([key, val]) => {
+  if (!val) console.warn(`${key} is missing or empty`);
+});
+// const sanitizedData = Object.fromEntries(
+//   Object.entries(formData).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
+// );
+
 
   const getProductIcon = (type) => {
     switch (type) {
@@ -216,7 +327,7 @@ export default function SeedsFertilizerForm() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header Section - Compact for immediate form visibility */}
+      {/* Header Section */}
       <div className="bg-gradient-to-r from-green-600 to-green-800 text-white py-4 sm:py-6 px-4">
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 text-white">
@@ -229,7 +340,6 @@ export default function SeedsFertilizerForm() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
-
         {/* Progress Bar */}
         <div className="mb-8 sm:mb-12">
           <div className="flex items-center justify-center space-x-4 sm:space-x-8">
@@ -282,18 +392,18 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <input
                     type="text"
-                    name="shopName"
-                    value={formData.shopName}
+                    name="shop_name"
+                    value={formData.shop_name}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.shopName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                      errors.shop_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="Enter your shop name"
                   />
-                  {errors.shopName && (
+                  {errors.shop_name && (
                     <div className="flex items-center mt-2 text-red-600 text-sm">
                       <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.shopName}</span>
+                      <span>{errors.shop_name}</span>
                     </div>
                   )}
                 </div>
@@ -304,18 +414,18 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <input
                     type="text"
-                    name="ownerName"
-                    value={formData.ownerName}
+                    name="owner_name"
+                    value={formData.owner_name}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.ownerName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                      errors.owner_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="Enter owner name"
                   />
-                  {errors.ownerName && (
+                  {errors.owner_name && (
                     <div className="flex items-center mt-2 text-red-600 text-sm">
                       <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.ownerName}</span>
+                      <span>{errors.owner_name}</span>
                     </div>
                   )}
                 </div>
@@ -348,18 +458,18 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <input
                     type="tel"
-                    name="phone"
-                    value={formData.phone}
+                    name="phone_no"
+                    value={formData.phone_no}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.phone ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                      errors.phone_no ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="+94 XX XXX XXXX"
                   />
-                  {errors.phone && (
+                  {errors.phone_no && (
                     <div className="flex items-center mt-2 text-red-600 text-sm">
                       <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.phone}</span>
+                      <span>{errors.phone_no}</span>
                     </div>
                   )}
                 </div>
@@ -370,44 +480,50 @@ export default function SeedsFertilizerForm() {
                   <MapPin className="inline w-5 h-5 mr-2" />Shop Address <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  name="address"
-                  value={formData.address}
+                  name="shop_address"
+                  value={formData.shop_address}
                   onChange={handleInputChange}
                   rows={4}
                   className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none text-base sm:text-lg ${
-                    errors.address ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    errors.shop_address ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                   }`}
                   placeholder="Enter complete shop address with landmarks"
                 />
-                {errors.address && (
+                {errors.shop_address && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.address}</span>
+                    <span>{errors.shop_address}</span>
                   </div>
                 )}
               </div>
 
-              <div className="w-full">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  City <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                    errors.city ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                  placeholder="Enter city"
-                />
-                {errors.city && (
-                  <div className="flex items-center mt-2 text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.city}</span>
-                  </div>
-                )}
-              </div>
+             <div className="w-full">
+  <label className="block text-sm font-semibold text-gray-700 mb-3">
+    City <span className="text-red-500">*</span>
+  </label>
+  <div className="relative">
+    <select
+      name="city"
+      value={formData.city}
+      onChange={handleInputChange}
+      className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+        errors.city ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+      }`}
+    >
+      <option value="">Select city</option>
+      {sriLankanCities.map(city => (
+        <option key={city} value={city}>{city}</option>
+      ))}
+    </select>
+    <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+  </div>
+  {errors.city && (
+    <div className="flex items-center mt-2 text-red-600 text-sm">
+      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+      <span>{errors.city}</span>
+    </div>
+  )}
+</div>
             </div>
           )}
 
@@ -432,14 +548,14 @@ export default function SeedsFertilizerForm() {
                     <label key={type} className="cursor-pointer">
                       <input
                         type="radio"
-                        name="productType"
+                        name="product_type"
                         value={type}
-                        checked={formData.productType === type}
+                        checked={formData.product_type === type}
                         onChange={handleInputChange}
                         className="sr-only"
                       />
                       <div className={`p-4 sm:p-6 lg:p-8 border-2 rounded-xl text-center transition-all duration-300 transform hover:scale-105 ${
-                        formData.productType === type
+                        formData.product_type === type
                           ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200'
                           : errors.productType
                           ? 'border-red-500 bg-red-50'
@@ -453,10 +569,10 @@ export default function SeedsFertilizerForm() {
                     </label>
                   ))}
                 </div>
-                {errors.productType && (
+                {errors.product_type && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.productType}</span>
+                    <span>{errors.product_type}</span>
                   </div>
                 )}
               </div>
@@ -469,18 +585,18 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <input
                     type="text"
-                    name="productName"
-                    value={formData.productName}
+                    name="product_name"
+                    value={formData.product_name}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.productName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                      errors.product_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     placeholder="Enter product name"
                   />
-                  {errors.productName && (
+                  {errors.product_name && (
                     <div className="flex items-center mt-2 text-red-600 text-sm">
                       <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.productName}</span>
+                      <span>{errors.product_name}</span>
                     </div>
                   )}
                 </div>
@@ -505,38 +621,91 @@ export default function SeedsFertilizerForm() {
                   </label>
                   <select
                     name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
+                    value={
+    formData.category === "Other" && formData.category_other
+      ? formData.category_other
+      : formData.category
+  }
+              onChange={e => {
+    const value = e.target.value;
+    if (value === "Other") {
+      setFormData(prev => ({
+        ...prev,
+        category: "Other",
+        category_other: ""
+      }));
+    } else if (
+      formData.category === "Other" &&
+      formData.category_other &&
+      value === formData.category_other
+    ) {
+      setFormData(prev => ({
+        ...prev,
+        category: "Other",
+        category_other: value
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        category: value,
+        category_other: ""
+      }));
+    }
+  }}
                     className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
                   >
                     <option value="">Select category</option>
-                    {formData.productType === 'seeds' && (
+                    {formData.product_type === 'seeds' && (
                       <>
                         <option value="vegetable">Vegetable Seeds</option>
-                        <option value="fruit">Fruit Seeds</option>
-                        <option value="flower">Flower Seeds</option>
-                        <option value="grain">Grain Seeds</option>
+                         <option value="grain">Grain Seeds</option>
+                             <option value="Other">Other</option>
+                     
                       </>
                     )}
-                    {formData.productType === 'fertilizer' && (
+                    {formData.product_type === 'fertilizer' && (
                       <>
                         <option value="organic">Organic Fertilizer</option>
                         <option value="npk">NPK Fertilizer</option>
                         <option value="liquid">Liquid Fertilizer</option>
                         <option value="compost">Compost</option>
+                        <option value="Other">Other</option>
                       </>
                     )}
-                    {formData.productType === 'chemical' && (
+                    {formData.product_type === 'chemical' && (
                       <>
                         <option value="pesticide">Pesticide</option>
                         <option value="herbicide">Herbicide</option>
                         <option value="fungicide">Fungicide</option>
                         <option value="insecticide">Insecticide</option>
+                        <option value="Other">Other</option>
                       </>
                     )}
+                    {/* Show custom entered category as an option if present */}
+      {formData.category === "Other" && formData.category_other && (
+    <option value={formData.category_other}>{formData.category_other}</option>
+  )}
                   </select>
+                  <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
-
+  {/* Show input if "Other" is selected */}
+  {formData.category === "Other" && (
+    <input
+      type="text"
+      name="category"
+      value={formData.category_other || ""}
+      onChange={e =>
+        setFormData(prev => ({
+          ...prev,
+          category: "Other",
+          category_other: e.target.value
+        }))
+      }
+      className="mt-3 w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg"
+      placeholder="Please specify category"
+      autoFocus
+    />
+  )}
                 <div className="w-full">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Season
@@ -605,8 +774,8 @@ export default function SeedsFertilizerForm() {
                 </label>
                 <input
                   type="text"
-                  name="quantity"
-                  value={formData.quantity}
+                  name="available_quantity"
+                  value={formData.available_quantity}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
                   placeholder="e.g., 100 packets, 50 kg"
@@ -618,30 +787,70 @@ export default function SeedsFertilizerForm() {
                   Product Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  name="description"
-                  value={formData.description}
+                  name="product_description"
+                  value={formData.product_description}
                   onChange={handleInputChange}
                   rows={6}
                   className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none text-base sm:text-lg ${
-                    errors.description ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    errors.product_description ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                   }`}
                   placeholder="Describe your product, its benefits, and key features (minimum 20 characters)"
                 />
-                {errors.description && (
+                {errors.product_description && (
                   <div className="flex items-center mt-2 text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.description}</span>
+                    <span>{errors.product_description}</span>
                   </div>
                 )}
               </div>
-
+              
+              <div className="w-full">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Product Images (Max 5)
+                </label>
+                <div className="flex flex-wrap gap-4 mb-4">
+                  {formData.imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative">
+                      <img 
+                        src={preview} 
+                        alt={`Preview ${index}`}
+                        className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {formData.imagePreviews.length < 5 && (
+                    <label className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors">
+                      <div className="text-center">
+                        <Upload className="w-8 h-8 mx-auto text-gray-400" />
+                        <span className="text-xs text-gray-500">Add Image</span>
+                      </div>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">Upload clear images of your product (JPEG, PNG)</p>
+              </div>
+              
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Usage Instructions
                 </label>
                 <textarea
-                  name="usage"
-                  value={formData.usage}
+                  name="usage_history"
+                  value={formData.usage_history}
                   onChange={handleInputChange}
                   rows={5}
                   className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none hover:border-gray-400 text-base sm:text-lg"
@@ -649,13 +858,13 @@ export default function SeedsFertilizerForm() {
                 />
               </div>
 
-              {/* Organic Certification - Enhanced */}
+              {/* Organic Certification */}
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border-2 border-green-200">
                 <label className="flex items-start cursor-pointer">
                   <input
                     type="checkbox"
-                    name="organicCertified"
-                    checked={formData.organicCertified}
+                    name="organic_certified"
+                    checked={formData.organic_certified}
                     onChange={handleInputChange}
                     className="w-6 h-6 text-green-600 bg-white border-2 border-gray-300 rounded-lg focus:ring-green-500 focus:ring-2 mt-1"
                   />
@@ -672,159 +881,184 @@ export default function SeedsFertilizerForm() {
               </div>
             </div>
           )}
-
-          {/* Step 3: Review & Submit */}
-          {currentStep === 3 && (
-            <div className="space-y-6 sm:space-y-8">
-              <div className="text-center mb-8 sm:mb-12">
-                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
-                  <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">Review Your Advertisement</h2>
-                <p className="text-base sm:text-lg text-gray-600">Please review all details before submitting</p>
-              </div>
-              
-              <div className="bg-gray-50 rounded-xl p-6 sm:p-8 space-y-6 sm:space-y-8 border border-gray-200">
-                <div className="border-b border-gray-200 pb-6 sm:pb-8">
-                  <h3 className="font-bold text-xl sm:text-2xl text-gray-800 mb-4 sm:mb-6 flex items-center">
-                    <MapPin className="w-5 h-5 sm:w-6 sm:h-6 mr-3 text-green-600" />
-                    Shop Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
-                    <p><span className="font-bold text-gray-700">Shop:</span> {formData.shopName}</p>
-                    <p><span className="font-bold text-gray-700">Owner:</span> {formData.ownerName}</p>
-                    <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone}</p>
-                    <p><span className="font-bold text-gray-700">Email:</span> {formData.email}</p>
-                    <p className="md:col-span-2"><span className="font-bold text-gray-700">Address:</span> {formData.address}, {formData.city}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-bold text-xl sm:text-2xl text-gray-800 mb-4 sm:mb-6 flex items-center">
-                    <Package className="w-5 h-5 sm:w-6 sm:h-6 mr-3 text-green-600" />
-                    Product Information
-                  </h3>
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="flex items-center mb-3 sm:mb-4">
-                      {getProductIcon(formData.productType)}
-                      <span className="ml-3 font-bold text-lg sm:text-xl capitalize bg-green-100 text-green-800 px-3 sm:px-4 py-1 sm:py-2 rounded-full border border-green-200">
-                        {formData.productType}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
-                      <p><span className="font-bold text-gray-700">Product:</span> {formData.productName} {formData.brand && `(${formData.brand})`}</p>
-                      {formData.category && <p><span className="font-bold text-gray-700">Category:</span> {formData.category}</p>}
-                      <p><span className="font-bold text-gray-700">Price:</span> <span className="text-green-600 font-bold text-base sm:text-lg">LKR {parseFloat(formData.price || '0').toFixed(2)}</span> {formData.unit && `/ ${formData.unit}`}</p>
-                      {formData.quantity && <p><span className="font-bold text-gray-700">Available:</span> {formData.quantity}</p>}
-                      {formData.season && <p><span className="font-bold text-gray-700">Season:</span> {formData.season}</p>}
-                    </div>
-                    {formData.organicCertified && (
-                      <div className="bg-green-100 text-green-800 p-3 sm:p-4 rounded-xl flex items-center border border-green-200">
-                        <Leaf className="w-5 h-5 sm:w-6 sm:h-6 mr-3" />
-                        <span className="font-bold text-base sm:text-lg">✓ Organic Certified Product</span>
-                      </div>
-                    )}
-                    {formData.description && (
-                      <div className="mt-6">
-                        <span className="font-bold text-gray-700 text-lg">Description:</span>
-                        <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">{formData.description}</p>
-                      </div>
-                    )}
-                    {formData.usage && (
-                      <div className="mt-6">
-                        <span className="font-bold text-gray-700 text-lg">Usage Instructions:</span>
-                        <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">{formData.usage}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4 sm:p-6">
-                <h4 className="font-bold text-green-800 mb-4 sm:mb-6 text-lg sm:text-xl">Terms & Conditions</h4>
-                <ul className="text-sm sm:text-base text-green-700 space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    All product information must be accurate and truthful
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    You are responsible for product quality and customer service
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    Advertisement will be reviewed before publication
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    Contact information will be visible to potential buyers
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
-                    False or misleading information may result in account suspension
-                  </li>
-                </ul>
-                <div className="bg-white p-4 sm:p-6 rounded-xl border border-green-200">
-                  <label className="flex items-start cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      name="termsAccepted"
-                      checked={formData.termsAccepted}
-                      onChange={handleInputChange}
-                      className={`w-5 h-5 sm:w-6 sm:h-6 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2 mt-1 ${
-                        errors.termsAccepted ? 'border-red-500' : ''
-                      }`}
-                    />
-                    <span className="ml-3 sm:ml-4 text-sm sm:text-base font-semibold text-gray-800">
-                      I agree to the terms and conditions and confirm that all information provided is accurate
-                    </span>
-                  </label>
-                  {errors.termsAccepted && (
-                    <div className="flex items-center mt-2 sm:mt-3 text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.termsAccepted}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Navigation Buttons */}
-          <div className="flex flex-col sm:flex-row justify-between mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 gap-4 sm:gap-0">
-            <button
-              type="button"
-              onClick={prevStep}
-              disabled={currentStep === 1}
-              className={`px-6 sm:px-8 lg:px-12 py-3 sm:py-4 rounded-lg font-semibold text-base sm:text-lg transition-all duration-300 ${
-                currentStep === 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-500 text-white hover:bg-gray-600 shadow-lg hover:shadow-xl'
-              }`}
-            >
-              ← Previous
-            </button>
-
-            {currentStep < 3 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="px-6 sm:px-8 lg:px-12 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                Next Step →
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                🚀 Post Advertisement
-              </button>
+      {/* Step 3: Review & Submit */}
+{currentStep === 3 && (
+  <div className="space-y-6 sm:space-y-8">
+    <div className="text-center mb-8 sm:mb-12">
+      <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
+        <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+      </div>
+      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">
+        Review Your Advertisement
+      </h2>
+      <p className="text-base sm:text-lg text-gray-600">
+        Please review all details before submitting
+      </p>
+    </div>
+    
+    <div className="bg-gray-50 rounded-xl p-6 sm:p-8 space-y-6 sm:space-y-8 border border-gray-200">
+      <div className="border-b border-gray-200 pb-6 sm:pb-8">
+        <h3 className="font-bold text-xl sm:text-2xl text-gray-800 mb-4 sm:mb-6 flex items-center">
+          <MapPin className="w-5 h-5 sm:w-6 sm:h-6 mr-3 text-green-600" />
+          Shop Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
+          <p><span className="font-bold text-gray-700">Shop:</span> {formData.shop_name}</p>
+          <p><span className="font-bold text-gray-700">Owner:</span> {formData.owner_name}</p>
+          <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone_no}</p>
+          <p><span className="font-bold text-gray-700">Email:</span> {formData.email}</p>
+          <p className="md:col-span-2">
+            <span className="font-bold text-gray-700">Address:</span> {formData.shop_address}, {formData.city}
+          </p>
+        </div>
+      </div>
+      
+      <div>
+        <h3 className="font-bold text-xl sm:text-2xl text-gray-800 mb-4 sm:mb-6 flex items-center">
+          <Package className="w-5 h-5 sm:w-6 sm:h-6 mr-3 text-green-600" />
+          Product Information
+        </h3>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-center mb-3 sm:mb-4">
+            {getProductIcon(formData.product_type)}
+            <span className="ml-3 font-bold text-lg sm:text-xl capitalize bg-green-100 text-green-800 px-3 sm:px-4 py-1 sm:py-2 rounded-full border border-green-200">
+              {formData.product_type}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-sm sm:text-base">
+            <p>
+              <span className="font-bold text-gray-700">Product:</span> {formData.product_name} {formData.brand && `(${formData.brand})`}
+            </p>
+            {formData.category && (
+              <p><span className="font-bold text-gray-700">Category:</span> {formData.category}</p>
+            )}
+            <p>
+              <span className="font-bold text-gray-700">Price:</span> 
+              <span className="text-green-600 font-bold text-base sm:text-lg">LKR {parseFloat(formData.price || '0').toFixed(2)}</span> 
+              {formData.unit && `/ ${formData.unit}`}
+            </p>
+            {formData.available_quantity && (
+              <p><span className="font-bold text-gray-700">Available:</span> {formData.available_quantity}</p>
+            )}
+            {formData.season && (
+              <p><span className="font-bold text-gray-700">Season:</span> {formData.season}</p>
             )}
           </div>
+          {formData.organic_certified && (
+            <div className="bg-green-100 text-green-800 p-3 sm:p-4 rounded-xl flex items-center border border-green-200">
+              <Leaf className="w-5 h-5 sm:w-6 sm:h-6 mr-3" />
+              <span className="font-bold text-base sm:text-lg">✓ Organic Certified Product</span>
+            </div>
+          )}
+          {formData.product_description && (
+            <div className="mt-6">
+              <span className="font-bold text-gray-700 text-lg">Description:</span>
+              <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">
+                {formData.product_description}
+              </p>
+            </div>
+          )}
+          {formData.usage_history && (
+            <div className="mt-6">
+              <span className="font-bold text-gray-700 text-lg">Usage Instructions:</span>
+              <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">
+                {formData.usage_history}
+              </p>
+            </div>
+          )}
         </div>
+      </div>
+    </div>
 
+    <div className="bg-green-50 border border-green-200 rounded-xl p-4 sm:p-6">
+      <h4 className="font-bold text-green-800 mb-4 sm:mb-6 text-lg sm:text-xl">
+        Terms & Conditions
+      </h4>
+      <ul className="text-sm sm:text-base text-green-700 space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          All product information must be accurate and truthful
+        </li>
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          You are responsible for product quality and customer service
+        </li>
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          Advertisement will be reviewed before publication
+        </li>
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          Contact information will be visible to potential buyers
+        </li>
+        <li className="flex items-start">
+          <span className="text-green-500 mr-2 sm:mr-3 text-lg sm:text-xl">•</span>
+          False or misleading information may result in account suspension
+        </li>
+      </ul>
+      <div className="bg-white p-4 sm:p-6 rounded-xl border border-green-200">
+        <label className="flex items-start cursor-pointer">
+          <input 
+            type="checkbox" 
+            name="terms_accepted"
+            checked={formData.terms_accepted}
+            onChange={handleInputChange}
+            className={`w-5 h-5 sm:w-6 sm:h-6 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2 mt-1 ${
+              errors.termsAccepted ? 'border-red-500' : ''
+            }`}
+          />
+          <span className="ml-3 sm:ml-4 text-sm sm:text-base font-semibold text-gray-800">
+            I agree to the terms and conditions and confirm that all information provided is accurate
+          </span>
+        </label>
+        {errors.terms_accepted && (
+          <div className="flex items-center mt-2 sm:mt-3 text-red-600 text-sm">
+            <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+            <span>{errors.terms_accepted}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Navigation Buttons */}
+<div className="flex flex-col sm:flex-row justify-between mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 gap-4 sm:gap-0">
+  <button
+    type="button"
+    onClick={prevStep}
+    disabled={currentStep === 1}
+    className={`px-6 sm:px-8 lg:px-12 py-3 sm:py-4 rounded-lg font-semibold text-base sm:text-lg transition-all duration-300 ${
+      currentStep === 1
+        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+        : 'bg-gray-500 text-white hover:bg-gray-600 shadow-lg hover:shadow-xl'
+    }`}
+  >
+    ← Previous
+  </button>
+
+  {currentStep < 3 ? (
+    <button
+      type="button"
+      onClick={nextStep}
+      className="px-6 sm:px-8 lg:px-12 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+    >
+      Next Step →
+    </button>
+  ) : (
+
+    <button
+      type="button"
+      onClick={handleSubmit}
+      disabled={isSubmitting}
+      className={`px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+      {isSubmitting ? 'Posting...' : '🚀 Post Advertisement'}
+    </button>
+  )}
+</div>
+
+</div>
         {/* Footer */}
         <div className="text-center mt-6 sm:mt-10 text-gray-500 text-sm sm:text-base">
           <p>Your advertisement will be reviewed and published within 24 hours</p>
