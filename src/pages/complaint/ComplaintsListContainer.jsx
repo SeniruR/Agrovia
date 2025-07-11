@@ -19,6 +19,16 @@ const ComplaintsListContainer = (props) => {
     setComplaints((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)));
   };
 
+  // Delete complaint handler
+  const handleDeleteComplaint = async (id, type) => {
+    let url = "";
+    if (type === "crop") url = `/api/v1/crop-complaints/${id}`;
+    else if (type === "shop") url = `/api/v1/shop-complaints/${id}`;
+    else if (type === "transport") url = `/api/v1/transport-complaints/${id}`;
+    await fetch(url, { method: "DELETE" });
+    setComplaints((prev) => prev.filter((c) => c.id !== id));
+  };
+
   useEffect(() => {
     const fetchAllComplaints = async () => {
       setLoading(true);
@@ -57,6 +67,9 @@ const ComplaintsListContainer = (props) => {
     <ComplaintsList
       complaints={complaints}
       onUpdateStatus={handleUpdateStatus}
+      onViewComplaint={props.onViewComplaint}
+      onBack={props.onBack}
+      onDeleteComplaint={handleDeleteComplaint}
       {...props}
     />
   );

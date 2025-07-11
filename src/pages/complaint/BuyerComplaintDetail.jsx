@@ -47,12 +47,6 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
     }
   };
 
-  const getStatusColor = (status) => {
-    return status === 'consider' 
-      ? 'bg-green-100 text-green-700 border-green-200'
-      : 'bg-red-100 text-red-700 border-red-200';
-  };
-
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-4xl mx-auto">
@@ -86,10 +80,6 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
                   </span>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
                     {complaint.priority}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center space-x-1 ${getStatusColor(complaint.status)}`}>
-                    {complaint.status === 'consider' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                    <span>{complaint.status === 'consider' ? 'Considered' : 'Not Considered'}</span>
                   </span>
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 mb-4">{complaint.title}</h2>

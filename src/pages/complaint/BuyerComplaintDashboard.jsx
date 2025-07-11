@@ -1,14 +1,12 @@
 import React from 'react';
 import { MessageSquareX, Wheat, Store, Truck, CheckCircle, XCircle, Eye, LogOut, User, Plus } from 'lucide-react';
 
-const BuyerDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, currentUser }) => {
+const BuyerComplaintDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, currentUser }) => {
   const getComplaintStats = () => {
     const total = complaints.length;
-    const consider = complaints.filter(c => c.status === 'consider').length;
-    const notConsider = complaints.filter(c => c.status === 'not-consider').length;
     const pending = complaints.filter(c => !c.adminReply).length;
 
-    return { total, consider, notConsider, pending };
+    return { total, pending };
   };
 
   const stats = getComplaintStats();
@@ -42,8 +40,6 @@ const BuyerDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, cur
 
   const statCards = [
     { title: 'My Complaints', value: stats.total, icon: MessageSquareX, color: 'text-slate-600' },
-    { title: 'Considered', value: stats.consider, icon: CheckCircle, color: 'text-green-600' },
-    { title: 'Not Considered', value: stats.notConsider, icon: XCircle, color: 'text-red-600' },
     { title: 'Pending Reply', value: stats.pending, icon: MessageSquareX, color: 'text-orange-600' }
   ];
 
@@ -180,4 +176,4 @@ const BuyerDashboard = ({ complaints, onNavigate, onViewComplaint, onLogout, cur
   );
 };
 
-export default BuyerDashboard;
+export default BuyerComplaintDashboard;
