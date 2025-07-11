@@ -60,18 +60,6 @@ function Complaint() {
         <ComplaintsListContainer
           onViewComplaint={(id, type) => fetchComplaintDetail(id, type)}
           onBack={() => setCurrentPage('dashboard')}
-          // Pass through onUpdateStatus to ensure DB update
-          onUpdateStatus={async (id, type, status) => {
-            let url = '';
-            if (type === 'crop') url = `/api/v1/crop-complaints/${id}`;
-            else if (type === 'shop') url = `/api/v1/shop-complaints/${id}`;
-            else if (type === 'transport') url = `/api/v1/transport-complaints/${id}`;
-            await fetch(url, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status })
-            });
-          }}
         />
       );
     case 'complaint-detail':
@@ -79,18 +67,6 @@ function Complaint() {
         <ComplaintDetail
           complaint={complaintDetail}
           onBack={() => setCurrentPage('complaints')}
-          onUpdateStatus={async (id, type, status) => {
-            let url = '';
-            if (type === 'crop') url = `/api/v1/crop-complaints/${id}`;
-            else if (type === 'shop') url = `/api/v1/shop-complaints/${id}`;
-            else if (type === 'transport') url = `/api/v1/transport-complaints/${id}`;
-            await fetch(url, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status })
-            });
-            setComplaintDetail(prev => ({ ...prev, status }));
-          }}
         />
       );
     default:

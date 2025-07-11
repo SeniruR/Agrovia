@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle } from 'lucide-react';
 
-const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
+const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   const [newReply, setNewReply] = useState('');
   const [showReplyForm, setShowReplyForm] = useState(false);
 
@@ -123,6 +123,12 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
                       })()}</p>
                     </div>
                   </div>
+                  {complaint.category && (
+                    <div>
+                      <p className="text-sm text-slate-500">Category</p>
+                      <p className="font-medium text-slate-800">{complaint.category}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-4">
                   {complaint.location && (
@@ -143,6 +149,12 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
                       <p className="font-medium text-slate-800">{complaint.cropType}</p>
                     </div>
                   )}
+                  {complaint.farmer && (
+                    <div>
+                      <p className="text-sm text-slate-500">Farmer</p>
+                      <p className="font-medium text-slate-800">{complaint.farmer}</p>
+                    </div>
+                  )}
                   {complaint.shopName && (
                     <div>
                       <p className="text-sm text-slate-500">Shop Name</p>
@@ -155,37 +167,145 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
                       <p className="font-medium text-slate-800">{complaint.transportCompany}</p>
                     </div>
                   )}
+                  {complaint.purchaseDate && (
+                    <div>
+                      <p className="text-sm text-slate-500">Purchase Date</p>
+                      <p className="font-medium text-slate-800">{typeof complaint.purchaseDate === 'string' ? complaint.purchaseDate : complaint.purchaseDate.toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  {complaint.deliveryDate && (
+                    <div>
+                      <p className="text-sm text-slate-500">Delivery Date</p>
+                      <p className="font-medium text-slate-800">{typeof complaint.deliveryDate === 'string' ? complaint.deliveryDate : complaint.deliveryDate.toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  {complaint.trackingNumber && (
+                    <div>
+                      <p className="text-sm text-slate-500">Tracking Number</p>
+                      <p className="font-medium text-slate-800">{complaint.trackingNumber}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* Debug information for troubleshooting */}
+              <div className="hidden">
+                {console.log('Complaint data:', complaint.id, complaint.type)}
+                {console.log('Image data available:', 
+                  complaint.attachments ? 'attachments: ' + complaint.attachments.length : 'no attachments',
+                  complaint.image ? 'image present' : 'no image',
+                  complaint.images ? 'images: ' + complaint.images.length : 'no images'
+                )}
+              </div>
+              
               {/* Attachments for crop, shop, and transport complaints */}
-              {complaint.attachments && complaint.attachments.length > 0 && (
-                <div className="mb-6">
-                  <p className="text-sm text-slate-500 mb-1">Attachments</p>
+              {((complaint.attachments && complaint.attachments.length > 0) || 
+                 complaint.image || 
+                 (complaint.images && complaint.images.length > 0)) && (
+                <div className="mt-6 mb-6 pt-6 border-t border-slate-100">
+                  <p className="text-sm font-medium text-slate-700 mb-3">Attachments</p>
                   <div className="flex flex-wrap gap-4">
-                    {complaint.attachments.map((file, idx) => {
-                      // Shop complaint: file is {data, mimetype, filename}
-                      if (file && typeof file === 'object' && file.data) {
+                    {/* Handle complaint.attachments array (crop/transport complaints) */}
+                    {complaint.attachments && complaint.attachments.map((file, idx) => {
+                      console.log('Rendering attachment:', idx, typeof file, file ? file.substring(0, 30) + '...' : 'null');
+                      if (file && typeof file === 'string') {
                         return (
-                          <img
-                            key={idx}
-                            src={`data:${file.mimetype || 'image/jpeg'};base64,${file.data}`}
-                            alt={file.filename || `Attachment ${idx + 1}`}
-                            className="max-w-xs rounded-xl border border-slate-200"
-                            style={{ maxHeight: 240 }}
-                          />
+                          <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
+                            <img
+                              src={`data:image/jpeg;base64,${file}`}
+                              alt={`Attachment ${idx + 1}`}
+                              className="w-full h-auto"
+                              style={{ maxHeight: 240 }}
+                              onError={(e) => {
+                                console.error("Attachment image load error", idx);
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
                         );
                       }
-                      // Crop/transport: file is base64 string
-                      if (file && typeof file === 'string' && file.length > 100) {
+                      return null;
+                    }                    )}
+                    
+                    {/* Handle complaint.image (single image for shop complaints) */}
+                    {complaint.image && (
+                      <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
+                        {console.log('Rendering shop image:', typeof complaint.image, complaint.image ? (complaint.image.length > 100 ? 'Length: ' + complaint.image.length : complaint.image) : 'null')}
+                        {/* Extra validation before rendering */}
+                        {(() => {
+                          // For debugging - check the actual content of the image data
+                          if (typeof complaint.image === 'string') {
+                            const firstChars = complaint.image.substring(0, 20);
+                            console.log('Image data starts with:', firstChars);
+                            
+                            // If it's a JSON string or has brackets, it might be incorrectly formatted
+                            if (firstChars.includes('[') || firstChars.includes('{')) {
+                              console.log('Warning: Image data appears to be JSON, not base64');
+                            }
+                          }
+                          
+                          // Try to clean the image data if necessary
+                          let imageData = '';
+                          if (typeof complaint.image === 'string') {
+                            // Remove any wrapping quotes, brackets, etc.
+                            imageData = complaint.image.replace(/^["'\[\{]+|["'\]\}]+$/g, '');
+                            
+                            // Check if it's already a data URL
+                            if (imageData.startsWith('data:')) {
+                              return (
+                                <img
+                                  src={imageData}
+                                  alt="Shop Attachment"
+                                  className="w-full h-auto"
+                                  style={{ maxHeight: 240 }}
+                                  onError={(e) => {
+                                    console.error("Shop image load error with data URL");
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              );
+                            } else {
+                              // Assume it's a base64 string and add the prefix
+                              return (
+                                <img
+                                  src={`data:image/jpeg;base64,${imageData}`}
+                                  alt="Shop Attachment"
+                                  className="w-full h-auto"
+                                  style={{ maxHeight: 240 }}
+                                  onError={(e) => {
+                                    console.error("Shop image load error with base64");
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              );
+                            }
+                          }
+                          
+                          return (
+                            <div className="p-4 bg-gray-100 text-gray-500 rounded-xl">
+                              Image data is not in the expected format
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    
+                    {/* Handle complaint.images array (multiple images for shop complaints) */}
+                    {complaint.images && complaint.images.map((file, idx) => {
+                      if (file && typeof file === 'string') {
                         return (
-                          <img
-                            key={idx}
-                            src={`data:image/jpeg;base64,${file}`}
-                            alt={`Attachment ${idx + 1}`}
-                            className="max-w-xs rounded-xl border border-slate-200"
-                            style={{ maxHeight: 240 }}
-                          />
+                          <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
+                            <img
+                              src={`data:image/jpeg;base64,${file}`}
+                              alt={`Attachment ${idx + 1}`}
+                              className="w-full h-auto"
+                              style={{ maxHeight: 240 }}
+                              onError={(e) => {
+                                console.error("Image load error");
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
                         );
                       }
                       return null;
@@ -199,7 +319,7 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
-                {!complaint.adminReply && complaint.status === 'consider' && (
+                {!complaint.adminReply && (
                   <button
                     onClick={() => setShowReplyForm(!showReplyForm)}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
@@ -242,7 +362,7 @@ const ComplaintDetail = ({ complaint, onBack, onUpdateStatus, onAddReply }) => {
                 </div>
               ) : (
                 <p className="text-slate-500 text-center py-8">
-                  {complaint.status === 'consider' ? 'No reply sent yet.' : 'No reply needed for this complaint.'}
+                  No reply sent yet.
                 </p>
               )}
             </div>
