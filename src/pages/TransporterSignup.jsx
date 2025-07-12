@@ -360,8 +360,7 @@ const TransporterSignup = () => {
             let transporterUserId = null;
             if (result.data && result.data.user) {
                 transporterUserId = result.data.user.id;
-                localStorage.setItem('user', JSON.stringify(result.data.user));
-                window.dispatchEvent(new Event('userChanged'));
+                // Do not auto-login. Only show success and redirect to login page.
             }
             // Create disable_account row for transporter (case_id = 3)
             if (transporterUserId) {
