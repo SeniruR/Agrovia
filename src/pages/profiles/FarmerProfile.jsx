@@ -40,7 +40,7 @@ const FarmerProfile = () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         if (!token) {
           setError('No authentication token found. Please log in again.');
           setLoading(false);
@@ -81,30 +81,30 @@ const FarmerProfile = () => {
         const user = data.user || {};
         const details = user.farmer_details || {};
         setFarmerData({
-          fullName: user.full_name || '',
-          email: user.email || '',
-          phoneNumber: user.phone_number || '',
-          nic: user.nic || '',
-          birthDate: user.birth_date || '',
-          district: user.district || '',
-          address: user.address || '',
+          // User fields (for header, if needed)
+          fullName: user.full_name || '-',
+          email: user.email || '-',
+          phoneNumber: user.phone_number || '-',
+          nic: user.nic || '-',
+          district: user.district || '-',
+          address: user.address || '-',
           profileImage: user.profile_image || '',
-          joinedDate: user.created_at || '',
+          joinedDate: user.created_at || '-',
           verified: user.is_active === 1,
-          // Farmer details
-          farmingExperience: details.farming_experience || '',
-          landSize: details.land_size ? `${details.land_size} acres` : '',
-          primaryCrops: details.cultivated_crops || '',
-          secondaryCrops: details.secondary_crops || '',
-          farmingMethods: details.farming_methods || '',
-          irrigationSystem: details.irrigation_system || '',
-          soilType: details.soil_type || '',
-          education: details.education || '',
-          annualIncome: details.annual_income || '',
-          organizationMember: details.organization_id ? 'Yes' : 'No',
-          rating: details.rating || 0,
-          totalCrops: details.total_crops || 0,
-          totalSales: details.total_sales || 0,
+          // Farmer details (from farmer_details table)
+          id: details.id || '-',
+          userId: details.user_id || '-',
+          organizationId: details.organization_id || '-',
+          organizationName: details.organization_name || '-',
+          landSize: details.land_size ? `${details.land_size} acres` : '-',
+          description: details.description || '-',
+          divisionGramasewaNumber: details.division_gramasewa_number || '-',
+          farmingExperience: details.farming_experience || '-',
+          cultivatedCrops: details.cultivated_crops || '-',
+          irrigationSystem: details.irrigation_system || '-',
+          soilType: details.soil_type || '-',
+          farmingCertifications: details.farming_certifications || '-',
+          createdAt: details.created_at || '-',
         });
       } catch (err) {
         setError(err.message || 'Unknown error');
@@ -137,6 +137,9 @@ const FarmerProfile = () => {
     setIsEditing(false);
     // Handle save logic here
   };
+
+  // Helper to display dash for empty/null/undefined
+  const displayValue = (val) => (val && val !== '' ? val : '-');
 
   const ProfileHeader = () => (
     <div className="bg-gradient-to-r from-green-600 via-green-700 to-emerald-800 text-white">
@@ -187,15 +190,16 @@ const FarmerProfile = () => {
             </div>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-3">
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                🌾 {farmerData.primaryCrops}
-              </span>
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                🌱 {farmerData.farmingMethods.split(',')[0]}
-              </span>
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                ⭐ {farmerData.rating} Rating
-              </span>
+              {farmerData.farmingCertifications && (
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                  🏅 {farmerData.farmingCertifications}
+                </span>
+              )}
+              {farmerData.farmingExperience && (
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                  ⏳ {farmerData.farmingExperience}
+                </span>
+              )}
             </div>
           </div>
 
@@ -271,6 +275,23 @@ const FarmerProfile = () => {
   const navigate = useNavigate();
 
 
+  const InfoCard = ({ label, value, icon: Icon, color = "green" }) => (
+    <div
+      className={`flex flex-col items-start rounded-xl p-4 border
+        ${color === "green" ? "bg-green-50 border-green-100" : ""}
+        ${color === "blue" ? "bg-blue-50 border-blue-100" : ""}
+        ${color === "yellow" ? "bg-yellow-50 border-yellow-100" : ""}
+        ${color === "gray" ? "bg-gray-50 border-gray-100" : ""}
+      `}
+    >
+      <label className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-2">
+        {Icon && <Icon className={`w-4 h-4 text-${color}-600`} />}
+        {label}
+      </label>
+      <p className="text-gray-800 font-medium">{value && value !== "" ? value : "-"}</p>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-xl">
@@ -297,7 +318,6 @@ const FarmerProfile = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
       <ProfileHeader />
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <StatsSection />
         {/* Navigation Tabs */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-2xl">
@@ -309,77 +329,21 @@ const FarmerProfile = () => {
         </div>
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-8">
             {/* Personal Information */}
             <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
                 <User className="w-6 h-6 text-green-600" />
                 Personal Information
               </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Full Name</label>
-                    <p className="text-gray-800 font-medium">{farmerData.fullName}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">NIC</label>
-                    <p className="text-gray-800 font-medium">{farmerData.nic}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Birth Date</label>
-                    <p className="text-gray-800 font-medium">{farmerData.birthDate ? new Date(farmerData.birthDate).toLocaleDateString() : ''}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Education</label>
-                    <p className="text-gray-800 font-medium">{farmerData.education}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Address</label>
-                  <p className="text-gray-800 font-medium">{farmerData.address}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Annual Income</label>
-                  <p className="text-gray-800 font-medium">{farmerData.annualIncome}</p>
-                </div>
-              </div>
-            </div>
-            {/* Farming Overview */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                <Leaf className="w-6 h-6 text-green-600" />
-                Farming Overview
-              </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Experience</label>
-                    <p className="text-gray-800 font-medium">{farmerData.farmingExperience}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Land Size</label>
-                    <p className="text-gray-800 font-medium">{farmerData.landSize}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Primary Crops</label>
-                  <p className="text-gray-800 font-medium">{farmerData.primaryCrops}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Secondary Crops</label>
-                  <p className="text-gray-800 font-medium">{farmerData.secondaryCrops}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Farming Methods</label>
-                  <p className="text-gray-800 font-medium">{farmerData.farmingMethods}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Organization Member</label>
-                  <p className="text-gray-800 font-medium">{farmerData.organizationMember}</p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <InfoCard label="Full Name" value={farmerData.fullName} icon={User} color="green" />
+                <InfoCard label="NIC" value={farmerData.nic} icon={Award} color="blue" />
+                <InfoCard label="Birth Date" value={farmerData.birthDate} icon={Calendar} color="yellow" />
+                <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
+                <InfoCard label="Email" value={farmerData.email} icon={Mail} color="blue" />
+                <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
+                <InfoCard label="Address" value={farmerData.address} icon={MapPin} color="gray" />
               </div>
             </div>
           </div>
@@ -388,30 +352,18 @@ const FarmerProfile = () => {
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
               <Tractor className="w-6 h-6 text-green-600" />
-              Detailed Farming Information
+              Farming Overview
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Droplets className="w-8 h-8 text-blue-600" />
-                  <h3 className="font-semibold text-gray-800">Irrigation System</h3>
-                </div>
-                <p className="text-gray-700">{farmerData.irrigationSystem}</p>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Mountain className="w-8 h-8 text-brown-600" />
-                  <h3 className="font-semibold text-gray-800">Soil Type</h3>
-                </div>
-                <p className="text-gray-700">{farmerData.soilType}</p>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Sprout className="w-8 h-8 text-green-600" />
-                  <h3 className="font-semibold text-gray-800">Farming Methods</h3>
-                </div>
-                <p className="text-gray-700">{farmerData.farmingMethods}</p>
-              </div>
+              <InfoCard label="Land Size (acres)" value={farmerData.landSize} icon={BarChart3} color="green" />
+              <InfoCard label="Farming Experience" value={farmerData.farmingExperience} icon={Award} color="yellow" />
+              <InfoCard label="Cultivated Crops" value={farmerData.cultivatedCrops} icon={Sprout} color="green" />
+              <InfoCard label="Irrigation System" value={farmerData.irrigationSystem} icon={Droplets} color="blue" />
+              <InfoCard label="Soil Type" value={farmerData.soilType} icon={Mountain} color="yellow" />
+              <InfoCard label="Farming Certifications" value={farmerData.farmingCertifications} icon={CheckCircle} color="green" />
+              <InfoCard label="Description" value={farmerData.description} icon={Edit3} color="blue" />
+              <InfoCard label="Division of Gramasewa Niladari" value={farmerData.divisionGramasewaNumber} icon={User} color="yellow" />
+              <InfoCard label="Organization" value={farmerData.organizationName} icon={Leaf} color="green" />
             </div>
           </div>
         )}
@@ -422,30 +374,10 @@ const FarmerProfile = () => {
               Contact Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                  <Phone className="w-8 h-8 text-blue-600" />
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Phone Number</h3>
-                    <p className="text-gray-600">{farmerData.phoneNumber}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                  <Mail className="w-8 h-8 text-green-600" />
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Email Address</h3>
-                    <p className="text-gray-600">{farmerData.email}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-xl">
-                <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-gray-600" />
-                  Address
-                </h3>
-                <p className="text-gray-700 leading-relaxed">{farmerData.address}</p>
-                <p className="text-gray-600 mt-2">District: {farmerData.district}</p>
-              </div>
+              <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
+              <InfoCard label="Email Address" value={farmerData.email} icon={Mail} color="blue" />
+              <InfoCard label="Address" value={farmerData.address} icon={MapPin} color="gray" />
+              <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
             </div>
           </div>
         )}
@@ -456,8 +388,24 @@ const FarmerProfile = () => {
               Recent Activity
             </h2>
             <div className="space-y-4">
-              {/* You can fetch and display real activities here if available */}
-              <div className="text-gray-500">No recent activities to display.</div>
+              {recentActivities.length > 0 ? (
+                recentActivities.map((act) => (
+                  <div
+                    key={act.id}
+                    className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-100 shadow-sm hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-200">
+                      <Activity className="w-5 h-5 text-green-700" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-700 text-base">{act.action}</h3>
+                      <p className="text-gray-600 text-sm">{act.item} &middot; {act.date}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-500 text-sm">No recent activities to display.</div>
+              )}
             </div>
           </div>
         )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { 
   CheckCircle, 
   XCircle, 
@@ -375,8 +376,12 @@ const FarmerVerificationPanel = () => {
     }
   }, [isContactPerson, activeTab]);
 
+  // Show loading spinner/message while access check or data is loading
+  if (loading) {
+    return <FullScreenLoader />;
+  }
   // Only render UI if access check is done and user is contact person
-  if (isContactPerson !== true || loading) {
+  if (isContactPerson !== true) {
     return null;
   }
 
