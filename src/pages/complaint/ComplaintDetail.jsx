@@ -75,20 +75,22 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Complaint Info */}
+            {/* Complaint Info with Edit Button */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${complaint.type === 'crop' ? 'bg-green-100 text-green-700 border-green-200' : complaint.type === 'shop' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200'}`}>
-                      {complaint.type}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
-                      {complaint.priority}
-                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${complaint.type === 'crop' ? 'bg-green-100 text-green-700 border-green-200' : complaint.type === 'shop' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200'}`}>{complaint.type}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>{complaint.priority}</span>
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 mb-4">{complaint.title}</h2>
                 </div>
+                <button
+                  onClick={() => alert('Edit functionality coming soon!')}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-colors flex items-center space-x-2"
+                >
+                  <span>Edit</span>
+                </button>
               </div>
 
               <div className="prose max-w-none">
