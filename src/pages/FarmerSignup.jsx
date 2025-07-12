@@ -273,6 +273,47 @@ const FarmerSignup = () => {
     const [orgSearch, setOrgSearch] = useState('');
     const [orgOptions, setOrgOptions] = useState([]);
     const [orgSearchLoading, setOrgSearchLoading] = useState(false);
+
+    // Gramasewa Niladari division search
+    const [gnDivisionSearch, setGnDivisionSearch] = useState('');
+    const [gnDivisionOptions, setGnDivisionOptions] = useState([]);
+    const [gnDivisionLoading, setGnDivisionLoading] = useState(false);
+    // Gramasewa Niladari division search handler
+    const handleGnDivisionSearch = async (e) => {
+        const value = e.target.value;
+        setGnDivisionSearch(value);
+        setFormData(prev => ({ ...prev, divisionGramasewaNumber: '' }));
+        // Only search if at least 3 chars and no numbers
+        if (value.length < 3 || /\d/.test(value)) {
+            setGnDivisionOptions([]);
+            return;
+        }
+        setGnDivisionLoading(true);
+        try {
+            const res = await axios.post('http://localhost:5050/api/proxy/gn-division-search', {
+                search: value
+            });
+            if (Array.isArray(res.data)) {
+                setGnDivisionOptions(res.data.map(item => ({
+                    ...item,
+                    label: `${item.sinhalaName} / ${item.tamilName} / ${item.englishName}`,
+                    value: item.locationCode
+                })));
+            } else if (res.data && Array.isArray(res.data.results)) {
+                setGnDivisionOptions(res.data.results.map(item => ({
+                    ...item,
+                    label: `${item.sinhalaName} / ${item.tamilName} / ${item.englishName}`,
+                    value: item.locationCode
+                })));
+            } else {
+                setGnDivisionOptions([]);
+            }
+        } catch (err) {
+            setGnDivisionOptions([]);
+        } finally {
+            setGnDivisionLoading(false);
+        }
+    };
     // Track if org was just registered in this session
     const [orgRegistered, setOrgRegistered] = useState(false);
     const [orgRegisteredData, setOrgRegisteredData] = useState(null);
@@ -539,11 +580,13 @@ const FarmerSignup = () => {
                 } else if (err.message) {
                     text = err.message;
                 }
+                setSuccessMessage(''); // Clear any previous success
                 setErrorMessage('Registration failed. Please try again. ' + (text || ''));
                 setIsLoading(false);
                 return;
             }
             if (!result.success) {
+                setSuccessMessage(''); // Clear any previous success
                 setErrorMessage('Registration failed. Please try again. ' + (result?.message || ''));
                 setIsLoading(false);
                 return;
@@ -562,6 +605,7 @@ const FarmerSignup = () => {
             if (result.data && result.data.user) {
                 // Do not auto-login. Instead, notify and redirect to login page.
             }
+            setErrorMessage(''); // Clear any previous error
             setSuccessMessage('Registration successful! Your account will be reviewed by your organization and activated as appropriate. You will be able to log in once your account is approved. Redirecting to login page...');
             setTimeout(() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -578,6 +622,7 @@ const FarmerSignup = () => {
             } else if (error.message) {
                 msg += ' ' + error.message;
             }
+            setSuccessMessage(''); // Clear any previous success
             setErrorMessage(msg.trim());
         } finally {
             setIsLoading(false);
@@ -601,6 +646,15 @@ const FarmerSignup = () => {
     // Success and error message state
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    // Ref for error message scroll
+    const errorMessageRef = React.useRef(null);
+
+    // Scroll to error message when errorMessage is set
+    React.useEffect(() => {
+        if (errorMessage && errorMessageRef.current) {
+            errorMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [errorMessage]);
 
     if (showOrgForm) {
         return (
@@ -732,7 +786,7 @@ const FarmerSignup = () => {
                             </div>
                         )}
                         {errorMessage && (
-                            <div className="flex items-center space-x-2 bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded-xl text-center justify-center font-semibold mt-2">
+                            <div ref={errorMessageRef} className="flex items-center space-x-2 bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded-xl text-center justify-center font-semibold mt-2">
                                 <AlertCircle className="w-5 h-5 text-red-600" />
                                 <span>{errorMessage}</span>
                             </div>
@@ -772,7 +826,7 @@ const FarmerSignup = () => {
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Farming Experience & Background</h3>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Clock} label="Farming Experience" name="farmingExperience" required options={experienceOptions} value={formData.farmingExperience} error={errors.farmingExperience} onChange={handleInputChange} inputRef={el => fieldRefs.current['farmingExperience'] = el} />
-                                <InputField icon={Sprout} label="Land Size (acres)" name="landSize" type="number" step="0.01" placeholder="Enter land size in acres" value={formData.landSize} error={errors.landSize} onChange={handleInputChange} inputRef={el => fieldRefs.current['landSize'] = el} />
+                                <InputField icon={Sprout} label={<span>Land Size (acres) <span className="text-red-500">*</span></span>} name="landSize" type="number" step="0.01" placeholder="Enter land size in acres" value={formData.landSize} error={errors.landSize} onChange={handleInputChange} inputRef={el => fieldRefs.current['landSize'] = el} />
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Leaf} label="Cultivated Crops" name="cultivatedCrops" required options={cultivatedCropsOptions} value={formData.cultivatedCrops} error={errors.cultivatedCrops} onChange={handleInputChange} inputRef={el => fieldRefs.current['cultivatedCrops'] = el} />
@@ -797,7 +851,51 @@ const FarmerSignup = () => {
 
                         <div className="space-y-6">
                             <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2">Administrative Details</h3>
-                            <InputField icon={MapPin} label="Division of Gramasewa Niladari" name="divisionGramasewaNumber" required placeholder="Search your Gramasewa Niladari division" options={gramasewaDivisions} isSearchable={true} value={formData.divisionGramasewaNumber} error={errors.divisionGramasewaNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['divisionGramasewaNumber'] = el} />
+                            {/* Gramasewa Niladari division search and dropdown */}
+                            <div className="space-y-2">
+                                <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
+                                    <MapPin className="w-4 h-4" />
+                                    <span>Division of Gramasewa Niladari <span className="text-red-500">*</span></span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="gnDivisionSearch"
+                                    value={gnDivisionSearch}
+                                    onChange={handleGnDivisionSearch}
+                                    placeholder="Search Gramasewa Niladari division..."
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${errors.divisionGramasewaNumber ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'}`}
+                                    autoComplete="off"
+                                />
+                                {gnDivisionLoading && <div className="text-green-700 text-xs">Searching...</div>}
+                                {gnDivisionOptions.length > 0 && (
+                                    <div className="border border-green-200 rounded-xl bg-white shadow-md mt-1 max-h-56 overflow-y-auto z-10 relative">
+                                        {gnDivisionOptions.map((div) => (
+                                            <div
+                                                key={div.value}
+                                                className={`px-4 py-2 cursor-pointer hover:bg-green-50 ${formData.divisionGramasewaNumber === `${div.value} - ${div.label}` ? 'bg-green-100' : ''}`}
+                                                onClick={() => {
+                                                    // Save as 'code - name' (e.g., 12345 - Colombo 01)
+                                                    setFormData(prev => ({ ...prev, divisionGramasewaNumber: `${div.value} - ${div.label}` }));
+                                                    setGnDivisionSearch(`${div.value} - ${div.label}`);
+                                                    setGnDivisionOptions([]);
+                                                    if (errors.divisionGramasewaNumber) setErrors(prev => ({ ...prev, divisionGramasewaNumber: '' }));
+                                                }}
+                                            >
+                                                <div className="font-semibold text-green-900">{`${div.value} - ${div.label}`}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {formData.divisionGramasewaNumber && gnDivisionSearch && (
+                                    <div className="text-green-700 text-xs mt-1">Selected: {gnDivisionSearch}</div>
+                                )}
+                                {errors.divisionGramasewaNumber && (
+                                    <div className="flex items-center space-x-1 text-red-500 text-sm mt-1">
+                                        <AlertCircle className="w-4 h-4" />
+                                        <span>{errors.divisionGramasewaNumber}</span>
+                                    </div>
+                                )}
+                            </div>
                         <div className="space-y-2">
                             {/* Organization search field */}
                             <label className="flex items-center space-x-2 text-sm font-medium text-green-800">
