@@ -290,7 +290,7 @@ const FarmerSignup = () => {
         }
         setGnDivisionLoading(true);
         try {
-            const res = await axios.post('http://localhost:5050/api/proxy/gn-division-search', {
+            const res = await axios.post('http://localhost:5000/api/v1/proxy/gn-division-search', {
                 search: value
             });
             if (Array.isArray(res.data)) {
