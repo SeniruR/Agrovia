@@ -275,6 +275,23 @@ const FarmerProfile = () => {
   const navigate = useNavigate();
 
 
+  const InfoCard = ({ label, value, icon: Icon, color = "green" }) => (
+    <div
+      className={`flex flex-col items-start rounded-xl p-4 border
+        ${color === "green" ? "bg-green-50 border-green-100" : ""}
+        ${color === "blue" ? "bg-blue-50 border-blue-100" : ""}
+        ${color === "yellow" ? "bg-yellow-50 border-yellow-100" : ""}
+        ${color === "gray" ? "bg-gray-50 border-gray-100" : ""}
+      `}
+    >
+      <label className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-2">
+        {Icon && <Icon className={`w-4 h-4 text-${color}-600`} />}
+        {label}
+      </label>
+      <p className="text-gray-800 font-medium">{value && value !== "" ? value : "-"}</p>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-xl">
@@ -312,130 +329,41 @@ const FarmerProfile = () => {
         </div>
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-8">
             {/* Personal Information */}
             <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
                 <User className="w-6 h-6 text-green-600" />
                 Personal Information
               </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Full Name</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.fullName)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">NIC</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.nic)}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Phone Number</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.phoneNumber)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Email</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.email)}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">District</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.district)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Address</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.address)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {/* Farming Overview */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                <Leaf className="w-6 h-6 text-green-600" />
-                Farming Overview
-              </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Land Size (acres)</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.landSize)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Farming Experience</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.farmingExperience)}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Cultivated Crops</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.cultivatedCrops)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Irrigation System</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.irrigationSystem)}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Soil Type</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.soilType)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Farming Certifications</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.farmingCertifications)}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Farming Description</label>
-                  <p className="text-gray-800 font-medium">{displayValue(farmerData.description)}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Division of Gramasewa Niladari</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.divisionGramasewaNumber)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Organization</label>
-                    <p className="text-gray-800 font-medium">{displayValue(farmerData.organizationName)}</p>
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <InfoCard label="Full Name" value={farmerData.fullName} icon={User} color="green" />
+                <InfoCard label="NIC" value={farmerData.nic} icon={Award} color="blue" />
+                <InfoCard label="Birth Date" value={farmerData.birthDate} icon={Calendar} color="yellow" />
+                <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
+                <InfoCard label="Email" value={farmerData.email} icon={Mail} color="blue" />
+                <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
+                <InfoCard label="Address" value={farmerData.address} icon={MapPin} color="gray" />
               </div>
             </div>
           </div>
         )}
-        {/* You can keep the other tabs as before, or update as needed */}
         {activeTab === 'farming' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
               <Tractor className="w-6 h-6 text-green-600" />
-              Detailed Farming Information
+              Farming Overview
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Droplets className="w-8 h-8 text-blue-600" />
-                  <h3 className="font-semibold text-gray-800">Irrigation System</h3>
-                </div>
-                <p className="text-gray-700">{displayValue(farmerData.irrigationSystem)}</p>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Mountain className="w-8 h-8 text-brown-600" />
-                  <h3 className="font-semibold text-gray-800">Soil Type</h3>
-                </div>
-                <p className="text-gray-700">{displayValue(farmerData.soilType)}</p>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Sprout className="w-8 h-8 text-green-600" />
-                  <h3 className="font-semibold text-gray-800">Farming Certifications</h3>
-                </div>
-                <p className="text-gray-700">{displayValue(farmerData.farmingCertifications)}</p>
-              </div>
+              <InfoCard label="Land Size (acres)" value={farmerData.landSize} icon={BarChart3} color="green" />
+              <InfoCard label="Farming Experience" value={farmerData.farmingExperience} icon={Award} color="yellow" />
+              <InfoCard label="Cultivated Crops" value={farmerData.cultivatedCrops} icon={Sprout} color="green" />
+              <InfoCard label="Irrigation System" value={farmerData.irrigationSystem} icon={Droplets} color="blue" />
+              <InfoCard label="Soil Type" value={farmerData.soilType} icon={Mountain} color="yellow" />
+              <InfoCard label="Farming Certifications" value={farmerData.farmingCertifications} icon={CheckCircle} color="green" />
+              <InfoCard label="Description" value={farmerData.description} icon={Edit3} color="blue" />
+              <InfoCard label="Division of Gramasewa Niladari" value={farmerData.divisionGramasewaNumber} icon={User} color="yellow" />
+              <InfoCard label="Organization" value={farmerData.organizationName} icon={Leaf} color="green" />
             </div>
           </div>
         )}
@@ -446,30 +374,10 @@ const FarmerProfile = () => {
               Contact Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                  <Phone className="w-8 h-8 text-blue-600" />
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Phone Number</h3>
-                    <p className="text-gray-600">{displayValue(farmerData.phoneNumber)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                  <Mail className="w-8 h-8 text-green-600" />
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Email Address</h3>
-                    <p className="text-gray-600">{displayValue(farmerData.email)}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-xl">
-                <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-gray-600" />
-                  Address
-                </h3>
-                <p className="text-gray-700 leading-relaxed">{displayValue(farmerData.address)}</p>
-                <p className="text-gray-600 mt-2">District: {displayValue(farmerData.district)}</p>
-              </div>
+              <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
+              <InfoCard label="Email Address" value={farmerData.email} icon={Mail} color="blue" />
+              <InfoCard label="Address" value={farmerData.address} icon={MapPin} color="gray" />
+              <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
             </div>
           </div>
         )}
@@ -480,8 +388,24 @@ const FarmerProfile = () => {
               Recent Activity
             </h2>
             <div className="space-y-4">
-              {/* You can fetch and display real activities here if available */}
-              <div className="text-gray-500">No recent activities to display.</div>
+              {recentActivities.length > 0 ? (
+                recentActivities.map((act) => (
+                  <div
+                    key={act.id}
+                    className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-100 shadow-sm hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-200">
+                      <Activity className="w-5 h-5 text-green-700" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-700 text-base">{act.action}</h3>
+                      <p className="text-gray-600 text-sm">{act.item} &middot; {act.date}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-500 text-sm">No recent activities to display.</div>
+              )}
             </div>
           </div>
         )}
