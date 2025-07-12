@@ -40,7 +40,7 @@ const FarmerProfile = () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         if (!token) {
           setError('No authentication token found. Please log in again.');
           setLoading(false);
@@ -81,30 +81,30 @@ const FarmerProfile = () => {
         const user = data.user || {};
         const details = user.farmer_details || {};
         setFarmerData({
-          fullName: user.full_name || '',
-          email: user.email || '',
-          phoneNumber: user.phone_number || '',
-          nic: user.nic || '',
-          birthDate: user.birth_date || '',
-          district: user.district || '',
-          address: user.address || '',
+          // User fields (for header, if needed)
+          fullName: user.full_name || '-',
+          email: user.email || '-',
+          phoneNumber: user.phone_number || '-',
+          nic: user.nic || '-',
+          district: user.district || '-',
+          address: user.address || '-',
           profileImage: user.profile_image || '',
-          joinedDate: user.created_at || '',
+          joinedDate: user.created_at || '-',
           verified: user.is_active === 1,
-          // Farmer details
-          farmingExperience: details.farming_experience || '',
-          landSize: details.land_size ? `${details.land_size} acres` : '',
-          primaryCrops: details.cultivated_crops || '',
-          secondaryCrops: details.secondary_crops || '',
-          farmingMethods: details.farming_methods || '',
-          irrigationSystem: details.irrigation_system || '',
-          soilType: details.soil_type || '',
-          education: details.education || '',
-          annualIncome: details.annual_income || '',
-          organizationMember: details.organization_id ? 'Yes' : 'No',
-          rating: details.rating || 0,
-          totalCrops: details.total_crops || 0,
-          totalSales: details.total_sales || 0,
+          // Farmer details (from farmer_details table)
+          id: details.id || '-',
+          userId: details.user_id || '-',
+          organizationId: details.organization_id || '-',
+          organizationName: details.organization_name || '-',
+          landSize: details.land_size ? `${details.land_size} acres` : '-',
+          description: details.description || '-',
+          divisionGramasewaNumber: details.division_gramasewa_number || '-',
+          farmingExperience: details.farming_experience || '-',
+          cultivatedCrops: details.cultivated_crops || '-',
+          irrigationSystem: details.irrigation_system || '-',
+          soilType: details.soil_type || '-',
+          farmingCertifications: details.farming_certifications || '-',
+          createdAt: details.created_at || '-',
         });
       } catch (err) {
         setError(err.message || 'Unknown error');
@@ -137,6 +137,9 @@ const FarmerProfile = () => {
     setIsEditing(false);
     // Handle save logic here
   };
+
+  // Helper to display dash for empty/null/undefined
+  const displayValue = (val) => (val && val !== '' ? val : '-');
 
   const ProfileHeader = () => (
     <div className="bg-gradient-to-r from-green-600 via-green-700 to-emerald-800 text-white">
@@ -187,15 +190,16 @@ const FarmerProfile = () => {
             </div>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-3">
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                🌾 {farmerData.primaryCrops}
-              </span>
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                🌱 {farmerData.farmingMethods.split(',')[0]}
-              </span>
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                ⭐ {farmerData.rating} Rating
-              </span>
+              {farmerData.farmingCertifications && (
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                  🏅 {farmerData.farmingCertifications}
+                </span>
+              )}
+              {farmerData.farmingExperience && (
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                  ⏳ {farmerData.farmingExperience}
+                </span>
+              )}
             </div>
           </div>
 
@@ -297,7 +301,6 @@ const FarmerProfile = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
       <ProfileHeader />
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <StatsSection />
         {/* Navigation Tabs */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-2xl">
@@ -320,30 +323,32 @@ const FarmerProfile = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Full Name</label>
-                    <p className="text-gray-800 font-medium">{farmerData.fullName}</p>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.fullName)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">NIC</label>
-                    <p className="text-gray-800 font-medium">{farmerData.nic}</p>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.nic)}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Birth Date</label>
-                    <p className="text-gray-800 font-medium">{farmerData.birthDate ? new Date(farmerData.birthDate).toLocaleDateString() : ''}</p>
+                    <label className="text-sm font-medium text-gray-600">Phone Number</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.phoneNumber)}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Education</label>
-                    <p className="text-gray-800 font-medium">{farmerData.education}</p>
+                    <label className="text-sm font-medium text-gray-600">Email</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.email)}</p>
                   </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Address</label>
-                  <p className="text-gray-800 font-medium">{farmerData.address}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Annual Income</label>
-                  <p className="text-gray-800 font-medium">{farmerData.annualIncome}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">District</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.district)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Address</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.address)}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -356,34 +361,53 @@ const FarmerProfile = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Experience</label>
-                    <p className="text-gray-800 font-medium">{farmerData.farmingExperience}</p>
+                    <label className="text-sm font-medium text-gray-600">Land Size (acres)</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.landSize)}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Land Size</label>
-                    <p className="text-gray-800 font-medium">{farmerData.landSize}</p>
+                    <label className="text-sm font-medium text-gray-600">Farming Experience</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.farmingExperience)}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Cultivated Crops</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.cultivatedCrops)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Irrigation System</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.irrigationSystem)}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Soil Type</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.soilType)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Farming Certifications</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.farmingCertifications)}</p>
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Primary Crops</label>
-                  <p className="text-gray-800 font-medium">{farmerData.primaryCrops}</p>
+                  <label className="text-sm font-medium text-gray-600">Farming Description</label>
+                  <p className="text-gray-800 font-medium">{displayValue(farmerData.description)}</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Secondary Crops</label>
-                  <p className="text-gray-800 font-medium">{farmerData.secondaryCrops}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Farming Methods</label>
-                  <p className="text-gray-800 font-medium">{farmerData.farmingMethods}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Organization Member</label>
-                  <p className="text-gray-800 font-medium">{farmerData.organizationMember}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Division of Gramasewa Niladari</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.divisionGramasewaNumber)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Organization</label>
+                    <p className="text-gray-800 font-medium">{displayValue(farmerData.organizationName)}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+        {/* You can keep the other tabs as before, or update as needed */}
         {activeTab === 'farming' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -396,21 +420,21 @@ const FarmerProfile = () => {
                   <Droplets className="w-8 h-8 text-blue-600" />
                   <h3 className="font-semibold text-gray-800">Irrigation System</h3>
                 </div>
-                <p className="text-gray-700">{farmerData.irrigationSystem}</p>
+                <p className="text-gray-700">{displayValue(farmerData.irrigationSystem)}</p>
               </div>
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
                 <div className="flex items-center gap-3 mb-3">
                   <Mountain className="w-8 h-8 text-brown-600" />
                   <h3 className="font-semibold text-gray-800">Soil Type</h3>
                 </div>
-                <p className="text-gray-700">{farmerData.soilType}</p>
+                <p className="text-gray-700">{displayValue(farmerData.soilType)}</p>
               </div>
               <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
                 <div className="flex items-center gap-3 mb-3">
                   <Sprout className="w-8 h-8 text-green-600" />
-                  <h3 className="font-semibold text-gray-800">Farming Methods</h3>
+                  <h3 className="font-semibold text-gray-800">Farming Certifications</h3>
                 </div>
-                <p className="text-gray-700">{farmerData.farmingMethods}</p>
+                <p className="text-gray-700">{displayValue(farmerData.farmingCertifications)}</p>
               </div>
             </div>
           </div>
@@ -427,14 +451,14 @@ const FarmerProfile = () => {
                   <Phone className="w-8 h-8 text-blue-600" />
                   <div>
                     <h3 className="font-semibold text-gray-700">Phone Number</h3>
-                    <p className="text-gray-600">{farmerData.phoneNumber}</p>
+                    <p className="text-gray-600">{displayValue(farmerData.phoneNumber)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
                   <Mail className="w-8 h-8 text-green-600" />
                   <div>
                     <h3 className="font-semibold text-gray-700">Email Address</h3>
-                    <p className="text-gray-600">{farmerData.email}</p>
+                    <p className="text-gray-600">{displayValue(farmerData.email)}</p>
                   </div>
                 </div>
               </div>
@@ -443,8 +467,8 @@ const FarmerProfile = () => {
                   <MapPin className="w-5 h-5 text-gray-600" />
                   Address
                 </h3>
-                <p className="text-gray-700 leading-relaxed">{farmerData.address}</p>
-                <p className="text-gray-600 mt-2">District: {farmerData.district}</p>
+                <p className="text-gray-700 leading-relaxed">{displayValue(farmerData.address)}</p>
+                <p className="text-gray-600 mt-2">District: {displayValue(farmerData.district)}</p>
               </div>
             </div>
           </div>
