@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { Building2, MapPin, User, Phone, FileText, Calendar, Users, Check, X, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
@@ -193,7 +194,7 @@ const AdminOrganizationApproval = () => {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-xl text-green-700">Loading organizations...</div>;
+    return <FullScreenLoader />;
   }
   if (error) {
     return <div className="min-h-screen flex items-center justify-center text-xl text-red-600">{error}</div>;
