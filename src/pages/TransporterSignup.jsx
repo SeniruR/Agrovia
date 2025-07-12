@@ -204,8 +204,42 @@ const TransporterSignup = () => {
         if (!formData.vehicleType) newErrors.vehicleType = 'Vehicle type is required';
         if (!formData.vehicleNumber?.trim()) newErrors.vehicleNumber = 'Vehicle number is required';
         if (!formData.vehicleCapacity) newErrors.vehicleCapacity = 'Vehicle capacity is required';
-        if (!formData.licenseNumber?.trim()) newErrors.licenseNumber = 'License number is required';
-        if (!formData.licenseExpiry) newErrors.licenseExpiry = 'License expiry date is required';
+        if (!formData.licenseNumber?.trim()) {
+            newErrors.licenseNumber = 'License number is required';
+        } else {
+            // License number must be at least 8 characters, first char is allowed code, rest are digits
+            const allowedCodes = ['A', 'A1', 'B', 'B1', 'C', 'C1', 'CE', 'D1', 'G', 'G1', 'J', 'H'];
+            let codeMatch = null;
+            for (const code of allowedCodes) {
+                if (formData.licenseNumber.startsWith(code)) {
+                    codeMatch = code;
+                    break;
+                }
+            }
+            if (!codeMatch) {
+                newErrors.licenseNumber = 'License number must start with a valid code (A, A1, B, B1, C, C1, CE, D1, G, G1, J, H)';
+            } else {
+                const rest = formData.licenseNumber.slice(codeMatch.length);
+                if (rest.length < 7) {
+                    newErrors.licenseNumber = 'License number must be at least 8 characters (code + 7+ digits)';
+                } else if (!/^[0-9]+$/.test(rest)) {
+                    newErrors.licenseNumber = 'License number must have digits after the code';
+                }
+            }
+        }
+        if (!formData.licenseExpiry) {
+            newErrors.licenseExpiry = 'License expiry date is required';
+        } else {
+            // Check if license expiry is a future date
+            const today = new Date();
+            today.setHours(0,0,0,0); // ignore time
+            const expiryDate = new Date(formData.licenseExpiry);
+            if (isNaN(expiryDate.getTime())) {
+                newErrors.licenseExpiry = 'Invalid expiry date';
+            } else if (expiryDate <= today) {
+                newErrors.licenseExpiry = 'License expiry date must be a future date';
+            }
+        }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (formData.email && !emailRegex.test(formData.email)) newErrors.email = 'Please enter a valid email address';
