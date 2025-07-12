@@ -403,14 +403,12 @@ const BuyerSignup = () => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
-            if (result.data && result.data.user) {
-                localStorage.setItem('user', JSON.stringify(result.data.user));
-                window.dispatchEvent(new Event('userChanged'));
-            }
-            setSuccessMessage('Buyer registration successful! Redirecting to Home page...');
+            // Do not auto-login. Only show success and redirect to login page.
+            setSuccessMessage('Registration successful! Redirecting to login page...');
             setErrorMessage("");
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            setTimeout(() => navigate('/'), 2000);
+            localStorage.removeItem('user');
+            setTimeout(() => navigate('/login'), 10000);
         } catch (error) {
             let msg = 'Registration failed. Please try again.';
             if (error.response && error.response.data) {
