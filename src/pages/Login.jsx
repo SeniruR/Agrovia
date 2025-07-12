@@ -85,6 +85,7 @@ const Login = () => {
                     navigate('/profile/farmer');
                 } else {
                     navigate('/');
+                    window.location.reload();
                 }
             } else if (data.success && user) {
                 // Fallback: user but no token
