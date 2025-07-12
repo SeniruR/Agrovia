@@ -48,6 +48,63 @@ function Complaint() {
     }
   };
 
+  // Update complaint
+  const handleUpdateComplaint = async (updatedComplaint) => {
+    const { id, type } = updatedComplaint;
+    let url = '';
+    if (type === 'crop') url = `/api/v1/crop-complaints/${id}`;
+    else if (type === 'shop') url = `/api/v1/shop-complaints/${id}`;
+    else if (type === 'transport') url = `/api/v1/transport-complaints/${id}`;
+    
+    try {
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedComplaint)
+      });
+      
+      if (!res.ok) throw new Error('Failed to update complaint');
+      
+      // Refresh the complaint details
+      fetchComplaintDetail(id, type);
+      
+      // Show success message (you can implement a toast notification system here)
+      alert('Complaint updated successfully');
+    } catch (err) {
+      console.error('Error updating complaint:', err);
+      alert('Failed to update complaint. Please try again.');
+    }
+  };
+
+  // Add reply to complaint
+  const handleAddReply = async (id, reply) => {
+    const type = complaintDetail.type;
+    let url = '';
+    if (type === 'crop') url = `/api/v1/crop-complaints/${id}/reply`;
+    else if (type === 'shop') url = `/api/v1/shop-complaints/${id}/reply`;
+    else if (type === 'transport') url = `/api/v1/transport-complaints/${id}/reply`;
+    
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reply })
+      });
+      
+      if (!res.ok) throw new Error('Failed to add reply');
+      
+      // Refresh the complaint details
+      fetchComplaintDetail(id, type);
+    } catch (err) {
+      console.error('Error adding reply:', err);
+      alert('Failed to add reply. Please try again.');
+    }
+  };
+
   switch (currentPage) {
     case 'crop-complaint':
       return <CropComplaintForm onBack={() => setCurrentPage('dashboard')} />;
@@ -60,37 +117,16 @@ function Complaint() {
         <ComplaintsListContainer
           onViewComplaint={(id, type) => fetchComplaintDetail(id, type)}
           onBack={() => setCurrentPage('dashboard')}
-          // Pass through onUpdateStatus to ensure DB update
-          onUpdateStatus={async (id, type, status) => {
-            let url = '';
-            if (type === 'crop') url = `/api/v1/crop-complaints/${id}`;
-            else if (type === 'shop') url = `/api/v1/shop-complaints/${id}`;
-            else if (type === 'transport') url = `/api/v1/transport-complaints/${id}`;
-            await fetch(url, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status })
-            });
-          }}
         />
       );
     case 'complaint-detail':
+      console.log('Rendering ComplaintDetail with onUpdateComplaint handler');
       return (
         <ComplaintDetail
           complaint={complaintDetail}
           onBack={() => setCurrentPage('complaints')}
-          onUpdateStatus={async (id, type, status) => {
-            let url = '';
-            if (type === 'crop') url = `/api/v1/crop-complaints/${id}`;
-            else if (type === 'shop') url = `/api/v1/shop-complaints/${id}`;
-            else if (type === 'transport') url = `/api/v1/transport-complaints/${id}`;
-            await fetch(url, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status })
-            });
-            setComplaintDetail(prev => ({ ...prev, status }));
-          }}
+          onAddReply={handleAddReply}
+          onUpdateComplaint={handleUpdateComplaint}
         />
       );
     default:

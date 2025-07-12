@@ -18,6 +18,7 @@ import FarmerSignup from "./pages/FarmerSignup";
 import BuyerSignup from "./pages/BuyerSignup";
 import TransporterSignup from "./pages/TransporterSignup";
 import ShopOwnerSignup from "./pages/ShopOwnerSignup";
+import ModeratorSignup from "./pages/ModeratorSignup";
 
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
@@ -136,6 +137,11 @@ const App = () => {
       <Route path="/signup/transporter" element={
         <Layout>
           <TransporterSignup />
+        </Layout>} 
+      />
+      <Route path="/signup/moderator" element={
+        <Layout>
+          <ModeratorSignup />
         </Layout>} 
       />
       <Route path="/signup/shop-owner" element={
