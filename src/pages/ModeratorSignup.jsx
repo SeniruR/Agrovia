@@ -183,8 +183,14 @@ const ModeratorSignup = () => {
         if (!formData.skillUrls.some(url => url && url.trim())) newErrors.skillUrls = 'At least one skill URL is required';
         // Validate URLs
         formData.skillUrls.forEach((url, idx) => {
-            if (url && !/^https?:\/\//.test(url)) {
-                newErrors[`skillUrls_${idx}`] = 'Enter a valid URL (http/https)';
+            // Accept URLs like www.google.com, google.com, or with http(s)://
+            const trimmed = url ? url.trim() : '';
+            // Allow: google.com, www.google.com, http(s)://google.com, sub.domain.com, etc.
+            if (
+                trimmed &&
+                !/^([a-zA-Z]+:\/\/)?([\w-]+\.)+[a-zA-Z]{2,}(\/\S*)?$/.test(trimmed)
+            ) {
+                newErrors[`skillUrls_${idx}`] = 'Enter a valid URL (e.g. google.com)';
             }
         });
         // Validate worker IDs (optional, but if present, must be non-empty)
@@ -202,11 +208,23 @@ const ModeratorSignup = () => {
         if (formData.password && formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
         if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
         // No validation for skillDescription (optional)
+        // Debug: log errors and skillUrls
+        // eslint-disable-next-line no-console
+        console.log('Validation errors:', newErrors);
+        // eslint-disable-next-line no-console
+        console.log('Skill URLs:', formData.skillUrls);
         setErrors(newErrors);
         if (Object.keys(newErrors).length > 0) {
-            const firstErrorField = Object.keys(newErrors)[0];
-            if (fieldRefs.current[firstErrorField] && fieldRefs.current[firstErrorField].scrollIntoView) {
-                fieldRefs.current[firstErrorField].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Find the first error field that is actually visible in the form
+            let firstVisibleErrorField = null;
+            for (const key of Object.keys(newErrors)) {
+                if (fieldRefs.current[key] && fieldRefs.current[key].scrollIntoView) {
+                    firstVisibleErrorField = key;
+                    break;
+                }
+            }
+            if (firstVisibleErrorField) {
+                fieldRefs.current[firstVisibleErrorField].scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
         return Object.keys(newErrors).length === 0;
@@ -264,14 +282,13 @@ const ModeratorSignup = () => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
-            if (result.data && result.data.user) {
-                localStorage.setItem('user', JSON.stringify(result.data.user));
-                window.dispatchEvent(new Event('userChanged'));
-            }
-            setSuccessMessage('Registration successful! Your account will be reviewed and activated as appropriate. You will be able to log in once your account is approved. Redirecting to login page...');
+            // Do not auto-login. Only show success and redirect to login page.
+            setSuccessMessage('Registration successful! Your account will be reviewed and activated as appropriate. You will be able to log in once your account is approved. Redirecting to home page...');
             setErrorMessage("");
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            setTimeout(() => navigate('/login'), 20000);
+            // Remove any user from localStorage if present (prevent auto-login)
+            localStorage.removeItem('user');
+            setTimeout(() => navigate('/'), 20000);
         } catch (error) {
             let msg = 'Registration failed. Please try again.';
             if (error.response && error.response.data) {
@@ -376,11 +393,11 @@ const ModeratorSignup = () => {
                                 {formData.skillUrls.map((url, idx) => (
                                     <div key={idx} className="flex items-center gap-2 mb-2">
                                         <input
-                                            type="url"
+                                            type="text"
                                             name={`skillUrls_${idx}`}
                                             value={url}
                                             onChange={e => handleArrayChange('skillUrls', idx, e.target.value)}
-                                            placeholder="https://your-portfolio-or-article.com"
+                                            placeholder="e.g. google.com or your-portfolio.com"
                                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 bg-slate-100 ${errors[`skillUrls_${idx}`] || errors.skillUrls ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'}`}
                                             ref={el => fieldRefs.current[`skillUrls_${idx}`] = el}
                                         />
