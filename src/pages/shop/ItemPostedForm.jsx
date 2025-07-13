@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Upload, MapPin, Phone, Mail, Package, Leaf, Droplets, AlertTriangle, AlertCircle } from 'lucide-react';
 import { ChevronDown } from 'lucide-react';
+import { userService } from '../../services/userService';
+import { useAuth } from '../../contexts/AuthContext';
+
 export default function SeedsFertilizerForm() {
   const sriLankanCities = [
   "Colombo", "Dehiwala-Mount Lavinia", "Moratuwa", "Sri Jayawardenepura Kotte", "Negombo", "Kandy", "Kalmunai", "Vavuniya", "Galle", "Trincomalee", "Batticaloa", "Jaffna", "Matara", "Kurunegala", "Ratnapura", "Badulla", "Anuradhapura", "Polonnaruwa", "Puttalam", "Chilaw", "Matale", "Nuwara Eliya", "Gampaha", "Hambantota", "Monaragala", "Kilinochchi", "Mannar", "Mullaitivu", "Ampara", "Kegalle", "Hatton", "Wattala", "Panadura", "Beruwala", "Kotikawatta", "Katunayake", "Kolonnawa", "Kotikawatta", "Eravur", "Valvettithurai", "Point Pedro", "Kalutara", "Horana", "Ja-Ela", "Kadawatha", "Homagama", "Avissawella", "Gampola", "Weligama", "Ambalangoda", "Balangoda", "Dambulla", "Embilipitiya", "Kegalle", "Kuliyapitiya", "Maharagama", "Minuwangoda", "Nawalapitiya", "Peliyagoda", "Seethawakapura", "Talawakele", "Tangalle", "Wennappuwa", "Chavakachcheri", "Kilinochchi", "Kinniya", "Mannar", "Vavuniya", "Kilinochchi", "Mullaitivu"
 ];
-
+  const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const [formData, setFormData] = useState({
     shop_name: '',
     owner_name: '',
@@ -29,6 +32,7 @@ export default function SeedsFertilizerForm() {
     imagePreviews: [],
     terms_accepted: false
   });
+   
 
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
@@ -130,31 +134,49 @@ export default function SeedsFertilizerForm() {
   };
 
   const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    const previews = files.map(file => URL.createObjectURL(file));
-    
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...files],
-      imagePreviews: [...prev.imagePreviews, ...previews]
-    }));
-  };
+  const files = Array.from(e.target.files);
+  
+  // Validation
+   if (files.length > 5) {
+    alert('Maximum 5 images allowed');
+    return;
+  }
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const invalidFiles = files.filter(file => !validTypes.includes(file.type));
+  
+  if (invalidFiles.length > 0) {
+    alert('Only JPEG, PNG, or WebP images are allowed');
+    return;
+  }
 
-  const removeImage = (index) => {
-    setFormData(prev => {
-      const newImages = [...prev.images];
-      const newPreviews = [...prev.imagePreviews];
-      
-      newImages.splice(index, 1);
-      newPreviews.splice(index, 1);
-      
-      return {
-        ...prev,
-        images: newImages,
-        imagePreviews: newPreviews
-      };
-    });
-  };
+  // Create previews
+  const previews = files.map(file => URL.createObjectURL(file));
+  
+  setFormData(prev => ({
+    ...prev,
+    images: [...prev.images, ...files],
+    imagePreviews: [...prev.imagePreviews, ...previews]
+  }));
+};
+
+const removeImage = (index) => {
+  // Revoke the object URL to prevent memory leaks
+  URL.revokeObjectURL(formData.imagePreviews[index]);
+  
+  setFormData(prev => {
+    const newImages = [...prev.images];
+    const newPreviews = [...prev.imagePreviews];
+    
+    newImages.splice(index, 1);
+    newPreviews.splice(index, 1);
+    
+    return {
+      ...prev,
+      images: newImages,
+      imagePreviews: newPreviews
+    };
+  });
+};
 
   const nextStep = () => {
     let stepErrors = {};
@@ -242,13 +264,28 @@ const handleSubmit = async (e) => {
     for (let [key, value] of formDataToSend.entries()) {
       console.log(key, value);
     }
+    console.log('🔍 Pre-submission Debug:');
+      console.log('- isAuthenticated():', isAuthenticated());
+      console.log('- user:', user);
+      console.log('- getAuthHeaders():', getAuthHeaders());
+      console.log('- localStorage token:', localStorage.getItem('authToken'));
+      console.log('- localStorage user:', localStorage.getItem('user'));
+    // Ensure we have a token
+    const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
+    if (!authToken) {
+      throw new Error('You are not logged in. Please login first.');
+    }
+
 
     // Send to backend
     const response = await fetch('http://localhost:5000/api/v1/shop-products', {
       method: 'POST',
-      body: formDataToSend,  // Use the FormData object we created
-      // Don't set Content-Type header - let the browser set it with boundary
+      body: formDataToSend,
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
     });
+
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -360,6 +397,7 @@ Object.entries(formData).forEach(([key, val]) => {
               </div>
             ))}
           </div>
+          
           <div className="flex justify-center mt-4 sm:mt-6 space-x-12 sm:space-x-20">
             <span className={`text-xs sm:text-sm font-semibold transition-colors duration-300 ${currentStep >= 1 ? 'text-green-600' : 'text-gray-500'}`}>
               Shop Information
@@ -373,129 +411,133 @@ Object.entries(formData).forEach(([key, val]) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 lg:p-12 border border-gray-200">
-          {/* Step 1: Shop Information */}
-          {currentStep === 1 && (
-            <div className="space-y-6 sm:space-y-8">
-              <div className="text-center mb-8 sm:mb-12">
-                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
-                  <MapPin className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+        <form 
+    onSubmit={handleSubmit}
+    encType="multipart/form-data"
+  >
+    <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 lg:p-12 border border-gray-200">
+      {/* Step 1: Shop Information */}
+      {currentStep === 1 && (
+        <div className="space-y-6 sm:space-y-8">
+          <div className="text-center mb-8 sm:mb-12">
+            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
+              <MapPin className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">Shop Information</h2>
+            <p className="text-base sm:text-lg text-gray-600">Tell us about your agricultural business</p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+            <div className="w-full">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Shop Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="shop_name"
+                value={formData.shop_name}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+                  errors.shop_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                }`}
+                placeholder="Enter your shop name"
+              />
+              {errors.shop_name && (
+                <div className="flex items-center mt-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span>{errors.shop_name}</span>
                 </div>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">Shop Information</h2>
-                <p className="text-base sm:text-lg text-gray-600">Tell us about your agricultural business</p>
+              )}
+            </div>
+
+            <div className="w-full">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Owner Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="owner_name"
+                value={formData.owner_name}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+                  errors.owner_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                }`}
+                placeholder="Enter owner name"
+              />
+              {errors.owner_name && (
+                <div className="flex items-center mt-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span>{errors.owner_name}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="w-full">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <Mail className="inline w-5 h-5 mr-2" />Email Address <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+                  errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                }`}
+                placeholder="shop@example.com"
+              />
+              {errors.email && (
+                <div className="flex items-center mt-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span>{errors.email}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="w-full">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <Phone className="inline w-5 h-5 mr-2" />Phone Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                name="phone_no"
+                value={formData.phone_no}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+                  errors.phone_no ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                }`}
+                placeholder="+94 XX XXX XXXX"
+              />
+              {errors.phone_no && (
+                <div className="flex items-center mt-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span>{errors.phone_no}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <MapPin className="inline w-5 h-5 mr-2" />Shop Address <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              name="shop_address"
+              value={formData.shop_address}
+              onChange={handleInputChange}
+              rows={4}
+              className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none text-base sm:text-lg ${
+                errors.shop_address ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+              }`}
+              placeholder="Enter complete shop address with landmarks"
+            />
+            {errors.shop_address && (
+              <div className="flex items-center mt-2 text-red-600 text-sm">
+                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span>{errors.shop_address}</span>
               </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-                <div className="w-full">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Shop Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="shop_name"
-                    value={formData.shop_name}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.shop_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="Enter your shop name"
-                  />
-                  {errors.shop_name && (
-                    <div className="flex items-center mt-2 text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.shop_name}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="w-full">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Owner Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="owner_name"
-                    value={formData.owner_name}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.owner_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="Enter owner name"
-                  />
-                  {errors.owner_name && (
-                    <div className="flex items-center mt-2 text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.owner_name}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="w-full">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    <Mail className="inline w-5 h-5 mr-2" />Email Address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="shop@example.com"
-                  />
-                  {errors.email && (
-                    <div className="flex items-center mt-2 text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.email}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="w-full">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    <Phone className="inline w-5 h-5 mr-2" />Phone Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone_no"
-                    value={formData.phone_no}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.phone_no ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="+94 XX XXX XXXX"
-                  />
-                  {errors.phone_no && (
-                    <div className="flex items-center mt-2 text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.phone_no}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  <MapPin className="inline w-5 h-5 mr-2" />Shop Address <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  name="shop_address"
-                  value={formData.shop_address}
-                  onChange={handleInputChange}
-                  rows={4}
-                  className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none text-base sm:text-lg ${
-                    errors.shop_address ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                  placeholder="Enter complete shop address with landmarks"
-                />
-                {errors.shop_address && (
-                  <div className="flex items-center mt-2 text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.shop_address}</span>
-                  </div>
-                )}
-              </div>
+            )}
+          </div>
 
              <div className="w-full">
   <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -524,104 +566,104 @@ Object.entries(formData).forEach(([key, val]) => {
     </div>
   )}
 </div>
+        </div>
+      )}
+
+      {/* Step 2: Product Details */}
+      {currentStep === 2 && (
+        <div className="space-y-6 sm:space-y-8">
+          <div className="text-center mb-8 sm:mb-12">
+            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
+              <Package className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
             </div>
-          )}
-
-          {/* Step 2: Product Details */}
-          {currentStep === 2 && (
-            <div className="space-y-6 sm:space-y-8">
-              <div className="text-center mb-8 sm:mb-12">
-                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full shadow-lg mb-4">
-                  <Package className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">Product Details</h2>
-                <p className="text-base sm:text-lg text-gray-600">Provide detailed information about your product</p>
-              </div>
-              
-              {/* Product Type Selection */}
-              <div className="w-full">
-                <label className="block text-sm font-semibold text-gray-700 mb-4 sm:mb-6">
-                  Product Type <span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-4">
-                  {['seeds', 'fertilizer', 'chemical'].map((type) => (
-                    <label key={type} className="cursor-pointer">
-                      <input
-                        type="radio"
-                        name="product_type"
-                        value={type}
-                        checked={formData.product_type === type}
-                        onChange={handleInputChange}
-                        className="sr-only"
-                      />
-                      <div className={`p-4 sm:p-6 lg:p-8 border-2 rounded-xl text-center transition-all duration-300 transform hover:scale-105 ${
-                        formData.product_type === type
-                          ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200'
-                          : errors.productType
-                          ? 'border-red-500 bg-red-50'
-                          : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-md'
-                      }`}>
-                        <div className="flex justify-center mb-3 sm:mb-4">
-                          {getProductIcon(type)}
-                        </div>
-                        <span className="font-bold capitalize text-lg sm:text-xl">{type}</span>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                {errors.product_type && (
-                  <div className="flex items-center mt-2 text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    <span>{errors.product_type}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Product Information Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-                <div className="w-full">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Product Name <span className="text-red-500">*</span>
-                  </label>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-3">Product Details</h2>
+            <p className="text-base sm:text-lg text-gray-600">Provide detailed information about your product</p>
+          </div>
+          
+          {/* Product Type Selection */}
+          <div className="w-full">
+            <label className="block text-sm font-semibold text-gray-700 mb-4 sm:mb-6">
+              Product Type <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-4">
+              {['seeds', 'fertilizer', 'chemical'].map((type) => (
+                <label key={type} className="cursor-pointer">
                   <input
-                    type="text"
-                    name="product_name"
-                    value={formData.product_name}
+                    type="radio"
+                    name="product_type"
+                    value={type}
+                    checked={formData.product_type === type}
                     onChange={handleInputChange}
-                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                      errors.product_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    placeholder="Enter product name"
+                    className="sr-only"
                   />
-                  {errors.product_name && (
-                    <div className="flex items-center mt-2 text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>{errors.product_name}</span>
+                  <div className={`p-4 sm:p-6 lg:p-8 border-2 rounded-xl text-center transition-all duration-300 transform hover:scale-105 ${
+                    formData.product_type === type
+                      ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200'
+                      : errors.productType
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-md'
+                  }`}>
+                    <div className="flex justify-center mb-3 sm:mb-4">
+                      {getProductIcon(type)}
                     </div>
-                  )}
-                </div>
+                    <span className="font-bold capitalize text-lg sm:text-xl">{type}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+            {errors.product_type && (
+              <div className="flex items-center mt-2 text-red-600 text-sm">
+                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span>{errors.product_type}</span>
+              </div>
+            )}
+          </div>
 
-                <div className="w-full">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Brand
-                  </label>
-                  <input
-                    type="text"
-                    name="brand"
-                    value={formData.brand}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
-                    placeholder="Enter brand name"
-                  />
+          {/* Product Information Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+            <div className="w-full">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Product Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="product_name"
+                value={formData.product_name}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+                  errors.product_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                }`}
+                placeholder="Enter product name"
+              />
+              {errors.product_name && (
+                <div className="flex items-center mt-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span>{errors.product_name}</span>
                 </div>
+              )}
+            </div>
 
-                <div className="w-full">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Category
-                  </label>
-                  <select
-                    name="category"
-                    value={
+            <div className="w-full">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Brand
+              </label>
+              <input
+                type="text"
+                name="brand"
+                value={formData.brand}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                placeholder="Enter brand name"
+              />
+            </div>
+
+            <div className="w-full">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Category
+              </label>
+              <select
+                name="category"
+                value={
     formData.category === "Other" && formData.category_other
       ? formData.category_other
       : formData.category
@@ -809,39 +851,42 @@ Object.entries(formData).forEach(([key, val]) => {
                   Product Images (Max 5)
                 </label>
                 <div className="flex flex-wrap gap-4 mb-4">
-                  {formData.imagePreviews.map((preview, index) => (
-                    <div key={index} className="relative">
-                      <img 
-                        src={preview} 
-                        alt={`Preview ${index}`}
-                        className="w-24 h-24 object-cover rounded-lg border border-gray-200"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  {formData.imagePreviews.length < 5 && (
-                    <label className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors">
-                      <div className="text-center">
-                        <Upload className="w-8 h-8 mx-auto text-gray-400" />
-                        <span className="text-xs text-gray-500">Add Image</span>
-                      </div>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500">Upload clear images of your product (JPEG, PNG)</p>
+  {formData.imagePreviews.map((preview, index) => (
+    <div key={index} className="relative">
+      <img 
+        src={preview} 
+        alt={`Preview ${index}`}
+        className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+      />
+      <button
+        type="button"
+        onClick={() => removeImage(index)}
+        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+      >
+        ×
+      </button>
+    </div>
+  ))}
+  {formData.imagePreviews.length < 5 && (
+    <label className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors">
+      <div className="text-center">
+        <Upload className="w-8 h-8 mx-auto text-gray-400" />
+        <span className="text-xs text-gray-500">Add Image</span>
+      </div>
+    <input
+  type="file"
+  name="images" // Exactly matches Multer config
+  multiple
+accept="image/*"// Explicitly specify allowed types
+  onChange={handleImageUpload}
+  className="hidden"
+/>
+    </label>
+  )}
+</div>
+<p className="text-xs text-gray-500">
+  Upload clear images of your product (JPEG, PNG). Max 5 images, 5MB each.
+</p>
               </div>
               
               <div className="w-full">
@@ -1059,6 +1104,7 @@ Object.entries(formData).forEach(([key, val]) => {
 </div>
 
 </div>
+</form>
         {/* Footer */}
         <div className="text-center mt-6 sm:mt-10 text-gray-500 text-sm sm:text-base">
           <p>Your advertisement will be reviewed and published within 24 hours</p>
