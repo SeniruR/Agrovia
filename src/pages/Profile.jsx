@@ -80,33 +80,24 @@ const gramasewaDivisions = [
 ];
 
 const initialProfile = {
-  fullName: "",
+  name: "",
   email: "",
   district: "",
   landSize: "",
   nic: "",
-  birthDate: "",
   address: "",
   phoneNumber: "",
   description: "",
   profileImage: null,
+  password: "",
+  confirmPassword: "",
   divisionGramasewaNumber: "",
-  organizationCommitteeNumber: "",
+  organizationId: "",
   farmingExperience: "",
-  primaryCrops: "",
-  secondaryCrops: "",
-  farmingMethods: "",
+  cultivatedCrops: "",
   irrigationSystem: "",
   soilType: "",
-  farmingGoals: "",
-  annualIncome: "",
-  educationLevel: "",
-  farmingCertifications: "",
-  equipmentOwned: "",
-  marketingChannels: "",
-  challenges: "",
-  // technologyUsage: "",
-  sustainabilityPractices: ""
+  farmingCertifications: ""
 };
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -114,6 +105,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 const Profile = () => {
   const [profile, setProfile] = useState(initialProfile);
   const [originalProfile, setOriginalProfile] = useState(initialProfile);
+  const [organizationName, setOrganizationName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saveEnabled, setSaveEnabled] = useState(false);
@@ -125,34 +117,27 @@ const Profile = () => {
   const mapBackendToProfile = (data) => {
     const user = data.user || {};
     const details = user.farmer_details || {};
+    // Construct profile image URL if user has a profile image
+    const profileImageUrl = user.profile_image ? `/api/v1/users/${user.id}/profile-image` : null;
     return {
-      fullName: user.full_name || "",
+      name: user.name || user.full_name || "",
       email: user.email || "",
       district: user.district || "",
       landSize: details.land_size || "",
       nic: user.nic || "",
-      birthDate: details.birth_date || user.birth_date || "",
       address: user.address || "",
       phoneNumber: user.phone_number || "",
       description: details.description || "",
-      profileImage: user.profile_image || null,
+      profileImage: profileImageUrl,
+      password: "",
+      confirmPassword: "",
       divisionGramasewaNumber: details.division_gramasewa_number || "",
-      organizationCommitteeNumber: details.organization_committee_number || "",
+      organizationId: details.organization_id || "",
       farmingExperience: details.farming_experience || "",
-      primaryCrops: details.cultivated_crops || "",
-      secondaryCrops: details.secondary_crops || "",
-      farmingMethods: details.farming_methods || "",
+      cultivatedCrops: details.cultivated_crops || "",
       irrigationSystem: details.irrigation_system || "",
       soilType: details.soil_type || "",
-      farmingGoals: details.farming_goals || "",
-      annualIncome: details.annual_income || "",
-      educationLevel: details.education || "",
-      farmingCertifications: details.farming_certifications || "",
-      equipmentOwned: details.equipment_owned || "",
-      marketingChannels: details.marketing_channels || "",
-      challenges: details.challenges || "",
-      // technologyUsage: details.technology_usage || "",
-      sustainabilityPractices: details.sustainability_practices || "",
+      farmingCertifications: details.farming_certifications || ""
     };
   };
 
@@ -162,7 +147,7 @@ const Profile = () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("authToken");
         if (!token) {
           setError("No authentication token found. Please log in again.");
           setLoading(false);
@@ -184,6 +169,29 @@ const Profile = () => {
         const mapped = mapBackendToProfile(data);
         setProfile(mapped);
         setOriginalProfile(mapped);
+
+        // Fetch organization name if organizationId is present
+        if (mapped.organizationId) {
+          let orgApiUrl = import.meta.env.VITE_API_URL
+            ? `${import.meta.env.VITE_API_URL}/api/v1/organizations/${mapped.organizationId}`
+            : (import.meta.env.DEV
+                ? `http://localhost:5000/api/v1/organizations/${mapped.organizationId}`
+                : `/api/v1/organizations/${mapped.organizationId}`);
+          const orgRes = await fetch(orgApiUrl, {
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (orgRes.ok) {
+            const orgData = await orgRes.json();
+            setOrganizationName(orgData.org_name || "");
+          } else {
+            setOrganizationName("");
+          }
+        } else {
+          setOrganizationName("");
+        }
       } catch (err) {
         setError(err.message || 'Unknown error');
       } finally {
@@ -224,7 +232,7 @@ const Profile = () => {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("authToken");
       if (!token) throw new Error("No authentication token found.");
       let apiUrl = import.meta.env.VITE_API_URL
         ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
@@ -300,23 +308,31 @@ const Profile = () => {
               onClick={handleImageClick}
               title="Click to change profile image"
             >
-              {profile.profileImage ? (
-                typeof profile.profileImage === 'string' ? (
-                  <img
-                    src={profile.profileImage}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={URL.createObjectURL(profile.profileImage)}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                )
-              ) : (
-                <span className="text-gray-400 text-5xl">👤</span>
-              )}
+              {(() => {
+                if (profile.profileImage) {
+                  if (typeof profile.profileImage === 'string') {
+                    return (
+                      <img
+                        src={profile.profileImage}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    );
+                  } else if (
+                    typeof profile.profileImage === 'object' &&
+                    profile.profileImage instanceof File
+                  ) {
+                    return (
+                      <img
+                        src={URL.createObjectURL(profile.profileImage)}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    );
+                  }
+                }
+                return <span className="text-gray-400 text-5xl">👤</span>;
+              })()}
             </div>
             <input
               type="file"
@@ -338,11 +354,11 @@ const Profile = () => {
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
-                <input type="text" name="fullName" value={profile.fullName} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <input type="text" name="name" value={profile.name} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-                <input type="email" name="email" value={profile.email} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <input type="email" name="email" value={profile.email} readOnly className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">District</label>
@@ -353,15 +369,11 @@ const Profile = () => {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">NIC</label>
-                <input type="text" name="nic" value={profile.nic} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <input type="text" name="nic" value={profile.nic} readOnly className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
                 <input type="text" name="phoneNumber" value={profile.phoneNumber} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Birth Date</label>
-                <input type="date" name="birthDate" value={profile.birthDate} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
@@ -388,19 +400,8 @@ const Profile = () => {
                 <input type="number" name="landSize" value={profile.landSize} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Primary Crops</label>
-                <input type="text" name="primaryCrops" value={profile.primaryCrops} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Secondary Crops</label>
-                <input type="text" name="secondaryCrops" value={profile.secondaryCrops} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Farming Methods</label>
-                <select name="farmingMethods" value={profile.farmingMethods} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black">
-                  <option value="">Select Method</option>
-                  {farmingMethodsOptions.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Cultivated Crops</label>
+                <input type="text" name="cultivatedCrops" value={profile.cultivatedCrops} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Irrigation System</label>
@@ -417,54 +418,12 @@ const Profile = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Farming Goals</label>
-                <input type="text" name="farmingGoals" value={profile.farmingGoals} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Farming Certifications</label>
+                <input type="text" name="farmingCertifications" value={profile.farmingCertifications} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
               </div>
             </div>
           </div>
 
-          {/* Professional Development & Resources */}
-          <div>
-            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2 mb-6">
-              Professional Development & Resources
-            </h3>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Annual Income Range</label>
-                <select name="annualIncome" value={profile.annualIncome} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black">
-                  <option value="">Select Income Range</option>
-                  {incomeRanges.map((inc) => <option key={inc} value={inc}>{inc}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Education Level</label>
-                <select name="educationLevel" value={profile.educationLevel} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black">
-                  <option value="">Select Education Level</option>
-                  {educationOptions.map((ed) => <option key={ed} value={ed}>{ed}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Farming Certifications</label>
-                <input type="text" name="farmingCertifications" value={profile.farmingCertifications} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Equipment Owned</label>
-                <input type="text" name="equipmentOwned" value={profile.equipmentOwned} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Marketing Channels</label>
-                <input type="text" name="marketingChannels" value={profile.marketingChannels} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Sustainability Practices</label>
-                <input type="text" name="sustainabilityPractices" value={profile.sustainabilityPractices} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Challenges</label>
-                <input type="text" name="challenges" value={profile.challenges} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-            </div>
-          </div>
 
           {/* Administrative Details */}
           <div>
@@ -494,8 +453,8 @@ const Profile = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Organization Committee Number</label>
-                <input type="text" name="organizationCommitteeNumber" value={profile.organizationCommitteeNumber} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Organization</label>
+                <input type="text" name="organizationName" value={organizationName} readOnly className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed" />
               </div>
             </div>
           </div>

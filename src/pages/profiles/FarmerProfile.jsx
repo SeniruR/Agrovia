@@ -99,7 +99,7 @@ const FarmerProfile = () => {
           verified: user.is_active === 1,
           // Farmer details (from farmer_details table)
           id: details.id || '-',
-          userId: details.user_id || '-',
+          // userId: details.user_id || '-', // Removed duplicate key
           organizationId: details.organization_id || '-',
           organizationName: details.organization_name || '-',
           landSize: details.land_size ? `${details.land_size} acres` : '-',
@@ -348,7 +348,6 @@ const FarmerProfile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <InfoCard label="Full Name" value={farmerData.fullName} icon={User} color="green" />
                 <InfoCard label="NIC" value={farmerData.nic} icon={Award} color="blue" />
-                <InfoCard label="Birth Date" value={farmerData.birthDate} icon={Calendar} color="yellow" />
                 <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
                 <InfoCard label="Email" value={farmerData.email} icon={Mail} color="blue" />
                 <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
