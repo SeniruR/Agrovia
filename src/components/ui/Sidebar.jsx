@@ -1,4 +1,40 @@
+// Buyer menu for user_type=2
+const buyerMenuItems = [
+  {
+    label: 'My Profile',
+    icon: HomeIcon,
+    path: '/profile',
+  },
+  {
+    label: 'Marketplace',
+    icon: ShoppingBagIcon,
+    subcategories: [
+      { name: 'Agriculture Marketplace', path: '/shopitem' },
+      { name: 'Crop MarketPlace', path: '/byersmarket' },
+    ],
+  },
+  {
+    label: 'Cart',
+    icon: (props) => <ShoppingCartOutlinedIcon {...props} />, // Use as a component
+    path: '/cart',
+  },
+  {
+    label: 'Alerts',
+    icon: BellIcon,
+    subcategories: [
+      { name: 'Pest Alerts', path: '/pestalert' },
+      { name: 'Weather Alerts', path: '/weatheralerts' },
+    ],
+  },
+  {
+    label: 'Contact Us',
+    icon: ChatBubbleLeftRightIcon,
+    path: '/complaintHandling',
+  },
+];
 import React, { useState, useEffect } from 'react';
+import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
+import FullScreenLoader from './FullScreenLoader';
 import { Link, useLocation } from 'react-router-dom';
 import { userService } from '../../services/userService';
 import { 
@@ -19,8 +55,7 @@ import {
   ArrowLeftOnRectangleIcon,
   UserPlusIcon
 } from '@heroicons/react/24/outline';
-
-// Default menuItems for all users (with admin org approval)
+// Main menu for all user types (used as base for filtering)
 const menuItems = [
   {
     label: 'Dashboard',
@@ -161,31 +196,51 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
           if (typeof type === 'string') type = type.trim();
         }
         setUserType(type);
-        // Show Organization Approval for all users (add to menu if not present)
-        let menu = type === '1' ? [...farmerMenuItems] : [...menuItems];
-        const orgApprovalItem = {
-          label: 'Organization Approval',
-          icon: UserPlusIcon,
-          path: '/admin/organization-approval',
-        };
-        // Only add if not already present
-        if (!menu.some(item => item.label === 'Organization Approval')) {
-          menu.push(orgApprovalItem);
+        let menu;
+        if (type === '0' || type === 0) {
+          // Admin: show only allowed menu items
+          menu = menuItems.filter(item => [
+            'Dashboard',
+            'Marketplace',
+            'Manage Users',
+            'Organization Approval',
+            'Alerts',
+            'Knowledge Hub',
+            'Contact Us'
+          ].includes(item.label));
+          // For Dashboard, only keep Admin Dashboard subcategory
+          menu = menu.map(item => {
+            if (item.label === 'Dashboard') {
+              return {
+                ...item,
+                subcategories: item.subcategories.filter(sub => sub.name === 'Admin Dashboard')
+              };
+            }
+            return item;
+          });
+        } else if (type === '1.1' || type === 1.1) {
+          // Farmer 1.1: show farmer menu, add Verification Panel
+          menu = [...farmerMenuItems];
+          menu.push({
+            label: 'Verification Panel',
+            icon: UserPlusIcon,
+            path: '/verificationpanel',
+          });
+        } else if (type === '1' || type === 1) {
+          // Farmer 1: only farmer menu
+          menu = [...farmerMenuItems];
+        } else if (type === '2' || type === 2) {
+          // Buyer: show only My Profile, Marketplace, Alerts, Contact Us
+          menu = [...buyerMenuItems];
+        } else {
+          // Default: all menuItems except Organization Approval and Verification Panel
+          menu = menuItems.filter(item => item.label !== 'Organization Approval' && item.label !== 'Verification Panel');
         }
         setFilteredMenu(menu);
       } catch (e) {
         setUserType(null);
-        // Fallback: add Organization Approval to default menu
-        let menu = [...menuItems];
-        const orgApprovalItem = {
-          label: 'Organization Approval',
-          icon: UserPlusIcon,
-          path: '/admin/organization-approval',
-        };
-        if (!menu.some(item => item.label === 'Organization Approval')) {
-          menu.push(orgApprovalItem);
-        }
-        setFilteredMenu(menu);
+        // Fallback: default menu, remove Organization Approval and Verification Panel
+        setFilteredMenu(menuItems.filter(item => item.label !== 'Organization Approval' && item.label !== 'Verification Panel'));
       }
     }
     fetchUserType();
@@ -294,6 +349,11 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
+
+  if (userType === null) {
+    // Show fullscreen loading spinner until userType is loaded
+    return <FullScreenLoader />;
+  }
 
   return (
     <>

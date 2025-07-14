@@ -219,9 +219,11 @@ const UserModal = () => (
   </div>
 );
 
+
 import React, { useState, useEffect } from 'react';
 import { userService } from '../../services/userService';
 import { Search, Filter, Eye, ChevronDown, Users, UserCheck, UserX, Activity, X } from 'lucide-react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 
 const AdminUserManagement = () => {
   const [activeTab, setActiveTab] = useState('all');
@@ -602,12 +604,13 @@ const AdminUserManagement = () => {
     </div>
   );
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-xl text-green-700">Loading users...</div>;
-  }
-  if (error) {
-    return <div className="min-h-screen flex items-center justify-center text-xl text-red-600">{error}</div>;
-  }
+
+if (loading) {
+  return <FullScreenLoader message="Loading users..." />;
+}
+if (error) {
+  return <div className="min-h-screen flex items-center justify-center text-xl text-red-600">{error}</div>;
+}
 
   return (
     <div className="min-h-screen bg-gray-50">

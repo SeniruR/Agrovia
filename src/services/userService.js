@@ -11,9 +11,15 @@ const API_BASE_URL = 'http://localhost:5000/api/v1';
 const getCurrentUserFromStorage = () => {
   try {
     const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    if (!user || typeof user !== 'string' || user[0] !== '{') {
+      // Not a valid JSON string, clear it
+      localStorage.removeItem('user');
+      return null;
+    }
+    return JSON.parse(user);
   } catch (error) {
     console.error('Error parsing user from localStorage:', error);
+    localStorage.removeItem('user');
     return null;
   }
 };
