@@ -82,7 +82,7 @@ const Login = () => {
 
                 // Redirect based on user role
                 if (user.role === 'farmer') {
-                    navigate('/profile/farmer');
+                    navigate('/dashboard/farmer');
                 } else {
                     navigate('/');
                     window.location.reload();
