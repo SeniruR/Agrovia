@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -80,6 +81,11 @@ const FarmerProfile = () => {
         // Merge users and farmer_details fields
         const user = data.user || {};
         const details = user.farmer_details || {};
+        
+        // Construct profile image URL if user has a profile image
+        const profileImageUrl = user.profile_image ? 
+          `/api/v1/users/${user.id}/profile-image` : '';
+        
         setFarmerData({
           // User fields (for header, if needed)
           fullName: user.full_name || '-',
@@ -88,12 +94,13 @@ const FarmerProfile = () => {
           nic: user.nic || '-',
           district: user.district || '-',
           address: user.address || '-',
-          profileImage: user.profile_image || '',
+          profileImage: profileImageUrl,
+          userId: user.id, // Store user ID for future use
           joinedDate: user.created_at || '-',
           verified: user.is_active === 1,
           // Farmer details (from farmer_details table)
           id: details.id || '-',
-          userId: details.user_id || '-',
+          // userId: details.user_id || '-', // Removed duplicate key
           organizationId: details.organization_id || '-',
           organizationName: details.organization_name || '-',
           landSize: details.land_size ? `${details.land_size} acres` : '-',
@@ -148,9 +155,12 @@ const FarmerProfile = () => {
           {/* Profile Image */}
           <div className="relative">
             <img 
-              src={farmerData.profileImage} 
+              src={farmerData.profileImage || 'https://via.placeholder.com/128x128/4ade80/ffffff?text=👤'} 
               alt={farmerData.fullName}
               className="w-32 h-32 rounded-full border-4 border-white/20 shadow-lg object-cover"
+              onError={(e) => {
+                e.target.src = 'https://via.placeholder.com/128x128/4ade80/ffffff?text=👤';
+              }}
             />
             {farmerData.verified && (
               <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-2 rounded-full">
@@ -293,11 +303,7 @@ const FarmerProfile = () => {
   );
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
-        Loading profile...
-      </div>
-    );
+    return <FullScreenLoader />;
   }
   if (error) {
     return (
@@ -339,7 +345,6 @@ const FarmerProfile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <InfoCard label="Full Name" value={farmerData.fullName} icon={User} color="green" />
                 <InfoCard label="NIC" value={farmerData.nic} icon={Award} color="blue" />
-                <InfoCard label="Birth Date" value={farmerData.birthDate} icon={Calendar} color="yellow" />
                 <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
                 <InfoCard label="Email" value={farmerData.email} icon={Mail} color="blue" />
                 <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
