@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Filter, Search, Eye, MoreVertical, Trash2 } from 'lucide-react';
+import { ArrowLeft, Filter, Search, Eye, MoreVertical, Trash2, Wheat, Store, Truck } from 'lucide-react';
 
 const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBack, onDeleteComplaint }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,66 +96,89 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
         {/* Complaints List */}
         <div className="space-y-4">
           {filteredComplaints.map((complaint) => (
-            <div key={complaint.type + '-' + complaint.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all">
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${getTypeColor(complaint.type)}`}>
-                        {complaint.type}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
-                        {complaint.priority}
-                      </span>
-                      {complaint.assignedTo && (
-                        <span className="px-3 py-1 rounded-full text-xs  font-medium bg-blue-100 text-blue-700 border border-blue-200">
-                          Assigned: {complaint.assignedTo}
-                        </span>
-                      )}
-                    </div>
-                    
-                    <h3 className="text-lg font-semibold text-slate-800 mb-2">{complaint.title}</h3>
-                    <p className="text-slate-600 mb-3 line-clamp-2">{complaint.description}</p>
-                    
-                    <div className="flex items-center text-sm text-slate-500 space-x-4">
-                      <span>By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'}</span>
-                      <span>•</span>
-                      <span>{(() => {
-  let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
-  if (date) {
-    if (typeof date === 'string' || typeof date === 'number') {
-      date = new Date(date);
-    }
-    if (date instanceof Date && !isNaN(date)) {
-      return date.toDateString();
-    }
-  }
-  return '';
-})()}</span>
-                      {complaint.orderNumber && (
-                        <>
-                          <span>•</span>
-                          <span>Order: {complaint.orderNumber}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 ml-4">
-                    <button 
-                      onClick={() => onViewComplaint(complaint.id, complaint.type)}
-                      className="p-2 hover:bg-slate-100 bg-slate-100 rounded-lg transition-colors"
-                    >
-                      <Eye className="w-4 h-4 text-slate-600" />
-                    </button>
-                    <button
-                      onClick={() => { setShowDeletePopup(true); setDeleteTarget(complaint); }}
-                      className="p-2 hover:bg-red-100 bg-red-100 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>
-                  </div>
+            <div key={complaint.type + '-' + complaint.id} className={`flex items-center justify-between p-5 rounded-2xl shadow bg-gradient-to-br ${
+              complaint.type === 'crop' ? 'from-green-50 to-emerald-50 border border-green-100 hover:border-green-200' :
+              complaint.type === 'shop' ? 'from-blue-50 to-indigo-50 border border-blue-100 hover:border-blue-200' :
+              complaint.type === 'transport' ? 'from-purple-50 to-violet-50 border border-purple-100 hover:border-purple-200' :
+              'from-slate-50 to-slate-100 border border-slate-100 hover:border-slate-200'
+            } hover:shadow-lg transition-all mb-2`}>
+              <div className="flex items-center gap-4 flex-1">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  complaint.type === 'crop' ? 'bg-gradient-to-br from-green-400 to-emerald-500' :
+                  complaint.type === 'shop' ? 'bg-gradient-to-br from-blue-400 to-indigo-500' :
+                  complaint.type === 'transport' ? 'bg-gradient-to-br from-purple-400 to-violet-500' :
+                  'bg-gradient-to-br from-slate-400 to-slate-500'
+                }`}>
+                  {complaint.type === 'crop' && <Wheat className="w-6 h-6 text-white" />}
+                  {complaint.type === 'shop' && <Store className="w-6 h-6 text-white" />}
+                  {complaint.type === 'transport' && <Truck className="w-6 h-6 text-white" />}
+                  {!['crop','shop','transport'].includes(complaint.type) && <span className="font-bold text-white text-lg">?</span>}
                 </div>
+                <div className="flex-1">
+                  <h3 className={`font-bold text-lg mb-1 ${
+                    complaint.type === 'crop' ? 'text-green-800' :
+                    complaint.type === 'shop' ? 'text-blue-800' :
+                    complaint.type === 'transport' ? 'text-purple-800' :
+                    'text-slate-800'
+                  }`}>{complaint.title}</h3>
+                  <p className={`text-xs mb-2 ${
+                    complaint.type === 'crop' ? 'text-green-700' :
+                    complaint.type === 'shop' ? 'text-blue-700' :
+                    complaint.type === 'transport' ? 'text-purple-700' :
+                    'text-slate-700'
+                  }`}>By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
+                    let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+                    if (date) {
+                      if (typeof date === 'string' || typeof date === 'number') {
+                        date = new Date(date);
+                      }
+                      if (date instanceof Date && !isNaN(date)) {
+                        return date.toDateString();
+                      }
+                    }
+                    return '';
+                  })()}</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${getTypeColor(complaint.type)}`}>{complaint.type}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(complaint.priority)}`}>{complaint.priority}</span>
+                    {complaint.assignedTo && (
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">Assigned: {complaint.assignedTo}</span>
+                    )}
+                    {complaint.orderNumber && (
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">Order: {complaint.orderNumber}</span>
+                    )}
+                  </div>
+                  <p className="text-slate-600 text-xs line-clamp-2">{complaint.description}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 ml-4">
+                <button 
+                  onClick={() => onViewComplaint(complaint.id, complaint.type)}
+                  className={`p-2 bg-white rounded-lg shadow hover:bg-${
+                    complaint.type === 'crop' ? 'green-50' :
+                    complaint.type === 'shop' ? 'blue-50' :
+                    complaint.type === 'transport' ? 'purple-50' :
+                    'slate-100'
+                  } transition-colors`}
+                >
+                  <Eye className={`w-5 h-5 ${
+                    complaint.type === 'crop' ? 'text-green-600' :
+                    complaint.type === 'shop' ? 'text-blue-600' :
+                    complaint.type === 'transport' ? 'text-purple-600' :
+                    'text-slate-600'
+                  }`} />
+                </button>
+                <button
+                  onClick={() => { setShowDeletePopup(true); setDeleteTarget(complaint); }}
+                  className={`p-2 bg-white rounded-lg shadow hover:bg-green-50 transition-colors`}
+                >
+                  <Trash2 className={`w-5 h-5 ${
+                    complaint.type === 'crop' ? 'text-green-600' :
+                    complaint.type === 'shop' ? 'text-blue-600' :
+                    complaint.type === 'transport' ? 'text-purple-600' :
+                    'text-slate-600'
+                  }`} />
+                </button>
               </div>
             </div>
           ))}

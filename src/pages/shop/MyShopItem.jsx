@@ -3,9 +3,10 @@ import { Search, MapPin, Phone, Mail, Star, Award, Package, DollarSign, Eye, Hea
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import ItemPostedForm from './ItemPostedForm';
-
+import { useAuth } from '../../contexts/AuthContext';
 const MyShopItem = () => {
    const navigate = useNavigate();
+   const { user, isAuthenticated, getAuthHeaders } = useAuth();
    const [showAddPage, setShowAddPage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -43,21 +44,51 @@ const MyShopItem = () => {
     });
 
     // Fetch data from backend
-    useEffect(() => {
-        const fetchShopItems = async () => {
-            try {
-                const response = await axios.get('http://localhost:5000/api/v1/shop-products');
-                setShopItems(response.data);
-                setLoading(false);
-            } catch (err) {
-                setError(err.message);
-                setLoading(false);
-                console.error('Error fetching shop items:', err);
-            }
-        };
+ useEffect(() => {
+  const fetchShopItems = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get(
+        'http://localhost:5000/api/v1/shop-products/my-shop', 
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Debug the response structure
+      console.log('API Response:', response.data);
+      
+      // Handle different possible response structures
+      const products = response.data.products || 
+                       response.data.data || 
+                       response.data || 
+                       [];
+      
+      setShopItems(products);
+      setError(null);
+      
+    } catch (err) {
+      console.error('API Error:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      if (err.response?.status === 404) {
+        setShopItems([]);
+        setError("Your shop currently has no products");
+      } else {
+        setError(err.response?.data?.message || "Failed to load products");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        fetchShopItems();
-    }, []);
+  fetchShopItems();
+}, []);
 
     // Clean up image previews when component unmounts
     useEffect(() => {

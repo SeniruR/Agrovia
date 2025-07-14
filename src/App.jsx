@@ -439,7 +439,7 @@ const App = () => {
       }
       />
 
-       <Route path="/vertificationpanel" element={
+       <Route path="/verificationpanel" element={
         <Layout>
           <FarmerVerificationPanel/>
         </Layout>

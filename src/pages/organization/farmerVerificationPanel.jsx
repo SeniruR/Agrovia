@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { 
   CheckCircle, 
   XCircle, 
@@ -139,7 +140,12 @@ const FarmerVerificationPanel = () => {
             organization_id: farmer.organization_id,
             org_name: farmer.org_name,
             org_area: farmer.org_area,
-            org_description: farmer.org_description
+            org_description: farmer.org_description,
+            description: farmer.description || '',
+            division_gramasewa_number: farmer.division_gramasewa_number || '',
+            irrigation_system: farmer.irrigation_system || '',
+            soil_type: farmer.soil_type || '',
+            farming_certifications: farmer.farming_certifications || ''
           }))
         );
         // Set org info if available
@@ -238,7 +244,12 @@ const FarmerVerificationPanel = () => {
               organization_id: farmer.organization_id,
               org_name: farmer.org_name,
               org_area: farmer.org_area,
-              org_description: farmer.org_description
+              org_description: farmer.org_description,
+              description: farmer.description || '',
+              division_gramasewa_number: farmer.division_gramasewa_number || '',
+              irrigation_system: farmer.irrigation_system || '',
+              soil_type: farmer.soil_type || '',
+              farming_certifications: farmer.farming_certifications || ''
             }))
           );
           if (data.length > 0 && (data[0].org_name || data[0].org_area || data[0].org_description)) {
@@ -313,7 +324,12 @@ const FarmerVerificationPanel = () => {
               organization_id: farmer.organization_id,
               org_name: farmer.org_name,
               org_area: farmer.org_area,
-              org_description: farmer.org_description
+              org_description: farmer.org_description,
+              description: farmer.description || '',
+              division_gramasewa_number: farmer.division_gramasewa_number || '',
+              irrigation_system: farmer.irrigation_system || '',
+              soil_type: farmer.soil_type || '',
+              farming_certifications: farmer.farming_certifications || ''
             }))
           );
           if (data.length > 0 && (data[0].org_name || data[0].org_area || data[0].org_description)) {
@@ -375,8 +391,12 @@ const FarmerVerificationPanel = () => {
     }
   }, [isContactPerson, activeTab]);
 
+  // Show loading spinner/message while access check or data is loading
+  if (loading) {
+    return <FullScreenLoader />;
+  }
   // Only render UI if access check is done and user is contact person
-  if (isContactPerson !== true || loading) {
+  if (isContactPerson !== true) {
     return null;
   }
 
@@ -614,23 +634,31 @@ const FarmerVerificationPanel = () => {
                     <div className="space-y-3">
                       <div>
                         <label className="text-sm font-medium text-gray-700">Full Name</label>
-                        <p className="text-gray-900">{selectedFarmer.name}</p>
+                        <p className="text-gray-900">{selectedFarmer.name || '-'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-700">Email</label>
-                        <p className="text-gray-900">{selectedFarmer.email}</p>
+                        <p className="text-gray-900">{selectedFarmer.email || '-'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-700">Phone</label>
-                        <p className="text-gray-900">{selectedFarmer.phone}</p>
+                        <p className="text-gray-900">{selectedFarmer.phone || '-'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-700">Location</label>
-                        <p className="text-gray-900">{selectedFarmer.location}</p>
+                        <p className="text-gray-900">{selectedFarmer.location || '-'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-700">Farming Experience</label>
-                        <p className="text-gray-900">{selectedFarmer.experience}</p>
+                        <p className="text-gray-900">{selectedFarmer.experience || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Description</label>
+                        <p className="text-gray-900">{selectedFarmer.description || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">GN Division Number</label>
+                        <p className="text-gray-900">{selectedFarmer.division_gramasewa_number || '-'}</p>
                       </div>
                     </div>
                   </div>
@@ -641,27 +669,42 @@ const FarmerVerificationPanel = () => {
                     <div className="space-y-3">
                       <div>
                         <label className="text-sm font-medium text-gray-700">Farm Size</label>
-                        <p className="text-gray-900">{selectedFarmer.farmSize}</p>
+                        <p className="text-gray-900">{selectedFarmer.farmSize || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Irrigation System</label>
+                        <p className="text-gray-900">{selectedFarmer.irrigation_system || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Soil Type</label>
+                        <p className="text-gray-900">{selectedFarmer.soil_type || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Farming Certifications</label>
+                        <p className="text-gray-900">{selectedFarmer.farming_certifications || '-'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-700">Crop Types</label>
                         <div className="flex flex-wrap gap-2 mt-1">
-                          {selectedFarmer.cropTypes.map((crop, index) => (
-                            <span key={index} className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                              {crop}
-                            </span>
-                          ))}
+                          {(selectedFarmer.cropTypes && selectedFarmer.cropTypes.length > 0)
+                            ? selectedFarmer.cropTypes.map((crop, index) => (
+                                <span key={index} className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
+                                  {crop}
+                                </span>
+                              ))
+                            : <span className="text-gray-500">-</span>
+                          }
                         </div>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-700">Organization Applied</label>
-                        <p className="text-gray-900">{selectedFarmer.organizationApplied}</p>
+                        <p className="text-gray-900">{selectedFarmer.organizationApplied || '-'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-700">Application Date</label>
                         <p className="text-gray-900 flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
-                          {selectedFarmer.submittedDate}
+                          {selectedFarmer.submittedDate || '-'}
                         </p>
                       </div>
                     </div>
