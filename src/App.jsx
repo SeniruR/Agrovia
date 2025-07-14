@@ -1,3 +1,5 @@
+import OrderAndPaymentPage from "./pages/OrderAndPaymentPage";
+      
 import React from "react";
 import {BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
@@ -494,6 +496,12 @@ const App = () => {
         </Layout>
       }
       />
+      <Route path="/order-payment" element={
+        <Layout>
+        <OrderAndPaymentPage />
+        </Layout>
+        
+        } />
 
     </Routes>
     

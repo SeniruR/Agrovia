@@ -19,8 +19,11 @@ import {
 import { cropService } from '../../services/cropService';
 import { useCart } from '../../hooks/useCart';
 
+
 import CartNotification from '../../components/CartNotification';
 import { useAuth } from '../../contexts/AuthContext';
+import OrderDetailsSheet from '../../components/OrderDetailsSheet';
+import PaymentDetails from '../../components/PaymentDetails';
 
 const CropDetailView = () => {
   const { user, getAuthHeaders } = useAuth();
@@ -32,6 +35,7 @@ const CropDetailView = () => {
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
   const [notification, setNotification] = useState({ show: false, product: null, quantity: 0 });
+  const [showOrderSection, setShowOrderSection] = useState(false);
 
   // Fetch real crop data from API
   useEffect(() => {
@@ -196,6 +200,23 @@ const CropDetailView = () => {
       </div>
     );
   }
+
+  // Build order object for details/payment
+  const order = crop ? {
+    id: `ORD-${Date.now()}`,
+    date: new Date().toLocaleDateString(),
+    buyer: user?.name || user?.email || 'You',
+    status: 'Pending',
+    items: [
+      {
+        name: `${crop.cropName} (${quantity} ${crop.unit})`,
+        price: crop.pricePerUnit * quantity
+      }
+    ],
+    total: crop.pricePerUnit * quantity,
+    deliveryAddress: user?.address || 'Not specified',
+    description: crop.description || '',
+  } : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-agrovia-50 to-green-50">
@@ -441,7 +462,7 @@ const CropDetailView = () => {
             {/* Purchase Section */}
             <div className="bg-gradient-to-br from-white to-agrovia-50 rounded-2xl p-6 shadow-xl border-2 border-agrovia-200 sticky top-6">
               <div className="bg-agrovia-500 text-white text-center py-3 px-4 rounded-xl mb-6 shadow-lg">
-                <h3 className="text-xl font-bold">Purchase Details</h3>
+                <h3 className="text-xl font-bold"> </h3>
               </div>
               
               {/* Quantity Selector */}
@@ -492,6 +513,7 @@ const CropDetailView = () => {
                 </div>
               </div>
 
+
               {/* Action Buttons */}
               <div className="space-y-4">
                 <button
@@ -508,6 +530,14 @@ const CropDetailView = () => {
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Contact Farmer
                 </button>
+                <button
+                  onClick={() => navigate('/order-payment', { state: { order } })}
+                  className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-green-500 to-green-700 text-white rounded-xl shadow-xl border-3 border-green-400 hover:from-green-600 hover:to-green-800 hover:scale-105 transition-all duration-300 font-bold relative group overflow-hidden"
+                  style={{ position: 'relative', overflow: 'hidden' }}
+                >
+                  <span className="absolute left-0 top-0 h-full w-2 bg-green-700 opacity-20 group-hover:w-full group-hover:opacity-10 transition-all duration-500"></span>
+                  Place Order
+                </button>
                 {user && crop && user.id === crop.farmerId && (
                   <button
                     onClick={() => setShowDeleteModal(true)}
@@ -522,57 +552,57 @@ const CropDetailView = () => {
                     <span className="z-10">Delete</span>
                   </button>
                 )}
-  {/* Delete Confirmation Modal */}
-  {showDeleteModal && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border-2 border-red-400 relative animate-fade-in">
-        <div className="flex flex-col items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-14 h-14 text-red-500 mb-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
-          </svg>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Are you sure?</h2>
-          <p className="text-gray-700 mb-6 text-center">This action will permanently delete this crop listing. This cannot be undone.</p>
-          <div className="flex space-x-4 w-full">
-            <button
-              onClick={() => setShowDeleteModal(false)}
-              className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/v1/crop-posts/${crop.id}/status`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-                    body: JSON.stringify({ status: 'deleted' }),
-                  });
-                  if (res.ok) {
-                    setShowDeleteModal(false);
-                    navigate('/farmviewAllCrops');
-                  } else {
-                    alert('Failed to delete crop post.');
-                  }
-                } catch {
-                  alert('An error occurred while deleting.');
-                }
-              }}
-              className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold shadow hover:from-red-600 hover:to-pink-600 transition-all"
-            >
-              Yes, Delete
-            </button>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowDeleteModal(false)}
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold"
-          aria-label="Close"
-        >
-          &times;
-        </button>
-      </div>
-    </div>
-  )}
+                {/* Delete Confirmation Modal */}
+                {showDeleteModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border-2 border-red-400 relative animate-fade-in">
+                      <div className="flex flex-col items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-14 h-14 text-red-500 mb-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
+                        </svg>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Are you sure?</h2>
+                        <p className="text-gray-700 mb-6 text-center">This action will permanently delete this crop listing. This cannot be undone.</p>
+                        <div className="flex space-x-4 w-full">
+                          <button
+                            onClick={() => setShowDeleteModal(false)}
+                            className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const res = await fetch(`/api/v1/crop-posts/${crop.id}/status`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                                  body: JSON.stringify({ status: 'deleted' }),
+                                });
+                                if (res.ok) {
+                                  setShowDeleteModal(false);
+                                  navigate('/farmviewAllCrops');
+                                } else {
+                                  alert('Failed to delete crop post.');
+                                }
+                              } catch {
+                                alert('An error occurred while deleting.');
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold shadow hover:from-red-600 hover:to-pink-600 transition-all"
+                          >
+                            Yes, Delete
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowDeleteModal(false)}
+                        className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold"
+                        aria-label="Close"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Availability Badge */}
@@ -598,6 +628,8 @@ const CropDetailView = () => {
             <p className="text-gray-700 leading-relaxed text-lg">{crop.description}</p>
           </div>
         </div>
+
+        {/* Inline Order Details and Payment Section removed: now handled on /order-payment page */}
       </div>
 
       <CartNotification
