@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState ,useEffect} from 'react';
 import { Upload, MapPin, Phone, Mail, Package, Leaf, Droplets, AlertTriangle, AlertCircle } from 'lucide-react';
 import { ChevronDown } from 'lucide-react';
 import { userService } from '../../services/userService';
@@ -32,7 +32,55 @@ export default function SeedsFertilizerForm() {
     imagePreviews: [],
     terms_accepted: false
   });
-   
+   useEffect(() => {
+  const fetchShopDetails = async () => {
+    console.log('⏳ [1] Starting fetch for user ID:', user?.id);
+    console.log('🔑 [2] Auth headers:', getAuthHeaders());
+
+    try {
+      console.log('🌐 [3] Making request to endpoint...');
+      const response = await fetch('http://localhost:5000/api/v1/shop-products/my-shop-view', {
+        headers: getAuthHeaders(),
+      });
+
+      console.log('✅ [4] Response received:', { status: response.status });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ [5] Parsed response data:', data);
+
+      if (data.success) {
+        setFormData((prev) => ({
+          ...prev,
+          shop_name: data.data.shop_name || '',
+          email: data.data.email || user.email || '',
+          phone_no: data.data.phone_no ||user.phone_no ||'',
+          shop_address: data.data.shop_address || '',
+          city: data.data.city || '',
+          owner_name: data.data.owner_name || '',
+        }));
+        // Log the value after setting state
+        console.log('shop_name:', data.data.shop_name);
+        // If you want to see the updated formData, use a useEffect on formData
+      } else {
+        console.warn('⚠ [6] Response not successful:', data);
+      }
+    } catch (error) {
+      console.error('❌ [4] Fetch failed:', { message: error.message });
+    } finally {
+      console.log('🏁 [7] Fetch completed');
+    }
+  };
+
+  if (user?.id) {
+    fetchShopDetails();
+  } else {
+    console.log('⛔ [0] No user ID - skipping fetch');
+  }
+}, [user, getAuthHeaders]);
 
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
@@ -440,7 +488,13 @@ Object.entries(formData).forEach(([key, val]) => {
                 className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
                   errors.shop_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                 }`}
-                placeholder="Enter your shop name"
+                placeholder={
+                  formData.shop_name
+                    ? formData.shop_name
+                    : user?.shop_name
+                      ? user.shop_name
+                      : "gershop-_name"
+                }
               />
               {errors.shop_name && (
                 <div className="flex items-center mt-2 text-red-600 text-sm">
@@ -462,7 +516,13 @@ Object.entries(formData).forEach(([key, val]) => {
                 className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
                   errors.owner_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                 }`}
-                placeholder="Enter owner name"
+                placeholder={
+                  formData.owner_name
+                    ? formData.owner_name
+                    : user?.full_name
+                      ? user.full_name
+                      : "Enter owner name"
+                }
               />
               {errors.owner_name && (
                 <div className="flex items-center mt-2 text-red-600 text-sm">
@@ -484,7 +544,7 @@ Object.entries(formData).forEach(([key, val]) => {
                 className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
                   errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                 }`}
-                placeholder="shop@example.com"
+                placeholder={formData.email ? formData.email : "shop@example.com"}
               />
               {errors.email && (
                 <div className="flex items-center mt-2 text-red-600 text-sm">
@@ -506,7 +566,12 @@ Object.entries(formData).forEach(([key, val]) => {
                 className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
                   errors.phone_no ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
                 }`}
-                placeholder="+94 XX XXX XXXX"
+                placeholder={
+                  formData.phone_no
+                    ? formData.phone_no
+                    
+                      : "+94 XX XXX XXXX"
+                }
               />
               {errors.phone_no && (
                 <div className="flex items-center mt-2 text-red-600 text-sm">
