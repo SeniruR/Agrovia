@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -302,11 +303,7 @@ const FarmerProfile = () => {
   );
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
-        Loading profile...
-      </div>
-    );
+    return <FullScreenLoader />;
   }
   if (error) {
     return (

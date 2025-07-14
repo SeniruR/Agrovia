@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import FullScreenLoader from "../components/ui/FullScreenLoader";
 import Select from "react-select";
 
 const districts = [
@@ -108,6 +109,7 @@ const Profile = () => {
   const [organizationName, setOrganizationName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [saveEnabled, setSaveEnabled] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
@@ -208,10 +210,43 @@ const Profile = () => {
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
-    setProfile((prev) => ({
-      ...prev,
-      [name]: files ? files[0] : value,
-    }));
+    
+    // Handle file uploads with validation
+    if (files && files[0]) {
+      const file = files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file.');
+        return;
+      }
+      
+      // Validate file size (50MB limit)
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxSize) {
+        setError('Image file must be smaller than 50MB.');
+        return;
+      }
+      
+      console.log(`Selected image: ${file.name}, size: ${file.size} bytes, type: ${file.type}`);
+      setProfile((prev) => ({
+        ...prev,
+        [name]: file,
+      }));
+    } else {
+      setProfile((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+    
+    // Clear any existing errors when user makes changes
+    if (error) {
+      setError(null);
+    }
+    if (successMessage) {
+      setSuccessMessage(null);
+    }
   };
 
   // For react-select
@@ -240,10 +275,29 @@ const Profile = () => {
             ? 'http://localhost:5000/api/v1/auth/profile-full'
             : '/api/v1/auth/profile-full');
 
-      // Prepare form data for file upload
+      // Only send visible fields to the backend, plus full_name and name for backend compatibility
       const formData = new FormData();
-      Object.entries(profile).forEach(([key, value]) => {
-        let v = value;
+      // List of visible fields (from the form UI)
+      const visibleFields = [
+        'name',
+        'email',
+        'district',
+        'landSize',
+        'nic',
+        'address',
+        'phoneNumber',
+        'description',
+        'profileImage',
+        'divisionGramasewaNumber',
+        'organizationId',
+        'farmingExperience',
+        'cultivatedCrops',
+        'irrigationSystem',
+        'soilType',
+        'farmingCertifications'
+      ];
+      visibleFields.forEach((key) => {
+        let v = profile[key];
         // Convert empty strings to null
         if (v === "") v = null;
         // Convert landSize to number or null
@@ -259,6 +313,13 @@ const Profile = () => {
           formData.append(key, v);
         }
       });
+      // Send both name and full_name for backend compatibility (never null or empty)
+      let safeName = profile.name;
+      if (!safeName || typeof safeName !== 'string' || !safeName.trim()) {
+        safeName = "Unknown";
+      }
+      formData.set('name', safeName);
+      formData.set('full_name', safeName);
 
       const res = await fetch(apiUrl, {
         method: 'PUT',
@@ -268,25 +329,33 @@ const Profile = () => {
         },
         body: formData,
       });
-      if (!res.ok) throw new Error('Failed to update profile');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${res.status}: ${res.statusText}`);
+      }
+      
       const updated = await res.json();
       const mapped = mapBackendToProfile(updated);
       setProfile(mapped);
       setOriginalProfile(mapped);
-      alert("Profile updated successfully!");
+      setSuccessMessage("Profile updated successfully!");
+      
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 5000);
     } catch (err) {
-      setError(err.message || 'Unknown error');
+      console.error('Profile update error:', err);
+      setError(err.message || 'Failed to update profile. Please try again.');
+      setSuccessMessage(null);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
-        Loading profile...
-      </div>
-    );
+    return <FullScreenLoader />;
   }
   if (error) {
     return (
@@ -299,12 +368,43 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-12 px-4 flex items-center justify-center">
       <div className="bg-white shadow-2xl rounded-2xl w-full max-w-5xl p-0 md:p-10 flex flex-col gap-8">
+        
+        {/* Success/Error Notifications */}
+        {(successMessage || error) && (
+          <div className="mx-8 mt-8">
+            {successMessage && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center space-x-2 mb-4">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span className="font-medium">{successMessage}</span>
+              </div>
+            )}
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2 mb-4">
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span className="font-medium">{error}</span>
+                <button 
+                  onClick={() => setError(null)}
+                  className="ml-auto text-red-500 hover:text-red-700"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8 px-8 pt-8">
           <div className="flex flex-col items-center md:items-start">
             <h2 className="text-3xl md:text-4xl font-bold text-green-700 mb-4 text-center md:text-left">My Profile</h2>
             <div
-              className="w-36 h-36 md:w-40 md:h-40 rounded-full border-4 border-green-500 bg-gray-100 flex items-center justify-center overflow-hidden cursor-pointer"
+              className="w-36 h-36 md:w-40 md:h-40 rounded-full border-4 border-green-500 bg-gray-100 flex items-center justify-center overflow-hidden cursor-pointer hover:border-green-600 transition-colors"
               onClick={handleImageClick}
               title="Click to change profile image"
             >
@@ -316,6 +416,10 @@ const Profile = () => {
                         src={profile.profileImage}
                         alt="Profile"
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('Failed to load profile image');
+                          e.target.style.display = 'none';
+                        }}
                       />
                     );
                   } else if (
@@ -325,13 +429,18 @@ const Profile = () => {
                     return (
                       <img
                         src={URL.createObjectURL(profile.profileImage)}
-                        alt="Profile"
+                        alt="Profile Preview"
                         className="w-full h-full object-cover"
                       />
                     );
                   }
                 }
-                return <span className="text-gray-400 text-5xl">👤</span>;
+                return (
+                  <div className="text-center">
+                    <span className="text-gray-400 text-4xl block">👤</span>
+                    <span className="text-xs text-gray-500 mt-1">Click to upload</span>
+                  </div>
+                );
               })()}
             </div>
             <input
@@ -469,10 +578,24 @@ const Profile = () => {
           <div>
             <button
               type="submit"
-              className={`w-full py-3 rounded-lg font-semibold transition ${saveEnabled ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-              disabled={!saveEnabled}
+              className={`w-full py-3 rounded-lg font-semibold transition flex items-center justify-center space-x-2 ${
+                saveEnabled && !loading 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              disabled={!saveEnabled || loading}
             >
-              Save Changes
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Saving Changes...</span>
+                </>
+              ) : (
+                <span>Save Changes</span>
+              )}
             </button>
           </div>
         </form>
