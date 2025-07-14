@@ -20,7 +20,7 @@ import TransporterSignup from "./pages/TransporterSignup";
 
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
-
+import BulkPurchaseSystem from "./pages/farmer/BulkPurchaseSystem";
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
 import ShopProductView from "./pages/shop/ShopProductView";
@@ -241,6 +241,13 @@ const App = () => {
       <Route path="/shopreviews" element={
           <Layout>
             <ShopReviews />
+          </Layout>
+        }
+
+      />
+      <Route path="/bulkpurchase" element={
+          <Layout>
+            <BulkPurchaseSystem />
           </Layout>
         }
 
