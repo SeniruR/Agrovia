@@ -1,12 +1,43 @@
-import React from "react";
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import OrderDetailsSheet from "../components/OrderDetailsSheet";
 import PaymentDetails from "../components/PaymentDetails";
+import { orderService } from "../services/orderService";
 
 const OrderAndPaymentPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const order = location.state?.order;
+  const [order, setOrder] = useState(location.state?.order || null);
+  const [backendOrder, setBackendOrder] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handlePay = async () => {
+    if (!order) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // Prepare order data for backend
+      const orderData = {
+        buyer_id: order.buyer_id,
+        crop_id: order.crop_id,
+        quantity: order.quantity,
+        price_per_unit: order.pricePerUnit || order.price_per_unit,
+        total_price: order.totalPrice || (order.quantity * (order.pricePerUnit || order.price_per_unit)),
+        delivery_address: order.deliveryAddress || order.address || '',
+      };
+      const response = await orderService.createOrder(orderData);
+      if (response.success) {
+        setBackendOrder(response.data);
+      } else {
+        setError(response.message || 'Order creation failed');
+      }
+    } catch (err) {
+      setError(err.message || 'Order creation failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!order) {
     return (
@@ -31,11 +62,12 @@ const OrderAndPaymentPage = () => {
         <div className="w-full flex flex-col gap-8">
           <section className="bg-white rounded-xl shadow-lg p-6 border border-green-200">
             <h3 className="text-2xl font-bold text-green-700 mb-4 text-left">Order Details</h3>
-            <OrderDetailsSheet order={order} />
+            <OrderDetailsSheet order={backendOrder || order} />
           </section>
           <section className="bg-white rounded-xl shadow-lg p-6 border border-green-200">
             <h3 className="text-2xl font-bold text-green-700 mb-4 text-left">Payment</h3>
-            <PaymentDetails order={order} onPay={() => alert('Payment flow goes here!')} />
+            <PaymentDetails order={backendOrder || order} onPay={handlePay} loading={loading} />
+            {error && <div className="text-red-600 mt-2">{error}</div>}
           </section>
         </div>
         <div className="w-full text-center mt-8">
