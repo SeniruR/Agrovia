@@ -1,6 +1,11 @@
 // Buyer menu for user_type=2
 const buyerMenuItems = [
   {
+    label: 'My Dashboard',
+    icon: HomeIcon,
+    path: '/dashboard/buyer',
+  },
+  {
     label: 'My Profile',
     icon: HomeIcon,
     path: '/profile',
@@ -136,6 +141,7 @@ const farmerMenuItems = [
     label: 'Dashboard',
     icon: HomeIcon,
     subcategories: [
+       { name: 'My Dashboard', path: '/dashboard/farmer' },
       { name: 'My Profile', path: '/profile' },
       { name: 'My Crops', path: '/farmviewAllCrops' },
       { name: 'My Orders', path: '/farmervieworders' },
@@ -246,6 +252,19 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
     fetchUserType();
   }, []);
 
+  // Redirect to dashboard after login if userType is buyer or farmer
+  useEffect(() => {
+    if (isLoggedIn && userType) {
+      const currentPath = window.location.pathname;
+      const typeStr = String(userType).trim();
+      console.log('Redirect check:', { userType, typeStr, currentPath });
+      if ((typeStr === '2') && currentPath !== '/dashboard/buyer') {
+        window.location.replace('/dashboard/buyer');
+      } else if ((typeStr === '1' || typeStr === '1.1') && currentPath !== '/dashboard/farmer') {
+        window.location.replace('/dashboard/farmer');
+      }
+    }
+  }, [isLoggedIn, userType]);
   // Clear selected collapsed item when sidebar opens
   useEffect(() => {
     if (isOpen) {
@@ -253,10 +272,22 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
     }
   }, [isOpen]);
 
-  const handleLogin = () => {
-    // Redirect to login page instead of setting demo token
+  const handleLogin = async () => {
+    // Redirect to login page
     window.location.href = '/login';
   };
+
+  // Redirect to dashboard after login if userType is buyer or farmer
+  useEffect(() => {
+    if (isLoggedIn && userType) {
+      const currentPath = window.location.pathname;
+      if ((userType === '2' || userType === 2) && currentPath !== '/dashboard/buyer') {
+        window.location.replace('/dashboard/buyer');
+      } else if ((userType === '1' || userType === 1 || userType === '1.1' || userType === 1.1) && currentPath !== '/dashboard/farmer') {
+        window.location.replace('/dashboard/farmer');
+      }
+    }
+  }, [isLoggedIn, userType]);
 
   const handleLogout = () => {
     // Use AuthContext logout function
