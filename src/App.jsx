@@ -83,6 +83,7 @@ import NavigationTest from "./pages/NavigationTest";
 import CropDetailView from "./pages/farmer/CropDetailView";
 
 import AdminMyShopItem from "./pages/admin/AdminShopItem";
+import NewLogin from "./pages/Login_new";
 
 import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 
@@ -494,6 +495,11 @@ const App = () => {
         </Layout>
       }
       />
+      <Route path="/Newlogin" element={
+          <Layout>
+            <NewLogin />
+          </Layout>
+        } />
 
     </Routes>
     
