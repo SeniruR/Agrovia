@@ -96,9 +96,9 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                 </div>
                 <button
                   onClick={() => setShowEditPopup(true)}
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-colors flex items-center space-x-2"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-yellow-600 transition-colors flex items-center space-x-2"
                 >
-                  <span>Edit</span>
+                  <span>Edit Complaint</span>
                 </button>
       {/* Edit Complaint Popup */}
       {showEditPopup && (
@@ -359,7 +359,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         style={{ cursor: 'pointer', background: 'white' }}
                       />
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">Accepted: JPG, PNG, GIF. Max 5 files.</p>
+                    <p className="text-xs text-slate-400 mt-1">Accepted: JPG, PNG, GIF. Max 1 files.</p>
                   </div>
                 )}
               </div>

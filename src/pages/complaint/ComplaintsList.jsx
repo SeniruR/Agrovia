@@ -4,6 +4,7 @@ import { ArrowLeft, Filter, Search, Eye, MoreVertical, Trash2, Wheat, Store, Tru
 const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBack, onDeleteComplaint }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -14,8 +15,8 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
     const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          submittedBy.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || complaint.type === typeFilter;
-    
-    return matchesSearch && matchesType;
+    const matchesPriority = priorityFilter === 'all' || complaint.priority === priorityFilter;
+    return matchesSearch && matchesType && matchesPriority;
   });
 
   const getPriorityColor = (priority) => {
@@ -74,7 +75,6 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
                 />
               </div>
             </div>
-            
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
@@ -85,48 +85,38 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
               <option value="shop">Shop</option>
               <option value="transport">Transport</option>
             </select>
-
-            <button className="px-4 py-3 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors flex items-center space-x-2">
-              <Filter className="w-4 h-4" />
-              <span>More Filters</span>
-            </button>
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="px-4 py-3 rounded-xl border bg-slate-100 border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-colors"
+            >
+              <option value="all">All Priorities</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
           </div>
         </div>
 
         {/* Complaints List */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredComplaints.map((complaint) => (
-            <div key={complaint.type + '-' + complaint.id} className={`flex items-center justify-between p-5 rounded-2xl shadow bg-gradient-to-br ${
-              complaint.type === 'crop' ? 'from-green-50 to-emerald-50 border border-green-100 hover:border-green-200' :
-              complaint.type === 'shop' ? 'from-blue-50 to-indigo-50 border border-blue-100 hover:border-blue-200' :
-              complaint.type === 'transport' ? 'from-purple-50 to-violet-50 border border-purple-100 hover:border-purple-200' :
-              'from-slate-50 to-slate-100 border border-slate-100 hover:border-slate-200'
-            } hover:shadow-lg transition-all mb-2`}>
-              <div className="flex items-center gap-4 flex-1">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  complaint.type === 'crop' ? 'bg-gradient-to-br from-green-400 to-emerald-500' :
-                  complaint.type === 'shop' ? 'bg-gradient-to-br from-blue-400 to-indigo-500' :
-                  complaint.type === 'transport' ? 'bg-gradient-to-br from-purple-400 to-violet-500' :
-                  'bg-gradient-to-br from-slate-400 to-slate-500'
-                }`}>
-                  {complaint.type === 'crop' && <Wheat className="w-6 h-6 text-white" />}
-                  {complaint.type === 'shop' && <Store className="w-6 h-6 text-white" />}
-                  {complaint.type === 'transport' && <Truck className="w-6 h-6 text-white" />}
-                  {!['crop','shop','transport'].includes(complaint.type) && <span className="font-bold text-white text-lg">?</span>}
+            <div
+              key={complaint.type + '-' + complaint.id}
+              className="bg-white border border-slate-100 rounded-2xl shadow-lg p-6 flex flex-col justify-between transition-all duration-200 hover:shadow-xl cursor-pointer"
+              onClick={() => onViewComplaint(complaint.id, complaint.type)}
+            >
+              <div className="flex items-center gap-4 mb-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100">
+                  {complaint.type === 'crop' && <Wheat className="w-6 h-6 text-green-500" />}
+                  {complaint.type === 'shop' && <Store className="w-6 h-6 text-blue-500" />}
+                  {complaint.type === 'transport' && <Truck className="w-6 h-6 text-purple-500" />}
+                  {!['crop','shop','transport'].includes(complaint.type) && <span className="font-bold text-slate-500 text-lg">?</span>}
                 </div>
                 <div className="flex-1">
-                  <h3 className={`font-bold text-lg mb-1 ${
-                    complaint.type === 'crop' ? 'text-green-800' :
-                    complaint.type === 'shop' ? 'text-blue-800' :
-                    complaint.type === 'transport' ? 'text-purple-800' :
-                    'text-slate-800'
-                  }`}>{complaint.title}</h3>
-                  <p className={`text-xs mb-2 ${
-                    complaint.type === 'crop' ? 'text-green-700' :
-                    complaint.type === 'shop' ? 'text-blue-700' :
-                    complaint.type === 'transport' ? 'text-purple-700' :
-                    'text-slate-700'
-                  }`}>By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
+                  <h3 className="font-bold text-lg text-slate-800 mb-1">{complaint.title}</h3>
+                  <p className="text-xs text-slate-500 mb-2">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'} • {(() => {
                     let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
                     if (date) {
                       if (typeof date === 'string' || typeof date === 'number') {
@@ -151,33 +141,18 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
                   <p className="text-slate-600 text-xs line-clamp-2">{complaint.description}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 ml-4">
+              <div className="flex items-center gap-2 mt-2">
                 <button 
                   onClick={() => onViewComplaint(complaint.id, complaint.type)}
-                  className={`p-2 bg-white rounded-lg shadow hover:bg-${
-                    complaint.type === 'crop' ? 'green-50' :
-                    complaint.type === 'shop' ? 'blue-50' :
-                    complaint.type === 'transport' ? 'purple-50' :
-                    'slate-100'
-                  } transition-colors`}
+                  className="p-2 bg-white rounded-lg shadow hover:bg-slate-50 transition-colors"
                 >
-                  <Eye className={`w-5 h-5 ${
-                    complaint.type === 'crop' ? 'text-green-600' :
-                    complaint.type === 'shop' ? 'text-blue-600' :
-                    complaint.type === 'transport' ? 'text-purple-600' :
-                    'text-slate-600'
-                  }`} />
+                  <Eye className="w-5 h-5 text-slate-600" />
                 </button>
                 <button
                   onClick={() => { setShowDeletePopup(true); setDeleteTarget(complaint); }}
-                  className={`p-2 bg-white rounded-lg shadow hover:bg-green-50 transition-colors`}
+                  className="p-2 bg-white rounded-lg shadow hover:bg-red-50 transition-colors"
                 >
-                  <Trash2 className={`w-5 h-5 ${
-                    complaint.type === 'crop' ? 'text-green-600' :
-                    complaint.type === 'shop' ? 'text-blue-600' :
-                    complaint.type === 'transport' ? 'text-purple-600' :
-                    'text-slate-600'
-                  }`} />
+                  <Trash2 className="w-5 h-5 text-red-500" />
                 </button>
               </div>
             </div>
