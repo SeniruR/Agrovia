@@ -56,6 +56,21 @@ import {
   UserPlusIcon
 } from '@heroicons/react/24/outline';
 // Main menu for all user types (used as base for filtering)
+const guestMenuItems = [
+  {
+    label: 'Marketplace',
+    icon: ShoppingBagIcon,
+    subcategories: [
+      { name: 'Agriculture Marketplace', path: '/shopitem' },
+      { name: 'Crop MarketPlace', path: '/byersmarket' },
+    ],
+  },
+  {
+    label: 'Contact Us',
+    icon: ChatBubbleLeftRightIcon,
+    path: '/complaintHandling',
+  },
+];
 const menuItems = [
   {
     label: 'Dashboard',
@@ -198,7 +213,10 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
         }
         setUserType(type);
         let menu;
-        if (type === '0' || type === 0) {
+        if (!localStorage.getItem('authToken')) {
+          // Not logged in: show only guest menu
+          menu = guestMenuItems;
+        } else if (type === '0' || type === 0) {
           // Admin: show only allowed menu items
           menu = menuItems.filter(item => [
             'Dashboard',
@@ -240,8 +258,12 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
         setFilteredMenu(menu);
       } catch (e) {
         setUserType(null);
-        // Fallback: default menu, remove Organization Approval and Verification Panel
-        setFilteredMenu(menuItems.filter(item => item.label !== 'Organization Approval' && item.label !== 'Verification Panel'));
+        // Fallback: if not logged in, show only guest menu
+        if (!localStorage.getItem('authToken')) {
+          setFilteredMenu(guestMenuItems);
+        } else {
+          setFilteredMenu(menuItems.filter(item => item.label !== 'Organization Approval' && item.label !== 'Verification Panel'));
+        }
       }
     }
     fetchUserType();

@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
@@ -120,9 +121,12 @@ const LandingContent = () => {
             </li>
           </ul>
 
-          <button className="mt-6 bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 transition">
+          <Link
+            to="/discover-more"
+            className="mt-6 inline-block bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 transition"
+          >
             Discover More
-          </button>
+          </Link>
         </div>
       </section>
 
