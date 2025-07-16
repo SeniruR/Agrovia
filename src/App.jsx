@@ -53,6 +53,7 @@ import ShopReviews from "./pages/shop/ShopReviews";
 import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
 
 import NotFound from "./components/pages/NotFound";
+import DiscoverMore from "./pages/DiscoverMore";
 import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
@@ -83,6 +84,7 @@ import NavigationTest from "./pages/NavigationTest";
 import CropDetailView from "./pages/farmer/CropDetailView";
 
 import AdminMyShopItem from "./pages/admin/AdminShopItem";
+import NewLogin from "./pages/Login_new";
 
 import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 
@@ -95,6 +97,11 @@ import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 const App = () => {
   return (
     <Routes>
+      <Route path="/discover-more" element={
+        <Layout>
+          <DiscoverMore />
+        </Layout>
+      } />
       <Route path="/admin/organization-approval" element={
         <Layout>
           <AdminOrganizationApproval />
@@ -494,6 +501,11 @@ const App = () => {
         </Layout>
       }
       />
+      <Route path="/Newlogin" element={
+          <Layout>
+            <NewLogin />
+          </Layout>
+        } />
 
     </Routes>
     
