@@ -67,6 +67,7 @@ const Login = () => {
                 
                 if (user.role === 'farmer') {
                     navigate('/dashboard/farmer');
+                    window.location.reload();
                 } else {
                     navigate('/');
                     window.location.reload();
