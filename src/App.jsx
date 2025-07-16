@@ -19,7 +19,7 @@ import BuyerSignup from "./pages/BuyerSignup";
 import TransporterSignup from "./pages/TransporterSignup";
 import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 import ModeratorSignup from "./pages/ModeratorSignup";
-
+import LayoutAll from "./components/LayoutAll"
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
@@ -108,9 +108,9 @@ const App = () => {
         </Layout>
       } />
       <Route path="/" element={
-          <Layout>
+          <LayoutAll>
             <Home />
-          </Layout>
+          </LayoutAll>
         }
       />
       <Route path="/users" element={
