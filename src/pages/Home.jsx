@@ -9,7 +9,7 @@ import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 
 const facilities = [
   { name: "Marketplace", icon: <StorefrontIcon fontSize="large"/>, path: '/byersmarket', desc: "Buy and sell fresh produce directly from farmers and trusted vendors." },
-  { name: "Agri Shop", icon: <StorefrontOutlinedIcon fontSize="large" />, path: '/agrishop', desc: "Access quality seeds, fertilizers, and agri-equipment at the best prices." },
+  { name: "Agri Shop", icon: <StorefrontOutlinedIcon fontSize="large" />, path: '/shopitem', desc: "Access quality seeds, fertilizers, and agri-equipment at the best prices." },
   { name: "Transport", icon: <LocalShippingIcon fontSize="large" />, path: '/transportreviews', desc: "Find reliable logistics and transport solutions for your harvest." },
   { name: "Support", icon: <SupportAgentIcon fontSize="large" />, path: '/complaintHandling', desc: "Get expert help and customer support for all your agri-needs." },
 ];
