@@ -166,9 +166,8 @@ useEffect(() => {
 
   const ProductCard = ({ item }) => (
     <div 
-      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer group border border-emerald-100 hover:border-emerald-300 transform hover:-translate-y-2
-      w-full min-h-[480px] max-h-[600px] flex flex-col"
-      style={{ minWidth: 320, maxWidth: 380 }} // Enhance grid width
+      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer group border border-emerald-100 hover:border-emerald-300 transform hover:-translate-y-2 w-full min-h-[420px] max-h-[540px] flex flex-col mx-auto"
+      style={{ minWidth: 0, maxWidth: 340 }} // Responsive card width
       onClick={() => handleItemClick(item)}
     >
       <div className="relative overflow-hidden h-64">
@@ -209,69 +208,60 @@ useEffect(() => {
         </div>
       </div>
       
-      <div className="p-8 flex flex-col flex-1 justify-between">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors line-clamp-2 mb-1">
-              {item.product_name}
-            </h3>
-            <p className="text-emerald-600 font-semibold text-sm">{item.brand}</p>
-          </div>
-        </div>
-        
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.product_description}</p>
-        
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm font-bold text-gray-700">{item.rating}</span>
-              <span className="text-sm text-gray-500">({item.reviewCount})</span>
+      <div className="p-8 flex flex-col flex-1">
+        <div>
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors line-clamp-2 mb-1">
+                {item.product_name}
+              </h3>
+              <p className="text-emerald-600 font-semibold text-sm">{item.brand}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-gray-500 text-sm">
-            <MapPin className="w-4 h-4" />
-            {item.city}
+          <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.product_description}</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span className="text-sm font-bold text-gray-700">{item.rating}</span>
+                <span className="text-sm text-gray-500">({item.reviewCount})</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-gray-500 text-sm">
+              <MapPin className="w-4 h-4" />
+              {item.city}
+            </div>
+          </div>
+          <div className="bg-emerald-50 rounded-xl p-4 mb-4">
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-2xl font-bold text-emerald-600">LKR {item.price.toLocaleString('en-LK')}</span>
+              <span className="text-sm text-gray-600">per {item.unit}</span>
+            </div>
+            <p className="text-emerald-700 text-sm font-medium">{item.available_quantity} {item.unit}s available</p>
           </div>
         </div>
-
-        <div className="bg-emerald-50 rounded-xl p-4 mb-4">
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-2xl font-bold text-emerald-600">LKR {item.price.toLocaleString('en-LK')}</span>
-            <span className="text-sm text-gray-600">per {item.unit}</span>
-          </div>
-          <p className="text-emerald-700 text-sm font-medium">{item.available_quantity} {item.unit}s available</p>
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div />
-          <div className="flex items-center gap-2">
-            <button 
-              className={`px- py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 ${
-                item.inStock 
-                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              onClick={(e) => handleAddToCart(item, e)}
-              disabled={!item.inStock}
-            >
-              <ShoppingCart className="w-4 h-4" />
-              {item.inStock ? 'Add to Cart' : 'Out of Stock'}
-            </button>
-            <button 
-              className="px-9 py-2 rounded-xl text-sm font-bold bg-green-500 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-              onClick={(e) => handleViewMore(item, e)}
-            >
-              View More
-            </button>
-            <button
-              className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-900 transition"
-              onClick={(e) => handleCallClick(item.phone_no, e)}
-              title="Call Seller"
-            >
-              <Phone className="w-5 h-5" />
-            </button>
-          </div>
+        {/* Action Buttons Bottom-Aligned */}
+        <div className="mt-auto flex items-center justify-end gap-2 pt-4 pr-2">
+          <button 
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap min-w-[120px] flex-shrink-0 ${
+              item.inStock 
+                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+            onClick={(e) => handleAddToCart(item, e)}
+            disabled={!item.inStock}
+          >
+            <ShoppingCart className="w-4 h-4" />
+            {item.inStock ? 'Add to Cart' : 'Out of Stock'}
+          </button>
+          {/* View More button removed as requested */}
+          <button
+            className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-900 transition flex-shrink-0"
+            onClick={(e) => handleCallClick(item.phone_no, e)}
+            title="Call Seller"
+          >
+            <Phone className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>
@@ -282,13 +272,13 @@ useEffect(() => {
       className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer border border-emerald-100 hover:border-emerald-300"
       onClick={() => handleItemClick(item)}
     >
-      <div className="flex">
-        <div className="w-64 h-40 flex-shrink-0 relative overflow-hidden">
-           <ImageWithFallback
-    src={item.images[0]}
-    alt={item.product_name}
-    className="hover:scale-105 transition-transform duration-300"
-  />
+      <div className="flex items-stretch">
+        <div className="w-64 h-40 flex-shrink-0 relative overflow-hidden flex items-stretch">
+          <ImageWithFallback
+            src={item.images[0]}
+            alt={item.product_name}
+            className="h-full w-full object-cover hover:scale-105 transition-transform duration-300"
+          />
           {item.organicCertified && (
             <div className="absolute top-3 left-3 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
               <Leaf className="w-3 h-3" />
@@ -296,8 +286,10 @@ useEffect(() => {
             </div>
           )}
         </div>
-        <div className="flex-1 p-6">
-          <div className="flex justify-between items-start mb-3">
+        {/* Make the right side a flex-col with justify-between so button is always at the bottom */}
+        <div className="flex-1 p-6 flex flex-col min-h-[180px] justify-between">
+          {/* Row 1: name, brand, price, trending badge */}
+          <div className="flex justify-between items-start mb-2">
             <div className="flex-1">
               <h3 className="font-bold text-gray-900 text-xl hover:text-emerald-700 transition-colors mb-1">
                 {item.product_name}
@@ -317,32 +309,36 @@ useEffect(() => {
               )}
             </div>
           </div>
-          <p className="text-gray-600 mb-4 leading-relaxed">{item.product_description}</p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-1">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-bold text-gray-700">{item.rating}</span>
-                <span className="text-sm text-gray-500">({item.reviewCount})</span>
-              </div>
-              <div className="flex items-center gap-1 text-gray-500 text-sm">
-                <MapPin className="w-4 h-4" />
-                {item.city}
-              </div>
-              <span className="text-sm font-semibold text-gray-700">{item.shop_name}</span>
+          {/* Row 2: description and shop name */}
+          <div className="flex items-center gap-4 mb-2">
+            <p className="text-gray-600 leading-relaxed line-clamp-2 max-w-[220px] overflow-hidden m-0">{item.product_description}</p>
+            <span className="text-sm font-semibold text-gray-700 truncate max-w-[120px]">{item.shop_name}</span>
+          </div>
+          {/* Row 3: rating, location, Add to Cart button */}
+          <div className="flex items-center gap-6 w-full">
+            <div className="flex items-center gap-1">
+              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              <span className="text-sm font-bold text-gray-700">{item.rating}</span>
+              <span className="text-sm text-gray-500">({item.reviewCount})</span>
             </div>
-            <button 
-              className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl ${
-                item.inStock 
-                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              onClick={(e) => handleAddToCart(item, e)}
-              disabled={!item.inStock}
-            >
-              <ShoppingCart className="w-4 h-4" />
-              {item.inStock ? 'Add to Cart' : 'Out of Stock'}
-            </button>
+            <div className="flex items-center gap-1 text-gray-500 text-sm">
+              <MapPin className="w-4 h-4" />
+              {item.city}
+            </div>
+            <div className="flex justify-end items-end flex-1">
+              <button 
+                className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl min-w-[140px] whitespace-nowrap ${
+                  item.inStock 
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                onClick={(e) => handleAddToCart(item, e)}
+                disabled={!item.inStock}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                {item.inStock ? 'Add to Cart' : 'Out of Stock'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -541,7 +537,7 @@ useEffect(() => {
             ) : (
               <div className={
                 viewMode === 'grid' 
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-24' // Increased gap to gap-10 (2.5rem)
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' // Reduced gap for better fit
                   : 'space-y-8'
               }>
                 {filteredAndSortedItems.map((item) => 
