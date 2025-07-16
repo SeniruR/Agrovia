@@ -790,19 +790,20 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
               </div>
             ) : (
               <div>
-                <button 
-                  onClick={handleLogin}
-                  className="w-full text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 mb-2 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-0"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 1) 100%)',
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 4px 16px rgba(34, 197, 94, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
-                    border: 'none',
-                    outline: 'none'
-                  }}
-                >
-                  Log In
-                </button>
+                <Link to="/login" onClick={onClose}>
+                  <button
+                    className="w-full text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 mb-2 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-0"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 1) 100%)',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 4px 16px rgba(34, 197, 94, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
+                      border: 'none',
+                      outline: 'none'
+                    }}
+                  >
+                    Log In
+                  </button>
+                </Link>
                 <Link to="/signup" onClick={onClose}>
                   <button 
                     className="w-full text-green-700 font-medium py-2 px-4 rounded-lg transition-all duration-200 backdrop-blur-sm hover:text-green-800 hover:border-0"
