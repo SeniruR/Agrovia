@@ -56,6 +56,21 @@ import {
   UserPlusIcon
 } from '@heroicons/react/24/outline';
 // Main menu for all user types (used as base for filtering)
+const guestMenuItems = [
+  {
+    label: 'Marketplace',
+    icon: ShoppingBagIcon,
+    subcategories: [
+      { name: 'Agriculture Marketplace', path: '/shopitem' },
+      { name: 'Crop MarketPlace', path: '/byersmarket' },
+    ],
+  },
+  {
+    label: 'Contact Us',
+    icon: ChatBubbleLeftRightIcon,
+    path: '/complaintHandling',
+  },
+];
 const menuItems = [
   {
     label: 'Dashboard',
@@ -198,7 +213,10 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
         }
         setUserType(type);
         let menu;
-        if (type === '0' || type === 0) {
+        if (!localStorage.getItem('authToken')) {
+          // Not logged in: show only guest menu
+          menu = guestMenuItems;
+        } else if (type === '0' || type === 0) {
           // Admin: show only allowed menu items
           menu = menuItems.filter(item => [
             'Dashboard',
@@ -240,8 +258,12 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
         setFilteredMenu(menu);
       } catch (e) {
         setUserType(null);
-        // Fallback: default menu, remove Organization Approval and Verification Panel
-        setFilteredMenu(menuItems.filter(item => item.label !== 'Organization Approval' && item.label !== 'Verification Panel'));
+        // Fallback: if not logged in, show only guest menu
+        if (!localStorage.getItem('authToken')) {
+          setFilteredMenu(guestMenuItems);
+        } else {
+          setFilteredMenu(menuItems.filter(item => item.label !== 'Organization Approval' && item.label !== 'Verification Panel'));
+        }
       }
     }
     fetchUserType();
@@ -768,19 +790,20 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
               </div>
             ) : (
               <div>
-                <button 
-                  onClick={handleLogin}
-                  className="w-full text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 mb-2 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-0"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 1) 100%)',
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 4px 16px rgba(34, 197, 94, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
-                    border: 'none',
-                    outline: 'none'
-                  }}
-                >
-                  Log In
-                </button>
+                <Link to="/login" onClick={onClose}>
+                  <button
+                    className="w-full text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 mb-2 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-0"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 1) 100%)',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 4px 16px rgba(34, 197, 94, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
+                      border: 'none',
+                      outline: 'none'
+                    }}
+                  >
+                    Log In
+                  </button>
+                </Link>
                 <Link to="/signup" onClick={onClose}>
                   <button 
                     className="w-full text-green-700 font-medium py-2 px-4 rounded-lg transition-all duration-200 backdrop-blur-sm hover:text-green-800 hover:border-0"

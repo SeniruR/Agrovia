@@ -53,6 +53,7 @@ import ShopReviews from "./pages/shop/ShopReviews";
 import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
 
 import NotFound from "./components/pages/NotFound";
+import DiscoverMore from "./pages/DiscoverMore";
 import Complaint from "./pages/complaint/Complaint";
 
 import AdminDashboard from "./pages/admin/AdminDahboard"
@@ -96,6 +97,11 @@ import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 const App = () => {
   return (
     <Routes>
+      <Route path="/discover-more" element={
+        <Layout>
+          <DiscoverMore />
+        </Layout>
+      } />
       <Route path="/admin/organization-approval" element={
         <Layout>
           <AdminOrganizationApproval />
