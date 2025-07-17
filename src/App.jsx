@@ -25,7 +25,7 @@ import KHubCon from "./pages/KHubCon";
 
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import CartPage from "./pages/CartPage";
-import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
+import AgriShopMarketplace from "./pages/shop/Items";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
 import FarmerProfileEdit from "./pages/Profile";
