@@ -1,37 +1,3 @@
-// Buyer menu for user_type=2
-const buyerMenuItems = [
-  {
-    label: 'My Profile',
-    icon: HomeIcon,
-    path: '/profile',
-  },
-  {
-    label: 'Marketplace',
-    icon: ShoppingBagIcon,
-    subcategories: [
-      { name: 'Agriculture Marketplace', path: '/shopitem' },
-      { name: 'Crop MarketPlace', path: '/byersmarket' },
-    ],
-  },
-  {
-    label: 'Cart',
-    icon: (props) => <ShoppingCartOutlinedIcon {...props} />, // Use as a component
-    path: '/cart',
-  },
-  {
-    label: 'Alerts',
-    icon: BellIcon,
-    subcategories: [
-      { name: 'Pest Alerts', path: '/pestalert' },
-      { name: 'Weather Alerts', path: '/weatheralerts' },
-    ],
-  },
-  {
-    label: 'Contact Us',
-    icon: ChatBubbleLeftRightIcon,
-    path: '/complaintHandling',
-  },
-];
 import React, { useState, useEffect } from 'react';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import FullScreenLoader from './FullScreenLoader';
@@ -56,69 +22,69 @@ import {
   UserPlusIcon
 } from '@heroicons/react/24/outline';
 // Main menu for all user types (used as base for filtering)
-const guestMenuItems = [
-  {
-    label: 'Marketplace',
-    icon: ShoppingBagIcon,
-    subcategories: [
-      { name: 'Agriculture Marketplace', path: '/shopitem' },
-      { name: 'Crop MarketPlace', path: '/byersmarket' },
-    ],
-  },
-  {
-    label: 'Contact Us',
-    icon: ChatBubbleLeftRightIcon,
-    path: '/complaintHandling',
-  },
+// Sidebar menu configs for each user type
+const adminMenuItems = [
+  { label: 'Dashboard', icon: HomeIcon, path: '/admindashboard' },
+  { label: 'Organization Approval', icon: UserPlusIcon, path: '/admin/organization-approval' },
+  { label: 'Manage Users', icon: UserGroupIcon, path: '/usermanagement' },
+  { label: 'Admin Shop Items', icon: ShoppingBagIcon, path: '/adminshopitems' },
+];
+
+const farmerMenuItems = [
+  { label: 'Dashboard', icon: HomeIcon, path: '/dashboard/farmer' },
+  { label: 'My Crops', icon: ShoppingBagIcon, path: '/farmviewAllCrops' },
+  { label: 'My Orders', icon: DocumentTextIcon, path: '/farmervieworders' },
+  { label: 'Profile', icon: UserGroupIcon, path: '/profile/farmer' },
+  { label: 'Crop Recommendation', icon: DocumentCheckIcon, path: '/cropreco' },
+  { label: 'Marketplace', icon: ShoppingBagIcon, subcategories: [
+    { name: 'Crop Marketplace', path: '/byersmarket' },
+    { name: 'Agri Shop (Fertilizers)', path: '/agrishop' },
+  ] },
+  { label: 'Alerts', icon: BellIcon, subcategories: [
+    { name: 'Pest Alerts', path: '/pestalert' },
+    { name: 'Weather Alerts', path: '/weatheralerts' },
+  ] },
+];
+
+const farmerOrganizerMenuItems = [
+  ...farmerMenuItems,
+  { label: 'Organization Dashboard', icon: UserGroupIcon, path: '/verificationpanel' }, //use /organization
+];
+
+const buyerMenuItems = [
+  { label: 'Dashboard', icon: HomeIcon, path: '/dashboard/buyer' },
+  { label: 'Marketplace', icon: ShoppingBagIcon, path: '/byersmarket' },
+  { label: 'Cart', icon: CreditCardIcon, path: '/cart' },
+  { label: 'Profile', icon: UserGroupIcon, path: '/profile/buyer' },
+  { label: 'Complaint Dashboard', icon: ChatBubbleLeftRightIcon, path: '/buyer-com-dash' },
+];
+
+const shopOwnerMenuItems = [
+  { label: 'Shop Dashboard', icon: HomeIcon, path: '/shopdashboard' },
+  { label: 'Post Item', icon: PlusCircleIcon, path: '/itempostedForm' },
+  { label: 'My Shop Item', icon: ShoppingBagIcon, path: '/myshopitem' },
+  { label: 'Profile', icon: UserGroupIcon, path: '/profile/shop-owner' },
+];
+
+const transporterMenuItems = [
+  { label: 'Transport Management Dashboard', icon: HomeIcon, path: '/transportdashboard' },
+  { label: 'My Deliveries', icon: DocumentTextIcon, path: '/driversmylist' },
+  { label: 'Profile', icon: UserGroupIcon, path: '/profile/transporter' },
+];
+
+const moderatorMenuItems = [
+  { label: 'Create Article', icon: DocumentTextIcon, path: '/createarticle' },
+  { label: 'Content Approval', icon: DocumentCheckIcon, path: '/conapproval' },
+  { label: 'Profile', icon: UserGroupIcon, path: '/profile' },
 ];
 const menuItems = [
   {
-    label: 'Dashboard',
-    icon: HomeIcon,
-    subcategories: [
-      { name: 'Shop Dashboard', path: '/shopdashboard' },
-      { name: 'Delivery Dashboard', path: '/transportdashboard' },
-      { name: 'Admin Dashboard', path: '/admindashboard' },
-      { name: 'My Profile', path: '/profile' },
-      { name: 'My Crops', path: '/farmviewAllCrops' },
-      { name: 'My Delivery', path: '/driversmylist' },
-      { name: 'My Organization', path: '/organization' },
-      { name: 'My Orders', path: '/farmervieworders' },
-      { name: 'Price Forecast', path: '/priceforcast' },
-    ],
-  },
-  {
     label: 'Marketplace',
     icon: ShoppingBagIcon,
     subcategories: [
-      { name: 'Agriculture Marketplace', path: '/shopitem' },
-      { name: 'Crop MarketPlace', path: '/byersmarket' },
+      { name: 'Crop Marketplace', path: '/byersmarket' },
+      { name: 'Agri Shop (Fertilizers)', path: '/agrishop' },
     ],
-  },
-  {
-    label: 'Add Items',
-    icon: PlusCircleIcon,
-    path: '/itempostedForm',
-  },
-  {
-    label: 'Create Article',
-    icon: DocumentTextIcon,
-    path: '/createarticle',
-  },
-  {
-    label: 'Manage Users',
-    icon: UserGroupIcon,
-    path: '/usermanagement',
-  },
-  {
-    label: 'Organization Approval',
-    icon: UserPlusIcon,
-    path: '/admin/organization-approval',
-  },
-  {
-    label: 'Approve Contents',
-    icon: DocumentCheckIcon,
-    path: '/conapproval',
   },
   {
     label: 'Alerts',
@@ -127,16 +93,6 @@ const menuItems = [
       { name: 'Pest Alerts', path: '/pestalert' },
       { name: 'Weather Alerts', path: '/weatheralerts' },
     ],
-  },
-  {
-    label: 'Subscription Plan',
-    icon: CreditCardIcon,
-    path: '/subscriptionmanagement',
-  },
-  {
-    label: 'Knowledge Hub',
-    icon: BookOpenIcon,
-    path: '/knowledge-hub',
   },
   {
     label: 'Contact Us',
@@ -145,52 +101,12 @@ const menuItems = [
   },
 ];
 
-// Farmer menu for user_type=1
-const farmerMenuItems = [
-  {
-    label: 'Dashboard',
-    icon: HomeIcon,
-    subcategories: [
-       { name: 'My Dashboard', path: '/dashboard/farmer' },
-      { name: 'My Profile', path: '/profile' },
-      { name: 'My Crops', path: '/farmviewAllCrops' },
-      { name: 'My Orders', path: '/farmervieworders' },
-      { name: 'Price Forecast', path: '/priceforcast' },
-    ],
-  },
-  {
-    label: 'Marketplace',
-    icon: ShoppingBagIcon,
-    subcategories: [
-      { name: 'Agriculture Marketplace', path: '/shopitem' },
-      { name: 'Crop MarketPlace', path: '/byersmarket' },
-    ],
-  },
-  {
-    label: 'Alerts',
-    icon: BellIcon,
-    subcategories: [
-      { name: 'Pest Alerts', path: '/pestalert' },
-      { name: 'Weather Alerts', path: '/weatheralerts' },
-    ],
-  },
-  {
-    label: 'Knowledge Hub',
-    icon: BookOpenIcon,
-    path: '/knowledge-hub',
-  },
-  {
-    label: 'Contact Us',
-    icon: ChatBubbleLeftRightIcon,
-    path: '/complaintHandling',
-  },
-];
 
 const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [selectedCollapsedItem, setSelectedCollapsedItem] = useState(null); // For showing name in collapsed mode
   const [hoveredItem, setHoveredItem] = useState(null); // For hover effects
-  const [userType, setUserType] = useState(null);
+  const [userType, setUserType] = useState(undefined);
   const [filteredMenu, setFilteredMenu] = useState(menuItems);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
@@ -203,7 +119,16 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
 
   // Fetch user type on mount using userService
   useEffect(() => {
+    let isMounted = true;
     async function fetchUserType() {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        if (isMounted) {
+          setUserType(null);
+          setFilteredMenu(menuItems);
+        }
+        return;
+      }
       try {
         const res = await userService.getCurrentUser();
         let type = null;
@@ -211,62 +136,37 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
           type = res.data.user_type || res.data.type || res.data.role;
           if (typeof type === 'string') type = type.trim();
         }
-        setUserType(type);
-        let menu;
-        if (!localStorage.getItem('authToken')) {
-          // Not logged in: show only guest menu
-          menu = guestMenuItems;
-        } else if (type === '0' || type === 0) {
-          // Admin: show only allowed menu items
-          menu = menuItems.filter(item => [
-            'Dashboard',
-            'Marketplace',
-            'Manage Users',
-            'Organization Approval',
-            'Alerts',
-            'Knowledge Hub',
-            'Contact Us'
-          ].includes(item.label));
-          // For Dashboard, only keep Admin Dashboard subcategory
-          menu = menu.map(item => {
-            if (item.label === 'Dashboard') {
-              return {
-                ...item,
-                subcategories: item.subcategories.filter(sub => sub.name === 'Admin Dashboard')
-              };
-            }
-            return item;
-          });
-        } else if (type === '1.1' || type === 1.1) {
-          // Farmer 1.1: show farmer menu, add Verification Panel
-          menu = [...farmerMenuItems];
-          menu.push({
-            label: 'Verification Panel',
-            icon: UserPlusIcon,
-            path: '/verificationpanel',
-          });
-        } else if (type === '1' || type === 1) {
-          // Farmer 1: only farmer menu
-          menu = [...farmerMenuItems];
-        } else if (type === '2' || type === 2) {
-          // Buyer: show only My Profile, Marketplace, Alerts, Contact Us
-          menu = [...buyerMenuItems];
-        } else {
-          // Default: all menuItems except Organization Approval and Verification Panel
-          menu = menuItems.filter(item => item.label !== 'Organization Approval' && item.label !== 'Verification Panel');
+        if (isMounted) {
+          setUserType(type);
+          let menu;
+          if (type === '0' || type === 0) {
+            menu = adminMenuItems;
+          } else if (type === '1.1' || type === 1.1) {
+            menu = farmerOrganizerMenuItems;
+          } else if (type === '1' || type === 1) {
+            menu = farmerMenuItems;
+          } else if (type === '2' || type === 2) {
+            menu = buyerMenuItems;
+          } else if (type === '3' || type === 3) {
+            menu = shopOwnerMenuItems;
+          } else if (type === '4' || type === 4) {
+            menu = transporterMenuItems;
+          } else if (type === '5' || type === 5 || type === '5.1' || type === 5.1) {
+            menu = moderatorMenuItems;
+          } else {
+            menu = menuItems;
+          }
+          setFilteredMenu(menu);
         }
-        setFilteredMenu(menu);
       } catch (e) {
-        setUserType(null);
-        // Fallback: if not logged in, show only guest menu
-        if (!localStorage.getItem('authToken')) {
-          setFilteredMenu(guestMenuItems);
-        } else {
-          setFilteredMenu(menuItems.filter(item => item.label !== 'Organization Approval' && item.label !== 'Verification Panel'));
+        if (isMounted) {
+          setUserType(null);
+          setFilteredMenu(menuItems);
         }
       }
     }
     fetchUserType();
+    return () => { isMounted = false; };
   }, []);
 
   // Clear selected collapsed item when sidebar opens
@@ -373,8 +273,8 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  if (userType === null) {
-    // Show fullscreen loading spinner until userType is loaded
+  if (userType === undefined) {
+    // Show fullscreen loading spinner only while fetching
     return <FullScreenLoader />;
   }
 
@@ -790,20 +690,19 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
               </div>
             ) : (
               <div>
-                <Link to="/login" onClick={onClose}>
-                  <button
-                    className="w-full text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 mb-2 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-0"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 1) 100%)',
-                      backdropFilter: 'blur(10px)',
-                      boxShadow: '0 4px 16px rgba(34, 197, 94, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
-                      border: 'none',
-                      outline: 'none'
-                    }}
-                  >
-                    Log In
-                  </button>
-                </Link>
+                <button 
+                  onClick={handleLogin}
+                  className="w-full text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 mb-2 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-0"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 1) 100%)',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 4px 16px rgba(34, 197, 94, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
+                    border: 'none',
+                    outline: 'none'
+                  }}
+                >
+                  Log In
+                </button>
                 <Link to="/signup" onClick={onClose}>
                   <button 
                     className="w-full text-green-700 font-medium py-2 px-4 rounded-lg transition-all duration-200 backdrop-blur-sm hover:text-green-800 hover:border-0"
