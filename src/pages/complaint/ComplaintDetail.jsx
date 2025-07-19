@@ -75,7 +75,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
               {getTypeIcon(complaint.type)}
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">Admin - Complaint Details</h1>
+              <h1 className="text-3xl font-bold text-slate-800">Complaint Details</h1>
               <p className="text-slate-600">#{complaint.id} • {complaint.type} complaint</p>
             </div>
           </div>
@@ -96,7 +96,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                 </div>
                 <button
                   onClick={() => setShowEditPopup(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-yellow-600 transition-colors flex items-center space-x-2"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                 >
                   <span>Edit Complaint</span>
                 </button>
@@ -609,57 +609,59 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
               )}
             </div>
 
-            {/* Admin Reply Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
-                {!complaint.adminReply && (
-                  <button
-                    onClick={() => setShowReplyForm(!showReplyForm)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Add Reply</span>
-                  </button>
+            {/* Admin Reply Section: Only show if userType === '0' */}
+            {complaint.userType === '0' && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
+                  {!complaint.adminReply && (
+                    <button
+                      onClick={() => setShowReplyForm(!showReplyForm)}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Add Reply</span>
+                    </button>
+                  )}
+                </div>
+
+                {showReplyForm && (
+                  <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+                    <textarea
+                      value={newReply}
+                      onChange={(e) => setNewReply(e.target.value)}
+                      placeholder="Write your official response to the customer..."
+                      rows={4}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none"
+                    />
+                    <div className="flex justify-end space-x-3 mt-3">
+                      <button
+                        onClick={() => setShowReplyForm(false)}
+                        className="px-4 py-2 bg-white text-slate-600 hover:text-slate-800 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => { onAddReply(complaint.id, newReply); setShowReplyForm(false); setNewReply(''); }}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                      >
+                        <span>Send Reply</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {complaint.adminReply ? (
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
+                    <p className="text-slate-700 leading-relaxed">{complaint.adminReply}</p>
+                  </div>
+                ) : (
+                  <p className="text-slate-500 text-center py-8">
+                    No reply sent yet.
+                  </p>
                 )}
               </div>
-
-              {showReplyForm && (
-                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-                  <textarea
-                    value={newReply}
-                    onChange={(e) => setNewReply(e.target.value)}
-                    placeholder="Write your official response to the customer..."
-                    rows={4}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none"
-                  />
-                  <div className="flex justify-end space-x-3 mt-3">
-                    <button
-                      onClick={() => setShowReplyForm(false)}
-                      className="px-4 py-2 bg-white text-slate-600 hover:text-slate-800 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => { onAddReply(complaint.id, newReply); setShowReplyForm(false); setNewReply(''); }}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
-                    >
-                      <span>Send Reply</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {complaint.adminReply ? (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
-                  <p className="text-slate-700 leading-relaxed">{complaint.adminReply}</p>
-                </div>
-              ) : (
-                <p className="text-slate-500 text-center py-8">
-                  No reply sent yet.
-                </p>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
