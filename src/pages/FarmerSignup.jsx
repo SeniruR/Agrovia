@@ -532,7 +532,8 @@ const FarmerSignup = () => {
                 cultivated_crops: formData.cultivatedCrops ?? null,
                 irrigation_system: formData.irrigationSystem ?? null,
                 soil_type: formData.soilType ?? null,
-                farming_certifications: formData.farmingCertifications ?? null
+                farming_certifications: formData.farmingCertifications ?? null,
+                user_type: orgFormData.letterofProof ? '1.1' : '1'
             };
 
             // Only append fields that are required and non-empty for backend validation
