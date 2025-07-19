@@ -32,6 +32,9 @@ const CropDetailView = () => {
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
   const [notification, setNotification] = useState({ show: false, product: null, quantity: 0 });
+  // For image modal
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [modalImageIdx, setModalImageIdx] = useState(0);
 
   // Fetch real crop data from API
   useEffect(() => {
@@ -393,47 +396,127 @@ const CropDetailView = () => {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Single Image Display */}
+          {/* Image Gallery */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="relative bg-white rounded-2xl overflow-hidden shadow-lg">
-              {crop.images && crop.images.length > 0 ? (
-                <img
-                  src={crop.images[0]}
-                  alt={crop.cropName}
-                  className="w-full h-96 lg:h-[500px] object-cover"
-                />
-              ) : (
-                <div className="w-full h-96 lg:h-[500px] bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                  <div className="text-center">
-                    <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No Image Available</h3>
-                    <p className="text-gray-500">Image for this crop is not available</p>
-                  </div>
+            {crop.images && crop.images.length > 0 ? (
+              <div>
+                {/* Main Image Preview */}
+                <div className="relative flex items-center justify-center min-h-[300px] max-h-[500px] mb-4">
+                  <img
+                    src={crop.images[modalImageIdx]}
+                    alt={`Main ${crop.cropName}`}
+                    className="rounded-2xl shadow-lg border-2 border-agrovia-200 w-full max-h-[500px] object-contain cursor-pointer bg-white"
+                    onClick={() => setShowImageModal(true)}
+                  />
+                  {modalImageIdx === 0 && (
+                    <div className="absolute top-2 left-2 bg-agrovia-500 text-white text-xs px-2 py-1 rounded shadow">Main</div>
+                  )}
+                  {crop.images.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setModalImageIdx((modalImageIdx - 1 + crop.images.length) % crop.images.length)}
+                        className="hidden lg:flex absolute left-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 rounded-full p-2 shadow-lg text-xl font-bold"
+                        aria-label="Previous"
+                      >
+                        &#8592;
+                      </button>
+                      <button
+                        onClick={() => setModalImageIdx((modalImageIdx + 1) % crop.images.length)}
+                        className="hidden lg:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 rounded-full p-2 shadow-lg text-xl font-bold"
+                        aria-label="Next"
+                      >
+                        &#8594;
+                      </button>
+                    </>
+                  )}
                 </div>
-              )}
-              
-              {/* Certification badges */}
-              <div className="absolute top-6 left-6 space-y-2">
-                {crop.organicCertified && (
-                  <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-green-100 text-green-800 shadow-sm">
-                    <Leaf className="w-4 h-4 mr-2" />
-                    Organic Certified
-                  </span>
-                )}
-                {crop.pesticideFree && (
-                  <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-800 shadow-sm">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Pesticide Free
-                  </span>
-                )}
-                {crop.freshlyHarvested && (
-                  <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 shadow-sm">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Fresh Harvest
-                  </span>
-                )}
+                {/* Thumbnails under main image */}
+                <div className="flex flex-row gap-2 overflow-x-auto justify-center mb-4">
+                  {crop.images.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className={`border-2 rounded-lg overflow-hidden cursor-pointer bg-white flex-shrink-0 ${modalImageIdx === idx ? 'border-agrovia-500 ring-2 ring-agrovia-400' : 'border-agrovia-100'}`}
+                      style={{ width: '70px', height: '70px' }}
+                      onClick={() => setModalImageIdx(idx)}
+                    >
+                      <img
+                        src={img}
+                        alt={`Thumb ${crop.cropName} ${idx + 1}`}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                      />
+                    </div>
+                  ))}
+                </div>
+                {/* Badges below thumbnails */}
+                <div className="flex flex-col sm:flex-row justify-center gap-2 mt-2">
+                  {crop.organicCertified && (
+                    <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-green-100 text-green-800 shadow-sm">
+                      <Leaf className="w-4 h-4 mr-2" />
+                      Organic Certified
+                    </span>
+                  )}
+                  {crop.pesticideFree && (
+                    <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-800 shadow-sm">
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Pesticide Free
+                    </span>
+                  )}
+                  {crop.freshlyHarvested && (
+                    <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 shadow-sm">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Fresh Harvest
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="w-full h-44 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center rounded-xl shadow-md">
+                <div className="text-center">
+                  <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-600 mb-2">No Image Available</h3>
+                  <p className="text-gray-500">Image for this crop is not available</p>
+                </div>
+              </div>
+            )}
+            {/* Large Image Modal */}
+            {showImageModal && crop.images && crop.images.length > 0 && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 animate-fade-in">
+                <div className="relative max-w-3xl w-full mx-4">
+                  <img
+                    src={crop.images[modalImageIdx]}
+                    alt={`Large ${crop.cropName}`}
+                    className="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border-4 border-white"
+                  />
+                  {/* Close button */}
+                  <button
+                    onClick={() => setShowImageModal(false)}
+                    className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 rounded-full p-2 shadow-lg text-2xl font-bold"
+                    aria-label="Close"
+                  >
+                    &times;
+                  </button>
+                  {/* Prev/Next buttons if multiple images */}
+                  {crop.images.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setModalImageIdx((modalImageIdx - 1 + crop.images.length) % crop.images.length)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 rounded-full p-2 shadow-lg text-xl font-bold"
+                        aria-label="Previous"
+                      >
+                        &#8592;
+                      </button>
+                      <button
+                        onClick={() => setModalImageIdx((modalImageIdx + 1) % crop.images.length)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 rounded-full p-2 shadow-lg text-xl font-bold"
+                        aria-label="Next"
+                      >
+                        &#8594;
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar - Purchase Details */}
