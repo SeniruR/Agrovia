@@ -481,40 +481,9 @@ const FarmerSignup = () => {
         if (isOrgFormComplete() && !validateOrgForm()) return;
         setIsLoading(true);
         try {
+            let newUserId = null;
             let organizationIdToUse = formData.organizationId;
-            // If orgRegistered, first register the org and get its id
-            if (orgRegistered && orgFormData.organizationName && orgFormData.area) {
-                try {
-                    const orgData = new FormData();
-                    orgData.append('organizationName', orgFormData.organizationName);
-                    orgData.append('area', orgFormData.area);
-                    orgData.append('govijanasewaniladariname', orgFormData.govijanasewaniladariname);
-                    orgData.append('govijanasewaniladariContact', orgFormData.govijanasewaniladariContact);
-                    orgData.append('letterofProof', orgFormData.letterofProof);
-                    orgData.append('establishedDate', orgFormData.establishedDate);
-                    orgData.append('organizationDescription', orgFormData.organizationDescription);
-                    // No contactperson_id yet, will be set after farmer is created
-                    const orgRes = await axios.post('http://localhost:5000/api/v1/organizations', orgData, {
-                        headers: { 'Content-Type': 'multipart/form-data' },
-                    });
-                    if (orgRes.data && orgRes.data.organization && orgRes.data.organization.id) {
-                        organizationIdToUse = orgRes.data.organization.id;
-                        setFormData(prev => ({ ...prev, organizationId: organizationIdToUse }));
-                    } else if (orgRes.data && orgRes.data.id) {
-                        organizationIdToUse = orgRes.data.id;
-                        setFormData(prev => ({ ...prev, organizationId: organizationIdToUse }));
-                    } else {
-                        setErrorMessage('Organization registration failed. Please try again.');
-                        setIsLoading(false);
-                        return;
-                    }
-                } catch (orgErr) {
-                    setErrorMessage('Organization registration failed. Please try again.');
-                    setIsLoading(false);
-                    return;
-                }
-            }
-            // Map frontend fields to backend expected fields and ensure required fields are present and valid
+            // 1. Register the farmer user first (without organization_id if orgRegistered)
             const mappedData = {
                 name: formData.name?.trim() || '',
                 email: formData.email?.trim() || '',
@@ -535,8 +504,6 @@ const FarmerSignup = () => {
                 farming_certifications: formData.farmingCertifications ?? null,
                 user_type: orgFormData.letterofProof ? '1.1' : '1'
             };
-
-            // Only append fields that are required and non-empty for backend validation
             const requiredFields = [
                 'name', 'email', 'password', 'contact_number', 'district', 'land_size', 'nic_number'
             ];
@@ -551,29 +518,27 @@ const FarmerSignup = () => {
                     return;
                 }
             }
-
-            // Prepare form data for file upload, ensuring no undefined/null/empty string values for required fields
-            const data = new FormData();
+            // Prepare form data for user registration
+            const userData = new FormData();
             Object.entries(mappedData).forEach(([key, value]) => {
-                // For required fields, always send a value (never undefined/null/empty string)
                 if (requiredFields.includes(key)) {
-                    data.append(key, value);
+                    userData.append(key, value);
                 } else {
-                    // For optional fields, skip undefined/null/empty string
                     if (value !== undefined && value !== null && value !== '') {
-                        data.append(key, value);
+                        userData.append(key, value);
                     }
                 }
             });
-            if (organizationIdToUse) {
-                data.append('organization_id', organizationIdToUse);
+            // Do not send organization_id yet if orgRegistered (new org)
+            if (!orgRegistered && organizationIdToUse) {
+                userData.append('organization_id', organizationIdToUse);
             }
-            let result = null;
+            let userResult = null;
             try {
-                const response = await axios.post('http://localhost:5000/api/v1/auth/register/farmer', data, {
+                const response = await axios.post('http://localhost:5000/api/v1/auth/register/farmer', userData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
-                result = response.data;
+                userResult = response.data;
             } catch (err) {
                 let text = '';
                 if (err.response && err.response.data) {
@@ -581,32 +546,58 @@ const FarmerSignup = () => {
                 } else if (err.message) {
                     text = err.message;
                 }
-                setSuccessMessage(''); // Clear any previous success
+                setSuccessMessage('');
                 setErrorMessage('Registration failed. Please try again. ' + (text || ''));
                 setIsLoading(false);
                 return;
             }
-            if (!result.success) {
-                setSuccessMessage(''); // Clear any previous success
-                setErrorMessage('Registration failed. Please try again. ' + (result?.message || ''));
+            if (!userResult.success || !userResult.data || !userResult.data.user || !userResult.data.user.id) {
+                setSuccessMessage('');
+                setErrorMessage('Registration failed. Please try again. ' + (userResult?.message || ''));
                 setIsLoading(false);
                 return;
             }
-            // If orgRegistered, update the org's contactperson_id to the new farmer's user id
-            if (orgRegistered && organizationIdToUse && result.data && result.data.user && result.data.user.id) {
+            newUserId = userResult.data.user.id;
+            // 2. If orgRegistered, now create the organization with org_contactperson_id set
+            if (orgRegistered && orgFormData.organizationName && orgFormData.area) {
                 try {
-                    await axios.patch(`http://localhost:5000/api/v1/organizations/${organizationIdToUse}/contactperson`, {
-                        contactperson_id: result.data.user.id
+                    const orgData = new FormData();
+                    orgData.append('organizationName', orgFormData.organizationName);
+                    orgData.append('area', orgFormData.area);
+                    orgData.append('govijanasewaniladariname', orgFormData.govijanasewaniladariname);
+                    orgData.append('govijanasewaniladariContact', orgFormData.govijanasewaniladariContact);
+                    orgData.append('letterofProof', orgFormData.letterofProof);
+                    orgData.append('establishedDate', orgFormData.establishedDate);
+                    orgData.append('organizationDescription', orgFormData.organizationDescription);
+                    orgData.append('contactperson_id', newUserId);
+                    const orgRes = await axios.post('http://localhost:5000/api/v1/organizations', orgData, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                    if (orgRes.data && orgRes.data.organization && orgRes.data.organization.id) {
+                        organizationIdToUse = orgRes.data.organization.id;
+                    } else if (orgRes.data && orgRes.data.id) {
+                        organizationIdToUse = orgRes.data.id;
+                    } else {
+                        setErrorMessage('Organization registration failed. Please try again.');
+                        setIsLoading(false);
+                        return;
+                    }
+                } catch (orgErr) {
+                    setErrorMessage('Organization registration failed. Please try again.');
+                    setIsLoading(false);
+                    return;
+                }
+                // 3. Update the farmer_details.organization_id for this user
+                try {
+                    await axios.patch(`http://localhost:5000/api/v1/users/${newUserId}/farmer-organization`, {
+                        organization_id: organizationIdToUse
                     });
                 } catch (patchErr) {
                     // Not critical, but log or show warning if needed
-                    console.warn('Failed to update organization contact person:', patchErr);
+                    console.warn('Failed to update farmer_details.organization_id:', patchErr);
                 }
             }
-            if (result.data && result.data.user) {
-                // Do not auto-login. Instead, notify and redirect to login page.
-            }
-            setErrorMessage(''); // Clear any previous error
+            setErrorMessage('');
             setSuccessMessage('Registration successful! Your account will be reviewed by your organization and activated as appropriate. You will be able to log in once your account is approved. Redirecting to login page...');
             setTimeout(() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -623,7 +614,7 @@ const FarmerSignup = () => {
             } else if (error.message) {
                 msg += ' ' + error.message;
             }
-            setSuccessMessage(''); // Clear any previous success
+            setSuccessMessage('');
             setErrorMessage(msg.trim());
         } finally {
             setIsLoading(false);
