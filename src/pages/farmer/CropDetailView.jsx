@@ -299,13 +299,15 @@ const CropDetailView = () => {
             {/* Action Buttons */}
             <div className="lg:col-span-2">
               <div className="flex flex-col space-y-2">
-                <button
-                  onClick={handleAddToCart}
-                  className="flex items-center justify-center px-4 py-2 bg-agrovia-500 text-white rounded-lg hover:bg-agrovia-600 transition-colors text-sm font-medium"
-                >
-                  <ShoppingCart className="w-4 h-4 mr-1" />
-                  Add to Cart
-                </button>
+                {user && crop && user.id !== crop.farmer_Id && (
+                  <button
+                    onClick={handleAddToCart}
+                    className="flex items-center justify-center px-4 py-2 bg-agrovia-500 text-white rounded-lg hover:bg-agrovia-600 transition-colors text-sm font-medium"
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-1" />
+                    Add to Cart
+                  </button>
+                )}
                 <button
                   onClick={handleContactFarmer}
                   className="flex items-center justify-center px-4 py-2 border border-agrovia-500 text-agrovia-600 rounded-lg hover:bg-agrovia-50 transition-colors text-sm font-medium"
@@ -577,6 +579,7 @@ const CropDetailView = () => {
 
               {/* Action Buttons */}
               <div className="space-y-4">
+                {user && crop && user.id !== crop.farmer_Id && (
                 <button
                   onClick={handleAddToCart}
                   className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-agrovia-500 to-agrovia-600 text-white rounded-xl hover:from-agrovia-600 hover:to-agrovia-700 transition-all duration-300 font-bold text-lg shadow-lg transform hover:scale-105"
@@ -584,6 +587,7 @@ const CropDetailView = () => {
                   <ShoppingCart className="w-6 h-6 mr-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate('/cart'); }} />
                   Add to Cart
                 </button>
+                )}
                 <button
                   onClick={handleContactFarmer}
                   className="w-full flex items-center justify-center px-6 py-4 border-3 border-agrovia-500 text-agrovia-600 rounded-xl hover:bg-agrovia-50 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
@@ -591,6 +595,7 @@ const CropDetailView = () => {
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Contact Farmer
                 </button>
+               
                 {user && crop && user.id === crop.farmerId && (
                   <button
                     onClick={() => setShowDeleteModal(true)}
