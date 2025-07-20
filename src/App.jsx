@@ -59,6 +59,10 @@ import Complaint from "./pages/complaint/Complaint";
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
 import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
+import AdminShop from "./pages/admin/AdminShop";
+import AdminShopSubscriptions from "./pages/admin/AdminShopSubscriptions";
+import AdminAccountApproval  from "./pages/admin/AdminAccountApproval";
+
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
@@ -85,9 +89,12 @@ import CropDetailView from "./pages/farmer/CropDetailView";
 
 import AdminMyShopItem from "./pages/admin/AdminShopItem";
 import NewLogin from "./pages/Login_new";
+import ContactPage from "./components/contact/ContactPage"
+
 
 import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 import PurchaseDetails from "./pages/PurchaseDetails";
+
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -98,6 +105,21 @@ import PurchaseDetails from "./pages/PurchaseDetails";
 const App = () => {
   return (
     <Routes>
+      <Route path="/admin/account-approval" element={
+        <Layout>
+          <AdminAccountApproval />
+        </Layout>
+      } />
+      <Route path="/admin/shop-subscriptions" element={
+        <Layout>
+          <AdminShopSubscriptions />
+        </Layout>
+      } />
+      <Route path="/admin/shop" element={
+        <Layout>
+          <AdminShop />
+        </Layout>
+      } />
       <Route path="/discover-more" element={
         <Layout>
           <DiscoverMore />
@@ -504,7 +526,7 @@ const App = () => {
 
          <Route path="/buyer-com-dash" element={
         <Layout>
-          <BuyerComplaintDashboard/>
+          <Complaint />
         </Layout>
       }
       />
@@ -513,6 +535,13 @@ const App = () => {
             <NewLogin />
           </Layout>
         } />
+         <Route path="/contactus" element={
+          <Layout>
+            <ContactPage />
+          </Layout>
+        } />
+
+
 
     </Routes>
     
