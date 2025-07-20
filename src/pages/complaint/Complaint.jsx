@@ -28,6 +28,7 @@ function Complaint() {
       const res = await fetch(url);
       if (!res.ok) throw new Error('Network response was not ok');
       const data = await res.json();
+      
       // Normalize fields for frontend
       let attachments = [];
       if (Array.isArray(data.attachments)) {
@@ -54,8 +55,13 @@ function Complaint() {
         type,
         submittedByName: data.submittedBy || data.submitted_by || '',
         submittedAt: data.submittedAt || data.submitted_at || data.created_at || new Date().toISOString(),
+        // Map backend field names to frontend expected names
+        cropType: data.cropType || data.crop_type,
+        orderNumber: data.orderNumber || data.order_number,
+        farmer: data.farmer || data.to_farmer,
         attachments
       });
+      
       setCurrentPage('complaint-detail');
     } catch (err) {
       setComplaintDetail(null);
