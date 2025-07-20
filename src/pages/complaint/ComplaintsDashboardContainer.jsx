@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import ComplaintsDashboard from "./ComplaintsDashboard";
 
 const ComplaintsDashboardContainer = (props) => {
@@ -37,7 +38,7 @@ const ComplaintsDashboardContainer = (props) => {
     fetchAllComplaints();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <FullScreenLoader />;
 
   return (
     <ComplaintsDashboard
