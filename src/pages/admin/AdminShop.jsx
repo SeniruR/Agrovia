@@ -385,13 +385,15 @@ const AdminShop = () => {
               </div>
               <div className="flex gap-2 mb-4">
                 <button
-                  className="bg-blue-100 text-blue-700 px-4 py-1 rounded-lg hover:bg-blue-200 text-sm"
+                  className="px-5 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all text-sm"
                   onClick={() => openShopModal(shop)}
                 >
                   View Items
                 </button>
                 <button
-                  className={`flex items-center gap-1 px-4 py-1 rounded-lg text-sm ${shop.suspended ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+                  className={`px-5 py-2 rounded-xl font-semibold transition-all ${shop.suspended
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+                    : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'} flex items-center gap-2`}
                   onClick={() => handleSuspendShop(shop.shopId)}
                 >
                   <PauseCircle className="h-4 w-4" />
@@ -416,17 +418,17 @@ const AdminShop = () => {
               <div className="flex flex-col md:flex-row gap-8 p-4 md:p-8">
                 {/* Shop Info - sticky on scroll for md+, left-aligned on mobile */}
                 <div className="w-full md:w-1/3 flex flex-col items-start md:items-center justify-start md:justify-center mb-4 md:mb-0 md:sticky md:top-8 self-start z-10">
-                <div className="w-32 h-32 md:w-48 md:h-48 rounded-xl flex items-center justify-center mb-4 mx-auto md:mx-0 overflow-hidden bg-green-100">
-                  {selectedShop.image ? (
-                    <img
-                      src={selectedShop.image}
-                      alt={selectedShop.shopName + ' image'}
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <span className="text-5xl md:text-6xl text-green-400 font-bold">{selectedShop.shopName[0]}</span>
-                  )}
-                </div>
+                  <div className="w-32 h-32 md:w-48 md:h-48 rounded-xl flex items-center justify-center mb-4 mx-auto md:mx-0 overflow-hidden bg-green-100">
+                    {selectedShop.image ? (
+                      <img
+                        src={selectedShop.image}
+                        alt={selectedShop.shopName + ' image'}
+                        className="object-cover w-full h-full"
+                      />
+                    ) : (
+                      <span className="text-5xl md:text-6xl text-green-400 font-bold">{selectedShop.shopName[0]}</span>
+                    )}
+                  </div>
                   <h2 className="text-2xl font-bold text-green-800 mb-2 text-left md:text-center w-full">{selectedShop.shopName}</h2>
                   <div className="text-gray-700 text-left md:text-center w-full">
                     <p><span className="font-semibold">Owner:</span> {selectedShop.owner}</p>
@@ -471,7 +473,9 @@ const AdminShop = () => {
                             <p className={`text-sm font-semibold mb-2 ${item.available ? 'text-green-600' : 'text-red-500'}`}>{item.available ? 'Available' : 'Out of Stock'}</p>
                           </div>
                           <button
-                            className={`mt-2 flex items-center gap-1 px-3 py-1 rounded-lg text-xs ${item.suspended ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+                            className={`mt-2 flex items-center gap-2 px-5 py-2 rounded-xl font-semibold transition-all text-xs ${item.suspended
+                              ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+                              : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'}`}
                             onClick={() => handleSuspendItem(selectedShop.shopId, item.itemId)}
                           >
                             <PauseCircle className="h-4 w-4" />
@@ -495,7 +499,14 @@ const AdminShop = () => {
               <p className="mb-6">Are you sure you want to {shops.find(s => s.shopId === shopToSuspend)?.suspended ? 'unsuspend' : 'suspend'} this shop?</p>
               <div className="flex justify-end gap-3">
                 <button className="px-4 py-2 rounded-lg bg-gray-100" onClick={() => setShowSuspendShopModal(false)}>Cancel</button>
-                <button className="px-4 py-2 rounded-lg bg-red-600 text-white" onClick={confirmSuspendShop}>{shops.find(s => s.shopId === shopToSuspend)?.suspended ? 'Unsuspend' : 'Suspend'}</button>
+                <button
+                  className={`px-5 py-2 rounded-xl font-semibold transition-all ${shops.find(s => s.shopId === shopToSuspend)?.suspended
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+                    : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'}`}
+                  onClick={confirmSuspendShop}
+                >
+                  {shops.find(s => s.shopId === shopToSuspend)?.suspended ? 'Unsuspend' : 'Suspend'}
+                </button>
               </div>
             </div>
           </div>
@@ -517,11 +528,22 @@ const AdminShop = () => {
               })()} this crop post?</p>
               <div className="flex justify-end gap-3">
                 <button className="px-4 py-2 rounded-lg bg-gray-100" onClick={() => setShowSuspendItemModal(false)}>Cancel</button>
-                <button className="px-4 py-2 rounded-lg bg-red-600 text-white" onClick={confirmSuspendItem}>{(() => {
-                  const shop = shops.find(s => s.shopId === itemToSuspend?.shopId);
-                  const item = shop?.items.find(i => i.itemId === itemToSuspend?.itemId);
-                  return item?.suspended ? 'Unsuspend' : 'Suspend';
-                })()}</button>
+                <button
+                  className={`px-5 py-2 rounded-xl font-semibold transition-all ${(() => {
+                    const shop = shops.find(s => s.shopId === itemToSuspend?.shopId);
+                    const item = shop?.items.find(i => i.itemId === itemToSuspend?.itemId);
+                    return item?.suspended
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+                      : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700';
+                  })()}`}
+                  onClick={confirmSuspendItem}
+                >
+                  {(() => {
+                    const shop = shops.find(s => s.shopId === itemToSuspend?.shopId);
+                    const item = shop?.items.find(i => i.itemId === itemToSuspend?.itemId);
+                    return item?.suspended ? 'Unsuspend' : 'Suspend';
+                  })()}
+                </button>
               </div>
             </div>
           </div>
