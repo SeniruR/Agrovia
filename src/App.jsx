@@ -59,6 +59,7 @@ import Complaint from "./pages/complaint/Complaint";
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
 import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
+import AdminShop from "./pages/admin/AdminShop";
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
@@ -97,6 +98,11 @@ import NewLogin from "./pages/Login_new";
 const App = () => {
   return (
     <Routes>
+      <Route path="/admin/shop" element={
+        <Layout>
+          <AdminShop />
+        </Layout>
+      } />
       <Route path="/discover-more" element={
         <Layout>
           <DiscoverMore />

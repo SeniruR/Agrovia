@@ -27,7 +27,8 @@ const adminMenuItems = [
   { label: 'Dashboard', icon: HomeIcon, path: '/admindashboard' },
   { label: 'Organization Approval', icon: UserPlusIcon, path: '/admin/organization-approval' },
   { label: 'Manage Users', icon: UserGroupIcon, path: '/usermanagement' },
-  { label: 'Admin Shop Items', icon: ShoppingBagIcon, path: '/adminshopitems' },
+  { label: 'Manage Shops', icon: ShoppingBagIcon, path: '/admin/shop' },
+{ label: 'Manage Complaints', icon: ChatBubbleLeftRightIcon, path: '/complaintHandling' },
 ];
 
 const farmerMenuItems = [
