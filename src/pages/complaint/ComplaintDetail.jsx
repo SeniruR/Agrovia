@@ -6,6 +6,8 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showEditPopup, setShowEditPopup] = useState(false);
   const [editForm, setEditForm] = useState({ ...complaint });
+  // Image modal state
+  const [enlargedImage, setEnlargedImage] = useState(null);
 
   // Reset editForm when popup opens
   React.useEffect(() => {
@@ -94,12 +96,20 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 mb-4">{complaint.title}</h2>
                 </div>
-                <button
-                  onClick={() => setShowEditPopup(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
-                >
-                  <span>Edit Complaint</span>
-                </button>
+                {/* Only show Edit Complaint button to the owner of the complaint */}
+                {(typeof window !== 'undefined' && (() => {
+                  const user = JSON.parse(localStorage.getItem('user'));
+                  // Support multiple possible owner property names
+                  const ownerId = complaint.submittedBy ?? complaint.submitted_by ?? complaint.submittedById;
+                  return user && user.id && String(user.id) === String(ownerId);
+                })()) && (
+                  <button
+                    onClick={() => setShowEditPopup(true)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                  >
+                    <span>Edit Complaint</span>
+                  </button>
+                )}
       {/* Edit Complaint Popup */}
       {showEditPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -501,15 +511,15 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                   <div className="flex flex-wrap gap-4">
                     {/* Handle complaint.attachments array (crop/transport complaints) */}
                     {complaint.attachments && complaint.attachments.map((file, idx) => {
-                      console.log('Rendering attachment:', idx, typeof file, file ? file.substring(0, 30) + '...' : 'null');
                       if (file && typeof file === 'string') {
                         return (
                           <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
                             <img
                               src={`data:image/jpeg;base64,${file}`}
                               alt={`Attachment ${idx + 1}`}
-                              className="w-full h-auto"
+                              className="w-full h-auto cursor-zoom-in"
                               style={{ maxHeight: 240 }}
+                              onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
                               onError={(e) => {
                                 console.error("Attachment image load error", idx);
                                 e.target.style.display = 'none';
@@ -519,71 +529,48 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         );
                       }
                       return null;
-                    }                    )}
-                    
+                    })}
                     {/* Handle complaint.image (single image for shop complaints) */}
-                    {complaint.image && (
-                      <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
-                        {console.log('Rendering shop image:', typeof complaint.image, complaint.image ? (complaint.image.length > 100 ? 'Length: ' + complaint.image.length : complaint.image) : 'null')}
-                        {/* Extra validation before rendering */}
-                        {(() => {
-                          // For debugging - check the actual content of the image data
-                          if (typeof complaint.image === 'string') {
-                            const firstChars = complaint.image.substring(0, 20);
-                            console.log('Image data starts with:', firstChars);
-                            
-                            // If it's a JSON string or has brackets, it might be incorrectly formatted
-                            if (firstChars.includes('[') || firstChars.includes('{')) {
-                              console.log('Warning: Image data appears to be JSON, not base64');
-                            }
-                          }
-                          
-                          // Try to clean the image data if necessary
-                          let imageData = '';
-                          if (typeof complaint.image === 'string') {
-                            // Remove any wrapping quotes, brackets, etc.
-                            imageData = complaint.image.replace(/^["'\[\{]+|["'\]\}]+$/g, '');
-                            
-                            // Check if it's already a data URL
-                            if (imageData.startsWith('data:')) {
-                              return (
-                                <img
-                                  src={imageData}
-                                  alt="Shop Attachment"
-                                  className="w-full h-auto"
-                                  style={{ maxHeight: 240 }}
-                                  onError={(e) => {
-                                    console.error("Shop image load error with data URL");
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              );
-                            } else {
-                              // Assume it's a base64 string and add the prefix
-                              return (
-                                <img
-                                  src={`data:image/jpeg;base64,${imageData}`}
-                                  alt="Shop Attachment"
-                                  className="w-full h-auto"
-                                  style={{ maxHeight: 240 }}
-                                  onError={(e) => {
-                                    console.error("Shop image load error with base64");
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              );
-                            }
-                          }
-                          
+                    {complaint.image && (() => {
+                      let imageData = '';
+                      if (typeof complaint.image === 'string') {
+                        imageData = complaint.image.replace(/^["'\[\{]+|["'\]\}]+$/g, '');
+                        if (imageData.startsWith('data:')) {
                           return (
-                            <div className="p-4 bg-gray-100 text-gray-500 rounded-xl">
-                              Image data is not in the expected format
+                            <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
+                              <img
+                                src={imageData}
+                                alt="Shop Attachment"
+                                className="w-full h-auto cursor-zoom-in"
+                                style={{ maxHeight: 240 }}
+                                onClick={() => setEnlargedImage(imageData)}
+                                onError={(e) => {
+                                  console.error("Shop image load error with data URL");
+                                  e.target.style.display = 'none';
+                                }}
+                              />
                             </div>
                           );
-                        })()}
-                      </div>
-                    )}
-                    
+                        } else {
+                          return (
+                            <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
+                              <img
+                                src={`data:image/jpeg;base64,${imageData}`}
+                                alt="Shop Attachment"
+                                className="w-full h-auto cursor-zoom-in"
+                                style={{ maxHeight: 240 }}
+                                onClick={() => setEnlargedImage(`data:image/jpeg;base64,${imageData}`)}
+                                onError={(e) => {
+                                  console.error("Shop image load error with base64");
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
                     {/* Handle complaint.images array (multiple images for shop complaints) */}
                     {complaint.images && complaint.images.map((file, idx) => {
                       if (file && typeof file === 'string') {
@@ -592,8 +579,9 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                             <img
                               src={`data:image/jpeg;base64,${file}`}
                               alt={`Attachment ${idx + 1}`}
-                              className="w-full h-auto"
+                              className="w-full h-auto cursor-zoom-in"
                               style={{ maxHeight: 240 }}
+                              onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
                               onError={(e) => {
                                 console.error("Image load error");
                                 e.target.style.display = 'none';
@@ -605,63 +593,94 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                       return null;
                     })}
                   </div>
+                  {/* Image Modal */}
+                  {enlargedImage && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70" onClick={() => setEnlargedImage(null)}>
+                      <div className="relative" onClick={e => e.stopPropagation()}>
+                        <img src={enlargedImage} alt="Enlarged Attachment" className="max-w-[90vw] max-h-[80vh] rounded-2xl shadow-2xl border-4 border-white" />
+                        <button
+                          onClick={() => setEnlargedImage(null)}
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white text-slate-700 rounded-full p-2 shadow-lg"
+                          style={{ zIndex: 10 }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Admin Reply Section: Only show if logged-in user is admin (user_type '0') */}
-            {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
-                  {!complaint.adminReply && (
-                    <button
-                      onClick={() => setShowReplyForm(!showReplyForm)}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Add Reply</span>
-                    </button>
-                  )}
-                </div>
-
-                {showReplyForm && (
-                  <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-                    <textarea
-                      value={newReply}
-                      onChange={(e) => setNewReply(e.target.value)}
-                      placeholder="Write your official response to the customer..."
-                      rows={4}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none"
-                    />
-                    <div className="flex justify-end space-x-3 mt-3">
-                      <button
-                        onClick={() => setShowReplyForm(false)}
-                        className="px-4 py-2 bg-white text-slate-600 hover:text-slate-800 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => { onAddReply(complaint.id, newReply); setShowReplyForm(false); setNewReply(''); }}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
-                      >
-                        <span>Send Reply</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {complaint.adminReply ? (
-                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
-                    <p className="text-slate-700 leading-relaxed">{complaint.adminReply}</p>
-                  </div>
-                ) : (
-                  <p className="text-slate-500 text-center py-8">
-                    No reply sent yet.
-                  </p>
+            {/* Admin Reply Section: Show reply to all, reply form only to admin */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
+                {/* Only show Add Reply button to admin if no reply yet */}
+                {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0' && !complaint.reply) && (
+                  <button
+                    onClick={() => setShowReplyForm(!showReplyForm)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Add Reply</span>
+                  </button>
                 )}
               </div>
-            )}
+
+              {/* Only admin sees reply form */}
+              {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && showReplyForm && (
+                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+                  <textarea
+                    value={newReply}
+                    onChange={(e) => setNewReply(e.target.value)}
+                    placeholder="Write your official response to the customer..."
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none"
+                  />
+                  <div className="flex justify-end space-x-3 mt-3">
+                    <button
+                      onClick={() => setShowReplyForm(false)}
+                      className="px-4 py-2 bg-white text-slate-600 hover:text-slate-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        // Use correct backend URL for admin reply
+                        try {
+                          const res = await fetch(`http://localhost:5000/api/v1/crop-complaints/${complaint.id}/reply`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ reply: newReply })
+                          });
+                          if (!res.ok) throw new Error('Failed to add reply');
+                          setShowReplyForm(false);
+                          setNewReply('');
+                          // Update complaint.reply in-place so UI updates without reload
+                          if (typeof complaint === 'object') complaint.reply = newReply;
+                        } catch (err) {
+                          alert(err.message || 'Failed to add reply');
+                        }
+                      }}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                    >
+                      <span>Send Reply</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {complaint.reply ? (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
+                  <p className="text-slate-700 leading-relaxed">{complaint.reply}</p>
+                </div>
+              ) : (
+                <p className="text-slate-500 text-center py-8">
+                  No reply sent yet.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
