@@ -86,7 +86,7 @@ import CropDetailView from "./pages/farmer/CropDetailView";
 import AdminMyShopItem from "./pages/admin/AdminShopItem";
 import NewLogin from "./pages/Login_new";
 
-import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
+//import Complaint from "./pages/complaint/ComplaintsDashboard";
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -497,7 +497,7 @@ const App = () => {
 
          <Route path="/buyer-com-dash" element={
         <Layout>
-          <BuyerComplaintDashboard/>
+          <Complaint />
         </Layout>
       }
       />
