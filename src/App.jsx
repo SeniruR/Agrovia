@@ -89,6 +89,7 @@ import CropDetailView from "./pages/farmer/CropDetailView";
 
 import AdminMyShopItem from "./pages/admin/AdminShopItem";
 import NewLogin from "./pages/Login_new";
+import ContactPage from "./components/contact/ContactPage"
 
 //import Complaint from "./pages/complaint/ComplaintsDashboard";
 
@@ -525,6 +526,13 @@ const App = () => {
             <NewLogin />
           </Layout>
         } />
+         <Route path="/contactus" element={
+          <Layout>
+            <ContactPage />
+          </Layout>
+        } />
+
+
 
     </Routes>
     

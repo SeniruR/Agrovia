@@ -102,7 +102,7 @@ const menuItems = [
   {
     label: 'Contact Us',
     icon: ChatBubbleLeftRightIcon,
-    path: '/complaintHandling',
+    path: '/contactus',
   },
 ];
 
