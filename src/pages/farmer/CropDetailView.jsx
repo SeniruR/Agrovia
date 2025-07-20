@@ -19,6 +19,7 @@ import {
 import { cropService } from '../../services/cropService';
 import { useCart } from '../../hooks/useCart';
 
+import { Star } from 'lucide-react';
 import CartNotification from '../../components/CartNotification';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -35,6 +36,21 @@ const CropDetailView = () => {
   // For image modal
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageIdx, setModalImageIdx] = useState(0);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviews, setReviews] = useState([
+    {
+      user: 'A. Perera',
+      rating: 5,
+      comment: 'Excellent quality, very fresh!'
+    },
+    {
+      user: 'B. Silva',
+      rating: 4,
+      comment: 'Good rice, delivery was quick.'
+    }
+  ]);
+  const [newRating, setNewRating] = useState(0);
+  const [newComment, setNewComment] = useState('');
 
   // Fetch real crop data from API
   useEffect(() => {
@@ -201,7 +217,7 @@ const CropDetailView = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-agrovia-50 to-green-50">
+    <div className="min-h-screen bg-gradient-to-br pb-2 from-agrovia-50 to-green-50">
       {/* Horizontal Header */}
       <div className="bg-white shadow-lg border-b border-green-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -299,13 +315,15 @@ const CropDetailView = () => {
             {/* Action Buttons */}
             <div className="lg:col-span-2">
               <div className="flex flex-col space-y-2">
-                <button
-                  onClick={handleAddToCart}
-                  className="flex items-center justify-center px-4 py-2 bg-agrovia-500 text-white rounded-lg hover:bg-agrovia-600 transition-colors text-sm font-medium"
-                >
-                  <ShoppingCart className="w-4 h-4 mr-1" />
-                  Add to Cart
-                </button>
+                {user && crop && user.id !== crop.farmer_Id && (
+                  <button
+                    onClick={handleAddToCart}
+                    className="flex items-center justify-center px-4 py-2 bg-agrovia-500 text-white rounded-lg hover:bg-agrovia-600 transition-colors text-sm font-medium"
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-1" />
+                    Add to Cart
+                  </button>
+                )}
                 <button
                   onClick={handleContactFarmer}
                   className="flex items-center justify-center px-4 py-2 border border-agrovia-500 text-agrovia-600 rounded-lg hover:bg-agrovia-50 transition-colors text-sm font-medium"
@@ -313,6 +331,13 @@ const CropDetailView = () => {
                   <MessageCircle className="w-4 h-4 mr-1" />
                   Contact
                 </button>
+          <button
+            onClick={() => setShowReviewModal(true)}
+            className="flex items-center justify-center px-4 py-2 border border-yellow-500 text-yellow-700 rounded-lg hover:bg-yellow-50 transition-colors text-sm font-medium"
+          >
+            <Star className="w-4 h-4 mr-1" />
+            Add Review & Rating
+          </button>
                 {user && crop && user.id === crop.farmer_Id && (
                   <button
                     onClick={() => setShowDeleteModal(true)}
@@ -577,6 +602,7 @@ const CropDetailView = () => {
 
               {/* Action Buttons */}
               <div className="space-y-4">
+                {user && crop && user.id !== crop.farmer_Id && (
                 <button
                   onClick={handleAddToCart}
                   className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-agrovia-500 to-agrovia-600 text-white rounded-xl hover:from-agrovia-600 hover:to-agrovia-700 transition-all duration-300 font-bold text-lg shadow-lg transform hover:scale-105"
@@ -584,6 +610,7 @@ const CropDetailView = () => {
                   <ShoppingCart className="w-6 h-6 mr-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate('/cart'); }} />
                   Add to Cart
                 </button>
+                )}
                 <button
                   onClick={handleContactFarmer}
                   className="w-full flex items-center justify-center px-6 py-4 border-3 border-agrovia-500 text-agrovia-600 rounded-xl hover:bg-agrovia-50 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
@@ -591,6 +618,7 @@ const CropDetailView = () => {
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Contact Farmer
                 </button>
+               
                 {user && crop && user.id === crop.farmerId && (
                   <button
                     onClick={() => setShowDeleteModal(true)}
@@ -689,6 +717,67 @@ const CropDetailView = () => {
         quantity={notification.quantity}
         onClose={() => setNotification({ show: false, product: null, quantity: 0 })}
       />
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full border-2 border-yellow-400 relative animate-fade-in" style={{ minHeight: '520px', minWidth: '420px' }}>
+            <h2 className="text-xl font-bold text-yellow-700 mb-4">Add Review & Rating</h2>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-2">Rating:</label>
+              <select value={newRating} onChange={e => setNewRating(Number(e.target.value))} className="w-full p-2 border rounded">
+                <option value={0}>Select rating</option>
+                {[1,2,3,4,5].map(r => <option key={r} value={r}>{r} Star{r > 1 ? 's' : ''}</option>)}
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-2">Comment:</label>
+              <textarea value={newComment} onChange={e => setNewComment(e.target.value)} className="w-full p-2 border rounded" rows={3} />
+            </div>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setShowReviewModal(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
+              >Cancel</button>
+              <button
+                onClick={() => {
+                  if (newRating > 0 && newComment.trim()) {
+                    setReviews([...reviews, { user: user?.name || 'Anonymous', rating: newRating, comment: newComment }]);
+                    setNewRating(0);
+                    setNewComment('');
+                    setShowReviewModal(false);
+                  }
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-700 text-white font-bold shadow hover:from-yellow-600 hover:to-yellow-800 transition-all"
+              >Submit</button>
+            </div>
+            <button
+              onClick={() => setShowReviewModal(false)}
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold"
+              aria-label="Close"
+            >&times;</button>
+          </div>
+        </div>
+      )}
+
+      {/* Reviews & Ratings Section */}
+      <div className="max-w-5xl mx-auto mt-12 mb-8 p-6  bg-green-50 rounded-2xl shadow-xl border border-green-200">
+        <h2 className="text-2xl font-bold text-yellow-700 mb-4 flex items-center"><Star className="w-6 h-6 mr-2 text-yellow-500" /> Reviews & Ratings</h2>
+        {reviews.length === 0 ? (
+          <div className="text-gray-500 text-center">No reviews yet. Be the first to review!</div>
+        ) : (
+          <ul className="space-y-4">
+            {reviews.map((r, idx) => (
+              <li key={idx} className="border-b pb-4">
+                <div className="flex items-center mb-1">
+                  {[...Array(r.rating)].map((_, i) => <Star key={i} className="w-4 h-4 text-yellow-400 mr-1 inline" />)}
+                  <span className="ml-2 font-semibold text-gray-800">{r.user}</span>
+                </div>
+                <div className="text-gray-700">{r.comment}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };
