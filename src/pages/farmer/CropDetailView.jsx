@@ -607,7 +607,7 @@ const CropDetailView = () => {
                     onClick={() => navigate('/purchase-details', { state: { crop, quantity } })}
                   >
                     <ShoppingCart className="w-5 h-5 mr-2" />
-                    View Purchase Details
+                    View Order Details
                   </button>
                   )}
                 </div>
