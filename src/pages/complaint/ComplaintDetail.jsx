@@ -609,8 +609,8 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
               )}
             </div>
 
-            {/* Admin Reply Section: Only show if userType === '0' */}
-            {complaint.userType === '0' && (
+            {/* Admin Reply Section: Only show if logged-in user is admin (user_type '0') */}
+            {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
