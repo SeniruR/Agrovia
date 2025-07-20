@@ -1051,7 +1051,11 @@ const MyShopItem = () => {
             {/* Header */}
             <div className="bg-white shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 py-6">
-                    
+                    {/* Header Title */}
+                    <div className="mb-6">
+                        <h1 className="text-4xl font-bold text-green-800 mb-2">My Shop Items</h1>
+                        <p className="text-green-600 text-lg">Manage your agricultural products and shop inventory</p>
+                    </div>
 
                     {/* Search and Filter Bar */}
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
