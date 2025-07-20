@@ -331,6 +331,7 @@ const CropDetailView = () => {
                   <MessageCircle className="w-4 h-4 mr-1" />
                   Contact
                 </button>
+          {user && crop && user.id !== crop.farmer_Id && (      
           <button
             onClick={() => setShowReviewModal(true)}
             className="flex items-center justify-center px-4 py-2 border border-yellow-500 text-yellow-700 rounded-lg hover:bg-yellow-50 transition-colors text-sm font-medium"
@@ -338,6 +339,7 @@ const CropDetailView = () => {
             <Star className="w-4 h-4 mr-1" />
             Add Review & Rating
           </button>
+          )}
                 {user && crop && user.id === crop.farmer_Id && (
                   <button
                     onClick={() => setShowDeleteModal(true)}
