@@ -60,6 +60,9 @@ import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
 import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
 import AdminShop from "./pages/admin/AdminShop";
+import AdminShopSubscriptions from "./pages/admin/AdminShopSubscriptions";
+import AdminAccountApproval  from "./pages/admin/AdminAccountApproval";
+
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
@@ -98,6 +101,16 @@ import NewLogin from "./pages/Login_new";
 const App = () => {
   return (
     <Routes>
+      <Route path="/admin/account-approval" element={
+        <Layout>
+          <AdminAccountApproval />
+        </Layout>
+      } />
+      <Route path="/admin/shop-subscriptions" element={
+        <Layout>
+          <AdminShopSubscriptions />
+        </Layout>
+      } />
       <Route path="/admin/shop" element={
         <Layout>
           <AdminShop />
