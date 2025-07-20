@@ -25,9 +25,12 @@ import {
 // Sidebar menu configs for each user type
 const adminMenuItems = [
   { label: 'Dashboard', icon: HomeIcon, path: '/admindashboard' },
+  { label: 'Account Approval', icon: UserPlusIcon, path: '/admin/account-approval' },
   { label: 'Organization Approval', icon: UserPlusIcon, path: '/admin/organization-approval' },
   { label: 'Manage Users', icon: UserGroupIcon, path: '/usermanagement' },
-  { label: 'Admin Shop Items', icon: ShoppingBagIcon, path: '/adminshopitems' },
+  { label: 'Manage Shops', icon: ShoppingBagIcon, path: '/admin/shop' },
+  { label: 'Manage Complaints', icon: ChatBubbleLeftRightIcon, path: '/complaintHandling' },
+  { label: 'Subscription Tiers', icon: CreditCardIcon, path: '/admin/shop-subscriptions' },  
 ];
 
 const farmerMenuItems = [
@@ -35,6 +38,7 @@ const farmerMenuItems = [
   { label: 'My Crops', icon: ShoppingBagIcon, path: '/farmviewAllCrops' },
   { label: 'My Orders', icon: DocumentTextIcon, path: '/farmervieworders' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile/farmer' },
+  { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },
   { label: 'Crop Recommendation', icon: DocumentCheckIcon, path: '/cropreco' },
   { label: 'Marketplace', icon: ShoppingBagIcon, subcategories: [
     { name: 'Crop Marketplace', path: '/byersmarket' },
@@ -56,6 +60,7 @@ const buyerMenuItems = [
   { label: 'Marketplace', icon: ShoppingBagIcon, path: '/byersmarket' },
   { label: 'Cart', icon: CreditCardIcon, path: '/cart' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile/buyer' },
+  { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },
   { label: 'Complaint Dashboard', icon: ChatBubbleLeftRightIcon, path: '/buyer-com-dash' },
 ];
 
@@ -97,7 +102,7 @@ const menuItems = [
   {
     label: 'Contact Us',
     icon: ChatBubbleLeftRightIcon,
-    path: '/complaintHandling',
+    path: '/contactus',
   },
 ];
 
