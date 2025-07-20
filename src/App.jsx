@@ -87,6 +87,7 @@ import AdminMyShopItem from "./pages/admin/AdminShopItem";
 import NewLogin from "./pages/Login_new";
 
 import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
+import PurchaseDetails from "./pages/PurchaseDetails";
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -411,6 +412,12 @@ const App = () => {
       <Route path="/shopitem" element={
           <Layout>
             <ShopItem/>
+          </Layout>
+        }
+      />
+      <Route path="/purchase-details" element={
+          <Layout>
+            <PurchaseDetails/>
           </Layout>
         }
       />

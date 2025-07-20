@@ -550,9 +550,9 @@ const CropDetailView = () => {
           <div className="lg:col-span-1 space-y-6">
             {/* Purchase Section */}
             <div className="bg-gradient-to-br from-white to-agrovia-50 rounded-2xl p-6 shadow-xl border-2 border-agrovia-200 sticky top-6">
-              <div className="bg-agrovia-500 text-white text-center py-3 px-4 rounded-xl mb-6 shadow-lg">
+              {/* <div className="bg-agrovia-500 text-white text-center py-3 px-4 rounded-xl mb-6 shadow-lg">
                 <h3 className="text-xl font-bold">Purchase Details</h3>
-              </div>
+              </div> */}
               
               {/* Quantity Selector */}
               <div className="mb-6">
@@ -599,6 +599,17 @@ const CropDetailView = () => {
                       LKR {(crop.pricePerUnit * quantity).toLocaleString()}
                     </span>
                   </div>
+                </div>
+                <div className="mt-6 text-center">
+                  {user && crop && user.id !== crop.farmer_Id && (
+                  <button
+                    className="bg-agrovia-500 text-white text-center py-3 px-4 rounded-xl mb-6 shadow-lg"
+                    onClick={() => navigate('/purchase-details', { state: { crop, quantity } })}
+                  >
+                    <ShoppingCart className="w-5 h-5 mr-2" />
+                    View Purchase Details
+                  </button>
+                  )}
                 </div>
               </div>
 
