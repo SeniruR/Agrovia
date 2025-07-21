@@ -79,30 +79,30 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center mb-8">
-          <button
-            onClick={onBack}
-            className="mr-4 p-2 bg-white hover:bg-white hover:shadow-md rounded-xl transition-all"
-          >
-            <ArrowLeft className="w-6 h-6 text-slate-600" />
-          </button>
-          <div className="flex items-center">
-            <div className={`w-12 h-12 bg-gradient-to-br ${getTypeColor(normalizedComplaint.type)} rounded-xl flex items-center justify-center mr-4`}>
-              {getTypeIcon(normalizedComplaint.type)}
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-800">Complaint Details</h1>
-              <p className="text-slate-600">#{normalizedComplaint.id} • {normalizedComplaint.type} complaint</p>
+        
+          <div className="flex items-center mb-8">
+            <button
+              onClick={onBack}
+              className="mr-4 p-2 bg-white hover:bg-white hover:shadow-md rounded-xl transition-all"
+            >
+              <ArrowLeft className="w-6 h-6 text-slate-600" />
+            </button>
+            <div className="flex items-center">
+              <div className={`w-16 h-16 bg-gradient-to-br ${getTypeColor(normalizedComplaint.type)} rounded-xl flex items-center justify-center mr-6`}>
+                {getTypeIcon(normalizedComplaint.type)}
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-slate-800">Complaint Details</h1>
+                <p className="text-slate-600 text-lg">#{normalizedComplaint.id} • {normalizedComplaint.type} complaint</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="grid lg:grid-cols-1 gap-20">
+            {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6 w-full">
             {/* Complaint Info with Edit Button */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+            <div className="bg-white rounded-2xl w-full shadow-sm border border-slate-100 p-8">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-4">
@@ -452,95 +452,221 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
       )}
               </div>
 
-              <div className="prose max-w-none">
-                <p className="text-slate-700 leading-relaxed mb-6">{normalizedComplaint.description}</p>
+              {/* Enhanced Description Section */}
+              <div className="mt-6">
+                <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl p-6 border border-slate-200/60 shadow-sm">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-3 h-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"></div>
+                    <h3 className="text-lg font-semibold text-slate-800">Description</h3>
+                  </div>
+                  <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                    <p className="text-slate-700 leading-relaxed text-base">{normalizedComplaint.description}</p>
+                  </div>
+                </div>
               </div>
 
-              {/* Additional Details */}
-              <div className="grid md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <User className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <p className="text-sm text-slate-500">Submitted by</p>
-                      <p className="font-medium text-slate-800">{normalizedComplaint.submittedByName}</p>
+              {/* Additional Details - Enhanced Beautiful Design */}
+              <div className="mt-8">
+                <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl p-6 border border-slate-200/50 shadow-sm">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"></div>
+                    <span>Complaint Information</span>
+                  </h3>
+                  
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Submission Information Card */}
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-blue-100 p-2 rounded-lg">
+                          <User className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-600 mb-1">Submitted by</p>
+                          <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.submittedByName || 'Anonymous'}</p>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Date Information Card */}
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-green-100 p-2 rounded-lg">
+                          <Calendar className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-600 mb-1">Submitted on</p>
+                          <p className="font-semibold text-slate-800 text-sm">{(() => {
+                            let date = normalizedComplaint.submittedAt;
+                            if (date) {
+                              if (typeof date === 'string' || typeof date === 'number') {
+                                date = new Date(date);
+                              }
+                              if (date instanceof Date && !isNaN(date)) {
+                                return date.toLocaleDateString('en-US', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                });
+                              }
+                            }
+                            return 'Not specified';
+                          })()}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Category Card */}
+                    {normalizedComplaint.category && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-purple-100 p-2 rounded-lg">
+                            <MessageSquareX className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Category</p>
+                            <p className="font-semibold text-slate-800 text-sm capitalize">{normalizedComplaint.category}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Order Number Card */}
+                    {normalizedComplaint.orderNumber && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-orange-100 p-2 rounded-lg">
+                            <CheckCircle className="w-5 h-5 text-orange-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Order Number</p>
+                            <p className="font-semibold text-slate-800 text-sm font-mono">{normalizedComplaint.orderNumber}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Crop Type Card */}
+                    {normalizedComplaint.cropType && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-green-100 p-2 rounded-lg">
+                            <Wheat className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Crop Type</p>
+                            <p className="font-semibold text-slate-800 text-sm capitalize">{normalizedComplaint.cropType}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Farmer Card */}
+                    {normalizedComplaint.farmer && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-emerald-100 p-2 rounded-lg">
+                            <User className="w-5 h-5 text-emerald-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Farmer</p>
+                            <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmer}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Shop Name Card */}
+                    {normalizedComplaint.shopName && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-blue-100 p-2 rounded-lg">
+                            <Store className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Shop Name</p>
+                            <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.shopName}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Transport Company Card */}
+                    {normalizedComplaint.transportCompany && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-purple-100 p-2 rounded-lg">
+                            <Truck className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Transport Company</p>
+                            <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.transportCompany}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Purchase Date Card */}
+                    {normalizedComplaint.purchaseDate && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-indigo-100 p-2 rounded-lg">
+                            <Calendar className="w-5 h-5 text-indigo-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Purchase Date</p>
+                            <p className="font-semibold text-slate-800 text-sm">{typeof normalizedComplaint.purchaseDate === 'string' ? normalizedComplaint.purchaseDate : normalizedComplaint.purchaseDate.toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delivery Date Card */}
+                    {normalizedComplaint.deliveryDate && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-teal-100 p-2 rounded-lg">
+                            <Calendar className="w-5 h-5 text-teal-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Delivery Date</p>
+                            <p className="font-semibold text-slate-800 text-sm">{typeof normalizedComplaint.deliveryDate === 'string' ? normalizedComplaint.deliveryDate : normalizedComplaint.deliveryDate.toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tracking Number Card */}
+                    {normalizedComplaint.trackingNumber && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-amber-100 p-2 rounded-lg">
+                            <Truck className="w-5 h-5 text-amber-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Tracking Number</p>
+                            <p className="font-semibold text-slate-800 text-sm font-mono">{normalizedComplaint.trackingNumber}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Location Card (for shop and transport) */}
+                    {normalizedComplaint.location && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-red-100 p-2 rounded-lg">
+                            <User className="w-5 h-5 text-red-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Location</p>
+                            <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.location}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <p className="text-sm text-slate-500">Submitted on</p>
-                      <p className="font-medium text-slate-800">{(() => {
-                        let date = normalizedComplaint.submittedAt;
-                        if (date) {
-                          if (typeof date === 'string' || typeof date === 'number') {
-                            date = new Date(date);
-                          }
-                          if (date instanceof Date && !isNaN(date)) {
-                            return date.toLocaleString(); // Show date and time
-                          }
-                        }
-                        return '';
-                      })()}</p>
-                    </div>
-                  </div>
-                  {normalizedComplaint.category && (
-                    <div>
-                      <p className="text-sm text-slate-500">Category</p>
-                      <p className="font-medium text-slate-800">{normalizedComplaint.category}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4">
-                 
-                  {normalizedComplaint.orderNumber && (
-                    <div>
-                      <p className="text-sm text-slate-500">Order Number</p>
-                      <p className="font-medium text-slate-800">{normalizedComplaint.orderNumber}</p>
-                    </div>
-                  )}
-                  {normalizedComplaint.cropType && (
-                    <div>
-                      <p className="text-sm text-slate-500">Crop Type</p>
-                      <p className="font-medium text-slate-800">{normalizedComplaint.cropType}</p>
-                    </div>
-                  )}
-                  {normalizedComplaint.farmer && (
-                    <div>
-                      <p className="text-sm text-slate-500">Farmer</p>
-                      <p className="font-medium text-slate-800">{normalizedComplaint.farmer}</p>
-                    </div>
-                  )}
-                  {normalizedComplaint.shopName && (
-                    <div>
-                      <p className="text-sm text-slate-500">Shop Name</p>
-                      <p className="font-medium text-slate-800">{normalizedComplaint.shopName}</p>
-                    </div>
-                  )}
-                  {normalizedComplaint.transportCompany && (
-                    <div>
-                      <p className="text-sm text-slate-500">Transport Company</p>
-                      <p className="font-medium text-slate-800">{normalizedComplaint.transportCompany}</p>
-                    </div>
-                  )}
-                  {normalizedComplaint.purchaseDate && (
-                    <div>
-                      <p className="text-sm text-slate-500">Purchase Date</p>
-                      <p className="font-medium text-slate-800">{typeof normalizedComplaint.purchaseDate === 'string' ? normalizedComplaint.purchaseDate : normalizedComplaint.purchaseDate.toLocaleDateString()}</p>
-                    </div>
-                  )}
-                  {normalizedComplaint.deliveryDate && (
-                    <div>
-                      <p className="text-sm text-slate-500">Delivery Date</p>
-                      <p className="font-medium text-slate-800">{typeof normalizedComplaint.deliveryDate === 'string' ? normalizedComplaint.deliveryDate : normalizedComplaint.deliveryDate.toLocaleDateString()}</p>
-                    </div>
-                  )}
-                  {normalizedComplaint.trackingNumber && (
-                    <div>
-                      <p className="text-sm text-slate-500">Tracking Number</p>
-                      <p className="font-medium text-slate-800">{normalizedComplaint.trackingNumber}</p>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -554,108 +680,164 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                 )}
               </div>
               
-              {/* Attachments for crop, shop, and transport complaints */}
+              {/* Enhanced Attachments Section */}
               {((normalizedComplaint.attachments && normalizedComplaint.attachments.length > 0) || 
                  normalizedComplaint.image || 
                  (normalizedComplaint.images && normalizedComplaint.images.length > 0)) && (
-                <div className="mt-6 mb-6 pt-6 border-t border-slate-100">
-                  <p className="text-sm font-medium text-slate-700 mb-3">Attachments</p>
-                  <div className="flex flex-wrap gap-4">
-                    {/* Handle complaint.attachments array (crop/transport complaints) */}
-                    {normalizedComplaint.attachments && normalizedComplaint.attachments.map((file, idx) => {
-                      if (file && typeof file === 'string') {
-                        return (
-                          <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
-                            <img
-                              src={`data:image/jpeg;base64,${file}`}
-                              alt={`Attachment ${idx + 1}`}
-                              className="w-full h-auto cursor-zoom-in"
-                              style={{ maxHeight: 240 }}
-                              onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
-                              onError={(e) => {
-                                console.error("Attachment image load error", idx);
-                                e.target.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
-                    {/* Handle complaint.image (single image for shop complaints) */}
-                    {normalizedComplaint.image && (() => {
-                      let imageData = '';
-                      if (typeof normalizedComplaint.image === 'string') {
-                        imageData = normalizedComplaint.image.replace(/^["'\[\{]+|["'\]\}]+$/g, '');
-                        if (imageData.startsWith('data:')) {
+                <div className="mt-6">
+                  <div className="bg-gradient-to-br from-white to-indigo-50 rounded-2xl p-6 border border-indigo-200/60 shadow-sm">
+                    <div className="flex items-center space-x-3 mb-5">
+                      <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"></div>
+                      <h3 className="text-lg font-semibold text-slate-800">Attachments</h3>
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                        {(normalizedComplaint.attachments?.length || 0) + 
+                         (normalizedComplaint.image ? 1 : 0) + 
+                         (normalizedComplaint.images?.length || 0)} files
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {/* Handle complaint.attachments array (crop/transport complaints) */}
+                      {normalizedComplaint.attachments && normalizedComplaint.attachments.map((file, idx) => {
+                        if (file && typeof file === 'string') {
                           return (
-                            <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
-                              <img
-                                src={imageData}
-                                alt="Shop Attachment"
-                                className="w-full h-auto cursor-zoom-in"
-                                style={{ maxHeight: 240 }}
-                                onClick={() => setEnlargedImage(imageData)}
-                                onError={(e) => {
-                                  console.error("Shop image load error with data URL");
-                                  e.target.style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
-                              <img
-                                src={`data:image/jpeg;base64,${imageData}`}
-                                alt="Shop Attachment"
-                                className="w-full h-auto cursor-zoom-in"
-                                style={{ maxHeight: 240 }}
-                                onClick={() => setEnlargedImage(`data:image/jpeg;base64,${imageData}`)}
-                                onError={(e) => {
-                                  console.error("Shop image load error with base64");
-                                  e.target.style.display = 'none';
-                                }}
-                              />
+                            <div key={idx} className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+                              <div className="aspect-square relative">
+                                <img
+                                  src={`data:image/jpeg;base64,${file}`}
+                                  alt={`Attachment ${idx + 1}`}
+                                  className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
+                                  onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
+                                  onError={(e) => {
+                                    console.error("Attachment image load error", idx);
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                  <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="p-3">
+                                <p className="text-xs font-medium text-slate-600 text-center">Image {idx + 1}</p>
+                              </div>
                             </div>
                           );
                         }
-                      }
-                      return null;
-                    })()}
-                    {/* Handle complaint.images array (multiple images for shop complaints) */}
-                    {normalizedComplaint.images && normalizedComplaint.images.map((file, idx) => {
-                      if (file && typeof file === 'string') {
-                        return (
-                          <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
-                            <img
-                              src={`data:image/jpeg;base64,${file}`}
-                              alt={`Attachment ${idx + 1}`}
-                              className="w-full h-auto cursor-zoom-in"
-                              style={{ maxHeight: 240 }}
-                              onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
-                              onError={(e) => {
-                                console.error("Image load error");
-                                e.target.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
+                        return null;
+                      })}
+                      {/* Handle complaint.image (single image for shop complaints) */}
+                      {normalizedComplaint.image && (() => {
+                        let imageData = '';
+                        if (typeof normalizedComplaint.image === 'string') {
+                          imageData = normalizedComplaint.image.replace(/^["'\[\{]+|["'\]\}]+$/g, '');
+                          if (imageData.startsWith('data:')) {
+                            return (
+                              <div className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+                                <div className="aspect-square relative">
+                                  <img
+                                    src={imageData}
+                                    alt="Shop Attachment"
+                                    className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
+                                    onClick={() => setEnlargedImage(imageData)}
+                                    onError={(e) => {
+                                      console.error("Shop image load error with data URL");
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                    <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                      <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs font-medium text-slate-600 text-center">Shop Image</p>
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+                                <div className="aspect-square relative">
+                                  <img
+                                    src={`data:image/jpeg;base64,${imageData}`}
+                                    alt="Shop Attachment"
+                                    className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
+                                    onClick={() => setEnlargedImage(`data:image/jpeg;base64,${imageData}`)}
+                                    onError={(e) => {
+                                      console.error("Shop image load error with base64");
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                    <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                      <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs font-medium text-slate-600 text-center">Shop Image</p>
+                                </div>
+                              </div>
+                            );
+                          }
+                        }
+                        return null;
+                      })()}
+                      {/* Handle complaint.images array (multiple images for shop complaints) */}
+                      {normalizedComplaint.images && normalizedComplaint.images.map((file, idx) => {
+                        if (file && typeof file === 'string') {
+                          return (
+                            <div key={idx} className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+                              <div className="aspect-square relative">
+                                <img
+                                  src={`data:image/jpeg;base64,${file}`}
+                                  alt={`Attachment ${idx + 1}`}
+                                  className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
+                                  onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
+                                  onError={(e) => {
+                                    console.error("Image load error");
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                  <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="p-3">
+                                <p className="text-xs font-medium text-slate-600 text-center">Image {idx + 1}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
                   </div>
-                  {/* Image Modal */}
+                  {/* Enhanced Image Modal */}
                   {enlargedImage && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70" onClick={() => setEnlargedImage(null)}>
-                      <div className="relative" onClick={e => e.stopPropagation()}>
-                        <img src={enlargedImage} alt="Enlarged Attachment" className="max-w-[90vw] max-h-[80vh] rounded-2xl shadow-2xl border-4 border-white" />
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setEnlargedImage(null)}>
+                      <div className="relative max-w-5xl max-h-[90vh] p-4" onClick={e => e.stopPropagation()}>
+                        <img src={enlargedImage} alt="Enlarged Attachment" className="max-w-full max-h-full rounded-2xl shadow-2xl border-4 border-white" />
                         <button
                           onClick={() => setEnlargedImage(null)}
-                          className="absolute top-2 right-2 bg-white/80 hover:bg-white text-slate-700 rounded-full p-2 shadow-lg"
+                          className="absolute -top-2 -right-2 bg-white hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-full p-3 shadow-lg transition-colors"
                           style={{ zIndex: 10 }}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -685,7 +867,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                           setEditReplyText(currentReply);
                           setShowEditReplyForm(!showEditReplyForm);
                         }}
-                        className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center space-x-2"
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                       >
                         <MessageCircle className="w-4 h-4" />
                         <span>Update Reply</span>
@@ -730,7 +912,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                           alert(err.message || 'Failed to add reply');
                         }
                       }}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                      className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                     >
                       <span>Send Reply</span>
                     </button>
@@ -740,14 +922,14 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
 
               {/* Admin edit reply form */}
               {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && showEditReplyForm && (
-                <div className="mb-6 p-4 bg-green-50 rounded-xl border border-green-200">
-                  <h4 className="text-sm font-medium text-green-800 mb-2">Update Reply</h4>
+                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+                  <h4 className="text-sm  font-medium text-slate-700 mb-2">Update Reply</h4>
                   <textarea
                     value={editReplyText}
                     onChange={(e) => setEditReplyText(e.target.value)}
                     placeholder="Update your official response to the customer..."
                     rows={4}
-                    className="w-full px-4 py-3 rounded-xl border border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-colors resize-none"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none"
                   />
                   <div className="flex justify-end space-x-3 mt-3">
                     <button
@@ -776,7 +958,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                           alert(err.message || 'Failed to update reply');
                         }
                       }}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                      className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                     >
                       <span>Update Reply</span>
                     </button>
