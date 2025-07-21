@@ -191,7 +191,7 @@ const ByersMarketplace = () => {
         )}
         
         {/* Top badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1">
+        {/* <div className="absolute top-3 left-3 flex flex-col gap-1">
           {product.discount > 0 && (
             <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
               <Zap size={10} />
@@ -210,7 +210,7 @@ const ByersMarketplace = () => {
               Trending
             </div>
           )}
-        </div>
+        </div> */}
 
         {/* Top right badges */}
         <div className="absolute top-3 right-3 flex flex-col gap-1">
