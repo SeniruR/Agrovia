@@ -38,6 +38,7 @@ import ProfileRouter from "./components/ProfileRouter";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
+import MyOrders from './pages/MyOrders';
 
 import CropPostForm from "./pages/farmer/CropPostForm";
 
@@ -553,6 +554,11 @@ const App = () => {
           </Layout>
         } />
 
+      <Route path="/orders" element={
+        <Layout>
+          <MyOrders />
+        </Layout>
+      } />
 
 
     </Routes>
