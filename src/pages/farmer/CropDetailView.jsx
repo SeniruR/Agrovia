@@ -53,6 +53,12 @@ const CropDetailView = () => {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
 
+
+  useEffect(() => {
+  if (crop) {
+    setQuantity(crop.minimumQuantityBulk ? Math.min(crop.minimumQuantityBulk, crop.quantity) : 1);
+  }
+}, [crop]);
   // Fetch real crop data from API
   useEffect(() => {
     const fetchCropData = async () => {
@@ -575,13 +581,14 @@ const CropDetailView = () => {
               {user && crop && user.id != crop.farmer_Id && (
               <>
               
+
+
 <div className="mb-6">
   <label className="block text-sm font-semibold text-gray-800 mb-3">Select Quantity:</label>
   <div className="flex items-center border-2 border-agrovia-300 rounded-xl shadow-inner bg-white">
     <button
       onClick={() => {
         if (crop.minimumQuantityBulk) {
-          // If available is less than minimum, only allow all remaining
           if (crop.quantity < crop.minimumQuantityBulk) {
             setQuantity(crop.quantity);
           } else {
@@ -621,8 +628,7 @@ const CropDetailView = () => {
     <button
       onClick={() => {
         if (crop.minimumQuantityBulk) {
-          // If remaining is less than minimum, set to all remaining
-          if (crop.quantity - quantity < 1) {
+          if (crop.quantity < crop.minimumQuantityBulk) {
             setQuantity(crop.quantity);
           } else {
             setQuantity(Math.min(crop.quantity, quantity + 1));
@@ -647,8 +653,10 @@ const CropDetailView = () => {
 </div>
 
 
+
               </>
               )}
+             
 
               {/* Price Summary */}
               <div className="bg-gradient-to-r from-agrovia-100 to-green-100 rounded-xl p-5 mb-6 shadow-lg border border-agrovia-300">
