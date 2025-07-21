@@ -502,7 +502,7 @@ const CropPostForm = () => {
             name="cropCategory"
             value={formData.cropCategory}
             onChange={handleInputChange}
-            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
             required
           >
             <option value="vegetables">🥬 Vegetables</option>
@@ -519,8 +519,8 @@ const CropPostForm = () => {
             value={formData.cropName}
             onChange={handleInputChange}
             onBlur={handleBlur}
-            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-              errors.cropName && touched.cropName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+              errors.cropName && touched.cropName ? 'border-red-500 ring-2 ring-red-200' : 'border-green-300 hover:border-gray-400'
             }`}
             required
           >
@@ -547,7 +547,7 @@ const CropPostForm = () => {
             value={formData.variety}
             onChange={handleInputChange}
             placeholder="e.g., Cherry Tomato, Basmati Rice"
-            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
           />
         </div>
 
@@ -561,7 +561,7 @@ const CropPostForm = () => {
             value={formData.harvestDate}
             onChange={handleInputChange}
             onBlur={handleBlur}
-            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-green-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg ${
+            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-white-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg ${
               errors.harvestDate && touched.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-green-300'
             }`}
             required
@@ -584,7 +584,7 @@ const CropPostForm = () => {
           value={formData.expiryDate}
           onChange={handleInputChange}
           onBlur={handleBlur}
-          className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-green-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg"
+          className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-white-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg"
         />
         {errors.expiryDate && touched.expiryDate && (
           <div className="flex items-center mt-2 text-red-600 text-sm">
@@ -606,7 +606,7 @@ const CropPostForm = () => {
           onChange={handleInputChange}
           rows={6}
           placeholder="Describe your crop quality, growing conditions, and any special features..."
-          className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-green-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all resize-none text-base sm:text-lg"
+          className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-white-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all resize-none text-base sm:text-lg"
         />
       </div>
 
@@ -623,7 +623,7 @@ const CropPostForm = () => {
               name="organicCertified"
               checked={formData.organicCertified}
               onChange={handleInputChange}
-              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-green-300 rounded focus:ring-green-500 focus:ring-2"
             />
             <div className="ml-3">
               <span className="text-sm font-bold text-gray-800 flex items-center">
@@ -640,7 +640,7 @@ const CropPostForm = () => {
               name="pesticideFree"
               checked={formData.pesticideFree}
               onChange={handleInputChange}
-              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-green-300 rounded focus:ring-green-500 focus:ring-2"
             />
             <div className="ml-3">
               <span className="text-sm font-bold text-gray-800 flex items-center">
@@ -657,7 +657,7 @@ const CropPostForm = () => {
               name="freshlyHarvested"
               checked={formData.freshlyHarvested}
               onChange={handleInputChange}
-              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-green-300 rounded focus:ring-green-500 focus:ring-2"
             />
             <div className="ml-3">
               <span className="text-sm font-bold text-gray-800 flex items-center">
@@ -691,7 +691,7 @@ const CropPostForm = () => {
               onBlur={handleBlur}
               placeholder="Enter quantity"
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.quantity && touched.quantity ? 'border-red-500' : 'border-gray-300'
+                errors.quantity && touched.quantity ? 'border-red-500' : 'border-green-300'
               }`}
               required
               min="1"
@@ -710,7 +710,7 @@ const CropPostForm = () => {
             name="unit"
             value={formData.unit}
             onChange={handleInputChange}
-            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black"
+            className="w-full p-3 bg-white border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black"
             required
           >
             <option value="kg">Kilograms (kg)</option>
@@ -735,7 +735,7 @@ const CropPostForm = () => {
               onBlur={handleBlur}
               placeholder="Enter price"
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.pricePerUnit && touched.pricePerUnit ? 'border-red-500' : 'border-gray-300'
+                errors.pricePerUnit && touched.pricePerUnit ? 'border-red-500' : 'border-green-300'
               }`}
               required
               min="0"
@@ -761,7 +761,7 @@ const CropPostForm = () => {
               onBlur={handleBlur}
               placeholder="Enter minimum bulk quantity"
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.minimumQuantityBulk && touched.minimumQuantityBulk ? 'border-red-500' : 'border-gray-300'
+                errors.minimumQuantityBulk && touched.minimumQuantityBulk ? 'border-red-500' : 'border-green-300'
               }`}
               min="1"
               max={formData.quantity || ''}
@@ -854,7 +854,7 @@ const CropPostForm = () => {
               onBlur={handleBlur}
               placeholder="+94 XX XXX XXXX"
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.contactNumber && touched.contactNumber ? 'border-red-500' : 'border-gray-300'
+                errors.contactNumber && touched.contactNumber ? 'border-red-500' : 'border-green-300'
               }`}
               required
             />
@@ -876,7 +876,7 @@ const CropPostForm = () => {
             onBlur={handleBlur}
             placeholder="your.email@example.com"
             className={`w-full p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-              errors.email && touched.email ? 'border-red-500' : 'border-gray-300'
+              errors.email && touched.email ? 'border-red-500' : 'border-green-300'
             }`}
           />
           {errors.email && touched.email && (
@@ -896,7 +896,7 @@ const CropPostForm = () => {
               onChange={handleInputChange}
               onBlur={handleBlur}
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.district && touched.district ? 'border-red-500' : 'border-gray-300'
+                errors.district && touched.district ? 'border-red-500' : 'border-green-300'
               }`}
               required
             >
@@ -923,7 +923,7 @@ const CropPostForm = () => {
             rows="3"
             placeholder="Enter your farm location, nearest town, or specific address"
             className={`w-full p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 resize-none text-black ${
-              errors.location && touched.location ? 'border-red-500' : 'border-gray-300'
+              errors.location && touched.location ? 'border-red-500' : 'border-green-300'
             }`}
             required
           ></textarea>
@@ -947,7 +947,7 @@ const CropPostForm = () => {
           className={`border-2 border-dashed rounded-lg p-8 text-center bg-white transition-all duration-300 ${
             dragActive 
               ? 'border-green-500 bg-green-50' 
-              : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
+              : 'border-green-300 hover:border-green-400 hover:bg-green-50'
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -1076,7 +1076,7 @@ const CropPostForm = () => {
                 <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center font-bold text-lg sm:text-xl transition-all duration-500 transform ${
                   currentStep >= step 
                     ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg scale-105 ring-4 ring-green-200' 
-                    : 'bg-white text-gray-600 border-2 border-gray-300 shadow-sm hover:shadow-md'
+                    : 'bg-white text-gray-600 border-2 border-green-300 shadow-sm hover:shadow-md'
                 }`}>
                   {step}
                 </div>
