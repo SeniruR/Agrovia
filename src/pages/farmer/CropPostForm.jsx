@@ -3,9 +3,10 @@ import axios from 'axios';
 import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload, Leaf, Droplets, AlertCircle, CheckCircle, RefreshCw, LogIn } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CropPostForm = () => {
+  const navigate = useNavigate();
   const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const [formData, setFormData] = useState({
     cropType: '',
@@ -131,8 +132,29 @@ const CropPostForm = () => {
       case 'minimumQuantityBulk':
         return value && value <= 0 ? 'Minimum bulk quantity must be greater than 0' :
           value && formData.quantity && parseFloat(value) > parseFloat(formData.quantity) ? 'Minimum bulk quantity cannot exceed available quantity' : '';
-      case 'harvestDate':
-        return !value ? 'Harvest date is required' : '';
+          case 'harvestDate': {
+            if (!value) return 'Harvest date is required';
+            const harvestDate = new Date(value);
+            const postDate = new Date(); // post's created date is now
+            // Only date part, ignore time
+            harvestDate.setHours(0,0,0,0);
+            postDate.setHours(0,0,0,0);
+            if (harvestDate >= postDate) {
+              return 'Harvest date must be before the post date';
+            }
+            return '';
+          }
+          case 'expiryDate': {
+            if (!value) return '';
+            const expiryDate = new Date(value);
+            const postDate = new Date(); // post's created date is now
+            expiryDate.setHours(0,0,0,0);
+            postDate.setHours(0,0,0,0);
+            if (expiryDate <= postDate) {
+              return 'Best before date must be after the post date';
+            }
+            return '';
+          }
       case 'contactNumber':
         return !value ? 'Contact number is required' :
           !/^(\+94|0)[0-9]{9}$/.test(value.replace(/\s/g, '')) ? 'Invalid Sri Lankan phone number' : '';
@@ -410,6 +432,8 @@ const CropPostForm = () => {
       
       setSubmitSuccess(true);
       alert('🎉 Crop post submitted successfully! Your crop is now listed on the marketplace.');
+
+      navigate('/farmviewAllCrops');
       
       // Reset form after successful submission
       setFormData({
@@ -554,13 +578,21 @@ const CropPostForm = () => {
           <label className="block text-sm font-semibold text-gray-700 mb-3">
             <Calendar className="inline w-5 h-5 mr-2" />Best Before Date
           </label>
-          <input
-            type="date"
-            name="expiryDate"
-            value={formData.expiryDate}
-            onChange={handleInputChange}
-            className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-green-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg"
-          />
+        <input
+          type="date"
+          name="expiryDate"
+          value={formData.expiryDate}
+          onChange={handleInputChange}
+          onBlur={handleBlur}
+          className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-green-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg"
+        />
+        {errors.expiryDate && touched.expiryDate && (
+          <div className="flex items-center mt-2 text-red-600 text-sm">
+            <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+            <span>{errors.expiryDate}</span>
+          </div>
+        )}
+        
         </div>
       </div>
 
