@@ -573,33 +573,80 @@ const CropDetailView = () => {
               
               {/* Quantity Selector */}
               {user && crop && user.id != crop.farmer_Id && (
-                  <>
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Select Quantity:</label>
-                <div className="flex items-center border-2 border-agrovia-300 rounded-xl shadow-inner bg-white">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-4 py-3 hover:bg-agrovia-100 transition-colors text-lg font-bold text-agrovia-600 rounded-l-xl"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="flex-1 py-3 text-center border-x-2 border-agrovia-300 focus:outline-none focus:bg-agrovia-50 text-lg font-bold text-gray-800"
-                    min={1}
-                    max={crop.quantity}
-                  />
-                  <button
-                    onClick={() => setQuantity(Math.min(crop.quantity, quantity + 1))}
-                    className="px-4 py-3 hover:bg-agrovia-100 transition-colors text-lg font-bold text-agrovia-600 rounded-r-xl"
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="text-sm text-gray-600 mt-2 text-center font-medium">{crop.unit}</div>
-              </div>
+              <>
+              
+<div className="mb-6">
+  <label className="block text-sm font-semibold text-gray-800 mb-3">Select Quantity:</label>
+  <div className="flex items-center border-2 border-agrovia-300 rounded-xl shadow-inner bg-white">
+    <button
+      onClick={() => {
+        if (crop.minimumQuantityBulk) {
+          // If available is less than minimum, only allow all remaining
+          if (crop.quantity < crop.minimumQuantityBulk) {
+            setQuantity(crop.quantity);
+          } else {
+            setQuantity(Math.max(crop.minimumQuantityBulk, quantity - 1));
+          }
+        } else {
+          setQuantity(Math.max(1, quantity - 1));
+        }
+      }}
+      className="px-4 py-3 hover:bg-agrovia-100 transition-colors text-lg font-bold text-agrovia-600 rounded-l-xl"
+      disabled={quantity <= (crop.minimumQuantityBulk || 1)}
+    >
+      -
+    </button>
+    <input
+      type="number"
+      value={quantity}
+      onChange={(e) => {
+        let val = parseInt(e.target.value) || 1;
+        if (crop.minimumQuantityBulk) {
+          if (crop.quantity < crop.minimumQuantityBulk) {
+            val = crop.quantity;
+          } else {
+            val = Math.max(crop.minimumQuantityBulk, Math.min(val, crop.quantity));
+          }
+        } else {
+          val = Math.max(1, Math.min(val, crop.quantity));
+        }
+        setQuantity(val);
+      }}
+      className="flex-1 py-3 text-center border-x-2 border-agrovia-300 focus:outline-none focus:bg-agrovia-50 text-lg font-bold text-gray-800"
+      min={crop.minimumQuantityBulk || 1}
+      max={crop.quantity}
+      step={1}
+      readOnly={crop.quantity < (crop.minimumQuantityBulk || 1)}
+    />
+    <button
+      onClick={() => {
+        if (crop.minimumQuantityBulk) {
+          // If remaining is less than minimum, set to all remaining
+          if (crop.quantity - quantity < 1) {
+            setQuantity(crop.quantity);
+          } else {
+            setQuantity(Math.min(crop.quantity, quantity + 1));
+          }
+        } else {
+          setQuantity(Math.min(crop.quantity, quantity + 1));
+        }
+      }}
+      className="px-4 py-3 hover:bg-agrovia-100 transition-colors text-lg font-bold text-agrovia-600 rounded-r-xl"
+      disabled={quantity >= crop.quantity}
+    >
+      +
+    </button>
+  </div>
+  <div className="text-sm text-gray-600 mt-2 text-center font-medium">
+    {crop.quantity < (crop.minimumQuantityBulk || 1)
+      ? `Only ${crop.quantity} ${crop.unit} left. You must buy all.`
+      : crop.minimumQuantityBulk
+        ? `Minimum order: ${crop.minimumQuantityBulk} ${crop.unit}${crop.quantity % crop.minimumQuantityBulk !== 0 ? `. Last buyer must take all remaining.` : ''}`
+        : crop.unit}
+  </div>
+</div>
+
+
               </>
               )}
 
