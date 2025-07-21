@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle, UserX } from 'lucide-react';
 
 const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   // Normalize complaint data to handle both camelCase and snake_case field names
@@ -23,6 +23,9 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   const [currentReply, setCurrentReply] = useState(normalizedComplaint?.reply || '');
   // Image modal state
   const [enlargedImage, setEnlargedImage] = useState(null);
+  // Farmer deactivation state
+  const [farmerDeactivated, setFarmerDeactivated] = useState(false);
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
   // Initialize form data only when popup opens
   const handleEditPopupOpen = () => {
@@ -460,7 +463,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                     <h3 className="text-lg font-semibold text-slate-800">Description</h3>
                   </div>
                   <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
-                    <p className="text-slate-700 leading-relaxed text-base">{normalizedComplaint.description}</p>
+                    <p className="text-slate-700 leading-relaxed text-base break-words break-all overflow-hidden word-wrap">{normalizedComplaint.description}</p>
                   </div>
                 </div>
               </div>
@@ -565,14 +568,68 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                     {/* Farmer Card */}
                     {normalizedComplaint.farmer && (
                       <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                        <div className="flex items-start space-x-3">
-                          <div className="bg-emerald-100 p-2 rounded-lg">
-                            <User className="w-5 h-5 text-emerald-600" />
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            <div className="bg-emerald-100 p-2 rounded-lg">
+                              <User className="w-5 h-5 text-emerald-600" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-slate-600 mb-1">Farmer</p>
+                              <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmer}</p>
+                            </div>
                           </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-slate-600 mb-1">Farmer</p>
-                            <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmer}</p>
-                          </div>
+                          {/* Admin Action: Deactivate Farmer - Only for crop complaints and admin users */}
+                          {normalizedComplaint.type === 'crop' && 
+                           (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && (
+                            <button
+                              onClick={async () => {
+                                const confirmAction = window.confirm(
+                                  `Are you sure you want to deactivate farmer "${normalizedComplaint.farmer}"? This action will disable their account.`
+                                );
+                                
+                                if (!confirmAction) return;
+
+                                setIsDeactivating(true);
+                                try {
+                                  const response = await fetch(`http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/deactivate-farmer`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    }
+                                  });
+
+                                  const result = await response.json();
+
+                                  if (!response.ok) {
+                                    throw new Error(result.message || 'Failed to deactivate farmer');
+                                  }
+
+                                  setFarmerDeactivated(true);
+                                  alert(`✅ ${result.message}`);
+                                  
+                                } catch (error) {
+                                  console.error('Deactivate farmer error:', error);
+                                  alert(`❌ Error: ${error.message}`);
+                                } finally {
+                                  setIsDeactivating(false);
+                                }
+                              }}
+                              disabled={isDeactivating || farmerDeactivated}
+                              className={`ml-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors flex items-center space-x-1 ${
+                                farmerDeactivated 
+                                  ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                                  : isDeactivating 
+                                    ? 'bg-orange-50 text-orange-600 border-orange-200 cursor-wait'
+                                    : 'bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border-red-200'
+                              }`}
+                              title={farmerDeactivated ? "Farmer account has been deactivated" : "Deactivate farmer account"}
+                            >
+                              <UserX className="w-3 h-3" />
+                              <span>
+                                {farmerDeactivated ? 'Deactivated' : isDeactivating ? 'Deactivating...' : 'Deactivate'}
+                              </span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -856,7 +913,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                     {!currentReply ? (
                       <button
                         onClick={() => setShowReplyForm(!showReplyForm)}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                       >
                         <MessageCircle className="w-4 h-4" />
                         <span>Add Reply</span>
