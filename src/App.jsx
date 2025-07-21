@@ -23,6 +23,7 @@ import LayoutAll from "./components/LayoutAll"
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
+import PaymentSuccess from './pages/PaymentSuccess';
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import CartPage from "./pages/CartPage";
 import AgriShopMarketplace from "./pages/shop/Items";
@@ -129,6 +130,11 @@ const App = () => {
       <Route path="/admin/organization-approval" element={
         <Layout>
           <AdminOrganizationApproval />
+        </Layout>
+      } />
+      <Route path="/payment-success" element={
+        <Layout>
+          <PaymentSuccess />
         </Layout>
       } />
       <Route path="/" element={
