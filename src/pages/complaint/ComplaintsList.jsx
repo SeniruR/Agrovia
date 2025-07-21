@@ -141,7 +141,9 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
                       <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">Order: {complaint.orderNumber}</span>
                     )}
                   </div>
-                  <p className="text-slate-700 text-sm font-medium mb-2 line-clamp-3 group-hover:text-slate-900 transition-colors">{complaint.description}</p>
+                  <div className="h-10 mb-2">
+                    <p className="text-slate-700 text-sm font-medium overflow-hidden text-ellipsis line-clamp-2 break-words break-all leading-tight group-hover:text-slate-900 transition-colors">{complaint.description}</p>
+                  </div>
                   {/* Attachments preview - robust array check */}
                   {Array.isArray(complaint.attachments) && complaint.attachments.length > 0 && (
                     <div className="flex gap-2 mt-2">

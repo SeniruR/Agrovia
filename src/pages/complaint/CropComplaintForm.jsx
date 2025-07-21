@@ -171,6 +171,11 @@ const CropComplaintForm = ({ onBack }) => {
     setApiError('');
     setSuccess(false);
     if (!validateForm()) return;
+    
+    // Console log to_farmer ID and all form data
+    console.log('to_farmer ID:', formData.to_farmer);
+    console.log('All form data:', formData);
+    
     setSubmitting(true);
     try {
       const formPayload = new FormData();
@@ -183,6 +188,13 @@ const CropComplaintForm = ({ onBack }) => {
       formPayload.append('to_farmer', formData.to_farmer); // send farmer ID
       formPayload.append('category', formData.category);
       formPayload.append('orderNumber', formData.orderNumber || '');
+      
+      // Log what's being sent to the server
+      console.log('Sending to_farmer value:', formData.to_farmer);
+      for (let [key, value] of formPayload.entries()) {
+        console.log(`FormData - ${key}:`, value);
+      }
+      
       attachments.forEach(file => formPayload.append('attachments', file));
       const response = await fetch('/api/v1/crop-complaints', {
         method: 'POST',
@@ -214,6 +226,9 @@ const CropComplaintForm = ({ onBack }) => {
 
   // Special handler for farmer selection from dropdown
   const handleFarmerSelect = (farmer) => {
+    console.log('Selected farmer:', farmer);
+    console.log('Setting to_farmer ID to:', farmer.id);
+    
     setFormData(prev => ({
       ...prev,
       to_farmer: farmer.id,
@@ -293,6 +308,7 @@ const CropComplaintForm = ({ onBack }) => {
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Your Name *
                   </label>
+              
                   <input
                     type="text"
                     value={formData.submitterName}
@@ -306,6 +322,7 @@ const CropComplaintForm = ({ onBack }) => {
                     }`}
                     placeholder="Type your name..."
                     autoComplete="off"
+                    readOnly
                   />
                   {showSubmitterDropdown && submitterQuery.length >= 2 && (
                     <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-56 overflow-y-auto">
