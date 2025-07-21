@@ -24,12 +24,14 @@ const EditCropPost = () => {
     freshly_harvested: false,
     contact_number: '',
     email: '',
-    status: 'active',
+    status: 'pending',
     images: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     const fetchCropPost = async () => {
@@ -64,7 +66,7 @@ const EditCropPost = () => {
           freshly_harvested: Boolean(data.freshly_harvested),
           contact_number: data.contact_number || '',
           email: data.email || '',
-          status: data.status || 'active',
+          status: ['pending','approved','rejected','sold','available'].includes(data.status) ? data.status : 'pending',
           images: []
         });
       } catch (error) {
@@ -83,14 +85,87 @@ const EditCropPost = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Clear the error for this field when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
- // ...existing code...
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'crop_name':
+        return !value.trim() ? 'Crop name is required' : '';
+      case 'quantity':
+        return !value || parseFloat(value) <= 0 ? 'Quantity must be greater than 0' : '';
+      case 'price_per_unit':
+        return !value || parseFloat(value) <= 0 ? 'Price per unit must be greater than 0' : '';
+      case 'location':
+        return !value || value.trim().length < 10 ? 'Location must be at least 10 characters long' : '';
+      case 'contact_number':
+        return !value || value.trim().length < 10 ? 'Contact number must be at least 10 characters' : '';
+      case 'minimum_quantity_bulk':
+        return value && parseFloat(value) <= 0 ? 'Minimum quantity bulk must be greater than 0' : '';
+      case 'harvest_date':
+        if (!value) return '';
+        const harvestDate = new Date(value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return harvestDate > today ? 'Harvest date cannot be in the future' : '';
+      case 'expiry_date':
+        if (!value) return '';
+        const expiryDate = new Date(value);
+        const currentDate = new Date();
+        currentDate.setHours(0, 0, 0, 0);
+        if (expiryDate < currentDate) return 'Expiry date cannot be in the past';
+        const harvestDateValue = formData.harvest_date;
+        if (harvestDateValue && expiryDate <= new Date(harvestDateValue)) {
+          return 'Expiry date must be after harvest date';
+        }
+        return '';
+      default:
+        return '';
+    }
+  };
 
 const handleSubmit = async (e) => {
   e.preventDefault();
-  setIsSubmitting(true);
+  setFormError('');
   setSubmitSuccess(false);
+  
+  // Validate all fields and collect errors
+  const errors = {};
+  const fieldsToValidate = [
+    'crop_name',
+    'quantity',
+    'price_per_unit',
+    'location',
+    'contact_number',
+    'minimum_quantity_bulk',
+    'harvest_date',
+    'expiry_date'
+  ];
+
+  fieldsToValidate.forEach(field => {
+    const error = validateField(field, formData[field]);
+    if (error) {
+      errors[field] = error;
+    }
+  });
+
+  // Update field errors state
+  setFieldErrors(errors);
+
+  // If there are any errors, stop submission
+  if (Object.keys(errors).length > 0) {
+    setFormError('Please correct the errors in the form');
+    return;
+  }
+
+  setIsSubmitting(true);
 
   try {
     const submitData = new FormData();
@@ -140,7 +215,14 @@ const handleSubmit = async (e) => {
     navigate(`/crop/${id}`);
   } catch (err) {
     console.error('Error updating crop post:', err);
-    alert(`Failed to update crop post: ${err.response?.data?.message || err.message}`);
+    // Prefer backend error message if available
+    if (err.response && err.response.data && err.response.data.message) {
+      setFormError(err.response.data.message);
+    } else if (err.message) {
+      setFormError(err.message);
+    } else {
+      setFormError('Failed to update crop post. Please try again.');
+    }
   } finally {
     setIsSubmitting(false);
   }
@@ -179,6 +261,11 @@ const handleSubmit = async (e) => {
       )}
       <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
         <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 lg:p-12 border border-gray-200">
+          {formError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+              {formError}
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Basic Info */}
@@ -187,11 +274,14 @@ const handleSubmit = async (e) => {
                 <input 
                   type="text" 
                   name="crop_name"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.crop_name ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.crop_name} 
                   onChange={handleInputChange} 
                   required
                 />
+                {fieldErrors.crop_name && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.crop_name}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Crop Category</label>
@@ -224,11 +314,14 @@ const handleSubmit = async (e) => {
                   name="quantity"
                   step="0.01"
                   min="0"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.quantity ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.quantity} 
                   onChange={handleInputChange} 
                   required
                 />
+                {fieldErrors.quantity && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.quantity}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Unit</label>
@@ -254,11 +347,14 @@ const handleSubmit = async (e) => {
                   name="price_per_unit"
                   step="0.01"
                   min="0"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.price_per_unit ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.price_per_unit} 
                   onChange={handleInputChange} 
                   required
                 />
+                {fieldErrors.price_per_unit && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.price_per_unit}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Minimum Quantity Bulk</label>
@@ -277,42 +373,68 @@ const handleSubmit = async (e) => {
                 <input 
                   type="date" 
                   name="harvest_date"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.harvest_date ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.harvest_date} 
                   onChange={handleInputChange} 
                 />
+                {fieldErrors.harvest_date && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.harvest_date}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Expiry Date</label>
                 <input 
                   type="date" 
                   name="expiry_date"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.expiry_date ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.expiry_date} 
                   onChange={handleInputChange} 
                 />
+                {fieldErrors.expiry_date && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.expiry_date}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Location</label>
                 <input 
                   type="text" 
                   name="location"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.location ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.location} 
                   onChange={handleInputChange} 
                   required
                 />
+                {fieldErrors.location && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.location}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">District</label>
                 <input 
                   type="text" 
                   name="district"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-100 cursor-not-allowed" 
                   value={formData.district} 
-                  onChange={handleInputChange} 
+                  readOnly
                   required
                 />
+              </div>
+              {/* Status */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Status</label>
+                <select
+                  name="status"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="sold">Sold</option>
+                  <option value="available">Available</option>
+                </select>
               </div>
               {/* Description & Contact */}
               <div className="sm:col-span-2">
@@ -330,20 +452,23 @@ const handleSubmit = async (e) => {
                 <input 
                   type="tel" 
                   name="contact_number"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.contact_number ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.contact_number} 
                   onChange={handleInputChange} 
                   required
                 />
+                {fieldErrors.contact_number && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors.contact_number}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Email</label>
                 <input 
                   type="email" 
                   name="email"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-100 cursor-not-allowed" 
                   value={formData.email} 
-                  onChange={handleInputChange} 
+                  readOnly
                 />
               </div>
               <div className="sm:col-span-2 flex flex-wrap items-center gap-4 mt-4">
