@@ -572,6 +572,8 @@ const CropDetailView = () => {
               </div> */}
               
               {/* Quantity Selector */}
+              {user && crop && user.id != crop.farmer_Id && (
+                  <>
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-800 mb-3">Select Quantity:</label>
                 <div className="flex items-center border-2 border-agrovia-300 rounded-xl shadow-inner bg-white">
@@ -598,6 +600,8 @@ const CropDetailView = () => {
                 </div>
                 <div className="text-sm text-gray-600 mt-2 text-center font-medium">{crop.unit}</div>
               </div>
+              </>
+              )}
 
               {/* Price Summary */}
               <div className="bg-gradient-to-r from-agrovia-100 to-green-100 rounded-xl p-5 mb-6 shadow-lg border border-agrovia-300">
@@ -641,6 +645,8 @@ const CropDetailView = () => {
                   Add to Cart
                 </button>
                 )}
+                {user && crop && user.id != crop.farmer_Id && (
+                  <>
                 <button
                   onClick={handleContactFarmer}
                   className="w-full flex items-center justify-center px-6 py-4 border-3 border-agrovia-500 text-agrovia-600 rounded-xl hover:bg-agrovia-50 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
@@ -648,6 +654,8 @@ const CropDetailView = () => {
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Contact Farmer
                 </button>
+                </>
+                )}
                
                 
   {/* Delete Confirmation Modal */}
