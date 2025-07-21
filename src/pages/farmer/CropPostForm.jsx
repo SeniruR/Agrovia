@@ -537,8 +537,8 @@ const CropPostForm = () => {
             value={formData.harvestDate}
             onChange={handleInputChange}
             onBlur={handleBlur}
-            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-              errors.harvestDate && touched.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-green-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg ${
+              errors.harvestDate && touched.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-green-300'
             }`}
             required
           />
@@ -559,7 +559,7 @@ const CropPostForm = () => {
             name="expiryDate"
             value={formData.expiryDate}
             onChange={handleInputChange}
-            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-green-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg"
           />
         </div>
       </div>
@@ -574,7 +574,7 @@ const CropPostForm = () => {
           onChange={handleInputChange}
           rows={6}
           placeholder="Describe your crop quality, growing conditions, and any special features..."
-          className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none hover:border-gray-400 text-base sm:text-lg"
+          className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-green-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all resize-none text-base sm:text-lg"
         />
       </div>
 
