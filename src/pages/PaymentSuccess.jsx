@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useCart } from '../hooks/useCart';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle, ArrowLeft, ShoppingCart } from 'lucide-react';
 
@@ -16,6 +17,7 @@ const PaymentSuccess = () => {
   const [orderDetails, setOrderDetails] = useState(null);
   const [delivery, setDelivery] = useState(null);
   const [orderSaved, setOrderSaved] = useState(false);
+  const { clearCart } = useCart();
   const [orderSaveError, setOrderSaveError] = useState("");
 
   useEffect(() => {
@@ -58,6 +60,10 @@ const PaymentSuccess = () => {
           })
         });
         if (!res.ok) throw new Error('Order save failed');
+        // Clear client cart context and stored cart
+        clearCart();
+        localStorage.removeItem('lastOrderCart');
+        localStorage.removeItem('lastOrderDelivery');
         setOrderSaved(true);
         setOrderSaveError("");
       } catch (err) {

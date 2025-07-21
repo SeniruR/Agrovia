@@ -241,6 +241,10 @@ export const CartProvider = ({ children }) => {
       
       // Always update local state
       setCartItems([]);
+      // Refresh cart items from server to confirm empty
+      if (user) {
+        fetchCartItems();
+      }
     } catch (err) {
       console.error('Error clearing cart:', err);
       setError('Failed to clear cart');
