@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useCart } from '../hooks/useCart';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle, ArrowLeft, ShoppingCart } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const PaymentSuccess = () => {
   const { search } = useLocation();
@@ -19,6 +20,7 @@ const PaymentSuccess = () => {
   const [orderSaved, setOrderSaved] = useState(false);
   const { clearCart } = useCart();
   const [orderSaveError, setOrderSaveError] = useState("");
+  const { getAuthHeaders } = useAuth();
 
   useEffect(() => {
     try {
@@ -43,7 +45,8 @@ const PaymentSuccess = () => {
         const totalAmountValue = amount || orderDetails.reduce((sum, item) => sum + (item.priceAtAddTime || item.price) * item.quantity, 0).toFixed(2);
         const res = await fetch('http://localhost:5000/api/v1/orders', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          credentials: 'include',
           body: JSON.stringify({
             userId,
             orderId,
