@@ -94,6 +94,7 @@ import ContactPage from "./components/contact/ContactPage"
 
 import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 import PurchaseDetails from "./pages/PurchaseDetails";
+import EditCropPost from "./pages/farmer/EditCropPost";
 
 
 
@@ -517,6 +518,11 @@ const App = () => {
           </Layout>
         } />
 
+        <Route path="/edit-crop/:id" element={
+          <Layout>
+          <EditCropPost />
+          </Layout>
+          } />
 
          <Route path="/adminshopitems" element={
           <Layout>

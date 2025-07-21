@@ -19,6 +19,7 @@ import {
 import { cropService } from '../../services/cropService';
 import { useCart } from '../../hooks/useCart';
 
+import EditCropPost from './EditCropPost'; // Add this import at the top if not present
 import { Star } from 'lucide-react';
 import CartNotification from '../../components/CartNotification';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,6 +53,12 @@ const CropDetailView = () => {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
 
+
+  useEffect(() => {
+  if (crop) {
+    setQuantity(crop.minimumQuantityBulk ? Math.min(crop.minimumQuantityBulk, crop.quantity) : 1);
+  }
+}, [crop]);
   // Fetch real crop data from API
   useEffect(() => {
     const fetchCropData = async () => {
@@ -94,6 +101,8 @@ const CropDetailView = () => {
             farmer_Id: cropData.farmer_id // Added farmer_id
             });
           } else {
+  // Add this route to your router (example for React Router v6)
+  // <Route path="/edit-crop/:id" element={<EditCropPost />} />
           console.error('Failed to fetch crop data:', response.message);
           // Fallback to mock data if API fails
           const mockCrop = {
@@ -341,6 +350,19 @@ const CropDetailView = () => {
           </button>
           )}
                 {user && crop && user.id === crop.farmer_Id && (
+                  <>
+                  <button
+                      onClick={() => navigate(`/edit-crop/${crop.id}`, { state: { crop } })}
+                      className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-xl shadow-xl border-3 border-blue-400 hover:from-blue-600 hover:to-green-600 hover:scale-105 transition-all duration-300 font-bold relative group overflow-hidden mb-2"
+                      style={{ position: 'relative', overflow: 'hidden' }}
+                    >
+                      <span className="absolute left-0 top-0 h-full w-2 bg-blue-700 opacity-20 group-hover:w-full group-hover:opacity-10 transition-all duration-500"></span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2M12 7v2m0 4v2m-6 4h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span className="z-10">Edit Crop Post</span>
+                    </button>
+                  
                   <button
                     onClick={() => setShowDeleteModal(true)}
                     className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-red-500 via-pink-500 to-yellow-500 text-white rounded-lg shadow-lg hover:from-red-600 hover:to-yellow-600 hover:scale-105 transition-all duration-300 text-sm font-bold border-2 border-red-400 group"
@@ -353,6 +375,7 @@ const CropDetailView = () => {
                     </svg>
                     <span className="z-10">Delete</span>
                   </button>
+                  </>
                 )}
               </div>
             </div>
@@ -555,32 +578,85 @@ const CropDetailView = () => {
               </div> */}
               
               {/* Quantity Selector */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-800 mb-3">Select Quantity:</label>
-                <div className="flex items-center border-2 border-agrovia-300 rounded-xl shadow-inner bg-white">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-4 py-3 hover:bg-agrovia-100 transition-colors text-lg font-bold text-agrovia-600 rounded-l-xl"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="flex-1 py-3 text-center border-x-2 border-agrovia-300 focus:outline-none focus:bg-agrovia-50 text-lg font-bold text-gray-800"
-                    min={1}
-                    max={crop.quantity}
-                  />
-                  <button
-                    onClick={() => setQuantity(Math.min(crop.quantity, quantity + 1))}
-                    className="px-4 py-3 hover:bg-agrovia-100 transition-colors text-lg font-bold text-agrovia-600 rounded-r-xl"
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="text-sm text-gray-600 mt-2 text-center font-medium">{crop.unit}</div>
-              </div>
+              {user && crop && user.id != crop.farmer_Id && (
+              <>
+              
+
+
+<div className="mb-6">
+  <label className="block text-sm font-semibold text-gray-800 mb-3">Select Quantity:</label>
+  <div className="flex items-center border-2 border-agrovia-300 rounded-xl shadow-inner bg-white">
+    <button
+      onClick={() => {
+        if (crop.minimumQuantityBulk) {
+          if (crop.quantity < crop.minimumQuantityBulk) {
+            setQuantity(crop.quantity);
+          } else {
+            setQuantity(Math.max(crop.minimumQuantityBulk, quantity - 1));
+          }
+        } else {
+          setQuantity(Math.max(1, quantity - 1));
+        }
+      }}
+      className="px-4 py-3 hover:bg-agrovia-100 transition-colors text-lg font-bold text-agrovia-600 rounded-l-xl"
+      disabled={quantity <= (crop.minimumQuantityBulk || 1)}
+    >
+      -
+    </button>
+    <input
+      type="number"
+      value={quantity}
+      onChange={(e) => {
+        let val = parseInt(e.target.value) || 1;
+        if (crop.minimumQuantityBulk) {
+          if (crop.quantity < crop.minimumQuantityBulk) {
+            val = crop.quantity;
+          } else {
+            val = Math.max(crop.minimumQuantityBulk, Math.min(val, crop.quantity));
+          }
+        } else {
+          val = Math.max(1, Math.min(val, crop.quantity));
+        }
+        setQuantity(val);
+      }}
+      className="flex-1 py-3 text-center border-x-2 border-agrovia-300 focus:outline-none focus:bg-agrovia-50 text-lg font-bold text-gray-800"
+      min={crop.minimumQuantityBulk || 1}
+      max={crop.quantity}
+      step={1}
+      readOnly={crop.quantity < (crop.minimumQuantityBulk || 1)}
+    />
+    <button
+      onClick={() => {
+        if (crop.minimumQuantityBulk) {
+          if (crop.quantity < crop.minimumQuantityBulk) {
+            setQuantity(crop.quantity);
+          } else {
+            setQuantity(Math.min(crop.quantity, quantity + 1));
+          }
+        } else {
+          setQuantity(Math.min(crop.quantity, quantity + 1));
+        }
+      }}
+      className="px-4 py-3 hover:bg-agrovia-100 transition-colors text-lg font-bold text-agrovia-600 rounded-r-xl"
+      disabled={quantity >= crop.quantity}
+    >
+      +
+    </button>
+  </div>
+  <div className="text-sm text-gray-600 mt-2 text-center font-medium">
+    {crop.quantity < (crop.minimumQuantityBulk || 1)
+      ? `Only ${crop.quantity} ${crop.unit} left. You must buy all.`
+      : crop.minimumQuantityBulk
+        ? `Minimum order: ${crop.minimumQuantityBulk} ${crop.unit}${crop.quantity % crop.minimumQuantityBulk !== 0 ? `. Last buyer must take all remaining.` : ''}`
+        : crop.unit}
+  </div>
+</div>
+
+
+
+              </>
+              )}
+             
 
               {/* Price Summary */}
               <div className="bg-gradient-to-r from-agrovia-100 to-green-100 rounded-xl p-5 mb-6 shadow-lg border border-agrovia-300">
@@ -624,6 +700,8 @@ const CropDetailView = () => {
                   Add to Cart
                 </button>
                 )}
+                {user && crop && user.id != crop.farmer_Id && (
+                  <>
                 <button
                   onClick={handleContactFarmer}
                   className="w-full flex items-center justify-center px-6 py-4 border-3 border-agrovia-500 text-agrovia-600 rounded-xl hover:bg-agrovia-50 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
@@ -631,21 +709,10 @@ const CropDetailView = () => {
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Contact Farmer
                 </button>
-               
-                {user && crop && user.id === crop.farmerId && (
-                  <button
-                    onClick={() => setShowDeleteModal(true)}
-                    className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-red-500 via-pink-500 to-yellow-500 text-white rounded-xl shadow-xl border-3 border-red-400 hover:from-red-600 hover:to-yellow-600 hover:scale-105 transition-all duration-300 font-bold relative group overflow-hidden"
-                    style={{ position: 'relative', overflow: 'hidden' }}
-                  >
-                    <span className="absolute left-0 top-0 h-full w-2 bg-red-700 opacity-20 group-hover:w-full group-hover:opacity-10 transition-all duration-500"></span>
-                    {/* Bin (trash) icon */}
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-2 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h2a2 2 0 012 2v2" />
-                    </svg>
-                    <span className="z-10">Delete</span>
-                  </button>
+                </>
                 )}
+               
+                
   {/* Delete Confirmation Modal */}
   {showDeleteModal && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
