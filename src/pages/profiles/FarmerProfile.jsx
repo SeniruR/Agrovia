@@ -154,12 +154,16 @@ const FarmerProfile = () => {
         <div className="flex flex-col md:flex-row items-center gap-6">
           {/* Profile Image */}
           <div className="relative">
-            <img 
-              src={farmerData.profileImage || 'https://via.placeholder.com/128x128/4ade80/ffffff?text=👤'} 
+            <img
+              src={
+                farmerData.profileImage && farmerData.profileImage.trim() !== ''
+                  ? farmerData.profileImage
+                  : 'https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg'
+              }
               alt={farmerData.fullName}
               className="w-32 h-32 rounded-full border-4 border-white/20 shadow-lg object-cover"
-              onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/128x128/4ade80/ffffff?text=👤';
+              onError={e => {
+                e.target.src = 'https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg';
               }}
             />
             {farmerData.verified && (
