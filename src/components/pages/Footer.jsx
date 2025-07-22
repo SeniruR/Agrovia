@@ -1,5 +1,6 @@
 import React from 'react';
 import { Facebook, Twitter, Instagram, Mail, Phone, MapPin, Leaf, Users, ShoppingCart, BookOpen } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
   return (
@@ -124,7 +125,7 @@ const Footer = () => {
               © 2025 Agrovia. All rights reserved. Built for Sri Lankan farmers 
             </div>
             <div className="flex flex-wrap justify-center md:justify-end space-x-6 text-sm">
-              <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Privacy Policy</a>
+              <Link to="/privacy-policy" className="text-green-300 hover:text-white transition-colors duration-200">Privacy Policy</Link>
               <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Terms of Service</a>
               {/* <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Cookie Policy</a>
               <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Sitemap</a> */}

@@ -98,6 +98,8 @@ import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 import PurchaseDetails from "./pages/PurchaseDetails";
 import EditCropPost from "./pages/farmer/EditCropPost";
 
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -228,6 +230,7 @@ const App = () => {
           </Layout>
         }
       />
+
 
       <Route path="/cropListings" element={
           <Layout>
@@ -566,6 +569,11 @@ const App = () => {
         </Layout>
       } />
 
+      <Route path="/privacy-policy" element={
+        <LayoutAll>
+          <PrivacyPolicy />
+        </LayoutAll>
+      } />
 
     </Routes>
     
