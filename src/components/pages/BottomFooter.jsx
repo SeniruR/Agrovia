@@ -1,6 +1,7 @@
 // src/components/BottomFooter.jsx
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const BottomFooter = () => {
   return (
@@ -11,18 +12,10 @@ const BottomFooter = () => {
             © 2025 Agrovia. All rights reserved. Built for Sri Lankan farmers
           </div>
           <div className="flex flex-wrap justify-center md:justify-end space-x-6 text-sm">
-            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
-              Privacy Policy
-            </a>
-            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
-              Terms of Service
-            </a>
-            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
-              Cookie Policy
-            </a>
-            <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">
-              Sitemap
-            </a>
+            <Link to="/privacy-policy" className="text-green-300 hover:text-white transition-colors duration-200">Privacy Policy</Link>
+            <Link to="/terms-of-service" className="text-green-300 hover:text-white transition-colors duration-200">Terms of Service</Link>
+            {/* <Link to="/cookie-policy" className="text-green-300 hover:text-white transition-colors duration-200">Cookie Policy</Link>
+            <Link to="/sitemap" className="text-green-300 hover:text-white transition-colors duration-200">Sitemap</Link> */}
           </div>
         </div>
       </div>
