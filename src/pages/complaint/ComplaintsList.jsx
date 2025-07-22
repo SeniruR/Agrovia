@@ -1,30 +1,23 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Filter, Search, Eye, MoreVertical, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Filter, Search, Eye, MoreVertical, Trash2, Wheat, Store, Truck } from 'lucide-react';
 
-const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack }) => {
+const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBack, onDeleteComplaint }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const filteredComplaints = complaints.filter(complaint => {
-    const matchesSearch = complaint.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.submittedBy.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || complaint.status === statusFilter;
+    const title = complaint.title || '';
+    const submittedBy = complaint.submittedBy || complaint.submittedByName || '';
+    const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         submittedBy.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || complaint.type === typeFilter;
-    
-    return matchesSearch && matchesStatus && matchesType;
+    const matchesPriority = priorityFilter === 'all' || complaint.priority === priorityFilter;
+    return matchesSearch && matchesType && matchesPriority;
   });
-
-  const getStatusIcon = (status) => {
-    return status === 'consider' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />;
-  };
-
-  const getStatusColor = (status) => {
-    return status === 'consider' 
-      ? 'bg-green-100 text-green-700 border-green-200'
-      : 'bg-red-100 text-red-700 border-red-200';
-  };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -82,17 +75,6 @@ const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack })
                 />
               </div>
             </div>
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 rounded-xl border bg-slate-100 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
-            >
-              <option value="all">All Status</option>
-              <option value="consider">Consider</option>
-              <option value="not-consider">Not Consider</option>
-            </select>
-
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
@@ -103,101 +85,99 @@ const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack })
               <option value="shop">Shop</option>
               <option value="transport">Transport</option>
             </select>
-
-            <button className="px-4 py-3 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors flex items-center space-x-2">
-              <Filter className="w-4 h-4" />
-              <span>More Filters</span>
-            </button>
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="px-4 py-3 rounded-xl border bg-slate-100 border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-colors"
+            >
+              <option value="all">All Priorities</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
           </div>
         </div>
 
         {/* Complaints List */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredComplaints.map((complaint) => (
-            <div key={complaint.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all">
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${getTypeColor(complaint.type)}`}>
-                        {complaint.type}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
-                        {complaint.priority}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center space-x-1 ${getStatusColor(complaint.status)}`}>
-                        {getStatusIcon(complaint.status)}
-                        <span>{complaint.status === 'consider' ? 'Consider' : 'Not Consider'}</span>
-                      </span>
-                      {complaint.assignedTo && (
-                        <span className="px-3 py-1 rounded-full text-xs  font-medium bg-blue-100 text-blue-700 border border-blue-200">
-                          Assigned: {complaint.assignedTo}
-                        </span>
-                      )}
-                    </div>
-                    
-                    <h3 className="text-lg font-semibold text-slate-800 mb-2">{complaint.title}</h3>
-                    <p className="text-slate-600 mb-3 line-clamp-2">{complaint.description}</p>
-                    
-                    <div className="flex items-center text-sm text-slate-500 space-x-4">
-                      <span>By {complaint.submittedBy}</span>
-                      <span>•</span>
-                      <span>{complaint.submittedAt.toDateString()}</span>
-                      {complaint.orderNumber && (
-                        <>
-                          <span>•</span>
-                          <span>Order: {complaint.orderNumber}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 ml-4">
-                    <select
-                      value={complaint.status}
-                      onChange={(e) => onUpdateStatus(complaint.id, e.target.value)}
-                      className="px-3 py-2 text-sm rounded-lg border bg-slate-100 border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-colors"
-                    >
-                      <option value="consider">Consider</option>
-                      <option value="not-consider">Not Consider</option>
-                    </select>
-                    
-                    <button 
-                      onClick={() => onViewComplaint(complaint.id)}
-                      className="p-2 hover:bg-slate-100 bg-slate-100 rounded-lg transition-colors"
-                    >
-                      <Eye className="w-4 h-4 text-slate-600" />
-                    </button>
-                    
-                    <button 
-                      onClick={() => setSelectedComplaint(selectedComplaint === complaint.id ? null : complaint.id)}
-                      className="p-2 hover:bg-slate-100 bg-slate-100 rounded-lg transition-colors relative"
-                    >
-                      <MoreVertical className="w-4 h-4 text-slate-600" />
-                    </button>
-                    
-                    {selectedComplaint === complaint.id && (
-                      <div className="absolute right-0 mt-8 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-10">
-                        <button 
-                          onClick={() => onViewComplaint(complaint.id)}
-                          className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                        >
-                          View Details
-                        </button>
-                        <button className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
-                          Add Note
-                        </button>
-                        <button className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
-                          Assign to Agent
-                        </button>
-                        <hr className="my-1" />
-                        <button className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
-                          Delete
-                        </button>
-                      </div>
+            <div
+              key={complaint.type + '-' + complaint.id}
+              className="bg-white border border-slate-100 rounded-2xl shadow-lg p-6 flex flex-col justify-between transition-all duration-200 hover:shadow-2xl hover:border-indigo-200 cursor-pointer group"
+              onClick={() => onViewComplaint(complaint.id, complaint.type)}
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-100 border border-slate-200 group-hover:bg-indigo-50">
+                  {complaint.type === 'crop' && <Wheat className="w-7 h-7 text-green-500" />}
+                  {complaint.type === 'shop' && <Store className="w-7 h-7 text-blue-500" />}
+                  {complaint.type === 'transport' && <Truck className="w-7 h-7 text-purple-500" />}
+                  {!['crop','shop','transport'].includes(complaint.type) && <span className="font-bold text-slate-500 text-lg">?</span>}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-xl text-indigo-700 mb-1 group-hover:text-indigo-900 transition-colors">{complaint.title}</h3>
+                  <p className="text-xs text-slate-500 mb-2">By <span className="font-semibold text-slate-700">{complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'}</span> • {(() => {
+                    let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+                    if (date) {
+                      if (typeof date === 'string' || typeof date === 'number') {
+                        date = new Date(date);
+                      }
+                      if (date instanceof Date && !isNaN(date)) {
+                        return date.toDateString();
+                      }
+                    }
+                    return '';
+                  })()}</p>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${getTypeColor(complaint.type)}`}>{complaint.type}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(complaint.priority)}`}>{complaint.priority}</span>
+                    {complaint.status && (
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${complaint.status === 'resolved' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>{complaint.status}</span>
+                    )}
+                    {complaint.assignedTo && (
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">Assigned: {complaint.assignedTo}</span>
+                    )}
+                    {complaint.orderNumber && (
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">Order: {complaint.orderNumber}</span>
                     )}
                   </div>
+                  <div className="h-10 mb-2">
+                    <p className="text-slate-700 text-sm font-medium overflow-hidden text-ellipsis line-clamp-2 break-words break-all leading-tight group-hover:text-slate-900 transition-colors">{complaint.description}</p>
+                  </div>
+                  {/* Attachments preview - robust array check */}
+                  {Array.isArray(complaint.attachments) && complaint.attachments.length > 0 && (
+                    <div className="flex gap-2 mt-2">
+                      {complaint.attachments.slice(0,2).map((file, idx) => file && typeof file === 'string' && (
+                        <img
+                          key={idx}
+                          src={`data:image/jpeg;base64,${file}`}
+                          alt={`Attachment ${idx + 1}`}
+                          className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm"
+                          style={{ maxHeight: 64 }}
+                        />
+                      ))}
+                      {complaint.attachments.length > 2 && (
+                        <span className="px-2 py-1 bg-slate-100 rounded-lg text-xs text-slate-500">+{complaint.attachments.length - 2} more</span>
+                      )}
+                    </div>
+                  )}
                 </div>
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onViewComplaint(complaint.id, complaint.type); }}
+                  className="p-2 bg-white rounded-lg shadow hover:bg-indigo-50 transition-colors border border-slate-100"
+                  title="View details"
+                >
+                  <Eye className="w-5 h-5 text-indigo-600" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowDeletePopup(true); setDeleteTarget(complaint); }}
+                  className="p-2 bg-white rounded-lg shadow hover:bg-red-50 transition-colors border border-slate-100"
+                  title="Delete complaint"
+                >
+                  <Trash2 className="w-5 h-5 text-red-500" />
+                </button>
               </div>
             </div>
           ))}
@@ -210,6 +190,30 @@ const ComplaintsList = ({ complaints, onUpdateStatus, onViewComplaint, onBack })
             </div>
             <h3 className="text-lg font-semibold text-slate-700 mb-2">No complaints found</h3>
             <p className="text-slate-500">Try adjusting your search or filter criteria</p>
+          </div>
+        )}
+
+        {/* Delete Popup */}
+        {showDeletePopup && deleteTarget && (
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+              <h2 className="text-xl font-bold mb-4 text-slate-800">Delete Complaint</h2>
+              <p className="mb-6 text-slate-600">Are you sure you want to delete this complaint?</p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => { setShowDeletePopup(false); setDeleteTarget(null); }}
+                  className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+                >Cancel</button>
+                <button
+                  onClick={async () => {
+                    await onDeleteComplaint(deleteTarget.id, deleteTarget.type);
+                    setShowDeletePopup(false);
+                    setDeleteTarget(null);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                >Delete</button>
+              </div>
+            </div>
           </div>
         )}
       </div>

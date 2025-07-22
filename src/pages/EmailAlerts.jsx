@@ -5,7 +5,7 @@ export default function EmailAlerts() {
   const [activeTab, setActiveTab] = useState('all');
   const [alertFilters, setAlertFilters] = useState({
     orderConfirmed: true,
-    orderShipped: true,
+    orderDispatched: true,
     orderDelivered: true,
     paymentReceived: true,
     stockUpdates: true
@@ -33,8 +33,8 @@ export default function EmailAlerts() {
     {
       id: 3,
       type: 'sms',
-      title: 'Order Shipped',
-      category: 'orderShipped',
+      title: 'Order Dispatched',
+      category: 'orderDispatched',
       message: 'Your organic vegetables from Nuwara Eliya are on the way! Track: AG2025002',
       timestamp: '2025-06-28  11:45 AM',
       location: 'Kandy'
@@ -142,13 +142,7 @@ export default function EmailAlerts() {
       <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-8 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center space-x-4 mb-4">
-            <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
-              <Leaf className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">Agrovia</h1>
-              <p className="text-green-100">Sri Lanka's Premium Agricultural Marketplace</p>
-            </div>
+           
           </div>
           
           <div className="flex items-center space-x-3">
@@ -210,7 +204,7 @@ export default function EmailAlerts() {
             {Object.entries(alertFilters).map(([key, value]) => {
               const labels = {
                 orderConfirmed: 'Order Confirmed',
-                orderShipped: 'Order Shipped',
+                orderDispatched: 'Order Dispatched',
                 orderDelivered: 'Order Delivered',
                 paymentReceived: 'Payment Received',
                 stockUpdates: 'Stock Updates'

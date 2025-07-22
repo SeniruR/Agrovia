@@ -7,7 +7,7 @@ import BuyerDashboard from "./components/dashboards/BuyerDashboard";
 import FarmerDashboard from "./components/dashboards/FarmerDashboard";
 import Signup from "./pages/Signup";
 import Layout from "./components/Layout";
-import FarmerCropViews from "./pages/Farmer/AllCropsViews";
+import FarmerCropViews from "./pages/farmer/AllCropsViews";
 import './index.css'; // or wherever you have Tailwind directives
 import ItemPostedForm from "./pages/shop/ItemPostedForm";
 import ShopDashBoard from "./pages/shop/ShopDashboard";
@@ -17,18 +17,28 @@ import ForgotPassword from "./pages/ForgotPassword";
 import FarmerSignup from "./pages/FarmerSignup";
 import BuyerSignup from "./pages/BuyerSignup";
 import TransporterSignup from "./pages/TransporterSignup";
-
+import ShopOwnerSignup from "./pages/ShopOwnerSignup";
+import ModeratorSignup from "./pages/ModeratorSignup";
+import LayoutAll from "./components/LayoutAll"
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 import BulkPurchaseSystem from "./pages/farmer/BulkPurchaseSystem";
+import PaymentSuccess from './pages/PaymentSuccess';
 import BuyersMarketplace from "./pages/ByersMarketPlace";
-import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
+import CartPage from "./pages/CartPage";
+import AgriShopMarketplace from "./pages/shop/Items";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
-import Profile from "./pages/Profile";
+import FarmerProfileEdit from "./pages/Profile";
+import FarmerProfile from "./pages/profiles/FarmerProfile";
+import BuyerProfile from "./pages/profiles/BuyerProfile";
+import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
+import TransporterProfile from "./pages/profiles/TransporterProfile";
+import ProfileRouter from "./components/ProfileRouter";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
+import MyOrders from './pages/MyOrders';
 
 import CropPostForm from "./pages/farmer/CropPostForm";
 
@@ -45,10 +55,16 @@ import ShopReviews from "./pages/shop/ShopReviews";
 import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
 
 import NotFound from "./components/pages/NotFound";
+import DiscoverMore from "./pages/DiscoverMore";
 import Complaint from "./pages/complaint/Complaint";
-
+import BulkSellerChat from "./pages/BulkSellerChat";
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
+import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
+import AdminShop from "./pages/admin/AdminShop";
+import AdminShopSubscriptions from "./pages/admin/AdminShopSubscriptions";
+import AdminAccountApproval  from "./pages/admin/AdminAccountApproval";
+
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
@@ -56,11 +72,33 @@ import OrganizationDashBoard from "./pages/organization/Oraganization";
 import FarmingPestAlerts from "./pages/PestAlert";
 import PestAlertInterface from "./pages/PestAlert";
 import TransportServicesReviews from "./pages/transport/TransportReviews";
+import DeliveryStatus from "./pages/transport/DeliveryStatus";
 import ShopItem from "./pages/shop/Items";
 import EmailAlerts from "./pages/EmailAlerts";
 import WeatherNotifications from "./pages/WeatherAlerts"; 
 import PriceForcasting from "./pages/PriceForcasting";
 import ContentApprovalDashboard from "./pages/ContentApproval";
+import FarmerVerificationPanel from "./pages/organization/farmerVerificationPanel";
+import CropReccomendationSystem from "./pages/CropRecommendation";
+import OrderHistory from "./components/dashboards/OrderHistory";
+import SavedItems from "./components/dashboards/SavedItems";
+import TrackOrders from "./components/dashboards/TrackOrders";
+import MyShopItem from "./pages/shop/MyShopItem";
+
+import NavigationTest from "./pages/NavigationTest";
+
+import CropDetailView from "./pages/farmer/CropDetailView";
+
+import AdminMyShopItem from "./pages/admin/AdminShopItem";
+import NewLogin from "./pages/Login_new";
+import ContactPage from "./components/contact/ContactPage"
+
+
+import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
+import PurchaseDetails from "./pages/PurchaseDetails";
+import EditCropPost from "./pages/farmer/EditCropPost";
+
+
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 // import ModeratorSignup from "./pages/ModeratorSignup";
@@ -69,12 +107,41 @@ import ContentApprovalDashboard from "./pages/ContentApproval";
 
 const App = () => {
   return (
-    
     <Routes>
+      <Route path="/admin/account-approval" element={
+        <Layout>
+          <AdminAccountApproval />
+        </Layout>
+      } />
+      <Route path="/admin/shop-subscriptions" element={
+        <Layout>
+          <AdminShopSubscriptions />
+        </Layout>
+      } />
+      <Route path="/admin/shop" element={
+        <Layout>
+          <AdminShop />
+        </Layout>
+      } />
+      <Route path="/discover-more" element={
+        <Layout>
+          <DiscoverMore />
+        </Layout>
+      } />
+      <Route path="/admin/organization-approval" element={
+        <Layout>
+          <AdminOrganizationApproval />
+        </Layout>
+      } />
+      <Route path="/payment-success" element={
+        <Layout>
+          <PaymentSuccess />
+        </Layout>
+      } />
       <Route path="/" element={
-          <Layout>
+          <LayoutAll>
             <Home />
-          </Layout>
+          </LayoutAll>
         }
       />
       <Route path="/users" element={
@@ -110,12 +177,20 @@ const App = () => {
           <TransporterSignup />
         </Layout>} 
       />
-        {/* Dashboard Routes - No Layout */}
-      <Route path="/dashboard/farmer" element={<FarmerDashboard />} />
-      <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
-{/* <Route path="/signup/shop-owner" element={<ShopOwnerSignup />} />
-<Route path="/signup/moderator" element={<ModeratorSignup />} />
-<Route path="/signup/transporter" element={<TransporterSignup />} /> */}
+      <Route path="/signup/moderator" element={
+        <Layout>
+          <ModeratorSignup />
+        </Layout>} 
+      />
+      <Route path="/signup/shop-owner" element={
+        <Layout>
+          <ShopOwnerSignup />
+        </Layout>} 
+      />
+        {/* Dashboard Routes - Now with Layout */}
+      <Route path="/dashboard/farmer" element={<Layout><FarmerDashboard /></Layout>} />
+      <Route path="/dashboard/buyer" element={<Layout><BuyerDashboard /></Layout>} />
+{/* <Route path="/signup/moderator" element={<ModeratorSignup />} /> */}
 
       <Route path="/forgotpassword" element={
           <Layout>
@@ -126,6 +201,12 @@ const App = () => {
       <Route path="/byersmarket" element={
           <Layout>
             <BuyersMarketplace />
+          </Layout>
+        }
+      />
+      <Route path="/cart" element={
+          <Layout>
+            <CartPage />
           </Layout>
         }
       />
@@ -141,6 +222,12 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/chat" element={
+          <Layout>
+            <BulkSellerChat />
+          </Layout>
+        }
+      />
 
       <Route path="/cropListings" element={
           <Layout>
@@ -149,10 +236,40 @@ const App = () => {
          </Layout>
         }
       />
-      <Route path="/profile" element={
+      <Route path="/profile" element={<ProfileRouter />} />
+      {/* <Route path="/profile/general" element={
           <Layout>
             <Profile />
-
+         </Layout>
+        }
+      /> */}
+      <Route path="/profile/farmer" element={
+          <Layout>
+            <FarmerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/farmer/edit" element={
+          <Layout>
+            <FarmerProfileEdit />
+         </Layout>
+        }
+      />
+      <Route path="/profile/buyer" element={
+          <Layout>
+            <BuyerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/shop-owner" element={
+          <Layout>
+            <ShopOwnerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/transporter" element={
+          <Layout>
+            <TransporterProfile />
          </Layout>
         }
       />
@@ -171,7 +288,12 @@ const App = () => {
          </Layout>
         }
       />
-
+      <Route path="/navigation-test" element={
+          <Layout>
+            <NavigationTest />
+          </Layout>
+        }
+      />
       <Route path="/footer" element={
           <Layout>
             <Footer />
@@ -266,7 +388,6 @@ const App = () => {
         }
 
       />
-
       <Route path="/admindashboard" element={
           <Layout>
             <AdminDashboard/>
@@ -337,6 +458,12 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/purchase-details" element={
+          <Layout>
+            <PurchaseDetails/>
+          </Layout>
+        }
+      />
 
        <Route path="/emailalerts" element={
           <Layout>
@@ -362,9 +489,94 @@ const App = () => {
         </Layout>
       }
       />
+      <Route path="/deliverystatus" element={
+        <Layout>
+          <DeliveryStatus/>
+        </Layout>
+      }
+      />
+
+       <Route path="/verificationpanel" element={
+        <Layout>
+          <FarmerVerificationPanel/>
+        </Layout>
+      }
+      />
+       <Route path="/cropreco" element={
+        <Layout>
+          <CropReccomendationSystem/>
+        </Layout>
+      }
+      />
+        <Route path="/order-history" element={
+        <Layout>
+          <OrderHistory/>
+        </Layout>
+      }
+      />
+       <Route path="/saved-items" element={
+        <Layout>
+          <SavedItems/>
+        </Layout>
+      }
+      />
+       <Route path="/track-orders" element={
+        <Layout>
+          <TrackOrders/>
+        </Layout>
+      }
+      />
+ <Route path="/myshopitem" element={
+        <Layout>
+          <MyShopItem/>
+        </Layout>
+      }
+      />
+      <Route path="/crop/:id" element={
+          <Layout>
+            <CropDetailView />
+          </Layout>
+        } />
+
+        <Route path="/edit-crop/:id" element={
+          <Layout>
+          <EditCropPost />
+          </Layout>
+          } />
+
+         <Route path="/adminshopitems" element={
+          <Layout>
+            <AdminMyShopItem />
+          </Layout>
+        } />
+
+         <Route path="/buyer-com-dash" element={
+        <Layout>
+          <Complaint />
+        </Layout>
+      }
+      />
+      <Route path="/Newlogin" element={
+          <Layout>
+            <NewLogin />
+          </Layout>
+        } />
+         <Route path="/contactus" element={
+          <Layout>
+            <ContactPage />
+          </Layout>
+        } />
+
+      <Route path="/orders" element={
+        <Layout>
+          <MyOrders />
+        </Layout>
+      } />
 
 
     </Routes>
+    
+    
   );
 };
 
