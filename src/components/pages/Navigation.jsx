@@ -223,7 +223,7 @@ const Navigation = ({ onSidebarToggle }) => {
             <div className="flex items-center gap-2">
               {/* User Actions */}
               <div className="hidden md:flex items-center gap-1">
-                <Link to="/community">
+                <Link to="/chat">
                   <button 
                     className="group relative p-3 text-green-600 hover:text-green-800 rounded-xl transition-all duration-300 backdrop-blur-sm"
                     style={{

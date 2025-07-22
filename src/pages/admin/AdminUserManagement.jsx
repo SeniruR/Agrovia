@@ -334,7 +334,8 @@ const AdminUserManagement = () => {
         break;
       }
       case 'deactivate': {
-        const res = await userService.updateUserActiveStatus(userId, 0);
+        // Use the specific suspend method for proper case_id handling
+        const res = await userService.suspendUser(userId);
         if (res.success) {
           setUsers(users.map(u => u.id === userId ? { ...u, status: 'inactive' } : u));
         } else {

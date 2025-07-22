@@ -57,7 +57,7 @@ import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm"
 import NotFound from "./components/pages/NotFound";
 import DiscoverMore from "./pages/DiscoverMore";
 import Complaint from "./pages/complaint/Complaint";
-
+import BulkSellerChat from "./pages/BulkSellerChat";
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
 import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
@@ -97,6 +97,9 @@ import ContactPage from "./components/contact/ContactPage"
 import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 import PurchaseDetails from "./pages/PurchaseDetails";
 import EditCropPost from "./pages/farmer/EditCropPost";
+
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 
 
 
@@ -222,6 +225,13 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/chat" element={
+          <Layout>
+            <BulkSellerChat />
+          </Layout>
+        }
+      />
+
 
       <Route path="/cropListings" element={
           <Layout>
@@ -559,7 +569,17 @@ const App = () => {
           <MyOrders />
         </Layout>
       } />
-
+      
+      <Route path="/terms-of-service" element={
+        <Layout>
+          <TermsOfService />
+        </Layout>
+      } />
+      <Route path="/privacy-policy" element={
+        <Layout>
+          <PrivacyPolicy />
+        </Layout>
+      } />
 
     </Routes>
     
