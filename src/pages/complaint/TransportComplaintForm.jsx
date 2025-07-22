@@ -278,6 +278,7 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
                     value={formData.deliveryDate}
                     onChange={(e) => handleInputChange('deliveryDate', e.target.value)}
                     className="w-full bg-white px-4 py-3 rounded-xl border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-colors"
+                    min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
                   />
                 </div>
               </div>
