@@ -143,6 +143,17 @@ export const userService = {
     }
   },
 
+  // Suspend user (admin action with proper case_id = 1)
+  suspendUser: async (userId, reason = '') => {
+    try {
+      const response = await axios.put(`${API_BASE_URL}/users/${userId}/suspend`, { reason });
+      return response.data;
+    } catch (error) {
+      console.error('Error suspending user:', error);
+      return { success: false, message: 'Failed to suspend user' };
+    }
+  },
+
   // Get farmer details by user_id
   getFarmerDetails: async (userId) => {
     try {
