@@ -37,8 +37,29 @@ const PrivacyPolicy = () => {
             <li>To comply with legal requirements and protect the Agrovia community.</li>
           </ul>
         </section>
-
         
+        <section className="mb-10">
+          <h2 className="text-2xl font-bold text-green-700 mb-4">How We Protect Your Data</h2>
+          <ul className="space-y-4 text-gray-700 text-base">
+            <li>We use encryption, secure servers, and regular audits to safeguard your information.</li>
+            <li>Your data is never sold to third parties. We only share with trusted partners when necessary for platform functionality.</li>
+            <li>You control your profile and can update or delete your information at any time.</li>
+          </ul>
+        </section>
+
+        <section className="mb-10">
+          <h2 className="text-2xl font-bold text-green-700 mb-4">Your Rights & Choices</h2>
+          <ul className="space-y-4 text-gray-700 text-base">
+            <li>Access, update, or delete your personal data from your account settings.</li>
+            <li>Contact us at <a href="mailto:support@agrovia.lk" className="text-green-700 underline">support@agrovia.lk</a> for privacy questions or requests.</li>
+            <li>Review this policy regularly. We will notify you of any significant changes.</li>
+          </ul>
+        </section>
+
+        <div className="flex flex-col sm:flex-row gap-4 mt-8">
+          <Link to="/" className="bg-gray-200 text-green-700 px-6 py-3 rounded hover:bg-gray-300 transition font-semibold text-center">Back to Home</Link>
+        </div>
+
       </div>
     </div>
   );
