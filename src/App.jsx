@@ -570,9 +570,9 @@ const App = () => {
       } />
 
       <Route path="/privacy-policy" element={
-        <LayoutAll>
+        <Layout>
           <PrivacyPolicy />
-        </LayoutAll>
+        </Layout>
       } />
 
     </Routes>
