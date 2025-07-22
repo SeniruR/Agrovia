@@ -267,6 +267,7 @@ const ShopComplaintForm = ({ onBack }) => {
                     value={formData.purchaseDate}
                     onChange={(e) => handleInputChange('purchaseDate', e.target.value)}
                     className="w-full bg-white px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                    max={new Date().toISOString().split('T')[0]}
                   />
                 </div>
               </div>
