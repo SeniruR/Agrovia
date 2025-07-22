@@ -126,8 +126,8 @@ const Footer = () => {
             <div className="flex flex-wrap justify-center md:justify-end space-x-6 text-sm">
               <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Privacy Policy</a>
               <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Terms of Service</a>
-              <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Cookie Policy</a>
-              <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Sitemap</a>
+              {/* <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Cookie Policy</a>
+              <a href="#" className="text-green-300 hover:text-white transition-colors duration-200">Sitemap</a> */}
             </div>
           </div>
         </div>
