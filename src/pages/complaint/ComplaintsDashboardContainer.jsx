@@ -27,9 +27,24 @@ const ComplaintsDashboardContainer = (props) => {
           ...shop.map((c) => ({ ...c, type: "shop" })),
           ...transport.map((c) => ({ ...c, type: "transport" })),
         ];
+        // Get user info from localStorage
+        let userType = null, userId = null;
+        try {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const userObj = JSON.parse(userStr);
+            userType = userObj.user_type;
+            userId = userObj.id;
+          }
+        } catch {}
+        // Filter for non-admins
+        let filtered = all;
+        if (userType !== '0') {
+          filtered = all.filter(c => String(c.user_id || c.submitted_by || c.submittedBy || '') === String(userId));
+        }
         // Optionally sort by date/ID
-        all.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-        setComplaints(all);
+        filtered.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+        setComplaints(filtered);
       } catch (err) {
         setComplaints([]);
       }

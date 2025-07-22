@@ -1,23 +1,141 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Upload, Wheat, AlertCircle } from 'lucide-react';
 
 const CropComplaintForm = ({ onBack }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    submittedBy: '',
+    submittedBy: '', // user ID for submission
+    submitterName: '', // user name for display
     priority: 'medium',
     cropType: '',
-    farmer: '',
+    to_farmer: '', // store farmer ID for submission
+    farmerName: '', // store farmer name for display
     category: '',
     orderNumber: ''
   });
+
+  // Auto-fill submitter from localStorage if available, or derive from user object
+  useEffect(() => {
+    try {
+      let userId = localStorage.getItem('userId');
+      let userName = localStorage.getItem('userName');
+      // If not set, try to derive from user object
+      if ((!userId || !userName) && localStorage.getItem('user')) {
+        const userObj = JSON.parse(localStorage.getItem('user'));
+        if (userObj && userObj.id && userObj.full_name) {
+          userId = userObj.id;
+          userName = userObj.full_name;
+          localStorage.setItem('userId', userId);
+          localStorage.setItem('userName', userName);
+        }
+      }
+      if (userId && userName) {
+        setFormData(prev => ({
+          ...prev,
+          submittedBy: userId,
+          submitterName: userName
+        }));
+        setSubmitterQuery(userName);
+      }
+    } catch {}
+  }, []);
+  // Submitter search state
+  const [submitterQuery, setSubmitterQuery] = useState('');
+  const [submitterSuggestions, setSubmitterSuggestions] = useState([]);
+  const [showSubmitterDropdown, setShowSubmitterDropdown] = useState(false);
+  const [submitterLoading, setSubmitterLoading] = useState(false);
+  const submitterDropdownRef = useRef();
+
+  // Debounced submitter search
+  useEffect(() => {
+    if (!submitterQuery || submitterQuery.length < 2) {
+      setSubmitterSuggestions([]);
+      setShowSubmitterDropdown(false);
+      return;
+    }
+    setSubmitterLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/v1/users?search=${encodeURIComponent(submitterQuery)}`);
+        if (!res.ok) throw new Error('Failed to fetch users');
+        const data = await res.json();
+        setSubmitterSuggestions(Array.isArray(data) ? data : []);
+        setShowSubmitterDropdown(true);
+      } catch {
+        setSubmitterSuggestions([]);
+        setShowSubmitterDropdown(false);
+      } finally {
+        setSubmitterLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [submitterQuery]);
+
+  // Hide submitter dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (submitterDropdownRef.current && !submitterDropdownRef.current.contains(e.target)) {
+        setShowSubmitterDropdown(false);
+      }
+    }
+    if (showSubmitterDropdown) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showSubmitterDropdown]);
   const [errors, setErrors] = useState({});
   const [attachments, setAttachments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [apiError, setApiError] = useState('');
   const fileInputRef = useRef();
+
+  // Farmer search state
+  const [farmerQuery, setFarmerQuery] = useState('');
+  const [farmerSuggestions, setFarmerSuggestions] = useState([]);
+  const [showFarmerDropdown, setShowFarmerDropdown] = useState(false);
+  const [farmerLoading, setFarmerLoading] = useState(false);
+  const farmerDropdownRef = useRef();
+  // Debounced farmer search
+  useEffect(() => {
+    if (!farmerQuery || farmerQuery.length < 2) {
+      setFarmerSuggestions([]);
+      setShowFarmerDropdown(false);
+      return;
+    }
+    setFarmerLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        // Adjusted endpoint to search both user_type 1 and 1.1
+        // Backend should interpret userType=1,1.1 as both types
+        const res = await fetch(`/api/v1/users?userType=1,1.1&search=${encodeURIComponent(farmerQuery)}`);
+        if (!res.ok) throw new Error('Failed to fetch farmers');
+        const data = await res.json();
+        setFarmerSuggestions(Array.isArray(data) ? data : []);
+        setShowFarmerDropdown(true);
+      } catch {
+        setFarmerSuggestions([]);
+        setShowFarmerDropdown(false);
+      } finally {
+        setFarmerLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [farmerQuery]);
+
+  // Hide dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (farmerDropdownRef.current && !farmerDropdownRef.current.contains(e.target)) {
+        setShowFarmerDropdown(false);
+      }
+    }
+    if (showFarmerDropdown) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showFarmerDropdown]);
 
   const cropTypes = [
     'Wheat', 'Rice', 'Corn', 'Tomatoes', 'Potatoes', 'Onions', 'Carrots', 'Lettuce', 'Peppers', 'Other'
@@ -30,9 +148,9 @@ const CropComplaintForm = ({ onBack }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.submittedBy.trim()) newErrors.submittedBy = 'Your name is required';
+    if (!String(formData.title).trim()) newErrors.title = 'Title is required';
+    if (!String(formData.description).trim()) newErrors.description = 'Description is required';
+    if (!String(formData.submittedBy).trim()) newErrors.submittedBy = 'Your name is required';
     if (!formData.cropType) newErrors.cropType = 'Crop type is required';
     if (!formData.category) newErrors.category = 'Category is required';
 
@@ -53,6 +171,11 @@ const CropComplaintForm = ({ onBack }) => {
     setApiError('');
     setSuccess(false);
     if (!validateForm()) return;
+    
+    // Console log to_farmer ID and all form data
+    console.log('to_farmer ID:', formData.to_farmer);
+    console.log('All form data:', formData);
+    
     setSubmitting(true);
     try {
       const formPayload = new FormData();
@@ -60,11 +183,18 @@ const CropComplaintForm = ({ onBack }) => {
       formPayload.append('description', formData.description);
       formPayload.append('status', 'consider');
       formPayload.append('priority', formData.priority);
-      formPayload.append('submittedBy', formData.submittedBy);
+      formPayload.append('submittedBy', formData.submittedBy); // user ID
       formPayload.append('cropType', formData.cropType);
-      formPayload.append('farmer', formData.farmer);
+      formPayload.append('to_farmer', formData.to_farmer); // send farmer ID
       formPayload.append('category', formData.category);
       formPayload.append('orderNumber', formData.orderNumber || '');
+      
+      // Log what's being sent to the server
+      console.log('Sending to_farmer value:', formData.to_farmer);
+      for (let [key, value] of formPayload.entries()) {
+        console.log(`FormData - ${key}:`, value);
+      }
+      
       attachments.forEach(file => formPayload.append('attachments', file));
       const response = await fetch('/api/v1/crop-complaints', {
         method: 'POST',
@@ -74,7 +204,7 @@ const CropComplaintForm = ({ onBack }) => {
       if (response.ok) {
         setSuccess(true);
         setFormData({
-          title: '', description: '', submittedBy: '', priority: 'medium', cropType: '', farmer: '', category: '', orderNumber: ''
+          title: '', description: '', submittedBy: '', submitterName: '', priority: 'medium', cropType: '', to_farmer: '', farmerName: '', category: '', orderNumber: ''
         });
         setAttachments([]);
       } else {
@@ -92,6 +222,31 @@ const CropComplaintForm = ({ onBack }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  // Special handler for farmer selection from dropdown
+  const handleFarmerSelect = (farmer) => {
+    console.log('Selected farmer:', farmer);
+    console.log('Setting to_farmer ID to:', farmer.id);
+    
+    setFormData(prev => ({
+      ...prev,
+      to_farmer: farmer.id,
+      farmerName: farmer.full_name
+    }));
+    setFarmerQuery(farmer.full_name);
+    setShowFarmerDropdown(false);
+  };
+
+  // Special handler for submitter selection from dropdown
+  const handleSubmitterSelect = (user) => {
+    setFormData(prev => ({
+      ...prev,
+      submittedBy: user.id,
+      submitterName: user.full_name
+    }));
+    setSubmitterQuery(user.full_name);
+    setShowSubmitterDropdown(false);
   };
 
   return (
@@ -149,19 +304,51 @@ const CropComplaintForm = ({ onBack }) => {
                   )}
                 </div>
 
-                <div>
+                <div className="relative" ref={submitterDropdownRef}>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Your Name *
                   </label>
+              
                   <input
                     type="text"
-                    value={formData.submittedBy}
-                    onChange={(e) => handleInputChange('submittedBy', e.target.value)}
+                    value={formData.submitterName}
+                    onChange={e => {
+                      setFormData(prev => ({ ...prev, submitterName: e.target.value, submittedBy: '' }));
+                      setSubmitterQuery(e.target.value);
+                    }}
+                    onFocus={() => { if (submitterSuggestions.length > 0) setShowSubmitterDropdown(true); }}
                     className={`w-full px-4 bg-white py-3 rounded-xl border transition-colors ${
                       errors.submittedBy ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200'
                     }`}
-                    placeholder="Enter your full name"
+                    placeholder="Type your name..."
+                    autoComplete="off"
+                    readOnly
                   />
+                  {showSubmitterDropdown && submitterQuery.length >= 2 && (
+                    <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-56 overflow-y-auto">
+                      {submitterLoading ? (
+                        <div className="p-3 text-slate-500 text-sm">Searching...</div>
+                      ) : submitterSuggestions.length === 0 ? (
+                        <div className="p-3 text-slate-500 text-sm">No users found</div>
+                      ) : (
+                        submitterSuggestions.map(user => (
+                          <div
+                            key={user.id}
+                            className="px-4 py-2 hover:bg-green-50 cursor-pointer text-slate-700"
+                            onClick={() => handleSubmitterSelect(user)}
+                          >
+                            <div className="font-medium">{user.full_name}</div>
+                            <div className="text-xs text-slate-400 flex flex-row gap-2">
+                              <span>{user.district}</span>
+                              {user.phone_number && (
+                                <span className="text-green-700">{user.phone_number}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                   {errors.submittedBy && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertCircle className="w-4 h-4 mr-1" />
@@ -237,17 +424,47 @@ const CropComplaintForm = ({ onBack }) => {
                   </select>
                 </div>
 
-                <div>
+                <div className="relative" ref={farmerDropdownRef}>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                   Farmer Name
+                    Farmer Name
                   </label>
                   <input
                     type="text"
-                    value={formData.farmer}
-                    onChange={(e) => handleInputChange('farmer', e.target.value)}
+                    value={formData.farmerName}
+                    onChange={e => {
+                      setFormData(prev => ({ ...prev, farmerName: e.target.value, to_farmer: '' }));
+                      setFarmerQuery(e.target.value);
+                    }}
+                    onFocus={() => { if (farmerSuggestions.length > 0) setShowFarmerDropdown(true); }}
                     className="w-full px-4 py-3 bg-white rounded-xl border border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-colors"
-                    placeholder="e.g., Farm Block A-12"
+                    placeholder="Type farmer name..."
+                    autoComplete="off"
                   />
+                  {showFarmerDropdown && farmerQuery.length >= 2 && (
+                    <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-56 overflow-y-auto">
+                      {farmerLoading ? (
+                        <div className="p-3 text-slate-500 text-sm">Searching...</div>
+                      ) : farmerSuggestions.length === 0 ? (
+                        <div className="p-3 text-slate-500 text-sm">No users found</div>
+                      ) : (
+                        farmerSuggestions.map(farmer => (
+                          <div
+                            key={farmer.id}
+                            className="px-4 py-2 hover:bg-green-50 cursor-pointer text-slate-700"
+                            onClick={() => handleFarmerSelect(farmer)}
+                          >
+                            <div className="font-medium">{farmer.full_name}</div>
+                            <div className="text-xs text-slate-400 flex flex-row gap-2">
+                              <span>{farmer.district}</span>
+                              {farmer.phone_number && (
+                                <span className="text-green-700">{farmer.phone_number}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>

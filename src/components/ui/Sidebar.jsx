@@ -59,6 +59,7 @@ const buyerMenuItems = [
   { label: 'Dashboard', icon: HomeIcon, path: '/dashboard/buyer' },
   { label: 'Marketplace', icon: ShoppingBagIcon, path: '/byersmarket' },
   { label: 'Cart', icon: CreditCardIcon, path: '/cart' },
+  { label: 'My Orders', icon: DocumentTextIcon, path: '/orders' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile/buyer' },
   { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },
   { label: 'Complaint Dashboard', icon: ChatBubbleLeftRightIcon, path: '/buyer-com-dash' },

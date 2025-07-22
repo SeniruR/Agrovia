@@ -23,6 +23,7 @@ import LayoutAll from "./components/LayoutAll"
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
+import PaymentSuccess from './pages/PaymentSuccess';
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import CartPage from "./pages/CartPage";
 import AgriShopMarketplace from "./pages/shop/Items";
@@ -37,6 +38,7 @@ import ProfileRouter from "./components/ProfileRouter";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
+import MyOrders from './pages/MyOrders';
 
 import CropPostForm from "./pages/farmer/CropPostForm";
 
@@ -91,7 +93,11 @@ import AdminMyShopItem from "./pages/admin/AdminShopItem";
 import NewLogin from "./pages/Login_new";
 import ContactPage from "./components/contact/ContactPage"
 
-//import Complaint from "./pages/complaint/ComplaintsDashboard";
+
+import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
+import PurchaseDetails from "./pages/PurchaseDetails";
+import EditCropPost from "./pages/farmer/EditCropPost";
+
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -125,6 +131,11 @@ const App = () => {
       <Route path="/admin/organization-approval" element={
         <Layout>
           <AdminOrganizationApproval />
+        </Layout>
+      } />
+      <Route path="/payment-success" element={
+        <Layout>
+          <PaymentSuccess />
         </Layout>
       } />
       <Route path="/" element={
@@ -434,6 +445,12 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/purchase-details" element={
+          <Layout>
+            <PurchaseDetails/>
+          </Layout>
+        }
+      />
 
        <Route path="/emailalerts" element={
           <Layout>
@@ -508,6 +525,11 @@ const App = () => {
           </Layout>
         } />
 
+        <Route path="/edit-crop/:id" element={
+          <Layout>
+          <EditCropPost />
+          </Layout>
+          } />
 
          <Route path="/adminshopitems" element={
           <Layout>
@@ -532,6 +554,11 @@ const App = () => {
           </Layout>
         } />
 
+      <Route path="/orders" element={
+        <Layout>
+          <MyOrders />
+        </Layout>
+      } />
 
 
     </Routes>

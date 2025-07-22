@@ -7,10 +7,15 @@ import CropComplaintForm from './CropComplaintForm';
 import ShopComplaintForm from './ShopComplaintForm';
 import TransportComplaintForm from './TransportComplaintForm';
 
+
 function Complaint() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [complaintDetail, setComplaintDetail] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Get current user info
+  const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user')) : null;
+  const userId = user?.id;
+  const userType = user?.user_type;
 
   // Fetch a single complaint by ID and type from backend
   const fetchComplaintDetail = async (id, type) => {
@@ -23,6 +28,7 @@ function Complaint() {
       const res = await fetch(url);
       if (!res.ok) throw new Error('Network response was not ok');
       const data = await res.json();
+      
       // Normalize fields for frontend
       let attachments = [];
       if (Array.isArray(data.attachments)) {
@@ -33,17 +39,29 @@ function Complaint() {
           if (Array.isArray(arr)) attachments = arr;
           else if (arr) attachments = [arr];
         } catch {
-          // If it's a base64 string or single file string
           if (data.attachments && /^[A-Za-z0-9+/=]+$/.test(data.attachments)) attachments = [data.attachments];
         }
+      }
+      // Only allow non-admins to view their own complaints
+      if (userType !== '0' && String(data.user_id || data.submitted_by || data.submittedBy || '') !== String(userId)) {
+        alert('You are not authorized to view this complaint.');
+        setComplaintDetail(null);
+        setCurrentPage('complaints');
+        setLoading(false);
+        return;
       }
       setComplaintDetail({
         ...data,
         type,
         submittedByName: data.submittedBy || data.submitted_by || '',
         submittedAt: data.submittedAt || data.submitted_at || data.created_at || new Date().toISOString(),
+        // Map backend field names to frontend expected names
+        cropType: data.cropType || data.crop_type,
+        orderNumber: data.orderNumber || data.order_number,
+        farmer: data.farmer || data.to_farmer,
         attachments
       });
+      
       setCurrentPage('complaint-detail');
     } catch (err) {
       setComplaintDetail(null);
@@ -125,6 +143,8 @@ function Complaint() {
               <ComplaintsListContainer
                 onViewComplaint={(id, type) => fetchComplaintDetail(id, type)}
                 onBack={() => setCurrentPage('dashboard')}
+                userId={userId}
+                userType={userType}
               />
             );
           case 'complaint-detail':
