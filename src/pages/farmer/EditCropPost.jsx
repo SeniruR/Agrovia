@@ -349,7 +349,7 @@ const EditCropPost = () => {
                 <input 
                   type="number" 
                   name="quantity"
-                  step="0.01"
+                  step="1"
                   min="0"
                   className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.quantity ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.quantity} 
@@ -371,8 +371,7 @@ const EditCropPost = () => {
                 >
                   <option value="kg">kg</option>
                   <option value="g">g</option>
-                  <option value="tons">tons</option>
-                  <option value="bags">bags</option>
+                  <option value="bags">bags(50kg)</option>
                   <option value="pieces">pieces</option>
                   <option value="bunches">bunches</option>
                 </select>
@@ -382,7 +381,7 @@ const EditCropPost = () => {
                 <input 
                   type="number" 
                   name="price_per_unit"
-                  step="0.01"
+                  step="1"
                   min="0"
                   className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.price_per_unit ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.price_per_unit} 
