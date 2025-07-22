@@ -100,6 +100,7 @@ import EditCropPost from "./pages/farmer/EditCropPost";
 
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import NotificationsPage from "./pages/NotificationsPage";
 
 
 
@@ -465,6 +466,12 @@ const App = () => {
        <Route path="/emailalerts" element={
           <Layout>
             <EmailAlerts/>
+          </Layout>
+        }
+      />
+      <Route path="/notifications" element={
+          <Layout>
+            <NotificationsPage/>
           </Layout>
         }
       />
