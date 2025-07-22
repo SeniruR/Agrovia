@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { CheckCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle, Crop, RefreshCw } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const EditCropPost = () => {
@@ -10,7 +10,7 @@ const EditCropPost = () => {
     crop_name: '',
     crop_category: 'vegetables',
     variety: '',
-    quantity: '',
+    quantity:  '',
     unit: 'kg',
     price_per_unit: '',
     minimum_quantity_bulk: '',
@@ -64,7 +64,7 @@ const EditCropPost = () => {
           crop_name: data.crop_name || '',
           crop_category: data.crop_category || 'vegetables',
           variety: data.variety || '',
-          quantity: data.quantity ? String(data.quantity) : '',
+          quantity: data.quantity ? String(parseInt(data.quantity)) : '',
           unit: data.unit || 'kg',
           price_per_unit: data.price_per_unit ? String(data.price_per_unit) : '',
           minimum_quantity_bulk: data.minimum_quantity_bulk ? String(data.minimum_quantity_bulk) : '',
