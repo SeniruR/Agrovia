@@ -99,6 +99,7 @@ import PurchaseDetails from "./pages/PurchaseDetails";
 import EditCropPost from "./pages/farmer/EditCropPost";
 
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 
 
 
@@ -568,7 +569,12 @@ const App = () => {
           <MyOrders />
         </Layout>
       } />
-
+      
+      <Route path="/terms-of-service" element={
+        <Layout>
+          <TermsOfService />
+        </Layout>
+      } />
       <Route path="/privacy-policy" element={
         <Layout>
           <PrivacyPolicy />
