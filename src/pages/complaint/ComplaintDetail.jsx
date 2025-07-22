@@ -1,20 +1,40 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle, UserX } from 'lucide-react';
 
 const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
+  // Normalize complaint data to handle both camelCase and snake_case field names
+  const normalizedComplaint = complaint ? {
+    ...complaint,
+    cropType: complaint.cropType || complaint.crop_type,
+    orderNumber: complaint.orderNumber || complaint.order_number,
+    farmer: complaint.farmer || complaint.to_farmer,
+    submittedBy: complaint.submittedBy || complaint.submitted_by,
+    submittedAt: complaint.submittedAt || complaint.submitted_at,
+    replyedAt: complaint.replyedAt || complaint.replyed_at
+  } : null;
+
   const [newReply, setNewReply] = useState('');
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showEditPopup, setShowEditPopup] = useState(false);
-  const [editForm, setEditForm] = useState({ ...complaint });
+  const [editForm, setEditForm] = useState({});
+  const [showEditReplyForm, setShowEditReplyForm] = useState(false);
+  const [editReplyText, setEditReplyText] = useState('');
+  // State to manage current reply for immediate UI updates
+  const [currentReply, setCurrentReply] = useState(normalizedComplaint?.reply || '');
+  // Image modal state
+  const [enlargedImage, setEnlargedImage] = useState(null);
+  // Farmer deactivation state
+  const [farmerDeactivated, setFarmerDeactivated] = useState(false);
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
-  // Reset editForm when popup opens
-  React.useEffect(() => {
-    if (showEditPopup) {
-      setEditForm({ ...complaint });
-    }
-  }, [showEditPopup, complaint]);
+  // Initialize form data only when popup opens
+  const handleEditPopupOpen = () => {
+    console.log('Opening edit popup, initializing form with:', normalizedComplaint);
+    setEditForm({ ...normalizedComplaint });
+    setShowEditPopup(true);
+  };
 
-  if (!complaint) {
+  if (!normalizedComplaint) {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center">
         <div className="text-center">
@@ -62,44 +82,52 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center mb-8">
-          <button
-            onClick={onBack}
-            className="mr-4 p-2 bg-white hover:bg-white hover:shadow-md rounded-xl transition-all"
-          >
-            <ArrowLeft className="w-6 h-6 text-slate-600" />
-          </button>
-          <div className="flex items-center">
-            <div className={`w-12 h-12 bg-gradient-to-br ${getTypeColor(complaint.type)} rounded-xl flex items-center justify-center mr-4`}>
-              {getTypeIcon(complaint.type)}
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-800">Admin - Complaint Details</h1>
-              <p className="text-slate-600">#{complaint.id} • {complaint.type} complaint</p>
+        
+          <div className="flex items-center mb-8">
+            <button
+              onClick={onBack}
+              className="mr-4 p-2 bg-white hover:bg-white hover:shadow-md rounded-xl transition-all"
+            >
+              <ArrowLeft className="w-6 h-6 text-slate-600" />
+            </button>
+            <div className="flex items-center">
+              <div className={`w-16 h-16 bg-gradient-to-br ${getTypeColor(normalizedComplaint.type)} rounded-xl flex items-center justify-center mr-6`}>
+                {getTypeIcon(normalizedComplaint.type)}
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-slate-800">Complaint Details</h1>
+                <p className="text-slate-600 text-lg">#{normalizedComplaint.id} • {normalizedComplaint.type} complaint</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="grid lg:grid-cols-1 gap-20">
+            {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6 w-full">
             {/* Complaint Info with Edit Button */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+            <div className="bg-white rounded-2xl w-full shadow-sm border border-slate-100 p-8">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${complaint.type === 'crop' ? 'bg-green-100 text-green-700 border-green-200' : complaint.type === 'shop' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200'}`}>{complaint.type}</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>{complaint.priority}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${normalizedComplaint.type === 'crop' ? 'bg-green-100 text-green-700 border-green-200' : normalizedComplaint.type === 'shop' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200'}`}>{normalizedComplaint.type}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(normalizedComplaint.priority)}`}>{normalizedComplaint.priority}</span>
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-4">{complaint.title}</h2>
+                  <h2 className="text-2xl font-bold text-slate-800 mb-4">{normalizedComplaint.title}</h2>
                 </div>
-                <button
-                  onClick={() => setShowEditPopup(true)}
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-colors flex items-center space-x-2"
-                >
-                  <span>Edit</span>
-                </button>
+                {/* Only show Edit Complaint button to the owner of the complaint */}
+                {(typeof window !== 'undefined' && (() => {
+                  const user = JSON.parse(localStorage.getItem('user'));
+                  // Support multiple possible owner property names
+                  const ownerId = normalizedComplaint.submittedBy ?? normalizedComplaint.submitted_by ?? normalizedComplaint.submittedById;
+                  return user && user.id && String(user.id) === String(ownerId);
+                })()) && (
+                  <button
+                    onClick={handleEditPopupOpen}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                  >
+                    <span>Edit Complaint</span>
+                  </button>
+                )}
       {/* Edit Complaint Popup */}
       {showEditPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -130,15 +158,24 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  console.log('Form submission started');
+                  console.log('editForm data:', editForm);
+                  
                   // Determine correct endpoint based on complaint type
                   let endpoint = '';
                   let payload = { ...editForm };
-                  if (complaint.type === 'crop') {
-                    endpoint = `http://localhost:5000/api/v1/crop-complaints/${complaint.id}`;
+                  
+                  // Fix priority value if it's "urgent" (database only accepts low, medium, high)
+                  if (payload.priority === 'urgent') {
+                    payload.priority = 'high';
+                  }
+                  
+                  if (normalizedComplaint.type === 'crop') {
+                    endpoint = `http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}`;
                     const allowed = ['title','description','submittedBy','priority','cropType','farmer','category','orderNumber','attachments'];
                     payload = Object.fromEntries(Object.entries(payload).filter(([k]) => allowed.includes(k)));
-                  } else if (complaint.type === 'shop') {
-                    endpoint = `http://localhost:5000/api/v1/shop-complaints/${complaint.id}`;
+                  } else if (normalizedComplaint.type === 'shop') {
+                    endpoint = `http://localhost:5000/api/v1/shop-complaints/${normalizedComplaint.id}`;
                      const allowed = ['title','description','submittedBy','priority','shopName','location','category','orderNumber','purchaseDate','attachments'];
                     payload = Object.fromEntries(Object.entries(payload).filter(([k]) => allowed.includes(k)));
                     // Ensure purchaseDate is a valid date string (YYYY-MM-DD)
@@ -152,21 +189,30 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         payload.purchaseDate = `${yyyy}-${mm}-${dd}`;
                       }
                     }
-                  } else if (complaint.type === 'transport') {
-                    endpoint = `http://localhost:5000/api/v1/transport-complaints/${complaint.id}`;
+                  } else if (normalizedComplaint.type === 'transport') {
+                    endpoint = `http://localhost:5000/api/v1/transport-complaints/${normalizedComplaint.id}`;
                     const allowed = ['title','description','submittedBy','priority','transportCompany','location','category','orderNumber','deliveryDate','trackingNumber','attachments'];
                     payload = Object.fromEntries(Object.entries(payload).filter(([k]) => allowed.includes(k)));
                   } else {
                     alert('Unknown complaint type');
                     return;
                   }
+                  
+                  console.log('Endpoint:', endpoint);
+                  console.log('Filtered payload:', payload);
+                  
                   try {
                     let res;
                     let files = e.target.attachments?.files;
+                    
                     // Always use FormData if files are present
                     if (files && files.length > 0) {
+                      console.log('Sending with attachments');
                       const formData = new FormData();
-                      Object.entries(payload).forEach(([k, v]) => formData.append(k, v ?? ''));
+                      Object.entries(payload).forEach(([k, v]) => {
+                        console.log(`Adding to FormData: ${k} = ${v}`);
+                        formData.append(k, v ?? '');
+                      });
                       for (let i = 0; i < files.length; i++) {
                         formData.append('attachments', files[i]);
                       }
@@ -175,6 +221,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         body: formData,
                       });
                     } else {
+                      console.log('Sending as JSON without attachments');
                       // No new attachments, send as JSON
                       res = await fetch(endpoint, {
                         method: 'PUT',
@@ -182,10 +229,24 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         body: JSON.stringify(payload),
                       });
                     }
-                    if (!res.ok) throw new Error('Failed to update complaint');
+                    
+                    console.log('Response status:', res.status);
+                    console.log('Response ok:', res.ok);
+                    
+                    if (!res.ok) {
+                      // Get the error response text
+                      const errorText = await res.text();
+                      console.error('Error response:', errorText);
+                      throw new Error(`Server error: ${res.status} - ${errorText}`);
+                    }
+                    
+                    const responseData = await res.json();
+                    console.log('Success response:', responseData);
+                    
                     setShowEditPopup(false);
                     window.location.reload();
                   } catch (err) {
+                    console.error('Update error:', err);
                     alert(err.message || 'Update failed');
                   }
                 }}
@@ -196,20 +257,20 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
                   <input
                     type="text"
-                    className="w-full px-4 py-2 border rounded-lg"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Title"
-                    value={editForm.title ?? ''}
-                    onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                    value={editForm.title || ''}
+                    onChange={e => setEditForm({ ...editForm, title: e.target.value })}
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                   <textarea
-                    className="w-full px-4 py-2 border rounded-lg"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Description"
-                    value={editForm.description ?? ''}
-                    onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                    value={editForm.description || ''}
+                    onChange={e => setEditForm({ ...editForm, description: e.target.value })}
                     rows={3}
                     required
                   />
@@ -218,118 +279,127 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
                   <input
                     type="text"
-                    className="w-full px-4 py-2 border rounded-lg"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Category"
-                    value={editForm.category ?? ''}
-                    onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border rounded-lg"
-                    placeholder="Location"
-                    value={editForm.location ?? ''}
-                    onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))}
+                    value={editForm.category || ''}
+                    onChange={e => setEditForm({ ...editForm, category: e.target.value })}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
                   <select
-                    className="w-full px-4 py-2 border rounded-lg"
-                    value={editForm.priority ?? ''}
-                    onChange={e => setEditForm(f => ({ ...f, priority: e.target.value }))}
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={editForm.priority || ''}
+                    onChange={e => setEditForm({ ...editForm, priority: e.target.value })}
                     required
                   >
                     <option value="">Select Priority</option>
-                    <option value="urgent">Urgent</option>
                     <option value="high">High</option>
                     <option value="medium">Medium</option>
                     <option value="low">Low</option>
                   </select>
                 </div>
                 {/* Crop-specific fields */}
-                {complaint.type === 'crop' && (
+                {normalizedComplaint.type === 'crop' && (
                   <>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Crop Type</label>
                       <input
                         type="text"
-                        className="w-full px-4 py-2 border rounded-lg"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Crop Type"
-                        value={editForm.cropType ?? ''}
-                        onChange={e => setEditForm(f => ({ ...f, cropType: e.target.value }))}
+                        value={editForm.cropType || ''}
+                        onChange={e => setEditForm({ ...editForm, cropType: e.target.value })}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Farmer</label>
                       <input
                         type="text"
-                        className="w-full px-4 py-2 border rounded-lg"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Farmer"
-                        value={editForm.farmer ?? ''}
-                        onChange={e => setEditForm(f => ({ ...f, farmer: e.target.value }))}
+                        value={editForm.farmer || ''}
+                        onChange={e => setEditForm({ ...editForm, farmer: e.target.value })}
                       />
                     </div>
                   </>
                 )}
                 {/* Shop-specific fields */}
-                {complaint.type === 'shop' && (
+                {normalizedComplaint.type === 'shop' && (
                   <>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Shop Name</label>
                       <input
                         type="text"
-                        className="w-full px-4 py-2 border rounded-lg"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Shop Name"
-                        value={editForm.shopName ?? ''}
-                        onChange={e => setEditForm(f => ({ ...f, shopName: e.target.value }))}
+                        value={editForm.shopName || ''}
+                        onChange={e => setEditForm({ ...editForm, shopName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Location"
+                        value={editForm.location || ''}
+                        onChange={e => setEditForm({ ...editForm, location: e.target.value })}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Purchase Date</label>
                       <input
                         type="date"
-                        className="w-full px-4 py-2 border rounded-lg"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Purchase Date"
-                        value={editForm.purchaseDate ?? ''}
-                        onChange={e => setEditForm(f => ({ ...f, purchaseDate: e.target.value }))}
+                        value={editForm.purchaseDate || ''}
+                        onChange={e => setEditForm({ ...editForm, purchaseDate: e.target.value })}
                       />
                     </div>
                   </>
                 )}
                 {/* Transport-specific fields */}
-                {complaint.type === 'transport' && (
+                {normalizedComplaint.type === 'transport' && (
                   <>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Transport Company</label>
                       <input
                         type="text"
-                        className="w-full px-4 py-2 border rounded-lg"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Transport Company"
-                        value={editForm.transportCompany ?? ''}
-                        onChange={e => setEditForm(f => ({ ...f, transportCompany: e.target.value }))}
+                        value={editForm.transportCompany || ''}
+                        onChange={e => setEditForm({ ...editForm, transportCompany: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Location"
+                        value={editForm.location || ''}
+                        onChange={e => setEditForm({ ...editForm, location: e.target.value })}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Delivery Date</label>
                       <input
                         type="date"
-                        className="w-full px-4 py-2 border rounded-lg"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Delivery Date"
-                        value={editForm.deliveryDate ?? ''}
-                        onChange={e => setEditForm(f => ({ ...f, deliveryDate: e.target.value }))}
+                        value={editForm.deliveryDate || ''}
+                        onChange={e => setEditForm({ ...editForm, deliveryDate: e.target.value })}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Tracking Number</label>
                       <input
                         type="text"
-                        className="w-full px-4 py-2 border rounded-lg"
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Tracking Number"
-                        value={editForm.trackingNumber ?? ''}
-                        onChange={e => setEditForm(f => ({ ...f, trackingNumber: e.target.value }))}
+                        value={editForm.trackingNumber || ''}
+                        onChange={e => setEditForm({ ...editForm, trackingNumber: e.target.value })}
                       />
                     </div>
                   </>
@@ -339,14 +409,14 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Order Number</label>
                   <input
                     type="text"
-                    className="w-full px-4 py-2 border rounded-lg"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Order Number"
-                    value={editForm.orderNumber ?? ''}
-                    onChange={e => setEditForm(f => ({ ...f, orderNumber: e.target.value }))}
+                    value={editForm.orderNumber || ''}
+                    onChange={e => setEditForm({ ...editForm, orderNumber: e.target.value })}
                   />
                 </div>
                 {/* Attachments file input for crop, shop, and transport complaints */}
-                {(complaint.type === 'crop' || complaint.type === 'shop' || complaint.type === 'transport') && (
+                {(normalizedComplaint.type === 'crop' || normalizedComplaint.type === 'shop' || normalizedComplaint.type === 'transport') && (
                   <div className="flex flex-col gap-2">
                     <label className="block text-sm font-medium text-green-700 mb-2">Update Attachments (max 5)</label>
                     <div className="relative w-full">
@@ -385,246 +455,487 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
       )}
               </div>
 
-              <div className="prose max-w-none">
-                <p className="text-slate-700 leading-relaxed mb-6">{complaint.description}</p>
+              {/* Enhanced Description Section */}
+              <div className="mt-6">
+                <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl p-6 border border-slate-200/60 shadow-sm">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-3 h-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"></div>
+                    <h3 className="text-lg font-semibold text-slate-800">Description</h3>
+                  </div>
+                  <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                    <p className="text-slate-700 leading-relaxed text-base break-words break-all overflow-hidden word-wrap">{normalizedComplaint.description}</p>
+                  </div>
+                </div>
               </div>
 
-              {/* Additional Details */}
-              <div className="grid md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <User className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <p className="text-sm text-slate-500">Submitted by</p>
-                      <p className="font-medium text-slate-800">{complaint.submittedByName}</p>
+              {/* Additional Details - Enhanced Beautiful Design */}
+              <div className="mt-8">
+                <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl p-6 border border-slate-200/50 shadow-sm">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"></div>
+                    <span>Complaint Information</span>
+                  </h3>
+                  
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Submission Information Card */}
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-blue-100 p-2 rounded-lg">
+                          <User className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-600 mb-1">Submitted by</p>
+                          <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.submittedByName || 'Anonymous'}</p>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Date Information Card */}
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-green-100 p-2 rounded-lg">
+                          <Calendar className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-600 mb-1">Submitted on</p>
+                          <p className="font-semibold text-slate-800 text-sm">{(() => {
+                            let date = normalizedComplaint.submittedAt;
+                            if (date) {
+                              if (typeof date === 'string' || typeof date === 'number') {
+                                date = new Date(date);
+                              }
+                              if (date instanceof Date && !isNaN(date)) {
+                                return date.toLocaleDateString('en-US', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                });
+                              }
+                            }
+                            return 'Not specified';
+                          })()}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Category Card */}
+                    {normalizedComplaint.category && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-purple-100 p-2 rounded-lg">
+                            <MessageSquareX className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Category</p>
+                            <p className="font-semibold text-slate-800 text-sm capitalize">{normalizedComplaint.category}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Order Number Card */}
+                    {normalizedComplaint.orderNumber && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-orange-100 p-2 rounded-lg">
+                            <CheckCircle className="w-5 h-5 text-orange-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Order Number</p>
+                            <p className="font-semibold text-slate-800 text-sm font-mono">{normalizedComplaint.orderNumber}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Crop Type Card */}
+                    {normalizedComplaint.cropType && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-green-100 p-2 rounded-lg">
+                            <Wheat className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Crop Type</p>
+                            <p className="font-semibold text-slate-800 text-sm capitalize">{normalizedComplaint.cropType}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Farmer Card */}
+                    {normalizedComplaint.farmer && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            <div className="bg-emerald-100 p-2 rounded-lg">
+                              <User className="w-5 h-5 text-emerald-600" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-slate-600 mb-1">Farmer</p>
+                              <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmer}</p>
+                            </div>
+                          </div>
+                          {/* Admin Action: Deactivate Farmer - Only for crop complaints and admin users */}
+                          {normalizedComplaint.type === 'crop' && 
+                           (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && (
+                            <button
+                              onClick={async () => {
+                                const confirmAction = window.confirm(
+                                  `Are you sure you want to deactivate farmer "${normalizedComplaint.farmer}"? This action will disable their account.`
+                                );
+                                
+                                if (!confirmAction) return;
+
+                                setIsDeactivating(true);
+                                try {
+                                  const response = await fetch(`http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/deactivate-farmer`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    }
+                                  });
+
+                                  const result = await response.json();
+
+                                  if (!response.ok) {
+                                    throw new Error(result.message || 'Failed to deactivate farmer');
+                                  }
+
+                                  setFarmerDeactivated(true);
+                                  alert(`✅ ${result.message}`);
+                                  
+                                } catch (error) {
+                                  console.error('Deactivate farmer error:', error);
+                                  alert(`❌ Error: ${error.message}`);
+                                } finally {
+                                  setIsDeactivating(false);
+                                }
+                              }}
+                              disabled={isDeactivating || farmerDeactivated}
+                              className={`ml-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors flex items-center space-x-1 ${
+                                farmerDeactivated 
+                                  ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                                  : isDeactivating 
+                                    ? 'bg-orange-50 text-orange-600 border-orange-200 cursor-wait'
+                                    : 'bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border-red-200'
+                              }`}
+                              title={farmerDeactivated ? "Farmer account has been deactivated" : "Deactivate farmer account"}
+                            >
+                              <UserX className="w-3 h-3" />
+                              <span>
+                                {farmerDeactivated ? 'Deactivated' : isDeactivating ? 'Deactivating...' : 'Deactivate'}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Shop Name Card */}
+                    {normalizedComplaint.shopName && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-blue-100 p-2 rounded-lg">
+                            <Store className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Shop Name</p>
+                            <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.shopName}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Transport Company Card */}
+                    {normalizedComplaint.transportCompany && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-purple-100 p-2 rounded-lg">
+                            <Truck className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Transport Company</p>
+                            <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.transportCompany}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Purchase Date Card */}
+                    {normalizedComplaint.purchaseDate && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-indigo-100 p-2 rounded-lg">
+                            <Calendar className="w-5 h-5 text-indigo-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Purchase Date</p>
+                            <p className="font-semibold text-slate-800 text-sm">{typeof normalizedComplaint.purchaseDate === 'string' ? normalizedComplaint.purchaseDate : normalizedComplaint.purchaseDate.toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delivery Date Card */}
+                    {normalizedComplaint.deliveryDate && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-teal-100 p-2 rounded-lg">
+                            <Calendar className="w-5 h-5 text-teal-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Delivery Date</p>
+                            <p className="font-semibold text-slate-800 text-sm">{typeof normalizedComplaint.deliveryDate === 'string' ? normalizedComplaint.deliveryDate : normalizedComplaint.deliveryDate.toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tracking Number Card */}
+                    {normalizedComplaint.trackingNumber && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-amber-100 p-2 rounded-lg">
+                            <Truck className="w-5 h-5 text-amber-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Tracking Number</p>
+                            <p className="font-semibold text-slate-800 text-sm font-mono">{normalizedComplaint.trackingNumber}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Location Card (for shop and transport) */}
+                    {normalizedComplaint.location && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-red-100 p-2 rounded-lg">
+                            <User className="w-5 h-5 text-red-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Location</p>
+                            <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.location}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <p className="text-sm text-slate-500">Submitted on</p>
-                      <p className="font-medium text-slate-800">{(() => {
-                        let date = complaint.submittedAt;
-                        if (date) {
-                          if (typeof date === 'string' || typeof date === 'number') {
-                            date = new Date(date);
-                          }
-                          if (date instanceof Date && !isNaN(date)) {
-                            return date.toLocaleString(); // Show date and time
-                          }
-                        }
-                        return '';
-                      })()}</p>
-                    </div>
-                  </div>
-                  {complaint.category && (
-                    <div>
-                      <p className="text-sm text-slate-500">Category</p>
-                      <p className="font-medium text-slate-800">{complaint.category}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  {complaint.location && (
-                    <div>
-                      <p className="text-sm text-slate-500">Location</p>
-                      <p className="font-medium text-slate-800">{complaint.location}</p>
-                    </div>
-                  )}
-                  {complaint.orderNumber && (
-                    <div>
-                      <p className="text-sm text-slate-500">Order Number</p>
-                      <p className="font-medium text-slate-800">{complaint.orderNumber}</p>
-                    </div>
-                  )}
-                  {complaint.cropType && (
-                    <div>
-                      <p className="text-sm text-slate-500">Crop Type</p>
-                      <p className="font-medium text-slate-800">{complaint.cropType}</p>
-                    </div>
-                  )}
-                  {complaint.farmer && (
-                    <div>
-                      <p className="text-sm text-slate-500">Farmer</p>
-                      <p className="font-medium text-slate-800">{complaint.farmer}</p>
-                    </div>
-                  )}
-                  {complaint.shopName && (
-                    <div>
-                      <p className="text-sm text-slate-500">Shop Name</p>
-                      <p className="font-medium text-slate-800">{complaint.shopName}</p>
-                    </div>
-                  )}
-                  {complaint.transportCompany && (
-                    <div>
-                      <p className="text-sm text-slate-500">Transport Company</p>
-                      <p className="font-medium text-slate-800">{complaint.transportCompany}</p>
-                    </div>
-                  )}
-                  {complaint.purchaseDate && (
-                    <div>
-                      <p className="text-sm text-slate-500">Purchase Date</p>
-                      <p className="font-medium text-slate-800">{typeof complaint.purchaseDate === 'string' ? complaint.purchaseDate : complaint.purchaseDate.toLocaleDateString()}</p>
-                    </div>
-                  )}
-                  {complaint.deliveryDate && (
-                    <div>
-                      <p className="text-sm text-slate-500">Delivery Date</p>
-                      <p className="font-medium text-slate-800">{typeof complaint.deliveryDate === 'string' ? complaint.deliveryDate : complaint.deliveryDate.toLocaleDateString()}</p>
-                    </div>
-                  )}
-                  {complaint.trackingNumber && (
-                    <div>
-                      <p className="text-sm text-slate-500">Tracking Number</p>
-                      <p className="font-medium text-slate-800">{complaint.trackingNumber}</p>
-                    </div>
-                  )}
                 </div>
               </div>
 
               {/* Debug information for troubleshooting */}
               <div className="hidden">
-                {console.log('Complaint data:', complaint.id, complaint.type)}
+                {console.log('Complaint data:', normalizedComplaint.id, normalizedComplaint.type)}
                 {console.log('Image data available:', 
-                  complaint.attachments ? 'attachments: ' + complaint.attachments.length : 'no attachments',
-                  complaint.image ? 'image present' : 'no image',
-                  complaint.images ? 'images: ' + complaint.images.length : 'no images'
+                  normalizedComplaint.attachments ? 'attachments: ' + normalizedComplaint.attachments.length : 'no attachments',
+                  normalizedComplaint.image ? 'image present' : 'no image',
+                  normalizedComplaint.images ? 'images: ' + normalizedComplaint.images.length : 'no images'
                 )}
               </div>
               
-              {/* Attachments for crop, shop, and transport complaints */}
-              {((complaint.attachments && complaint.attachments.length > 0) || 
-                 complaint.image || 
-                 (complaint.images && complaint.images.length > 0)) && (
-                <div className="mt-6 mb-6 pt-6 border-t border-slate-100">
-                  <p className="text-sm font-medium text-slate-700 mb-3">Attachments</p>
-                  <div className="flex flex-wrap gap-4">
-                    {/* Handle complaint.attachments array (crop/transport complaints) */}
-                    {complaint.attachments && complaint.attachments.map((file, idx) => {
-                      console.log('Rendering attachment:', idx, typeof file, file ? file.substring(0, 30) + '...' : 'null');
-                      if (file && typeof file === 'string') {
-                        return (
-                          <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
-                            <img
-                              src={`data:image/jpeg;base64,${file}`}
-                              alt={`Attachment ${idx + 1}`}
-                              className="w-full h-auto"
-                              style={{ maxHeight: 240 }}
-                              onError={(e) => {
-                                console.error("Attachment image load error", idx);
-                                e.target.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        );
-                      }
-                      return null;
-                    }                    )}
-                    
-                    {/* Handle complaint.image (single image for shop complaints) */}
-                    {complaint.image && (
-                      <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
-                        {console.log('Rendering shop image:', typeof complaint.image, complaint.image ? (complaint.image.length > 100 ? 'Length: ' + complaint.image.length : complaint.image) : 'null')}
-                        {/* Extra validation before rendering */}
-                        {(() => {
-                          // For debugging - check the actual content of the image data
-                          if (typeof complaint.image === 'string') {
-                            const firstChars = complaint.image.substring(0, 20);
-                            console.log('Image data starts with:', firstChars);
-                            
-                            // If it's a JSON string or has brackets, it might be incorrectly formatted
-                            if (firstChars.includes('[') || firstChars.includes('{')) {
-                              console.log('Warning: Image data appears to be JSON, not base64');
-                            }
-                          }
-                          
-                          // Try to clean the image data if necessary
-                          let imageData = '';
-                          if (typeof complaint.image === 'string') {
-                            // Remove any wrapping quotes, brackets, etc.
-                            imageData = complaint.image.replace(/^["'\[\{]+|["'\]\}]+$/g, '');
-                            
-                            // Check if it's already a data URL
-                            if (imageData.startsWith('data:')) {
-                              return (
-                                <img
-                                  src={imageData}
-                                  alt="Shop Attachment"
-                                  className="w-full h-auto"
-                                  style={{ maxHeight: 240 }}
-                                  onError={(e) => {
-                                    console.error("Shop image load error with data URL");
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              );
-                            } else {
-                              // Assume it's a base64 string and add the prefix
-                              return (
-                                <img
-                                  src={`data:image/jpeg;base64,${imageData}`}
-                                  alt="Shop Attachment"
-                                  className="w-full h-auto"
-                                  style={{ maxHeight: 240 }}
-                                  onError={(e) => {
-                                    console.error("Shop image load error with base64");
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              );
-                            }
-                          }
-                          
+              {/* Enhanced Attachments Section */}
+              {((normalizedComplaint.attachments && normalizedComplaint.attachments.length > 0) || 
+                 normalizedComplaint.image || 
+                 (normalizedComplaint.images && normalizedComplaint.images.length > 0)) && (
+                <div className="mt-6">
+                  <div className="bg-gradient-to-br from-white to-indigo-50 rounded-2xl p-6 border border-indigo-200/60 shadow-sm">
+                    <div className="flex items-center space-x-3 mb-5">
+                      <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"></div>
+                      <h3 className="text-lg font-semibold text-slate-800">Attachments</h3>
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                        {(normalizedComplaint.attachments?.length || 0) + 
+                         (normalizedComplaint.image ? 1 : 0) + 
+                         (normalizedComplaint.images?.length || 0)} files
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {/* Handle complaint.attachments array (crop/transport complaints) */}
+                      {normalizedComplaint.attachments && normalizedComplaint.attachments.map((file, idx) => {
+                        if (file && typeof file === 'string') {
                           return (
-                            <div className="p-4 bg-gray-100 text-gray-500 rounded-xl">
-                              Image data is not in the expected format
+                            <div key={idx} className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+                              <div className="aspect-square relative">
+                                <img
+                                  src={`data:image/jpeg;base64,${file}`}
+                                  alt={`Attachment ${idx + 1}`}
+                                  className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
+                                  onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
+                                  onError={(e) => {
+                                    console.error("Attachment image load error", idx);
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                  <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="p-3">
+                                <p className="text-xs font-medium text-slate-600 text-center">Image {idx + 1}</p>
+                              </div>
                             </div>
                           );
-                        })()}
-                      </div>
-                    )}
-                    
-                    {/* Handle complaint.images array (multiple images for shop complaints) */}
-                    {complaint.images && complaint.images.map((file, idx) => {
-                      if (file && typeof file === 'string') {
-                        return (
-                          <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-200" style={{ maxWidth: 320 }}>
-                            <img
-                              src={`data:image/jpeg;base64,${file}`}
-                              alt={`Attachment ${idx + 1}`}
-                              className="w-full h-auto"
-                              style={{ maxHeight: 240 }}
-                              onError={(e) => {
-                                console.error("Image load error");
-                                e.target.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
+                        }
+                        return null;
+                      })}
+                      {/* Handle complaint.image (single image for shop complaints) */}
+                      {normalizedComplaint.image && (() => {
+                        let imageData = '';
+                        if (typeof normalizedComplaint.image === 'string') {
+                          imageData = normalizedComplaint.image.replace(/^["'\[\{]+|["'\]\}]+$/g, '');
+                          if (imageData.startsWith('data:')) {
+                            return (
+                              <div className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+                                <div className="aspect-square relative">
+                                  <img
+                                    src={imageData}
+                                    alt="Shop Attachment"
+                                    className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
+                                    onClick={() => setEnlargedImage(imageData)}
+                                    onError={(e) => {
+                                      console.error("Shop image load error with data URL");
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                    <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                      <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs font-medium text-slate-600 text-center">Shop Image</p>
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+                                <div className="aspect-square relative">
+                                  <img
+                                    src={`data:image/jpeg;base64,${imageData}`}
+                                    alt="Shop Attachment"
+                                    className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
+                                    onClick={() => setEnlargedImage(`data:image/jpeg;base64,${imageData}`)}
+                                    onError={(e) => {
+                                      console.error("Shop image load error with base64");
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                    <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                      <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs font-medium text-slate-600 text-center">Shop Image</p>
+                                </div>
+                              </div>
+                            );
+                          }
+                        }
+                        return null;
+                      })()}
+                      {/* Handle complaint.images array (multiple images for shop complaints) */}
+                      {normalizedComplaint.images && normalizedComplaint.images.map((file, idx) => {
+                        if (file && typeof file === 'string') {
+                          return (
+                            <div key={idx} className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+                              <div className="aspect-square relative">
+                                <img
+                                  src={`data:image/jpeg;base64,${file}`}
+                                  alt={`Attachment ${idx + 1}`}
+                                  className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
+                                  onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
+                                  onError={(e) => {
+                                    console.error("Image load error");
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                                  <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="p-3">
+                                <p className="text-xs font-medium text-slate-600 text-center">Image {idx + 1}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
                   </div>
+                  {/* Enhanced Image Modal */}
+                  {enlargedImage && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setEnlargedImage(null)}>
+                      <div className="relative max-w-5xl max-h-[90vh] p-4" onClick={e => e.stopPropagation()}>
+                        <img src={enlargedImage} alt="Enlarged Attachment" className="max-w-full max-h-full rounded-2xl shadow-2xl border-4 border-white" />
+                        <button
+                          onClick={() => setEnlargedImage(null)}
+                          className="absolute -top-2 -right-2 bg-white hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-full p-3 shadow-lg transition-colors"
+                          style={{ zIndex: 10 }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Admin Reply Section */}
+            {/* Admin Reply Section: Show reply to all, reply form only to admin */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
-                {!complaint.adminReply && (
-                  <button
-                    onClick={() => setShowReplyForm(!showReplyForm)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Add Reply</span>
-                  </button>
+                {/* Show Add Reply button to admin if no reply yet, or Update Reply button if reply exists */}
+                {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && (
+                  <div>
+                    {!currentReply ? (
+                      <button
+                        onClick={() => setShowReplyForm(!showReplyForm)}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>Add Reply</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setEditReplyText(currentReply);
+                          setShowEditReplyForm(!showEditReplyForm);
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>Update Reply</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
-              {showReplyForm && (
+              {/* Only admin sees reply form */}
+              {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && showReplyForm && (
                 <div className="mb-6 p-4 bg-slate-50 rounded-xl">
                   <textarea
                     value={newReply}
@@ -641,8 +952,24 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                       Cancel
                     </button>
                     <button
-                      onClick={() => { onAddReply(complaint.id, newReply); setShowReplyForm(false); setNewReply(''); }}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                      onClick={async () => {
+                        // Use correct backend URL for admin reply
+                        try {
+                          const res = await fetch(`http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/reply`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ reply: newReply })
+                          });
+                          if (!res.ok) throw new Error('Failed to add reply');
+                          setShowReplyForm(false);
+                          setNewReply('');
+                          // Update current reply state for immediate UI update
+                          setCurrentReply(newReply);
+                        } catch (err) {
+                          alert(err.message || 'Failed to add reply');
+                        }
+                      }}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                     >
                       <span>Send Reply</span>
                     </button>
@@ -650,9 +977,55 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                 </div>
               )}
 
-              {complaint.adminReply ? (
+              {/* Admin edit reply form */}
+              {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && showEditReplyForm && (
+                <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+                  <h4 className="text-sm  font-medium text-slate-700 mb-2">Update Reply</h4>
+                  <textarea
+                    value={editReplyText}
+                    onChange={(e) => setEditReplyText(e.target.value)}
+                    placeholder="Update your official response to the customer..."
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none"
+                  />
+                  <div className="flex justify-end space-x-3 mt-3">
+                    <button
+                      onClick={() => {
+                        setShowEditReplyForm(false);
+                        setEditReplyText('');
+                      }}
+                      className="px-4 py-2 bg-white text-slate-600 hover:text-slate-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/reply`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ reply: editReplyText })
+                          });
+                          if (!res.ok) throw new Error('Failed to update reply');
+                          setShowEditReplyForm(false);
+                          setEditReplyText('');
+                          // Update current reply state for immediate UI update
+                          setCurrentReply(editReplyText);
+                        } catch (err) {
+                          alert(err.message || 'Failed to update reply');
+                        }
+                      }}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                    >
+                      <span>Update Reply</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {currentReply ? (
                 <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
-                  <p className="text-slate-700 leading-relaxed">{complaint.adminReply}</p>
+                  <p className="text-slate-700 leading-relaxed">{currentReply}</p>
                 </div>
               ) : (
                 <p className="text-slate-500 text-center py-8">

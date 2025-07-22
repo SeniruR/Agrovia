@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Navigation from "./pages/Navigation";
 import ModernSidebar from "./ui/Sidebar";
-import BottomFooter from "./pages/BottomFooter";
+import Footer from "./pages/Footer";
 import FloatingAddCropPost from "./ui/FloatingAddCropPost";
 
 const Layout = ({ children }) => {
@@ -73,7 +73,7 @@ const Layout = ({ children }) => {
           sidebarOpen && isDesktop ? 'lg:ml-80' : isDesktop ? 'lg:ml-16' : 'ml-0'
         }`}
       >
-        <BottomFooter />
+        <Footer />
       </div>
       
       {/* Floating Add Crop Post Button */}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone } from 'lucide-react';
+import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from './CartContext';
 // Add this component at the top of your file
 const ImageWithFallback = ({ src, alt, className }) => {
@@ -39,6 +39,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const { addToCart, getCartItemsCount } = useCart();
 useEffect(() => {
@@ -147,10 +148,12 @@ useEffect(() => {
 
   const handleItemClick = (item) => {
     setSelectedProduct(item);
+    setCurrentImageIndex(0); // Reset to first image when opening popup
   };
 
   const closePopup = () => {
     setSelectedProduct(null);
+    setCurrentImageIndex(0); // Reset image index when closing
   };
 
   const handleCallClick = (phone, e) => {
@@ -164,11 +167,26 @@ useEffect(() => {
     setPhoneNumber('');
   };
 
+  const nextImage = () => {
+    if (selectedProduct && selectedProduct.images.length > 1) {
+      setCurrentImageIndex((prev) => 
+        prev === selectedProduct.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const prevImage = () => {
+    if (selectedProduct && selectedProduct.images.length > 1) {
+      setCurrentImageIndex((prev) => 
+        prev === 0 ? selectedProduct.images.length - 1 : prev - 1
+      );
+    }
+  };
+
   const ProductCard = ({ item }) => (
     <div 
-      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer group border border-emerald-100 hover:border-emerald-300 transform hover:-translate-y-2
-      w-full min-h-[480px] max-h-[600px] flex flex-col"
-      style={{ minWidth: 320, maxWidth: 380 }} // Enhance grid width
+      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer group border border-emerald-100 hover:border-emerald-300 transform hover:-translate-y-2 w-full min-h-[420px] max-h-[540px] flex flex-col mx-auto"
+      style={{ minWidth: 0, maxWidth: 340 }} // Responsive card width
       onClick={() => handleItemClick(item)}
     >
       <div className="relative overflow-hidden h-64">
@@ -209,69 +227,60 @@ useEffect(() => {
         </div>
       </div>
       
-      <div className="p-8 flex flex-col flex-1 justify-between">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors line-clamp-2 mb-1">
-              {item.product_name}
-            </h3>
-            <p className="text-emerald-600 font-semibold text-sm">{item.brand}</p>
-          </div>
-        </div>
-        
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.product_description}</p>
-        
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm font-bold text-gray-700">{item.rating}</span>
-              <span className="text-sm text-gray-500">({item.reviewCount})</span>
+      <div className="p-8 flex flex-col flex-1">
+        <div>
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors line-clamp-2 mb-1">
+                {item.product_name}
+              </h3>
+              <p className="text-emerald-600 font-semibold text-sm">{item.brand}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-gray-500 text-sm">
-            <MapPin className="w-4 h-4" />
-            {item.city}
+          <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.product_description}</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span className="text-sm font-bold text-gray-700">{item.rating}</span>
+                <span className="text-sm text-gray-500">({item.reviewCount})</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-gray-500 text-sm">
+              <MapPin className="w-4 h-4" />
+              {item.city}
+            </div>
+          </div>
+          <div className="bg-emerald-50 rounded-xl p-4 mb-4">
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-2xl font-bold text-emerald-600">LKR {item.price.toLocaleString('en-LK')}</span>
+              <span className="text-sm text-gray-600">per {item.unit}</span>
+            </div>
+            <p className="text-emerald-700 text-sm font-medium">{item.available_quantity} {item.unit}s available</p>
           </div>
         </div>
-
-        <div className="bg-emerald-50 rounded-xl p-4 mb-4">
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-2xl font-bold text-emerald-600">LKR {item.price.toLocaleString('en-LK')}</span>
-            <span className="text-sm text-gray-600">per {item.unit}</span>
-          </div>
-          <p className="text-emerald-700 text-sm font-medium">{item.available_quantity} {item.unit}s available</p>
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div />
-          <div className="flex items-center gap-2">
-            <button 
-              className={`px- py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 ${
-                item.inStock 
-                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              onClick={(e) => handleAddToCart(item, e)}
-              disabled={!item.inStock}
-            >
-              <ShoppingCart className="w-4 h-4" />
-              {item.inStock ? 'Add to Cart' : 'Out of Stock'}
-            </button>
-            <button 
-              className="px-9 py-2 rounded-xl text-sm font-bold bg-green-500 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-              onClick={(e) => handleViewMore(item, e)}
-            >
-              View More
-            </button>
-            <button
-              className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-900 transition"
-              onClick={(e) => handleCallClick(item.phone_no, e)}
-              title="Call Seller"
-            >
-              <Phone className="w-5 h-5" />
-            </button>
-          </div>
+        {/* Action Buttons Bottom-Aligned */}
+        <div className="mt-auto flex items-center justify-end gap-2 pt-4 pr-2">
+          <button 
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap min-w-[120px] flex-shrink-0 ${
+              item.inStock 
+                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+            onClick={(e) => handleAddToCart(item, e)}
+            disabled={!item.inStock}
+          >
+            <ShoppingCart className="w-4 h-4" />
+            {item.inStock ? 'Add to Cart' : 'Out of Stock'}
+          </button>
+          {/* View More button removed as requested */}
+          <button
+            className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-900 transition flex-shrink-0"
+            onClick={(e) => handleCallClick(item.phone_no, e)}
+            title="Call Seller"
+          >
+            <Phone className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>
@@ -282,13 +291,13 @@ useEffect(() => {
       className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer border border-emerald-100 hover:border-emerald-300"
       onClick={() => handleItemClick(item)}
     >
-      <div className="flex">
-        <div className="w-64 h-40 flex-shrink-0 relative overflow-hidden">
-           <ImageWithFallback
-    src={item.images[0]}
-    alt={item.product_name}
-    className="hover:scale-105 transition-transform duration-300"
-  />
+      <div className="flex items-stretch">
+        <div className="w-64 h-40 flex-shrink-0 relative overflow-hidden flex items-stretch">
+          <ImageWithFallback
+            src={item.images[0]}
+            alt={item.product_name}
+            className="h-full w-full object-cover hover:scale-105 transition-transform duration-300"
+          />
           {item.organicCertified && (
             <div className="absolute top-3 left-3 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
               <Leaf className="w-3 h-3" />
@@ -296,8 +305,10 @@ useEffect(() => {
             </div>
           )}
         </div>
-        <div className="flex-1 p-6">
-          <div className="flex justify-between items-start mb-3">
+        {/* Make the right side a flex-col with justify-between so button is always at the bottom */}
+        <div className="flex-1 p-6 flex flex-col min-h-[180px] justify-between">
+          {/* Row 1: name, brand, price, trending badge */}
+          <div className="flex justify-between items-start mb-2">
             <div className="flex-1">
               <h3 className="font-bold text-gray-900 text-xl hover:text-emerald-700 transition-colors mb-1">
                 {item.product_name}
@@ -317,32 +328,36 @@ useEffect(() => {
               )}
             </div>
           </div>
-          <p className="text-gray-600 mb-4 leading-relaxed">{item.product_description}</p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-1">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-bold text-gray-700">{item.rating}</span>
-                <span className="text-sm text-gray-500">({item.reviewCount})</span>
-              </div>
-              <div className="flex items-center gap-1 text-gray-500 text-sm">
-                <MapPin className="w-4 h-4" />
-                {item.city}
-              </div>
-              <span className="text-sm font-semibold text-gray-700">{item.shop_name}</span>
+          {/* Row 2: description and shop name */}
+          <div className="flex items-center gap-4 mb-2">
+            <p className="text-gray-600 leading-relaxed line-clamp-2 max-w-[220px] overflow-hidden m-0">{item.product_description}</p>
+            <span className="text-sm font-semibold text-gray-700 truncate max-w-[120px]">{item.shop_name}</span>
+          </div>
+          {/* Row 3: rating, location, Add to Cart button */}
+          <div className="flex items-center gap-6 w-full">
+            <div className="flex items-center gap-1">
+              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              <span className="text-sm font-bold text-gray-700">{item.rating}</span>
+              <span className="text-sm text-gray-500">({item.reviewCount})</span>
             </div>
-            <button 
-              className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl ${
-                item.inStock 
-                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              onClick={(e) => handleAddToCart(item, e)}
-              disabled={!item.inStock}
-            >
-              <ShoppingCart className="w-4 h-4" />
-              {item.inStock ? 'Add to Cart' : 'Out of Stock'}
-            </button>
+            <div className="flex items-center gap-1 text-gray-500 text-sm">
+              <MapPin className="w-4 h-4" />
+              {item.city}
+            </div>
+            <div className="flex justify-end items-end flex-1">
+              <button 
+                className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl min-w-[140px] whitespace-nowrap ${
+                  item.inStock 
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                onClick={(e) => handleAddToCart(item, e)}
+                disabled={!item.inStock}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                {item.inStock ? 'Add to Cart' : 'Out of Stock'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -541,7 +556,7 @@ useEffect(() => {
             ) : (
               <div className={
                 viewMode === 'grid' 
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-24' // Increased gap to gap-10 (2.5rem)
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' // Reduced gap for better fit
                   : 'space-y-8'
               }>
                 {filteredAndSortedItems.map((item) => 
@@ -556,61 +571,115 @@ useEffect(() => {
       </div>
 
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl p-6 relative animate-fade-in overflow-hidden" style={{ maxHeight: '90vh' }}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-7xl p-8 relative animate-fade-in overflow-y-auto" style={{ maxHeight: '95vh', minHeight: '80vh' }}>
             {/* Close Button */}
             <button
-              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold shadow z-50"
+              className="absolute top-6 right-6 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold shadow z-50"
               onClick={closePopup}
               aria-label="Close"
             >
               ✕
             </button>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
               {/* Left: Image */}
-              <div className="flex flex-col items-center justify-start bg-gradient-to-br from-emerald-50 to-white p-6">
-                <img
-                  src={selectedProduct.images[0]}
-                  alt={selectedProduct.product_name}
-                  className="w-full h-64 object-cover rounded-xl shadow-lg border-4 border-emerald-100"
-                />
-                <div className="mt-4 w-full">
-                  <div className="bg-blue-50 p-3 rounded-lg">
+              <div className="flex flex-col items-center justify-start bg-gradient-to-br from-emerald-50 to-white p-8 rounded-2xl">
+                {/* Image Gallery */}
+                <div className="relative w-full">
+                  <img
+                    src={selectedProduct.images[currentImageIndex]}
+                    alt={`${selectedProduct.product_name} - Image ${currentImageIndex + 1}`}
+                    className="w-full h-80 object-cover rounded-xl shadow-lg border-4 border-emerald-100"
+                  />
+                  
+                  {/* Navigation arrows - only show if more than 1 image */}
+                  {selectedProduct.images.length > 1 && (
+                    <>
+                      <button
+                        onClick={prevImage}
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all duration-200 hover:scale-110"
+                        aria-label="Previous image"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={nextImage}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all duration-200 hover:scale-110"
+                        aria-label="Next image"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                      
+                      {/* Image counter */}
+                      <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium">
+                        {currentImageIndex + 1} / {selectedProduct.images.length}
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {/* Image thumbnails - only show if more than 1 image */}
+                {selectedProduct.images.length > 1 && (
+                  <div className="mt-6 w-full">
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {selectedProduct.images.map((image, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentImageIndex(index)}
+                          className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                            currentImageIndex === index 
+                              ? 'border-emerald-500 shadow-lg scale-105' 
+                              : 'border-gray-200 hover:border-emerald-300'
+                          }`}
+                        >
+                          <img
+                            src={image}
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mt-6 w-full">
+                  <div className="bg-blue-50 p-4 rounded-lg">
                     <p className="text-sm font-medium text-blue-600">Shop Address</p>
-                    <p className="font-semibold text-gray-800 break-words">{selectedProduct.shop_address}</p>
+                    <p className="font-semibold text-gray-800 break-words text-base">{selectedProduct.shop_address}</p>
                   </div>
                 </div>
                 
                 {/* Add farming tips card to fill white space */}
-                <div className="mt-6 w-full bg-emerald-50/80 p-4 rounded-xl border border-emerald-200">
-                  <h3 className="text-emerald-700 font-bold text-lg flex items-center gap-2">
-                    <Leaf className="w-5 h-5" /> Farming Tips
+                <div className="mt-8 w-full bg-emerald-50/80 p-6 rounded-xl border border-emerald-200">
+                  <h3 className="text-emerald-700 font-bold text-xl flex items-center gap-2">
+                    <Leaf className="w-6 h-6" /> Farming Tips
                   </h3>
-                  <div className="mt-3 text-gray-700 text-sm">
-                    <div className="flex items-start gap-2 mb-2">
-                      <div className="bg-emerald-100 rounded-full p-1 mt-0.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                  <div className="mt-4 text-gray-700 text-base">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="bg-emerald-100 rounded-full p-1.5 mt-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
                       </div>
                       <p>Use this {selectedProduct.product_type} during early morning or late evening for best results.</p>
                     </div>
-                    <div className="flex items-start gap-2 mb-2">
-                      <div className="bg-emerald-100 rounded-full p-1 mt-0.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="bg-emerald-100 rounded-full p-1.5 mt-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
                       </div>
                       <p>Store in a cool, dry place away from direct sunlight.</p>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <div className="bg-emerald-100 rounded-full p-1 mt-0.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    <div className="flex items-start gap-3">
+                      <div className="bg-emerald-100 rounded-full p-1.5 mt-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
                       </div>
                       <p>Follow recommended dosage for optimal crop yield and health.</p>
                     </div>
                   </div>
                   
                   {/* Add to cart button */}
-                  <div className="mt-4 flex justify-center">
+                  <div className="mt-6 flex justify-center">
                     <button
-                      className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 ${
+                      className={`px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 ${
                         selectedProduct.inStock 
                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -618,107 +687,107 @@ useEffect(() => {
                       onClick={(e) => handleAddToCart(selectedProduct, e)}
                       disabled={!selectedProduct.inStock}
                     >
-                      <ShoppingCart className="w-5 h-5" />
+                      <ShoppingCart className="w-6 h-6" />
                       {selectedProduct.inStock ? 'Add to Cart' : 'Out of Stock'}
                     </button>
                   </div>
                 </div>
               </div>
               {/* Right: Details */}
-              <div className="flex flex-col gap-4 p-6 bg-white">
-                <h2 className="text-3xl font-bold text-emerald-700 break-words line-clamp-2">
+              <div className="flex flex-col gap-6 p-8 bg-white rounded-2xl">
+                <h2 className="text-4xl font-bold text-emerald-700 break-words line-clamp-3">
                   {selectedProduct.product_name}
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {/* Column 1 */}
-                  <div className="space-y-3">
-                    <div className="bg-emerald-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-emerald-600">Shop</p>
-                      <p className="font-semibold text-gray-800">{selectedProduct.shop_name}</p>
+                  <div className="space-y-4">
+                    <div className="bg-emerald-50 p-4 rounded-lg">
+                      <p className="text-base font-medium text-emerald-600">Shop</p>
+                      <p className="font-semibold text-gray-800 text-lg">{selectedProduct.shop_name}</p>
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600">Owner</p>
-                      <p className="font-semibold text-gray-800">{selectedProduct.owner_name}</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-base font-medium text-gray-600">Owner</p>
+                      <p className="font-semibold text-gray-800 text-lg">{selectedProduct.owner_name}</p>
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600">Email</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-base font-medium text-gray-600">Email</p>
                       <input
                         type="email"
                         value={selectedProduct.email}
                         readOnly
-                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
                       />
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600">Phone</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-base font-medium text-gray-600">Phone</p>
                       <input
                         type="text"
                         value={selectedProduct.phone_no}
                         readOnly
-                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
                       />
                     </div>
                   </div>
                   {/* Column 2 */}
-                  <div className="space-y-3">
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-blue-600">City</p>
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <p className="text-base font-medium text-blue-600">City</p>
                       <input
                         type="text"
                         value={selectedProduct.city}
                         readOnly
-                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
                       />
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600">Product Type</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-base font-medium text-gray-600">Product Type</p>
                       <input
                         type="text"
                         value={selectedProduct.product_type}
                         readOnly
-                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
                       />
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600">Brand</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-base font-medium text-gray-600">Brand</p>
                       <input
                         type="text"
                         value={selectedProduct.brand}
                         readOnly
-                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
                       />
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600">Category</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-base font-medium text-gray-600">Category</p>
                       <input
                         type="text"
                         value={selectedProduct.category}
                         readOnly
-                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none"
+                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
                       />
                     </div>
                   </div>
                 </div>
                 {/* Pricing Section */}
-                <div className="bg-emerald-100 p-4 rounded-lg border border-emerald-200">
-                  <p className="text-sm font-medium text-emerald-600">Price</p>
-                  <p className="text-2xl font-bold text-emerald-700">
+                <div className="bg-emerald-100 p-6 rounded-lg border border-emerald-200">
+                  <p className="text-base font-medium text-emerald-600">Price</p>
+                  <p className="text-3xl font-bold text-emerald-700">
                     LKR {selectedProduct.price.toLocaleString('en-LK')}
-                    <span className="text-sm font-normal text-gray-600 ml-1">per {selectedProduct.unit}</span>
+                    <span className="text-lg font-normal text-gray-600 ml-2">per {selectedProduct.unit}</span>
                   </p>
-                  <p className="text-sm font-medium text-gray-600 mt-2">Available Quantity</p>
-                  <p className="text-lg font-bold text-gray-800">
+                  <p className="text-base font-medium text-gray-600 mt-3">Available Quantity</p>
+                  <p className="text-xl font-bold text-gray-800">
                     {selectedProduct.available_quantity} {selectedProduct.unit}s
                   </p>
                 </div>
                 {/* Description Section */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm font-medium text-gray-600 mb-2">Product Description</p>
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <p className="text-base font-medium text-gray-600 mb-3">Product Description</p>
                   <textarea
                     value={selectedProduct.product_description}
                     readOnly
-                    className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-2 mt-1 border border-gray-300 focus:outline-none resize-none"
-                    rows="4"
+                    className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-4 mt-2 border border-gray-300 focus:outline-none resize-none text-base leading-relaxed"
+                    rows="6"
                   />
                 </div>
               </div>
