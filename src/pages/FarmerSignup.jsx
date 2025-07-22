@@ -598,7 +598,11 @@ const FarmerSignup = () => {
                 }
             }
             setErrorMessage('');
-            setSuccessMessage('Registration successful! Your account will be reviewed by your organization and activated as appropriate. You will be able to log in once your account is approved. Redirecting to login page...');
+            // Choose message based on whether a new org was registered
+            const successMsg = orgRegistered
+                ? 'Registration successful! Your organization and account will be reviewed and activated as appropriate. You will be able to log in once both are approved. Redirecting to login page...'
+                : 'Registration successful! Your account will be reviewed by your organization and activated as appropriate. You will be able to log in once your account is approved. Redirecting to login page...';
+            setSuccessMessage(successMsg);
             setTimeout(() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }, 50);
