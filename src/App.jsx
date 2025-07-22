@@ -19,13 +19,14 @@ import BuyerSignup from "./pages/BuyerSignup";
 import TransporterSignup from "./pages/TransporterSignup";
 import ShopOwnerSignup from "./pages/ShopOwnerSignup";
 import ModeratorSignup from "./pages/ModeratorSignup";
-
+import LayoutAll from "./components/LayoutAll"
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
 
+import PaymentSuccess from './pages/PaymentSuccess';
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import CartPage from "./pages/CartPage";
-import AgriShopMarketplace from "./pages/shop/AgriShopMarketplace";
+import AgriShopMarketplace from "./pages/shop/Items";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
 import FarmerProfileEdit from "./pages/Profile";
@@ -37,6 +38,7 @@ import ProfileRouter from "./components/ProfileRouter";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
 import MyOrderCrops from "./pages/MyOrderCrops"
+import MyOrders from './pages/MyOrders';
 
 import CropPostForm from "./pages/farmer/CropPostForm";
 
@@ -53,11 +55,16 @@ import ShopReviews from "./pages/shop/ShopReviews";
 import CreateOrganizationForm from "./pages/organization/CreateOrganizationForm";
 
 import NotFound from "./components/pages/NotFound";
+import DiscoverMore from "./pages/DiscoverMore";
 import Complaint from "./pages/complaint/Complaint";
-
+import BulkSellerChat from "./pages/BulkSellerChat";
 import AdminDashboard from "./pages/admin/AdminDahboard"
 import AdminUserManagement from "./pages/admin/AdminUserManagement"
 import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
+import AdminShop from "./pages/admin/AdminShop";
+import AdminShopSubscriptions from "./pages/admin/AdminShopSubscriptions";
+import AdminAccountApproval  from "./pages/admin/AdminAccountApproval";
+
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 
 
@@ -83,8 +90,17 @@ import NavigationTest from "./pages/NavigationTest";
 import CropDetailView from "./pages/farmer/CropDetailView";
 
 import AdminMyShopItem from "./pages/admin/AdminShopItem";
+import NewLogin from "./pages/Login_new";
+import ContactPage from "./components/contact/ContactPage"
+
 
 import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
+import PurchaseDetails from "./pages/PurchaseDetails";
+import EditCropPost from "./pages/farmer/EditCropPost";
+
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -95,15 +111,40 @@ import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 const App = () => {
   return (
     <Routes>
+      <Route path="/admin/account-approval" element={
+        <Layout>
+          <AdminAccountApproval />
+        </Layout>
+      } />
+      <Route path="/admin/shop-subscriptions" element={
+        <Layout>
+          <AdminShopSubscriptions />
+        </Layout>
+      } />
+      <Route path="/admin/shop" element={
+        <Layout>
+          <AdminShop />
+        </Layout>
+      } />
+      <Route path="/discover-more" element={
+        <Layout>
+          <DiscoverMore />
+        </Layout>
+      } />
       <Route path="/admin/organization-approval" element={
         <Layout>
           <AdminOrganizationApproval />
         </Layout>
       } />
+      <Route path="/payment-success" element={
+        <Layout>
+          <PaymentSuccess />
+        </Layout>
+      } />
       <Route path="/" element={
-          <Layout>
+          <LayoutAll>
             <Home />
-          </Layout>
+          </LayoutAll>
         }
       />
       <Route path="/users" element={
@@ -184,6 +225,13 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/chat" element={
+          <Layout>
+            <BulkSellerChat />
+          </Layout>
+        }
+      />
+
 
       <Route path="/cropListings" element={
           <Layout>
@@ -407,6 +455,12 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/purchase-details" element={
+          <Layout>
+            <PurchaseDetails/>
+          </Layout>
+        }
+      />
 
        <Route path="/emailalerts" element={
           <Layout>
@@ -481,6 +535,11 @@ const App = () => {
           </Layout>
         } />
 
+        <Route path="/edit-crop/:id" element={
+          <Layout>
+          <EditCropPost />
+          </Layout>
+          } />
 
          <Route path="/adminshopitems" element={
           <Layout>
@@ -490,10 +549,37 @@ const App = () => {
 
          <Route path="/buyer-com-dash" element={
         <Layout>
-          <BuyerComplaintDashboard/>
+          <Complaint />
         </Layout>
       }
       />
+      <Route path="/Newlogin" element={
+          <Layout>
+            <NewLogin />
+          </Layout>
+        } />
+         <Route path="/contactus" element={
+          <Layout>
+            <ContactPage />
+          </Layout>
+        } />
+
+      <Route path="/orders" element={
+        <Layout>
+          <MyOrders />
+        </Layout>
+      } />
+      
+      <Route path="/terms-of-service" element={
+        <Layout>
+          <TermsOfService />
+        </Layout>
+      } />
+      <Route path="/privacy-policy" element={
+        <Layout>
+          <PrivacyPolicy />
+        </Layout>
+      } />
 
     </Routes>
     

@@ -1,364 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import  { useState, useEffect,useCallback } from 'react';
+import React from 'react';
 import { Search, MapPin, Phone, Mail, Star, Award, Package, DollarSign, Eye, Heart, Edit, Trash2, X, ArrowLeft, Upload } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import ItemPostedForm from './ItemPostedForm';
 import { useAuth } from '../../contexts/AuthContext';
-const MyShopItem = () => {
-   const navigate = useNavigate();
-   const { user, isAuthenticated, getAuthHeaders } = useAuth();
-   const [showAddPage, setShowAddPage] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('all');
-    const [selectedCity, setSelectedCity] = useState('all');
-    const [likedItems, setLikedItems] = useState(new Set());
-    const [selectedItem, setSelectedItem] = useState(null);
-    const [shopItems, setShopItems] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState(null);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [editFormData, setEditFormData] = useState({
-        shopitemid: '',
-        shop_name: '',
-        owner_name: '',
-        phone_no: '',
-        shop_address: '',
-        city: '',
-        product_type: '',
-        product_name: '',
-        brand: '',
-        category: '',
-        season: '',
-        price: 0,
-        unit: '',
-        available_quantity: 0,
-        product_description: '',
-        usage_history: '',
-        organic_certified: false,
-       // terms_accepted: false,
-        images: [],
-        existingImages: []
-    });
 
-    // Fetch data from backend
- useEffect(() => {
-  const fetchShopItems = async () => {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await axios.get(
-        'http://localhost:5000/api/v1/shop-products/my-shop', 
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      // Debug the response structure
-      console.log('API Response:', response.data);
-      
-      // Handle different possible response structures
-      const products = response.data.products || 
-                       response.data.data || 
-                       response.data || 
-                       [];
-      
-      setShopItems(products);
-      setError(null);
-      
-    } catch (err) {
-      console.error('API Error:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
-      
-      if (err.response?.status === 404) {
-        setShopItems([]);
-        setError("Your shop currently has no products");
-      } else {
-        setError(err.response?.data?.message || "Failed to load products");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchShopItems();
-}, []);
-
-    // Clean up image previews when component unmounts
-    useEffect(() => {
-        return () => {
-            if (editFormData.images) {
-                editFormData.images.forEach(img => {
-                    if (img?.preview) URL.revokeObjectURL(img.preview);
-                });
-            }
-        };
-    }, [editFormData.images]);
-
-    const handleImageUpload = (e) => {
-        const files = Array.from(e.target.files);
-        const newImages = files.map(file => {
-            return {
-                file,
-                preview: URL.createObjectURL(file)
-            };
-        });
-        
-        setEditFormData(prev => ({
-            ...prev,
-            images: [...prev.images, ...newImages]
-        }));
-    };
-
-    const removeImage = (index, isExisting) => {
-        if (isExisting) {
-            // Mark existing image for deletion
-            setEditFormData(prev => {
-                const newExistingImages = [...prev.existingImages];
-                newExistingImages[index].markedForDeletion = true;
-                return { ...prev, existingImages: newExistingImages };
-            });
-        } else {
-            // Remove new image and revoke URL
-            setEditFormData(prev => {
-                const newImages = [...prev.images];
-                URL.revokeObjectURL(newImages[index].preview);
-                newImages.splice(index, 1);
-                return { ...prev, images: newImages };
-            });
-        }
-    };
-
-    // Handle edit form submission
- const handleEditSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const formData = new FormData();
-
-    // Append fields except image arrays
-    Object.keys(editFormData).forEach(key => {
-      if (key !== 'images' && key !== 'existingImages') {
-        formData.append(key, editFormData[key]);
-      }
-    });
-
-    // Append new images
-    editFormData.images.forEach(img => {
-      formData.append('images', img.file);
-    });
-
-    // Remaining old images
-    const remainingImages = editFormData.existingImages
-      .filter(img => !img.markedForDeletion)
-      .map(img => img.url);
-    formData.append('remainingImages', JSON.stringify(remainingImages));
-
-    // Axios PUT request
-    const response = await axios.put(
-      `http://localhost:5000/api/v1/shop-products/${editFormData.shopitemid}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }
-    );
-
-    //  Use response.data.product, not itemData
-    const updatedItem = response.data.product;
-
-    setShopItems(prevItems =>
-      prevItems.map(item =>
-        item.shopitemid === updatedItem.shopitemid ? updatedItem : item
-      )
-    );
-
-    setShowEditModal(false);
-    setSelectedItem(null);
-    setEditFormData({
-      shopitemid: '',
-      shop_name: '',
-      owner_name: '',
-      phone_no: '',
-      shop_address: '',
-      city: '',
-      product_type: '',
-      product_name: '',
-      brand: '',
-      category: '',
-      season: '',
-      price: 0,
-      unit: '',
-      available_quantity: 0,
-      product_description: '',
-      usage_history: '',
-      organic_certified: false,
-      terms_accepted: false,
-      images: [],
-      existingImages: []
-    });
-     alert('Product updated successfully!');
-  window.location.reload();
-  } catch (error) {
-    console.error('Error updating item:', error);
-    console.error('Detailed error:', error);
-    console.error('Error response:', error.response?.data);
-    alert('Failed to update item');
-  }
-};
-
-
-    // Handle edit form changes
-    const handleEditChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setEditFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : 
-                   (type === 'number' ? parseFloat(value) : value)
-
-                   
-        })
-        
-      );
-    };
-
-    // Set edit form data when opening edit modal
-    const handleEdit = (item) => {
-        setSelectedItem(item);
-        setEditFormData({
-            shopitemid: item.shopitemid || '',
-            shop_name: item.shop_name || '',
-            owner_name: item.owner_name || '',
-            phone_no: item.phone_no || '',
-            shop_address: item.shop_address || '',
-            city: item.city || '',
-            product_type: item.product_type || '',
-            product_name: item.product_name || '',
-            brand: item.brand || '',
-            category: item.category || '',
-            season: item.season || '',
-            price: item.price || 0,
-            unit: item.unit || '',
-            available_quantity: item.available_quantity || 0,
-            product_description: item.product_description || '',
-            usage_history: item.usage_history || '',
-            organic_certified: item.organic_certified || false,
-            terms_accepted: item.terms_accepted || false,
-            images: [],
-            existingImages: item.images ? item.images.map(img => ({ 
-                url: img,
-                markedForDeletion: false 
-            })) : []
-        });
-     let imagesArray = [];
-
-  if (Array.isArray(item.images)) {
-    imagesArray = item.images;
-  } else if (typeof item.images === 'string' && item.images.trim() !== '') {
-    imagesArray = item.images.split(',').map(url => url.trim());
-  }
-
-  setEditFormData({
-    ...item,
-    images: [], // for new uploaded files (empty at start)
-    existingImages: imagesArray.map(url => ({
-      url,
-      markedForDeletion: false
-    })),
-  });
-
-  setSelectedItem(item);
-  setShowEditModal(true);
-        setShowEditModal(true);
-    };
-
-    const handleDelete = (shopitemid) => {
-        setItemToDelete(shopitemid);
-        setShowDeleteModal(true);
-    };
-
-    const handleDeleteConfirm = async () => {
-        try {
-            const res = await fetch(`http://localhost:5000/api/v1/shop-products/${itemToDelete}`, {
-                method: 'DELETE',
-            });
-
-            const data = await res.json();
-            
-
-            if (res.ok) {
-                alert('Product deleted successfully');
-                setShopItems(prev => prev.filter(item => item.shopitemid !== itemToDelete));
-               
-            } else {
-                alert(`Failed to delete: ${data.message}`);
-            }
-        } catch (err) {
-            console.error('Error:', err);
-            alert('Network error - could not connect to server');
-        } finally {
-            setShowDeleteModal(false);
-            setItemToDelete(null);
-        }
-      
-
-    };
-
-    // Extract unique categories and cities from data
-    const categories = ['all', ...new Set(shopItems.map(item => item.category).filter(Boolean))];
-    const cities = ['all', ...new Set(shopItems.map(item => item.city).filter(Boolean))];
-
-    const filteredItems = shopItems.filter(item => {
-        const matchesSearch =
-            (item.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.shop_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.category?.toLowerCase().includes(searchTerm.toLowerCase()));
-        const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-        const matchesCity = selectedCity === 'all' || item.city === selectedCity;
-        return matchesSearch && matchesCategory && matchesCity;
-    });
-
-    const toggleLike = (itemId) => {
-        setLikedItems(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(itemId)) {
-                newSet.delete(itemId);
-            } else {
-                newSet.add(itemId);
-            }
-            return newSet;
-        });
-    };
-
-    const renderStars = (rating) => {
-        if (!rating) return null;
-        const stars = [];
-        const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 !== 0;
-
-        for (let i = 0; i < fullStars; i++) {
-            stars.push(<Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />);
-        }
-        if (hasHalfStar) {
-            stars.push(<Star key="half" className="h-4 w-4 fill-yellow-400 text-yellow-400 opacity-50" />);
-        }
-        const emptyStars = 5 - Math.ceil(rating);
-        for (let i = 0; i < emptyStars; i++) {
-            stars.push(<Star key={`empty-${i}`} className="h-4 w-4 text-gray-300" />);
-        }
-        return stars;
-    };
-
-   
- 
-// Replace 'your-icon-library' with your actual icon imports
-const DetailView = ({ item, onClose, handleEdit }) => {
+const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
   // Helper to safely parse images (array or CSV string)
   const renderImages = () => {
     let images = [];
@@ -571,14 +219,21 @@ const DetailView = ({ item, onClose, handleEdit }) => {
           {/* Action Buttons */}
           <div className="mt-10 flex justify-center gap-6">
             <button
-              onClick={() => {
-                onClose();
-                handleEdit(item);
-              }}
+              onClick={() => handleEdit(item)}
               className="bg-green-800 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors flex items-center shadow"
             >
               <Edit className="h-5 w-5 mr-2" />
               Edit Product
+            </button>
+            <button
+              onClick={() => {
+                onClose();
+                handleDelete(item.shopitemid);
+              }}
+              className="bg-red-600 text-white px-8 py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center shadow"
+            >
+              <Trash2 className="h-5 w-5 mr-2" />
+              Delete Product
             </button>
             <button
               onClick={onClose}
@@ -593,50 +248,58 @@ const DetailView = ({ item, onClose, handleEdit }) => {
     </div>
   );
 };
-const renderCategoryOptions = () => {
-  if (!editFormData.product_type) {
-    return (
-      <>
-        <option value="">Select product type first</option>
-      </>
-    );
-  }
 
-  const optionsMap = {
-    seeds: [
-      { value: "vegetable", label: "Vegetable Seeds" },
-      { value: "fruit", label: "Fruit Seeds" },
-      { value: "flower", label: "Flower Seeds" },
-      { value: "grain", label: "Grain Seeds" }
-    ],
-    fertilizer: [
-      { value: "organic", label: "Organic Fertilizer" },
-      { value: "npk", label: "NPK Fertilizer" },
-      { value: "liquid", label: "Liquid Fertilizer" },
-      { value: "compost", label: "Compost" }
-    ],
-    chemical: [
-      { value: "pesticide", label: "Pesticide" },
-      { value: "herbicide", label: "Herbicide" },
-      { value: "fungicide", label: "Fungicide" },
-      { value: "insecticide", label: "Insecticide" }
-    ]
-  };
+const EditModal = React.memo(({ 
+    editFormData, 
+    handleEditChange, 
+    handleImageUpload, 
+    removeImage, 
+    handleEditSubmit,
+    setShowEditModal,
+    setSelectedItem,
+    setEditFormData
+}) => {
+    const renderCategoryOptions = () => {
+      if (!editFormData.product_type) {
+        return (
+          <>
+            <option value="">Select product type first</option>
+          </>
+        );
+      }
 
-  return (
-    <>
-      <option value="">Select category</option>
-      {optionsMap[editFormData.product_type]?.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </>
-  );
-};
+      const optionsMap = {
+        seeds: [
+          { value: "vegetable", label: "Vegetable Seeds" },
+         
+          { value: "grain", label: "Grain Seeds" }
+        ],
+        fertilizer: [
+          { value: "organic", label: "Organic Fertilizer" },
+          { value: "npk", label: "NPK Fertilizer" },
+          { value: "liquid", label: "Liquid Fertilizer" },
+          { value: "compost", label: "Compost" }
+        ],
+        chemical: [
+          { value: "pesticide", label: "Pesticide" },
+          { value: "herbicide", label: "Herbicide" },
+          { value: "fungicide", label: "Fungicide" },
+          { value: "insecticide", label: "Insecticide" }
+        ]
+      };
 
-    // Edit Modal Component
-    const EditModal = () => {
+      return (
+        <>
+          <option value="">Select category</option>
+          {optionsMap[editFormData.product_type]?.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </>
+      );
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all">
             <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-green-100 animate-fade-in">
@@ -648,16 +311,18 @@ const renderCategoryOptions = () => {
                             setShowEditModal(false);
                             setSelectedItem(null);
                             // Clean up image previews
-                            editFormData.images.forEach(img => {
-                                if (img?.preview) URL.revokeObjectURL(img.preview);
-                            });
+                            if (editFormData.images) {
+                                editFormData.images.forEach(img => {
+                                    if (img?.preview) URL.revokeObjectURL(img.preview);
+                                });
+                            }
                             setEditFormData(prev => ({
                                 ...prev,
                                 images: [],
-                                existingImages: prev.existingImages.map(img => ({
+                                existingImages: prev.existingImages ? prev.existingImages.map(img => ({
                                     ...img,
                                     markedForDeletion: false
-                                }))
+                                })) : []
                             }));
                         }}
                         className="p-2 hover:bg-green-100 rounded-full transition-colors"
@@ -918,16 +583,18 @@ const renderCategoryOptions = () => {
                             onClick={() => {
                                 setShowEditModal(false);
                                 setSelectedItem(null);
-                                editFormData.images.forEach(img => {
-                                    if (img?.preview) URL.revokeObjectURL(img.preview);
-                                });
+                                if (editFormData.images) {
+                                    editFormData.images.forEach(img => {
+                                        if (img?.preview) URL.revokeObjectURL(img.preview);
+                                    });
+                                }
                                 setEditFormData(prev => ({
                                     ...prev,
                                     images: [],
-                                    existingImages: prev.existingImages.map(img => ({
+                                    existingImages: prev.existingImages ? prev.existingImages.map(img => ({
                                         ...img,
                                         markedForDeletion: false
-                                    }))
+                                    })) : []
                                 }));
                             }}
                             className="px-6 py-2 border border-green-300 rounded-lg text-green-800 hover:bg-green-50 transition-colors"
@@ -945,44 +612,395 @@ const renderCategoryOptions = () => {
             </div>
         </div>
     );
-};
+});
 
-    // Delete Confirmation Modal
-    const DeleteModal = () => {
-        return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl max-w-md w-full p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-red-600">Confirm Deletion</h2>
-                        <button
-                            onClick={() => setShowDeleteModal(false)}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                        >
-                            <X className="h-6 w-6" />
-                        </button>
-                    </div>
+const DeleteModal = ({ onConfirm, onCancel }) => {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-red-600">Confirm Deletion</h2>
+                    <button
+                        onClick={onCancel}
+                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                        <X className="h-6 w-6" />
+                    </button>
+                </div>
 
-                    <p className="text-gray-700 mb-6">
-                        Are you sure you want to delete this product? This action cannot be undone.
-                    </p>
+                <p className="text-gray-700 mb-6">
+                    Are you sure you want to delete this product? This action cannot be undone.
+                </p>
 
-                    <div className="flex justify-end gap-4">
-                        <button
-                            onClick={() => setShowDeleteModal(false)}
-                            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleDeleteConfirm}
-                            className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                            Delete
-                        </button>
-                    </div>
+                <div className="flex justify-end gap-4">
+                    <button
+                        onClick={onCancel}
+                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                        Delete
+                    </button>
                 </div>
             </div>
-        );
+        </div>
+    );
+};
+
+const MyShopItem = () => {
+   const navigate = useNavigate();
+   const { user, isAuthenticated, getAuthHeaders } = useAuth();
+   const [showAddPage, setShowAddPage] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('all');
+    const [selectedCity, setSelectedCity] = useState('all');
+    const [likedItems, setLikedItems] = useState(new Set());
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [shopItems, setShopItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        shopitemid: '',
+        shop_name: '',
+        owner_name: '',
+        phone_no: '',
+        shop_address: '',
+        city: '',
+        product_type: '',
+        product_name: '',
+        brand: '',
+        category: '',
+        season: '',
+        price: 0,
+        unit: '',
+        available_quantity: 0,
+        product_description: '',
+        usage_history: '',
+        organic_certified: false,
+       // terms_accepted: false,
+        images: [],
+        existingImages: []
+    });
+
+    // Fetch data from backend
+ useEffect(() => {
+  const fetchShopItems = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get(
+        'http://localhost:5000/api/v1/shop-products/my-shop', 
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Debug the response structure
+      console.log('API Response:', response.data);
+      
+      // Handle different possible response structures
+      const products = response.data.products || 
+                       response.data.data || 
+                       response.data || 
+                       [];
+      
+      setShopItems(products);
+      setError(null);
+      
+    } catch (err) {
+      console.error('API Error:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      if (err.response?.status === 404) {
+        setShopItems([]);
+        setError("Your shop currently has no products");
+      } else {
+        setError(err.response?.data?.message || "Failed to load products");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchShopItems();
+}, []);
+
+    // Clean up image previews when component unmounts
+    useEffect(() => {
+        return () => {
+            if (editFormData.images) {
+                editFormData.images.forEach(img => {
+                    if (img?.preview) URL.revokeObjectURL(img.preview);
+                });
+            }
+        };
+    }, [editFormData.images]);
+
+    const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        const newImages = files.map(file => {
+            return {
+                file,
+                preview: URL.createObjectURL(file)
+            };
+        });
+        
+        setEditFormData(prev => ({
+            ...prev,
+            images: [...prev.images, ...newImages]
+        }));
+    };
+
+    const removeImage = (index, isExisting) => {
+        if (isExisting) {
+            // Mark existing image for deletion
+            setEditFormData(prev => {
+                const newExistingImages = [...prev.existingImages];
+                newExistingImages[index].markedForDeletion = true;
+                return { ...prev, existingImages: newExistingImages };
+            });
+        } else {
+            // Remove new image and revoke URL
+            setEditFormData(prev => {
+                const newImages = [...prev.images];
+                URL.revokeObjectURL(newImages[index].preview);
+                newImages.splice(index, 1);
+                return { ...prev, images: newImages };
+            });
+        }
+    };
+
+    // Handle edit form submission
+ const handleEditSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const formData = new FormData();
+
+    // Append fields except image arrays
+    Object.keys(editFormData).forEach(key => {
+      if (key !== 'images' && key !== 'existingImages') {
+        formData.append(key, editFormData[key]);
+      }
+    });
+
+    // Append new images
+    editFormData.images.forEach(img => {
+      formData.append('images', img.file);
+    });
+
+    // Remaining old images
+    const remainingImages = editFormData.existingImages
+      .filter(img => !img.markedForDeletion)
+      .map(img => img.url);
+    formData.append('remainingImages', JSON.stringify(remainingImages));
+
+    // Axios PUT request
+    const response = await axios.put(
+      `http://localhost:5000/api/v1/shop-products/${editFormData.shopitemid}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+
+    //  Use response.data.product, not itemData
+    const updatedItem = response.data.product;
+
+    setShopItems(prevItems =>
+      prevItems.map(item =>
+        item.shopitemid === updatedItem.shopitemid ? updatedItem : item
+      )
+    );
+
+    setShowEditModal(false);
+    setSelectedItem(null);
+    setEditFormData({
+      shopitemid: '',
+      shop_name: '',
+      owner_name: '',
+      phone_no: '',
+      shop_address: '',
+      city: '',
+      product_type: '',
+      product_name: '',
+      brand: '',
+      category: '',
+      season: '',
+      price: 0,
+      unit: '',
+      available_quantity: 0,
+      product_description: '',
+      usage_history: '',
+      organic_certified: false,
+      terms_accepted: false,
+      images: [],
+      existingImages: []
+    });
+     alert('Product updated successfully!');
+  window.location.reload();
+  } catch (error) {
+    console.error('Error updating item:', error);
+    console.error('Detailed error:', error);
+    console.error('Error response:', error.response?.data);
+    alert('Failed to update item');
+  }
+};
+
+
+    // Handle edit form changes
+   const handleEditChange = useCallback((e) => {
+        const { name, value, type, checked } = e.target;
+        const newValue = type === 'checkbox' ? checked : value;
+
+        setEditFormData((prev) => {
+            if (prev[name] === newValue) {
+                return prev; // Avoid unnecessary state updates
+            }
+            return {
+                ...prev,
+                [name]: newValue,
+            };
+        });
+    }, []);
+
+    // Set edit form data when opening edit modal
+    const handleEdit = (item) => {
+        setSelectedItem(item);
+        setEditFormData({
+            shopitemid: item.shopitemid || '',
+            shop_name: item.shop_name || '',
+            owner_name: item.owner_name || '',
+            phone_no: item.phone_no || '',
+            shop_address: item.shop_address || '',
+            city: item.city || '',
+            product_type: item.product_type || '',
+            product_name: item.product_name || '',
+            brand: item.brand || '',
+            category: item.category || '',
+            season: item.season || '',
+            price: item.price || 0,
+            unit: item.unit || '',
+            available_quantity: item.available_quantity || 0,
+            product_description: item.product_description || '',
+            usage_history: item.usage_history || '',
+            organic_certified: item.organic_certified || false,
+            terms_accepted: item.terms_accepted || false,
+            images: [],
+            existingImages: item.images ? item.images.map(img => ({ 
+                url: img,
+                markedForDeletion: false 
+            })) : []
+        });
+     let imagesArray = [];
+
+  if (Array.isArray(item.images)) {
+    imagesArray = item.images;
+  } else if (typeof item.images === 'string' && item.images.trim() !== '') {
+    imagesArray = item.images.split(',').map(url => url.trim());
+  }
+
+  setEditFormData({
+    ...item,
+    images: [], // for new uploaded files (empty at start)
+    existingImages: imagesArray.map(url => ({
+      url,
+      markedForDeletion: false
+    })),
+  });
+
+  setSelectedItem(item);
+  setShowEditModal(true);
+    };
+
+    const handleDelete = (shopitemid) => {
+        setItemToDelete(shopitemid);
+        setShowDeleteModal(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/v1/shop-products/${itemToDelete}`, {
+                method: 'DELETE',
+            });
+
+            const data = await res.json();
+            
+
+            if (res.ok) {
+                alert('Product deleted successfully');
+                setShopItems(prev => prev.filter(item => item.shopitemid !== itemToDelete));
+               
+            } else {
+                alert(`Failed to delete: ${data.message}`);
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            alert('Network error - could not connect to server');
+        } finally {
+            setShowDeleteModal(false);
+            setItemToDelete(null);
+        }
+      
+
+    };
+
+    // Extract unique categories and cities from data
+    const categories = ['all', ...new Set(shopItems.map(item => item.category).filter(Boolean))];
+    const cities = ['all', ...new Set(shopItems.map(item => item.city).filter(Boolean))];
+
+    const filteredItems = shopItems.filter(item => {
+        const matchesSearch =
+            (item.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.shop_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.category?.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+        const matchesCity = selectedCity === 'all' || item.city === selectedCity;
+        return matchesSearch && matchesCategory && matchesCity;
+    });
+
+    const toggleLike = (itemId) => {
+        setLikedItems(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(itemId)) {
+                newSet.delete(itemId);
+            } else {
+                newSet.add(itemId);
+            }
+            return newSet;
+        });
+    };
+
+    const renderStars = (rating) => {
+        if (!rating) return null;
+        const stars = [];
+        const fullStars = Math.floor(rating);
+        const hasHalfStar = rating % 1 !== 0;
+
+        for (let i = 0; i < fullStars; i++) {
+            stars.push(<Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />);
+        }
+        if (hasHalfStar) {
+            stars.push(<Star key="half" className="h-4 w-4 fill-yellow-400 text-yellow-400 opacity-50" />);
+        }
+        const emptyStars = 5 - Math.ceil(rating);
+        for (let i = 0; i < emptyStars; i++) {
+            stars.push(<Star key={`empty-${i}`} className="h-4 w-4 text-gray-300" />);
+        }
+        return stars;
     };
 
     // Loading state
@@ -1020,7 +1038,12 @@ const renderCategoryOptions = () => {
 
     // If an item is selected, show the detail view (unless we're in edit mode)
     if (selectedItem && !showEditModal) {
-        return <DetailView item={selectedItem} onClose={() => setSelectedItem(null)} />;
+        return <DetailView 
+            item={selectedItem} 
+            onClose={() => setSelectedItem(null)} 
+            handleEdit={handleEdit}
+            handleDelete={handleDelete}
+        />;
     }
  
     return (
@@ -1028,7 +1051,11 @@ const renderCategoryOptions = () => {
             {/* Header */}
             <div className="bg-white shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 py-6">
-                    
+                    {/* Header Title */}
+                    <div className="mb-6">
+                        <h1 className="text-4xl font-bold text-green-800 mb-2">My Shop Items</h1>
+                        <p className="text-green-600 text-lg">Manage your agricultural products and shop inventory</p>
+                    </div>
 
                     {/* Search and Filter Bar */}
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -1176,6 +1203,7 @@ const renderCategoryOptions = () => {
                             </div>
                         </div>
                     ))}
+
                 </div>
 
                 {/* No Results */}
@@ -1189,8 +1217,19 @@ const renderCategoryOptions = () => {
             </div>
 
             {/* Modals */}
-            {showEditModal && <EditModal />}
-            {showDeleteModal && <DeleteModal />}
+            {showEditModal && (
+            <EditModal
+                editFormData={editFormData}
+                handleEditChange={handleEditChange}
+                handleImageUpload={handleImageUpload}
+                removeImage={removeImage}
+                handleEditSubmit={handleEditSubmit}
+                setShowEditModal={setShowEditModal}
+                setSelectedItem={setSelectedItem}
+                setEditFormData={setEditFormData}
+            />
+        )}
+            {showDeleteModal && <DeleteModal onConfirm={handleDeleteConfirm} onCancel={() => setShowDeleteModal(false)} />}
         </div>
     );
 };

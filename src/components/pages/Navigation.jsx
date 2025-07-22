@@ -107,14 +107,14 @@ const Navigation = ({ onSidebarToggle }) => {
           </button>
           
           <Link to="/" className="flex items-center group">
-            <div className="relative p-3 rounded-2xl transition-all duration-400 transform hover:scale-105">
+            <div className="relative p-3 rounded-2xl transition-all duration-300">
               <img 
                 src={logo} 
                 alt="Agrovia Logo" 
-                className="w-28 h-auto transform group-hover:scale-110 transition-all duration-400 drop-shadow-lg sm:max-w-[70px] pb-[5px]" 
+                className="w-28 h-auto sm:max-w-[70px] pb-[5px] transition-none" 
               />
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-400/15 to-emerald-500/15 opacity-0 group-hover:opacity-100 transition-all duration-400"></div>
-              <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-green-400/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-400"></div>
+              {/* Subtle hover effect: only a faint background, no scale or shadow */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-400/10 to-emerald-500/10 opacity-0 group-hover:opacity-80 transition-all duration-300"></div>
             </div>
           </Link>
         </div>
@@ -223,7 +223,7 @@ const Navigation = ({ onSidebarToggle }) => {
             <div className="flex items-center gap-2">
               {/* User Actions */}
               <div className="hidden md:flex items-center gap-1">
-                <Link to="/community">
+                <Link to="/chat">
                   <button 
                     className="group relative p-3 text-green-600 hover:text-green-800 rounded-xl transition-all duration-300 backdrop-blur-sm"
                     style={{

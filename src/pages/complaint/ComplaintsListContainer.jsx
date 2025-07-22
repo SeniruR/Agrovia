@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import ComplaintsList from "./ComplaintsList";
 
 const ComplaintsListContainer = (props) => {
@@ -50,9 +51,14 @@ const ComplaintsListContainer = (props) => {
           ...shop.map((c) => ({ ...c, type: "shop" })),
           ...transport.map((c) => ({ ...c, type: "transport" })),
         ];
+        // Filter for non-admins
+        let filtered = all;
+        if (props.userType !== '0') {
+          filtered = all.filter(c => String(c.user_id || c.submitted_by || c.submittedBy || '') === String(props.userId));
+        }
         // Optionally sort by date/ID
-        all.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-        setComplaints(all);
+        filtered.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+        setComplaints(filtered);
       } catch (err) {
         setComplaints([]);
       }
@@ -61,7 +67,7 @@ const ComplaintsListContainer = (props) => {
     fetchAllComplaints();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <FullScreenLoader />;
 
   return (
     <ComplaintsList
