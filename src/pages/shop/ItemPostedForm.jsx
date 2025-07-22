@@ -35,7 +35,13 @@ export default function SeedsFertilizerForm() {
    useEffect(() => {
   const fetchShopDetails = async () => {
     console.log('⏳ [1] Starting fetch for user ID:', user?.id);
-    console.log('🔑 [2] Auth headers:', getAuthHeaders());
+    console.log('� [1.5] Current user data:', { 
+      city: user?.city, 
+      phone_no: user?.phone_no, 
+      email: user?.email, 
+      full_name: user?.full_name 
+    });
+    console.log('�🔑 [2] Auth headers:', getAuthHeaders());
 
     try {
       console.log('🌐 [3] Making request to endpoint...');
@@ -53,25 +59,53 @@ export default function SeedsFertilizerForm() {
       console.log('✅ [5] Parsed response data:', data);
 
       if (data.success) {
-        setFormData((prev) => ({
-          ...prev,
+        const updatedData = {
           shop_name: data.data.shop_name || '',
           email: data.data.email || user.email || '',
-          phone_no: data.data.phone_no ||user.phone_no ||'',
+          phone_no: data.data.phone_no || user.phone_no || '',
           shop_address: data.data.shop_address || '',
-          city: data.data.city || '',
-          owner_name: data.data.owner_name || '',
+          city: data.data.city || user.city || '',
+          owner_name: data.data.owner_name || user.full_name || '',
+        };
+        console.log('📋 [5.5] Data being set:', updatedData);
+        
+        setFormData((prev) => ({
+          ...prev,
+          ...updatedData
         }));
-        // Log the value after setting state
-        console.log('shop_name:', data.data.shop_name);
-        // If you want to see the updated formData, use a useEffect on formData
       } else {
         console.warn('⚠ [6] Response not successful:', data);
+        // If no shop data exists, still populate with user data as fallback
+        const fallbackData = {
+          email: user.email || '',
+          phone_no: user.phone_no || '',
+          city: user.city || '',
+          owner_name: user.full_name || '',
+        };
+        console.log('📋 [6.5] Fallback data being set:', fallbackData);
+        
+        setFormData((prev) => ({
+          ...prev,
+          ...fallbackData
+        }));
       }
     } catch (error) {
       console.error('❌ [4] Fetch failed:', { message: error.message });
+      // Fallback to user data if API fails
+      const errorFallbackData = {
+        email: user.email || '',
+        phone_no: user.phone_no || '',
+        city: user.city || '',
+        owner_name: user.full_name || '',
+      };
+      console.log('📋 [7.5] Error fallback data being set:', errorFallbackData);
+      
+      setFormData((prev) => ({
+        ...prev,
+        ...errorFallbackData
+      }));
     } finally {
-      console.log('🏁 [7] Fetch completed');
+      console.log('🏁 [8] Fetch completed');
     }
   };
 
@@ -79,8 +113,32 @@ export default function SeedsFertilizerForm() {
     fetchShopDetails();
   } else {
     console.log('⛔ [0] No user ID - skipping fetch');
+    // Even if no user ID, populate with available user data
+    if (user) {
+      const basicUserData = {
+        email: user.email || '',
+        phone_no: user.phone_no || '',
+        city: user.city || '',
+        owner_name: user.full_name || '',
+      };
+      console.log('📋 [0.5] Setting basic user data:', basicUserData);
+      setFormData((prev) => ({
+        ...prev,
+        ...basicUserData
+      }));
+    }
   }
 }, [user, getAuthHeaders]);
+
+// Debug useEffect to monitor formData changes
+useEffect(() => {
+  console.log('📊 FormData Updated:', {
+    city: formData.city,
+    phone_no: formData.phone_no,
+    email: formData.email,
+    owner_name: formData.owner_name
+  });
+}, [formData.city, formData.phone_no, formData.email, formData.owner_name]);
 
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
@@ -140,6 +198,12 @@ export default function SeedsFertilizerForm() {
       stepErrors.product_name = 'Product name must be at least 2 characters';
     }
 
+    if (!formData.category) {
+      stepErrors.category = 'Please select a category';
+    } else if (formData.category === 'Other' && !formData.category_other?.trim()) {
+      stepErrors.category = 'Please specify the category when selecting "Other"';
+    }
+
     if (!formData.price) {
       stepErrors.price = 'Price is required';
     } else if (isNaN(formData.price) || parseFloat(formData.price) <= 0) {
@@ -177,6 +241,14 @@ export default function SeedsFertilizerForm() {
       setErrors(prevErrors => ({
         ...prevErrors,
         [name]: ''
+      }));
+    }
+
+    // Also clear category_other error when category changes
+    if (name === 'category' && errors.category) {
+      setErrors(prevErrors => ({
+        ...prevErrors,
+        category: ''
       }));
     }
   };
@@ -541,8 +613,9 @@ Object.entries(formData).forEach(([key, val]) => {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                  errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                readOnly
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed transition-all text-base sm:text-lg ${
+                  errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                 }`}
                 placeholder={formData.email ? formData.email : "shop@example.com"}
               />
@@ -569,7 +642,8 @@ Object.entries(formData).forEach(([key, val]) => {
                 placeholder={
                   formData.phone_no
                     ? formData.phone_no
-                    
+                    : user?.phone_no
+                      ? user.phone_no
                       : "+94 XX XXX XXXX"
                 }
               />
@@ -617,7 +691,9 @@ Object.entries(formData).forEach(([key, val]) => {
         errors.city ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
       }`}
     >
-      <option value="">Select city</option>
+      <option value="">
+        {formData.city ? formData.city : user?.city ? `Select city (Current: ${user.city})` : "Select city"}
+      </option>
       {sriLankanCities.map(city => (
         <option key={city} value={city}>{city}</option>
       ))}
@@ -724,9 +800,10 @@ Object.entries(formData).forEach(([key, val]) => {
 
             <div className="w-full">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Category
+                Category <span className="text-red-500">*</span>
               </label>
-              <select
+              <div className="relative">
+                <select
                 name="category"
                 value={
     formData.category === "Other" && formData.category_other
@@ -759,7 +836,9 @@ Object.entries(formData).forEach(([key, val]) => {
       }));
     }
   }}
-                    className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg ${
+                      errors.category ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    }`}
                   >
                     <option value="">Select category</option>
                     {formData.product_type === 'seeds' && (
@@ -795,24 +874,31 @@ Object.entries(formData).forEach(([key, val]) => {
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
-  {/* Show input if "Other" is selected */}
-  {formData.category === "Other" && (
-    <input
-      type="text"
-      name="category"
-      value={formData.category_other || ""}
-      onChange={e =>
-        setFormData(prev => ({
-          ...prev,
-          category: "Other",
-          category_other: e.target.value
-        }))
-      }
-      className="mt-3 w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg"
-      placeholder="Please specify category"
-      autoFocus
-    />
-  )}
+                {errors.category && (
+                  <div className="flex items-center mt-2 text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                    <span>{errors.category}</span>
+                  </div>
+                )}
+                {/* Show input if "Other" is selected */}
+                {formData.category === "Other" && (
+                  <input
+                    type="text"
+                    name="category"
+                    value={formData.category_other || ""}
+                    onChange={e =>
+                      setFormData(prev => ({
+                        ...prev,
+                        category: "Other",
+                        category_other: e.target.value
+                      }))
+                    }
+                    className="mt-3 w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg"
+                    placeholder="Please specify category"
+                    autoFocus
+                  />
+                )}
+              </div>
                 <div className="w-full">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Season
@@ -1133,6 +1219,14 @@ accept="image/*"// Explicitly specify allowed types
 )}
 
 {/* Navigation Buttons */}
+{submitError && (
+  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+    <div className="flex items-center text-red-600">
+      <AlertCircle className="w-5 h-5 mr-3 flex-shrink-0" />
+      <span className="font-medium">{submitError}</span>
+    </div>
+  </div>
+)}
 <div className="flex flex-col sm:flex-row justify-between mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 gap-4 sm:gap-0">
   <button
     type="button"
