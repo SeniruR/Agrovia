@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { Leaf, Mail, Phone, MapPin, Users, Heart, Shield, Zap } from 'lucide-react';
 import ContactForm from './ContactForm';
@@ -100,14 +98,77 @@ const ContactPage = () => {
         </div>
 
         {/* Main Content */}
-        <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
-          {/* Contact Form - make it even wider with more padding */}
-          <div className="w-full lg:w-[900px] xl:w-[1100px] mx-auto bg-white rounded-2xl shadow-2xl border border-gray-200 p-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Contact Form */}
+          <div className="lg:col-span-2">
             <ContactForm onSubmit={handleFormSubmit} />
+          </div>
+
+          {/* Contact Information */}
+          <div className="lg:col-span-1">
+            <ContactInfo />
           </div>
         </div>
 
-        {/* ...existing code... */}
+        {/* FAQ Section */}
+        <div className="mt-16 bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+          <div className="flex items-center mb-8">
+            <div className="p-3 bg-blue-100 rounded-lg mr-4">
+              <MapPin className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">Frequently Asked Questions</h2>
+              <p className="text-gray-600">Quick answers to common questions</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">How do I register as a farmer?</h3>
+                <p className="text-gray-600">Visit our registration page and select "Farmer" as your user type. You'll need to provide basic information about your farm and crops.</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Is there a fee to use Agrovia?</h3>
+                <p className="text-gray-600">Basic features are free for all farmers. Premium features are available through affordable subscription plans.</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">How do I report a problem?</h3>
+                <p className="text-gray-600">Use our complaint system within the platform or contact our support team directly through any of the methods listed above.</p>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">What languages do you support?</h3>
+                <p className="text-gray-600">Our platform and support are available in Sinhala, Tamil, and English to serve all Sri Lankan farmers.</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">How secure is my data?</h3>
+                <p className="text-gray-600">We use industry-standard security measures to protect your personal and business information.</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Can I get training on using the platform?</h3>
+                <p className="text-gray-600">Yes! We offer training sessions and have comprehensive guides in our Knowledge Hub.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-16 text-center">
+          <div className="flex items-center justify-center mb-4">
+            <Leaf size={24} className="text-green-600 mr-3" />
+            <span className="text-xl font-semibold text-gray-800">Agrovia</span>
+          </div>
+          <p className="text-gray-600 mb-4">
+            Empowering Sri Lankan farmers through technology and community
+          </p>
+          <div className="flex items-center justify-center space-x-8 text-sm text-gray-500">
+            <span>© 2024 Agrovia. All rights reserved.</span>
+            <span>•</span>
+            <span>Made with ❤️ for Sri Lankan farmers</span>
+          </div>
+        </div>
       </div>
     </div>
   );

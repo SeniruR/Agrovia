@@ -583,12 +583,19 @@ const App = () => {
           <MyOrders />
         </Layout>
       } />
-      
+
+      <Route path="/contact" element={
+        <Layout>
+          <ContactPage/>
+         </Layout>
+      } />
+        
       <Route path="/terms-of-service" element={
         <Layout>
           <TermsOfService />
         </Layout>
       } />
+        
       <Route path="/privacy-policy" element={
         <Layout>
           <PrivacyPolicy />
