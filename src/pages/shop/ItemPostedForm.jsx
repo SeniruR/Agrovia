@@ -35,13 +35,13 @@ export default function SeedsFertilizerForm() {
    useEffect(() => {
   const fetchShopDetails = async () => {
     console.log('⏳ [1] Starting fetch for user ID:', user?.id);
-    console.log('� [1.5] Current user data:', { 
+    console.log('  [1.5] Current user data:', { 
       city: user?.city, 
       phone_no: user?.phone_no, 
       email: user?.email, 
       full_name: user?.full_name 
     });
-    console.log('�🔑 [2] Auth headers:', getAuthHeaders());
+    console.log(' 🔑 [2] Auth headers:', getAuthHeaders());
 
     try {
       console.log('🌐 [3] Making request to endpoint...');
@@ -210,6 +210,14 @@ useEffect(() => {
       stepErrors.price = 'Please enter a valid price';
     }
 
+    if (!formData.unit) {
+      stepErrors.unit = 'Please select a unit';
+    }
+
+    if (!formData.available_quantity.trim()) {
+      stepErrors.available_quantity = 'Available quantity is required';
+    }
+
     if (!formData.product_description.trim()) {
       stepErrors.product_description = 'Product description is required';
     } else if (formData.product_description.length < 20) {
@@ -330,23 +338,10 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   setIsSubmitting(true);
   setSubmitError('');
- let categoryToSend = formData.category;
-  if (formData.category === "Other" && formData.category_other) {
-    categoryToSend = formData.category_other;
-  }
-
-  // Create FormData and ensure correct category is sent
-  const formDataToSend = new FormData();
-  Object.keys(formData).forEach(key => {
-    if (key === 'category') {
-      formDataToSend.append('category', categoryToSend);
-    } else if (key !== 'images' && key !== 'imagePreviews' && key !== 'category_other') {
-      const value = typeof formData[key] === 'boolean' 
-        ? formData[key].toString() 
-        : formData[key];
-      formDataToSend.append(key, value);
-    }
-  });
+  // Prepare category value, handling "Other"
+  const categoryToSend = formData.category === 'Other' && formData.category_other
+    ? formData.category_other
+    : formData.category;
   try {
     // Validate all steps
     const allErrors = {
@@ -361,18 +356,13 @@ const handleSubmit = async (e) => {
       throw new Error('Please fix all validation errors');
     }
 
-    // Create FormData
+    // Create FormData and append fields
     const formDataToSend = new FormData();
-
-    // Append all regular fields
     Object.keys(formData).forEach(key => {
-      if (key !== 'images' && key !== 'imagePreviews') {
-        // Convert boolean values to strings
-        const value = typeof formData[key] === 'boolean' 
-          ? formData[key].toString() 
-          : formData[key];
-        formDataToSend.append(key, value);
-      }
+      if (key === 'images' || key === 'imagePreviews' || key === 'category_other') return;
+      let value = key === 'category' ? categoryToSend : formData[key];
+      if (typeof value === 'boolean') value = value.toString();
+      formDataToSend.append(key, value);
     });
 
     // Append each image file
@@ -408,8 +398,15 @@ const handleSubmit = async (e) => {
 
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Submission failed');
+      // Attempt to parse error message from response
+      let errorMessage = '';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || JSON.stringify(errorData);
+      } catch {
+        errorMessage = await response.text() || response.statusText;
+      }
+      throw new Error(errorMessage || `Submission failed (${response.status})`);
     }
 
     const responseData = await response.json();
@@ -942,13 +939,15 @@ Object.entries(formData).forEach(([key, val]) => {
 
                 <div className="w-full">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Unit
+                    Unit <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="unit"
                     value={formData.unit}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg ${
+                      errors.unit ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    }`}
                   >
                     <option value="">Select unit</option>
                     <option value="kg">Per Kg</option>
@@ -957,22 +956,36 @@ Object.entries(formData).forEach(([key, val]) => {
                     <option value="bottle">Per Bottle</option>
                     <option value="liter">Per Liter</option>
                   </select>
+                  {errors.unit && (
+                    <div className="flex items-center mt-2 text-red-600 text-sm">
+                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span>{errors.unit}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Full Width Fields */}
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Available Quantity
+                  Available Quantity <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="available_quantity"
                   value={formData.available_quantity}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                  className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg ${
+                    errors.available_quantity ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                  }`}
                   placeholder="e.g., 100 packets, 50 kg"
                 />
+                {errors.available_quantity && (
+                  <div className="flex items-center mt-2 text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                    <span>{errors.available_quantity}</span>
+                  </div>
+                )}
               </div>
 
               <div className="w-full">
