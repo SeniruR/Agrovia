@@ -1,22 +1,143 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Upload, Wheat, AlertCircle } from 'lucide-react';
 
-const CropComplaintForm = ({ onSubmit, onBack }) => {
+const CropComplaintForm = ({ onBack }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    submittedBy: '',
+    submittedBy: '', // user ID for submission
+    submitterName: '', // user name for display
     priority: 'medium',
     cropType: '',
-    location: '',
+    cropTypeOther: '',
+    to_farmer: '', // store farmer ID for submission
+    farmerName: '', // store farmer name for display
     category: '',
     orderNumber: ''
   });
 
+  // Sync submitter info with logged-in user
+  useEffect(() => {
+    function updateUserInfo() {
+      let userObj = null;
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          userObj = JSON.parse(userStr);
+        }
+      } catch {}
+      if (userObj && userObj.id && userObj.full_name) {
+        setFormData(prev => ({
+          ...prev,
+          submittedBy: userObj.id,
+          submitterName: userObj.full_name
+        }));
+        setSubmitterQuery(userObj.full_name);
+      }
+    }
+    updateUserInfo();
+    window.addEventListener('userChanged', updateUserInfo);
+    return () => window.removeEventListener('userChanged', updateUserInfo);
+  }, []);
+  // Submitter search state
+  const [submitterQuery, setSubmitterQuery] = useState('');
+  const [submitterSuggestions, setSubmitterSuggestions] = useState([]);
+  const [showSubmitterDropdown, setShowSubmitterDropdown] = useState(false);
+  const [submitterLoading, setSubmitterLoading] = useState(false);
+  const submitterDropdownRef = useRef();
+
+  // Debounced submitter search
+  useEffect(() => {
+    if (!submitterQuery || submitterQuery.length < 2) {
+      setSubmitterSuggestions([]);
+      setShowSubmitterDropdown(false);
+      return;
+    }
+    setSubmitterLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/v1/users?search=${encodeURIComponent(submitterQuery)}`);
+        if (!res.ok) throw new Error('Failed to fetch users');
+        const data = await res.json();
+        setSubmitterSuggestions(Array.isArray(data) ? data : []);
+        setShowSubmitterDropdown(true);
+      } catch {
+        setSubmitterSuggestions([]);
+        setShowSubmitterDropdown(false);
+      } finally {
+        setSubmitterLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [submitterQuery]);
+
+  // Hide submitter dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (submitterDropdownRef.current && !submitterDropdownRef.current.contains(e.target)) {
+        setShowSubmitterDropdown(false);
+      }
+    }
+    if (showSubmitterDropdown) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showSubmitterDropdown]);
   const [errors, setErrors] = useState({});
+  const [attachments, setAttachments] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const fileInputRef = useRef();
+
+  // Farmer search state
+  const [farmerQuery, setFarmerQuery] = useState('');
+  const [farmerSuggestions, setFarmerSuggestions] = useState([]);
+  const [showFarmerDropdown, setShowFarmerDropdown] = useState(false);
+  const [farmerLoading, setFarmerLoading] = useState(false);
+  const farmerDropdownRef = useRef();
+  // Debounced farmer search
+  useEffect(() => {
+    if (!farmerQuery || farmerQuery.length < 2) {
+      setFarmerSuggestions([]);
+      setShowFarmerDropdown(false);
+      return;
+    }
+    setFarmerLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        // Adjusted endpoint to search both user_type 1 and 1.1
+        // Backend should interpret userType=1,1.1 as both types
+        const res = await fetch(`/api/v1/users?userType=1,1.1&search=${encodeURIComponent(farmerQuery)}`);
+        if (!res.ok) throw new Error('Failed to fetch farmers');
+        const data = await res.json();
+        setFarmerSuggestions(Array.isArray(data) ? data : []);
+        setShowFarmerDropdown(true);
+      } catch {
+        setFarmerSuggestions([]);
+        setShowFarmerDropdown(false);
+      } finally {
+        setFarmerLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [farmerQuery]);
+
+  // Hide dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (farmerDropdownRef.current && !farmerDropdownRef.current.contains(e.target)) {
+        setShowFarmerDropdown(false);
+      }
+    }
+    if (showFarmerDropdown) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showFarmerDropdown]);
 
   const cropTypes = [
-    'Wheat', 'Rice', 'Corn', 'Tomatoes', 'Potatoes', 'Onions', 'Carrots', 'Lettuce', 'Peppers', 'Other'
+     'Rice', 'Corn', 'Tomatoes', 'Potatoes', 'Onions', 'Carrots', 'Other'
   ];
 
   const categories = [
@@ -26,33 +147,77 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.submittedBy.trim()) newErrors.submittedBy = 'Your name is required';
-    if (!formData.cropType) newErrors.cropType = 'Crop type is required';
+    if (!String(formData.title).trim()) newErrors.title = 'Title is required';
+    if (!String(formData.description).trim()) newErrors.description = 'Description is required';
+    if (!String(formData.submittedBy).trim()) newErrors.submittedBy = 'Your name is required';
+    if (!formData.cropType || (formData.cropType === 'Other' && !formData.cropTypeOther.trim())) newErrors.cropType = 'Crop type is required';
     if (!formData.category) newErrors.category = 'Category is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleFileChange = (e) => {
+    setAttachments(Array.from(e.target.files));
+  };
+
+  const handleAttachmentClick = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    setApiError('');
+    setSuccess(false);
     if (!validateForm()) return;
 
-    onSubmit({
-      type: 'crop',
-      title: formData.title,
-      description: formData.description,
-      status: 'consider',
-      priority: formData.priority,
-      submittedBy: formData.submittedBy,
-      cropType: formData.cropType,
-      location: formData.location,
-      category: formData.category,
-      orderNumber: formData.orderNumber || undefined
-    });
+    // Determine the value to send for cropType
+    const cropTypeToSend = formData.cropType === 'Other' ? formData.cropTypeOther : formData.cropType;
+
+    // Console log to_farmer ID and all form data
+    console.log('to_farmer ID:', formData.to_farmer);
+    console.log('All form data:', { ...formData, cropType: cropTypeToSend });
+
+    setSubmitting(true);
+    try {
+      const formPayload = new FormData();
+      formPayload.append('title', formData.title);
+      formPayload.append('description', formData.description);
+      formPayload.append('status', 'consider');
+      formPayload.append('priority', formData.priority);
+      formPayload.append('submittedBy', formData.submittedBy); // user ID
+      formPayload.append('cropType', cropTypeToSend);
+      formPayload.append('to_farmer', formData.to_farmer); // send farmer ID
+      formPayload.append('category', formData.category);
+      formPayload.append('orderNumber', formData.orderNumber || '');
+
+      // Log what's being sent to the server
+      console.log('Sending to_farmer value:', formData.to_farmer);
+      for (let [key, value] of formPayload.entries()) {
+        console.log(`FormData - ${key}:`, value);
+      }
+
+      attachments.forEach(file => formPayload.append('attachments', file));
+      const response = await fetch('/api/v1/crop-complaints', {
+        method: 'POST',
+        body: formPayload
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess(true);
+        setFormData({
+          title: '', description: '', submittedBy: '', submitterName: '', priority: 'medium', cropType: '', cropTypeOther: '', to_farmer: '', farmerName: '', category: '', orderNumber: ''
+        });
+        setAttachments([]);
+      } else {
+        setApiError(data.error || 'Submission failed');
+      }
+    } catch (err) {
+      setApiError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
+     window.location.reload();
   };
 
   const handleInputChange = (field, value) => {
@@ -60,6 +225,31 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  // Special handler for farmer selection from dropdown
+  const handleFarmerSelect = (farmer) => {
+    console.log('Selected farmer:', farmer);
+    console.log('Setting to_farmer ID to:', farmer.id);
+    
+    setFormData(prev => ({
+      ...prev,
+      to_farmer: farmer.id,
+      farmerName: farmer.full_name
+    }));
+    setFarmerQuery(farmer.full_name);
+    setShowFarmerDropdown(false);
+  };
+
+  // Special handler for submitter selection from dropdown
+  const handleSubmitterSelect = (user) => {
+    setFormData(prev => ({
+      ...prev,
+      submittedBy: user.id,
+      submitterName: user.full_name
+    }));
+    setSubmitterQuery(user.full_name);
+    setShowSubmitterDropdown(false);
   };
 
   return (
@@ -83,6 +273,13 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
             </div>
           </div>
         </div>
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-xl">Complaint submitted successfully!</div>
+        )}
+        {apiError && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-xl">{apiError}</div>
+        )}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-8">
@@ -110,19 +307,46 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
                   )}
                 </div>
 
-                <div>
+                <div className="relative" ref={submitterDropdownRef}>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Your Name *
                   </label>
+              
                   <input
                     type="text"
-                    value={formData.submittedBy}
-                    onChange={(e) => handleInputChange('submittedBy', e.target.value)}
+                    value={formData.submitterName}
+                    readOnly
                     className={`w-full px-4 bg-white py-3 rounded-xl border transition-colors ${
                       errors.submittedBy ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200'
                     }`}
-                    placeholder="Enter your full name"
+                    placeholder="Type your name..."
+                    autoComplete="off"
                   />
+                  {showSubmitterDropdown && submitterQuery.length >= 2 && (
+                    <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-56 overflow-y-auto">
+                      {submitterLoading ? (
+                        <div className="p-3 text-slate-500 text-sm">Searching...</div>
+                      ) : submitterSuggestions.length === 0 ? (
+                        <div className="p-3 text-slate-500 text-sm">No users found</div>
+                      ) : (
+                        submitterSuggestions.map(user => (
+                          <div
+                            key={user.id}
+                            className="px-4 py-2 hover:bg-green-50 cursor-pointer text-slate-700"
+                            onClick={() => handleSubmitterSelect(user)}
+                          >
+                            <div className="font-medium">{user.full_name}</div>
+                            <div className="text-xs text-slate-400 flex flex-row gap-2">
+                              <span>{user.district}</span>
+                              {user.phone_number && (
+                                <span className="text-green-700">{user.phone_number}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                   {errors.submittedBy && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertCircle className="w-4 h-4 mr-1" />
@@ -147,6 +371,17 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
+                  {formData.cropType === 'Other' && (
+                    <input
+                      type="text"
+                      value={formData.cropTypeOther}
+                      onChange={e => handleInputChange('cropTypeOther', e.target.value)}
+                      className={`w-full mt-2 px-4 py-3 bg-white rounded-xl border transition-colors ${
+                        errors.cropType ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                      }`}
+                      placeholder="Please specify the crop type"
+                    />
+                  )}
                   {errors.cropType && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertCircle className="w-4 h-4 mr-1" />
@@ -194,21 +429,51 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
+                  
                   </select>
                 </div>
 
-                <div>
+                <div className="relative" ref={farmerDropdownRef}>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Location/Farm Block
+                    Farmer Name *
                   </label>
                   <input
                     type="text"
-                    value={formData.location}
-                    onChange={(e) => handleInputChange('location', e.target.value)}
+                    value={formData.farmerName}
+                    onChange={e => {
+                      setFormData(prev => ({ ...prev, farmerName: e.target.value, to_farmer: '' }));
+                      setFarmerQuery(e.target.value);
+                    }}
+                    onFocus={() => { if (farmerSuggestions.length > 0) setShowFarmerDropdown(true); }}
                     className="w-full px-4 py-3 bg-white rounded-xl border border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-colors"
-                    placeholder="e.g., Farm Block A-12"
-                  />
+                    placeholder="Type farmer name..."
+                    autoComplete="off"
+                   required/>
+                  {showFarmerDropdown && farmerQuery.length >= 2 && (
+                    <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-56 overflow-y-auto">
+                      {farmerLoading ? (
+                        <div className="p-3 text-slate-500 text-sm">Searching...</div>
+                      ) : farmerSuggestions.length === 0 ? (
+                        <div className="p-3 text-slate-500 text-sm">No users found</div>
+                      ) : (
+                        farmerSuggestions.map(farmer => (
+                          <div
+                            key={farmer.id}
+                            className="px-4 py-2 hover:bg-green-50 cursor-pointer text-slate-700"
+                            onClick={() => handleFarmerSelect(farmer)}
+                          >
+                            <div className="font-medium">{farmer.full_name}</div>
+                            <div className="text-xs text-slate-400 flex flex-row gap-2">
+                              <span>{farmer.district}</span>
+                              {farmer.phone_number && (
+                                <span className="text-green-700">{farmer.phone_number}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -228,10 +493,28 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Attach Photos (Optional)
                   </label>
-                  <div className="border-2 border-dashed bg-white border-slate-300 rounded-xl p-6 text-center hover:border-green-400 transition-colors cursor-pointer">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="mb-2 hidden"
+                    ref={fileInputRef}
+                  />
+                  <div
+                    className="border-2 border-dashed bg-white border-slate-300 rounded-xl p-6 text-center hover:border-green-400 transition-colors cursor-pointer"
+                    onClick={handleAttachmentClick}
+                  >
                     <Upload className="w-8 h-8  text-slate-400 mx-auto mb-2" />
                     <p className="text-sm text-slate-500">Click to upload images or drag and drop</p>
                     <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 10MB each</p>
+                    {attachments.length > 0 && (
+                      <div className="mt-2 text-xs text-slate-600">
+                        {attachments.map((file, idx) => (
+                          <div key={idx}>{file.name}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -266,14 +549,16 @@ const CropComplaintForm = ({ onSubmit, onBack }) => {
               type="button"
               onClick={onBack}
               className="px-6 py-3 bg-slate-100 text-slate-600 hover:text-slate-800 font-medium transition-colors"
+              disabled={submitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              disabled={submitting}
             >
-              Submit Complaint
+              {submitting ? 'Submitting...' : 'Submit Complaint'}
             </button>
           </div>
         </form>

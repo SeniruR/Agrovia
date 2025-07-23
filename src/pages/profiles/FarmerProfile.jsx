@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -28,41 +29,124 @@ const FarmerProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Mock farmer data
-  // eslint-disable-next-line no-unused-vars
-  const [farmerData, setFarmerData] = useState({
-    fullName: "Kamal Perera",
-    email: "kamal.perera@email.com",
-    phoneNumber: "077-123-4567",
-    nic: "198512345678",
-    birthDate: "1985-03-15",
-    district: "Anuradhapura",
-    address: "123 Farming Road, Anuradhapura",
-    farmingExperience: "10-20 years",
-    landSize: "5.5 acres",
-    primaryCrops: "Rice, Vegetables",
-    secondaryCrops: "Coconut, Fruits",
-    farmingMethods: "Organic, Traditional",
-    irrigationSystem: "Canal Irrigation, Well Water",
-    soilType: "Clay, Loamy",
-    education: "Advanced Level",
-    annualIncome: "Rs. 500,000 - 1,000,000",
-    organizationMember: "Yes",
-    profileImage: "https://images.pexels.com/photos/1300402/pexels-photo-1300402.jpeg?auto=compress&cs=tinysrgb&w=400",
-    verified: true,
-    rating: 4.8,
-    totalCrops: 15,
-    totalSales: 89,
-    joinedDate: "2020-01-15"
-  });
+  // Farmer data from backend
+  const [farmerData, setFarmerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          setError('No authentication token found. Please log in again.');
+          setLoading(false);
+          return;
+        }
+        // Use VITE_API_URL if set, otherwise fallback
+        let apiUrl = import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
+          : (import.meta.env.DEV
+              ? 'http://localhost:5000/api/v1/auth/profile-full'
+              : '/api/v1/auth/profile-full');
+        
+        // Add cache-busting query parameter instead of headers
+        apiUrl += `?_t=${Date.now()}`;
+
+        const res = await fetch(apiUrl, {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const contentType = res.headers.get('content-type');
+        if (!res.ok) {
+          let msg = `Failed to fetch profile (status ${res.status})`;
+          if (contentType && contentType.includes('text/html')) {
+            msg = 'API endpoint not reachable. Check your Vite proxy or backend server.';
+          } else {
+            // Try to get error message from response
+            try {
+              const errJson = await res.json();
+              if (errJson && errJson.message) msg += `: ${errJson.message}`;
+            } catch {}
+          }
+          throw new Error(msg);
+        }
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('API did not return JSON. Check your proxy and backend.');
+        }
+        const data = await res.json();
+        console.log('FarmerProfile - Backend response:', data);
+        
+        // Merge users and farmer_details fields
+        const user = data.user || {};
+        const details = user.farmer_details || {};
+        
+        console.log('FarmerProfile - User data:', user);
+        console.log('FarmerProfile - Profile image from backend:', user.profile_image);
+        
+        // Construct profile image URL if user has a profile image
+        const profileImageUrl = user.profile_image ? 
+          `/api/v1/users/${user.id}/profile-image?t=${Date.now()}` : '';
+        
+        console.log('FarmerProfile - Constructed image URL:', profileImageUrl);
+        
+        setFarmerData({
+          // User fields (for header, if needed)
+          fullName: user.full_name || '-',
+          email: user.email || '-',
+          phoneNumber: user.phone_number || '-',
+          nic: user.nic || '-',
+          district: user.district || '-',
+          address: user.address || '-',
+          profileImage: profileImageUrl,
+          userId: user.id, // Store user ID for future use
+          joinedDate: user.created_at || '-',
+          verified: user.is_active === 1,
+          // Farmer details (from farmer_details table)
+          id: details.id || '-',
+          // userId: details.user_id || '-', // Removed duplicate key
+          organizationId: details.organization_id || '-',
+          organizationName: details.organization_name || '-',
+          landSize: details.land_size ? `${details.land_size} acres` : '-',
+          description: details.description || '-',
+          divisionGramasewaNumber: details.division_gramasewa_number || '-',
+          farmingExperience: details.farming_experience || '-',
+          cultivatedCrops: details.cultivated_crops || '-',
+          irrigationSystem: details.irrigation_system || '-',
+          soilType: details.soil_type || '-',
+          farmingCertifications: details.farming_certifications || '-',
+          createdAt: details.created_at || '-',
+        });
+        
+        console.log('FarmerProfile - Final farmer data set:', {
+          profileImage: profileImageUrl,
+          userId: user.id,
+          fullName: user.full_name
+        });
+      } catch (err) {
+        setError(err.message || 'Unknown error');
+        // Optionally log error for debugging
+        // console.error('Profile fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Mock statistics
-  const stats = [
+  const stats = farmerData ? [
     { title: 'Total Crops Posted', value: farmerData.totalCrops, icon: Package, color: 'green' },
     { title: 'Total Sales', value: farmerData.totalSales, icon: TrendingUp, color: 'green' },
     { title: 'Rating', value: farmerData.rating, icon: Star, color: 'green' },
     { title: 'Experience', value: farmerData.farmingExperience, icon: Award, color: 'green' }
-  ];
+  ] : [];
 
   // Mock recent activities
   const recentActivities = [
@@ -77,16 +161,30 @@ const FarmerProfile = () => {
     // Handle save logic here
   };
 
+  // Helper to display dash for empty/null/undefined
+  const displayValue = (val) => (val && val !== '' ? val : '-');
+
   const ProfileHeader = () => (
     <div className="bg-gradient-to-r from-green-600 via-green-700 to-emerald-800 text-white">
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex flex-col md:flex-row items-center gap-6">
           {/* Profile Image */}
           <div className="relative">
-            <img 
-              src={farmerData.profileImage} 
+            <img
+              src={
+                farmerData.profileImage && farmerData.profileImage.trim() !== ''
+                  ? farmerData.profileImage
+                  : 'https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg'
+              }
               alt={farmerData.fullName}
               className="w-32 h-32 rounded-full border-4 border-white/20 shadow-lg object-cover"
+              onError={e => {
+                console.error('FarmerProfile - Failed to load profile image:', e.target.src);
+                e.target.src = 'https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg';
+              }}
+              onLoad={() => {
+                console.log('FarmerProfile - Profile image loaded successfully:', farmerData.profileImage);
+              }}
             />
             {farmerData.verified && (
               <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-2 rounded-full">
@@ -126,15 +224,16 @@ const FarmerProfile = () => {
             </div>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-3">
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                🌾 {farmerData.primaryCrops}
-              </span>
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                🌱 {farmerData.farmingMethods.split(',')[0]}
-              </span>
-              <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                ⭐ {farmerData.rating} Rating
-              </span>
+              {farmerData.farmingCertifications && (
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                  🏅 {farmerData.farmingCertifications}
+                </span>
+              )}
+              {farmerData.farmingExperience && (
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                  ⏳ {farmerData.farmingExperience}
+                </span>
+              )}
             </div>
           </div>
 
@@ -209,13 +308,46 @@ const FarmerProfile = () => {
 
   const navigate = useNavigate();
 
+
+  const InfoCard = ({ label, value, icon: Icon, color = "green" }) => (
+    <div
+      className={`flex flex-col items-start rounded-xl p-4 border
+        ${color === "green" ? "bg-green-50 border-green-100" : ""}
+        ${color === "blue" ? "bg-blue-50 border-blue-100" : ""}
+        ${color === "yellow" ? "bg-yellow-50 border-yellow-100" : ""}
+        ${color === "gray" ? "bg-gray-50 border-gray-100" : ""}
+      `}
+    >
+      <label className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-2">
+        {Icon && <Icon className={`w-4 h-4 text-${color}-600`} />}
+        {label}
+      </label>
+      <p className="text-gray-800 font-medium">{value && value !== "" ? value : "-"}</p>
+    </div>
+  );
+
+  if (loading) {
+    return <FullScreenLoader />;
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
+  if (!farmerData) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        No profile data found.
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
       <ProfileHeader />
-
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <StatsSection />
-
         {/* Navigation Tabs */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-2xl">
@@ -225,118 +357,45 @@ const FarmerProfile = () => {
             <TabButton id="activity" label="Recent Activity" icon={Activity} />
           </div>
         </div>
-
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-8">
             {/* Personal Information */}
             <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
                 <User className="w-6 h-6 text-green-600" />
                 Personal Information
               </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Full Name</label>
-                    <p className="text-gray-800 font-medium">{farmerData.fullName}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">NIC</label>
-                    <p className="text-gray-800 font-medium">{farmerData.nic}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Birth Date</label>
-                    <p className="text-gray-800 font-medium">{new Date(farmerData.birthDate).toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Education</label>
-                    <p className="text-gray-800 font-medium">{farmerData.education}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Address</label>
-                  <p className="text-gray-800 font-medium">{farmerData.address}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Annual Income</label>
-                  <p className="text-gray-800 font-medium">{farmerData.annualIncome}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Farming Overview */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                <Leaf className="w-6 h-6 text-green-600" />
-                Farming Overview
-              </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Experience</label>
-                    <p className="text-gray-800 font-medium">{farmerData.farmingExperience}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Land Size</label>
-                    <p className="text-gray-800 font-medium">{farmerData.landSize}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Primary Crops</label>
-                  <p className="text-gray-800 font-medium">{farmerData.primaryCrops}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Secondary Crops</label>
-                  <p className="text-gray-800 font-medium">{farmerData.secondaryCrops}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Farming Methods</label>
-                  <p className="text-gray-800 font-medium">{farmerData.farmingMethods}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Organization Member</label>
-                  <p className="text-gray-800 font-medium">{farmerData.organizationMember}</p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <InfoCard label="Full Name" value={farmerData.fullName} icon={User} color="green" />
+                <InfoCard label="NIC" value={farmerData.nic} icon={Award} color="blue" />
+                <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
+                <InfoCard label="Email" value={farmerData.email} icon={Mail} color="blue" />
+                <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
+                <InfoCard label="Address" value={farmerData.address} icon={MapPin} color="gray" />
               </div>
             </div>
           </div>
         )}
-
         {activeTab === 'farming' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
               <Tractor className="w-6 h-6 text-green-600" />
-              Detailed Farming Information
+              Farming Overview
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Droplets className="w-8 h-8 text-blue-600" />
-                  <h3 className="font-semibold text-gray-800">Irrigation System</h3>
-                </div>
-                <p className="text-gray-700">{farmerData.irrigationSystem}</p>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Mountain className="w-8 h-8 text-brown-600" />
-                  <h3 className="font-semibold text-gray-800">Soil Type</h3>
-                </div>
-                <p className="text-gray-700">{farmerData.soilType}</p>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Sprout className="w-8 h-8 text-green-600" />
-                  <h3 className="font-semibold text-gray-800">Farming Methods</h3>
-                </div>
-                <p className="text-gray-700">{farmerData.farmingMethods}</p>
-              </div>
+              <InfoCard label="Land Size (acres)" value={farmerData.landSize} icon={BarChart3} color="green" />
+              <InfoCard label="Farming Experience" value={farmerData.farmingExperience} icon={Award} color="yellow" />
+              <InfoCard label="Cultivated Crops" value={farmerData.cultivatedCrops} icon={Sprout} color="green" />
+              <InfoCard label="Irrigation System" value={farmerData.irrigationSystem} icon={Droplets} color="blue" />
+              <InfoCard label="Soil Type" value={farmerData.soilType} icon={Mountain} color="yellow" />
+              <InfoCard label="Farming Certifications" value={farmerData.farmingCertifications} icon={CheckCircle} color="green" />
+              <InfoCard label="Description" value={farmerData.description} icon={Edit3} color="blue" />
+              <InfoCard label="Division of Gramasewa Niladari" value={farmerData.divisionGramasewaNumber} icon={User} color="yellow" />
+              <InfoCard label="Organization" value={farmerData.organizationName} icon={Leaf} color="green" />
             </div>
           </div>
         )}
-
         {activeTab === 'contact' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -344,34 +403,13 @@ const FarmerProfile = () => {
               Contact Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                  <Phone className="w-8 h-8 text-blue-600" />
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Phone Number</h3>
-                    <p className="text-gray-600">{farmerData.phoneNumber}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                  <Mail className="w-8 h-8 text-green-600" />
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Email Address</h3>
-                    <p className="text-gray-600">{farmerData.email}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-xl">
-                <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-gray-600" />
-                  Address
-                </h3>
-                <p className="text-gray-700 leading-relaxed">{farmerData.address}</p>
-                <p className="text-gray-600 mt-2">District: {farmerData.district}</p>
-              </div>
+              <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
+              <InfoCard label="Email Address" value={farmerData.email} icon={Mail} color="blue" />
+              <InfoCard label="Address" value={farmerData.address} icon={MapPin} color="gray" />
+              <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
             </div>
           </div>
         )}
-
         {activeTab === 'activity' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -379,26 +417,24 @@ const FarmerProfile = () => {
               Recent Activity
             </h2>
             <div className="space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                  <div className={`p-2 rounded-full ${
-                    activity.type === 'post' ? 'bg-green-100 text-green-600' :
-                    activity.type === 'order' ? 'bg-blue-100 text-blue-600' :
-                    activity.type === 'update' ? 'bg-yellow-100 text-yellow-600' :
-                    'bg-purple-100 text-purple-600'
-                  }`}>
-                    {activity.type === 'post' && <Package size={16} />}
-                    {activity.type === 'order' && <TrendingUp size={16} />}
-                    {activity.type === 'update' && <Edit3 size={16} />}
-                    {activity.type === 'delivery' && <CheckCircle size={16} />}
+              {recentActivities.length > 0 ? (
+                recentActivities.map((act) => (
+                  <div
+                    key={act.id}
+                    className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-100 shadow-sm hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-200">
+                      <Activity className="w-5 h-5 text-green-700" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-700 text-base">{act.action}</h3>
+                      <p className="text-gray-600 text-sm">{act.item} &middot; {act.date}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">{activity.action}</p>
-                    <p className="text-sm text-gray-600">{activity.item}</p>
-                  </div>
-                  <span className="text-sm text-gray-500">{activity.date}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-gray-500 text-sm">No recent activities to display.</div>
+              )}
             </div>
           </div>
         )}

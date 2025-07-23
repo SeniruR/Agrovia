@@ -202,6 +202,9 @@ const ShopOwnerSignup = () => {
     if (formData.shopPhoneNumber && !/^0[0-9]{9}$/.test(formData.shopPhoneNumber)) newErrors.shopPhoneNumber = 'Shop phone number must start with 0 and have 10 digits';
     if (!formData.password) newErrors.password = 'Password is required';
     else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
+    // Password complexity: at least one uppercase letter, one number, and one special character
+    const passwordComplexityRegex = /^(?=.*[0-9])(?=.*[A-Z])(?=.*[!@#$%^&*])/;
+    if (formData.password && !passwordComplexityRegex.test(formData.password)) newErrors.password = 'Password must include at least one uppercase letter, one number, and one special character';
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
     if (!formData.shopName?.trim()) newErrors.shopName = 'Shop name is required';
     if (!formData.businessRegistrationNumber?.trim()) newErrors.businessRegistrationNumber = 'Business registration number is required';
@@ -266,10 +269,10 @@ const ShopOwnerSignup = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
-      setSuccessMessage('Shop owner registration successful! Redirecting to login page...');
+      setSuccessMessage('Registration successful! Your account will be reviewed and activated as appropriate. You will be able to log in once your account is approved. Redirecting to home page...');
       setErrorMessage("");
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => navigate('/login'), 2000);
+      setTimeout(() => navigate('/'), 20000);
     } catch (error) {
       console.error('Registration failed:', error);
       setErrorMessage(error.response?.data?.message || error.message || 'Registration failed. Please try again.');

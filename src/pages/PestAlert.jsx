@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
-import { Bug, AlertTriangle, Eye, Calendar, MapPin, Thermometer, Droplets, X } from 'lucide-react';
+import { Bug, AlertTriangle, Eye, Calendar, MapPin, Thermometer, Droplets, X, Leaf, Zap, Bell } from 'lucide-react';
 
 const PestAlertInterface = () => {
   const [selectedAlert, setSelectedAlert] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all');
   
   const pestAlerts = [
     {
@@ -87,153 +89,247 @@ const PestAlertInterface = () => {
     }
   ];
 
-  const getSeverityColor = (severity) => {
+
+  // Style helpers for alert types
+  const getAlertTypeStyles = (severity) => {
     switch (severity) {
-      case 'High': return 'bg-red-100 text-red-800 border-red-200';
-      case 'Medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'High':
+        return {
+          accent: 'bg-red-500 text-white',
+          border: 'border-red-200',
+          glow: 'shadow-red-500/20',
+          text: 'text-gray-800',
+        };
+      case 'Medium':
+        return {
+          accent: 'bg-yellow-400 text-white',
+          border: 'border-yellow-200',
+          glow: 'shadow-yellow-400/20',
+          text: 'text-gray-800',
+        };
+      case 'Low':
+        return {
+          accent: 'bg-green-500 text-white',
+          border: 'border-green-200',
+          glow: 'shadow-green-400/20',
+          text: 'text-gray-800',
+        };
+      default:
+        return {
+          accent: 'bg-gray-400 text-white',
+          border: 'border-gray-200',
+          glow: 'shadow-gray-200/20',
+          text: 'text-gray-800',
+        };
     }
   };
 
   const getSeverityIcon = (severity) => {
-    return severity === 'High' ? (
-      <AlertTriangle className="w-4 h-4" />
-    ) : (
-      <Bug className="w-4 h-4" />
-    );
+    switch (severity) {
+      case 'High': return <AlertTriangle className="h-8 w-8" />;
+      case 'Medium': return <Bug className="h-8 w-8" />;
+      case 'Low': return <Leaf className="h-8 w-8" />;
+      default: return <Bug className="h-8 w-8" />;
+    }
   };
 
+  const getSeverityIndicator = (severity) => {
+    // High: 8, Medium: 5, Low: 2
+    let sev = 0;
+    if (severity === 'High') sev = 8;
+    else if (severity === 'Medium') sev = 5;
+    else if (severity === 'Low') sev = 2;
+    else sev = 1;
+    const dots = Array.from({ length: 10 }, (_, i) => (
+      <div
+        key={i}
+        className={`w-2 h-2 rounded-full ${i < sev ? 'bg-gray-800' : 'bg-gray-300'}`}
+      />
+    ));
+    return <div className="flex space-x-1">{dots}</div>;
+  };
+
+  const filteredAlerts = pestAlerts.filter(alert => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'high') return alert.severity === 'High';
+    if (activeFilter === 'medium') return alert.severity === 'Medium';
+    if (activeFilter === 'low') return alert.severity === 'Low';
+    return true;
+  });
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-l-4 border-green-500">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-100 p-3 rounded-full">
-              <Bug className="w-8 h-8 text-green-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">Pest Alert Dashboard</h1>
-              <p className="text-gray-600 mt-1">Monitor and manage crop pest notifications</p>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 overflow-x-hidden">
+      {/* Floating Header */}
+      <div className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 border-b border-green-100">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-2xl shadow-lg">
+                  <Bug className="h-8 w-8 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-300 rounded-full animate-pulse"></div>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-green-700 to-green-500 bg-clip-text text-transparent">
+                  Agrovia
+                </h1>
+                <p className="text-green-600 font-medium">Pest Alert Dashboard</p>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Alert Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-red-400">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">High Priority</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {pestAlerts.filter(alert => alert.severity === 'High').length}
-                </p>
-              </div>
-              <AlertTriangle className="w-8 h-8 text-red-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-yellow-400">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Medium Priority</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {pestAlerts.filter(alert => alert.severity === 'Medium').length}
-                </p>
-              </div>
-              <Bug className="w-8 h-8 text-yellow-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-400">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Low Priority</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {pestAlerts.filter(alert => alert.severity === 'Low').length}
-                </p>
-              </div>
-              <Bug className="w-8 h-8 text-green-400" />
-            </div>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Smart Filter Pills */}
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-3">
+            {[
+              { id: 'all', label: 'All Alerts', icon: Bell },
+              { id: 'high', label: 'High', icon: Zap },
+              { id: 'medium', label: 'Medium', icon: AlertTriangle },
+              { id: 'low', label: 'Low', icon: Leaf }
+            ].map(filter => {
+              const IconComponent = filter.icon;
+              const isActive = activeFilter === filter.id;
+              let count = 0;
+              if (filter.id === 'all') count = pestAlerts.length;
+              else if (filter.id === 'high') count = pestAlerts.filter(a => a.severity === 'High').length;
+              else if (filter.id === 'medium') count = pestAlerts.filter(a => a.severity === 'Medium').length;
+              else if (filter.id === 'low') count = pestAlerts.filter(a => a.severity === 'Low').length;
+
+              return (
+                <button
+                  key={filter.id}
+                  onClick={() => setActiveFilter(filter.id)}
+                  className={`flex items-center space-x-2 px-6 py-3 rounded-2xl font-semibold transition-all transform hover:scale-105 ${
+                    isActive
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
+                      : 'bg-white text-green-700 border-2 border-green-200 hover:border-green-300'
+                  }`}
+                >
+                  <IconComponent className="h-5 w-5" />
+                  <span>{filter.label}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    isActive ? 'bg-white text-green-600' : 'bg-green-100 text-green-600'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Alerts List */}
-        <div className="space-y-4">
-          {pestAlerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 border border-gray-200"
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-green-100 p-2 rounded-full">
+        {/* Advanced Alert Cards */}
+        <div className="space-y-6">
+          {filteredAlerts.map((alert) => {
+            const styles = getAlertTypeStyles(alert.severity);
+            return (
+              <div
+                key={alert.id}
+                className={`rounded-3xl shadow-2xl ${styles.glow} ${styles.border} border-2 overflow-hidden transform hover:scale-[1.02] transition-all duration-300 w-full mx-auto lg:max-w-5xl xl:max-w-7xl`}
+                style={{ boxSizing: 'border-box' }}
+              >
+                <div className={`bg-white p-4 sm:p-8 ${styles.text}`}
+                  style={{ boxSizing: 'border-box' }}>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-4">
+                    <div className="flex items-start space-x-4 flex-1 min-w-0">
+                      <div className={`p-4 rounded-2xl ${styles.accent} shadow-lg flex-shrink-0`}>
                         {getSeverityIcon(alert.severity)}
                       </div>
-                      <div>
-                        <h3 className="text-xl font-semibold text-gray-800">{alert.pestName}</h3>
-                        <div className="flex items-center gap-4 mt-1">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getSeverityColor(alert.severity)}`}>
-                            {alert.severity} Priority
-                          </span>
-                          <span className="text-sm text-gray-600 font-medium">{alert.crop}</span>
+                      <div className="min-w-0">
+                        <h3 className="text-xl sm:text-2xl font-bold mb-2 text-gray-800 break-words">{alert.pestName}</h3>
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                          <div className="flex items-center space-x-1">
+                            <MapPin className="h-4 w-4" />
+                            <span className="font-medium truncate max-w-[120px]">{alert.location}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>{new Date(alert.date).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <MapPin className="w-4 h-4 text-green-500" />
-                        <span className="text-sm">{alert.location}</span>
+                    <div className="text-right min-w-0">
+                      <div className="mb-2">
+                        <span className="text-xs text-gray-500 block mb-1">Severity Level</span>
+                        <div className="flex flex-wrap justify-end">{getSeverityIndicator(alert.severity)}</div>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Calendar className="w-4 h-4 text-green-500" />
-                        <span className="text-sm">{new Date(alert.date).toLocaleDateString()}</span>
+                      <div className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold ${styles.accent} inline-block whitespace-nowrap`}>
+                        {alert.severity} Priority
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <Thermometer className="w-4 h-4 text-green-500" />
-                          <span className="text-sm">{alert.temperature}</span>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <p className="text-base sm:text-lg leading-relaxed text-gray-700 break-words">
+                      {alert.description}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-4 sm:p-6 rounded-2xl bg-gray-50 border border-gray-200">
+                      <div className="flex items-start space-x-3">
+                        <div className={`p-3 rounded-xl ${styles.accent} flex-shrink-0`}>
+                          <span className="text-xl text-white">🌱</span>
                         </div>
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <Droplets className="w-4 h-4 text-green-500" />
-                          <span className="text-sm">{alert.humidity}</span>
+                        <div className="min-w-0">
+                          <h4 className="font-bold mb-2 text-gray-800">Crop:</h4>
+                          <p className="text-sm leading-relaxed text-gray-600 break-words">{alert.crop}</p>
+                          <h4 className="font-bold mb-2 text-gray-800 mt-4">Symptoms:</h4>
+                          <p className="text-sm leading-relaxed text-gray-600 break-words">{alert.symptoms}</p>
                         </div>
                       </div>
                     </div>
-                    
-                    <p className="text-gray-700 mb-4">{alert.description}</p>
+
+                    <div className="p-4 sm:p-6 rounded-2xl bg-gray-50 border border-gray-200">
+                      <h4 className="font-bold mb-3 text-gray-800">Recommendations:</h4>
+                      <div className="flex flex-col gap-2">
+                        {alert.recommendations.map((rec, idx) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <span className="w-7 h-7 flex items-center justify-center rounded-full bg-green-200 text-green-800 font-bold mr-2">{idx + 1}</span>
+                            <span className="text-gray-700 text-sm break-words">{rec}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <span className="inline-block px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">Estimated Loss: {alert.estimatedLoss}</span>
+                        <span className="inline-block px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-semibold">Affected Area: {alert.affectedArea}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end mt-6">
+                    <button
+                      onClick={() => setSelectedAlert(alert)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors duration-200 flex items-center gap-2 shadow-lg text-sm sm:text-base"
+                    >
+                      <Eye className="w-5 h-5" />
+                      View Details
+                    </button>
                   </div>
                 </div>
-                
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => setSelectedAlert(alert)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-                  >
-                    <Eye className="w-4 h-4" />
-                    View Details
-                  </button>
-                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Modal for Alert Details */}
         {selectedAlert && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-green-100 p-3 rounded-full">
-                      <Bug className="w-6 h-6 text-green-600" />
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2 border-green-200">
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-2xl shadow-lg">
+                      <Bug className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-800">{selectedAlert.pestName}</h2>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getSeverityColor(selectedAlert.severity)}`}>
+                      <h2 className="text-3xl font-extrabold text-gray-900">{selectedAlert.pestName}</h2>
+                      <span className={`px-4 py-1 rounded-full text-base font-semibold border ${getAlertTypeStyles(selectedAlert.severity).border} ml-2`}>
                         {selectedAlert.severity} Priority
                       </span>
                     </div>
@@ -242,54 +338,54 @@ const PestAlertInterface = () => {
                     onClick={() => setSelectedAlert(null)}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-8 h-8" />
                   </button>
                 </div>
 
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-green-50 p-4 rounded-lg">
+                <div className="space-y-8">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="bg-green-50 p-5 rounded-xl">
                       <h4 className="font-semibold text-gray-800 mb-2">Crop Affected</h4>
-                      <p className="text-gray-700">{selectedAlert.crop}</p>
+                      <p className="text-gray-700 text-lg">{selectedAlert.crop}</p>
                     </div>
-                    <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="bg-green-50 p-5 rounded-xl">
                       <h4 className="font-semibold text-gray-800 mb-2">Affected Area</h4>
-                      <p className="text-gray-700">{selectedAlert.affectedArea}</p>
+                      <p className="text-gray-700 text-lg">{selectedAlert.affectedArea}</p>
                     </div>
                   </div>
 
-                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <div className="bg-yellow-50 p-5 rounded-xl border border-yellow-200">
                     <h4 className="font-semibold text-gray-800 mb-2">Estimated Loss</h4>
-                    <p className="text-gray-700">{selectedAlert.estimatedLoss}</p>
+                    <p className="text-gray-700 text-lg">{selectedAlert.estimatedLoss}</p>
                   </div>
 
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3">Symptoms Observed</h4>
-                    <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{selectedAlert.symptoms}</p>
+                    <p className="text-gray-700 bg-gray-50 p-5 rounded-xl text-lg">{selectedAlert.symptoms}</p>
                   </div>
 
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3">Recommended Actions</h4>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {selectedAlert.recommendations.map((rec, index) => (
-                        <div key={index} className="flex items-start gap-3 bg-green-50 p-3 rounded-lg">
-                          <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold mt-0.5">
+                        <div key={index} className="flex items-start gap-4 bg-green-50 p-4 rounded-xl">
+                          <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-lg font-bold mt-0.5">
                             {index + 1}
                           </div>
-                          <p className="text-gray-700">{rec}</p>
+                          <p className="text-gray-700 text-lg">{rec}</p>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="flex gap-4 pt-4 border-t">
+                  <div className="flex gap-4 pt-6 border-t">
                     <button
                       onClick={() => setSelectedAlert(null)}
-                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg font-medium transition-colors duration-200"
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-xl font-semibold transition-colors duration-200"
                     >
                       Close
                     </button>
-                    <button className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium transition-colors duration-200">
+                    <button className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-xl font-semibold transition-colors duration-200 shadow-lg">
                       Mark as Addressed
                     </button>
                   </div>

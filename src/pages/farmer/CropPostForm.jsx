@@ -3,18 +3,21 @@ import axios from 'axios';
 import { Camera, MapPin, Calendar, Package, DollarSign, Phone, User, Upload, Leaf, Droplets, AlertCircle, CheckCircle, RefreshCw, LogIn } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const CropPostForm = () => {
-  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const [formData, setFormData] = useState({
     cropType: '',
     cropCategory: 'vegetables',
     cropName: '',
+    customCropName: '', // For 'Other' option
     variety: '',
     quantity: '',
     unit: 'kg',
     pricePerUnit: '',
+    minimumQuantityBulk: '',
     harvestDate: '',
     expiryDate: '',
     location: '',
@@ -127,8 +130,32 @@ const CropPostForm = () => {
       case 'pricePerUnit':
         return !value ? 'Price is required' :
           value <= 0 ? 'Price must be greater than 0' : '';
-      case 'harvestDate':
-        return !value ? 'Harvest date is required' : '';
+      case 'minimumQuantityBulk':
+        return value && value <= 0 ? 'Minimum bulk quantity must be greater than 0' :
+          value && formData.quantity && parseFloat(value) > parseFloat(formData.quantity) ? 'Minimum bulk quantity cannot exceed available quantity' : '';
+          case 'harvestDate': {
+            if (!value) return 'Harvest date is required';
+            const harvestDate = new Date(value);
+            const postDate = new Date(); // post's created date is now
+            // Only date part, ignore time
+            harvestDate.setHours(0,0,0,0);
+            postDate.setHours(0,0,0,0);
+            if (harvestDate >= postDate) {
+              return 'Harvest date must be before the post date';
+            }
+            return '';
+          }
+          case 'expiryDate': {
+            if (!value) return '';
+            const expiryDate = new Date(value);
+            const postDate = new Date(); // post's created date is now
+            expiryDate.setHours(0,0,0,0);
+            postDate.setHours(0,0,0,0);
+            if (expiryDate <= postDate) {
+              return 'Best before date must be after the post date';
+            }
+            return '';
+          }
       case 'contactNumber':
         return !value ? 'Contact number is required' :
           !/^(\+94|0)[0-9]{9}$/.test(value.replace(/\s/g, '')) ? 'Invalid Sri Lankan phone number' : '';
@@ -155,6 +182,7 @@ const CropPostForm = () => {
       case 2:
         stepErrors.quantity = validateField('quantity', formData.quantity);
         stepErrors.pricePerUnit = validateField('pricePerUnit', formData.pricePerUnit);
+        stepErrors.minimumQuantityBulk = validateField('minimumQuantityBulk', formData.minimumQuantityBulk);
         break;
       case 3:
         stepErrors.contactNumber = validateField('contactNumber', formData.contactNumber);
@@ -324,6 +352,7 @@ const CropPostForm = () => {
         quantity: 'quantity',
         unit: 'unit',
         pricePerUnit: 'price_per_unit',
+        minimumQuantityBulk: 'minimum_quantity_bulk',
         harvestDate: 'harvest_date',
         expiryDate: 'expiry_date',
         location: 'location',
@@ -333,14 +362,31 @@ const CropPostForm = () => {
         email: 'email',
         organicCertified: 'organic_certified',
         pesticideFree: 'pesticide_free',
-        freshlyHarvested: 'freshly_harvested'
+        freshlyHarvested: 'freshly_harvested',
+        farmerName: 'farmer_name', // Add farmer_name for backend validation
       };
 
       // Add form fields to FormData
       Object.keys(fieldMapping).forEach(frontendKey => {
         const backendKey = fieldMapping[frontendKey];
-        const value = formData[frontendKey];
-        
+        let value = formData[frontendKey];
+        // For minimumQuantityBulk, always send as number or blank
+        if (frontendKey === 'minimumQuantityBulk') {
+          if (value === '' || value === undefined || value === null) {
+            value = '';
+          } else {
+            value = Number(value);
+            if (isNaN(value)) value = '';
+          }
+        }
+        // For cropName, use customCropName if 'Other' is selected
+        if (frontendKey === 'cropName') {
+          value = (formData.cropName === 'Other') ? formData.customCropName : formData.cropName;
+        }
+        // For farmerName, use user full name or fallback
+        if (frontendKey === 'farmerName') {
+          value = (user && (user.full_name || user.name)) ? (user.full_name || user.name) : '';
+        }
         if (value !== undefined && value !== null && value !== '') {
           if (typeof value === 'boolean') {
             submitData.append(backendKey, value ? 'true' : 'false');
@@ -360,13 +406,30 @@ const CropPostForm = () => {
       }
 
       // Log the data being sent for debugging
-      console.log('Submitting crop post data:', formData);
+      console.log('🔍 Pre-submission Debug:');
+      console.log('- isAuthenticated():', isAuthenticated());
+      console.log('- user:', user);
+      console.log('- getAuthHeaders():', getAuthHeaders());
+      console.log('- localStorage token:', localStorage.getItem('authToken'));
+      console.log('- localStorage user:', localStorage.getItem('user'));
 
-      // Submit to backend API
+      // Ensure we have a token before making the request
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('❌ You are not logged in. Please login first.');
+        return;
+      }
+
+      // Submit to backend API with explicit token handling
+      const headers = {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${authToken}`, // Use token directly from localStorage
+      };
+
+      console.log('📤 Request headers:', headers);
+
       const response = await axios.post('http://localhost:5000/api/v1/crop-posts', submitData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers,
         timeout: 30000, // 30 second timeout
       });
 
@@ -374,16 +437,20 @@ const CropPostForm = () => {
       
       setSubmitSuccess(true);
       alert('🎉 Crop post submitted successfully! Your crop is now listed on the marketplace.');
+
+      navigate('/farmviewAllCrops');
       
       // Reset form after successful submission
       setFormData({
         cropType: '',
         cropCategory: 'vegetables',
         cropName: '',
+        customCropName: '',
         variety: '',
         quantity: '',
         unit: 'kg',
         pricePerUnit: '',
+        minimumQuantityBulk: '',
         harvestDate: '',
         expiryDate: '',
         location: '',
@@ -441,7 +508,7 @@ const CropPostForm = () => {
             name="cropCategory"
             value={formData.cropCategory}
             onChange={handleInputChange}
-            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
             required
           >
             <option value="vegetables">🥬 Vegetables</option>
@@ -458,8 +525,8 @@ const CropPostForm = () => {
             value={formData.cropName}
             onChange={handleInputChange}
             onBlur={handleBlur}
-            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-              errors.cropName && touched.cropName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+              errors.cropName && touched.cropName ? 'border-red-500 ring-2 ring-red-200' : 'border-green-300 hover:border-gray-400'
             }`}
             required
           >
@@ -467,11 +534,32 @@ const CropPostForm = () => {
             {(formData.cropCategory === 'vegetables' ? vegetables : grains).map((crop) => (
               <option key={crop} value={crop}>{crop}</option>
             ))}
+            <option value="Other">Other</option>
           </select>
+          {formData.cropName === 'Other' && (
+            <input
+              type="text"
+              name="customCropName"
+              value={formData.customCropName}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              placeholder="Enter crop name"
+              className={`mt-3 w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+                errors.customCropName && touched.customCropName ? 'border-red-500 ring-2 ring-red-200' : 'border-green-300 hover:border-gray-400'
+              }`}
+              required
+            />
+          )}
           {errors.cropName && touched.cropName && (
             <div className="flex items-center mt-2 text-red-600 text-sm">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               <span>{errors.cropName}</span>
+            </div>
+          )}
+          {formData.cropName === 'Other' && errors.customCropName && touched.customCropName && (
+            <div className="flex items-center mt-2 text-red-600 text-sm">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span>{errors.customCropName}</span>
             </div>
           )}
         </div>
@@ -486,7 +574,7 @@ const CropPostForm = () => {
             value={formData.variety}
             onChange={handleInputChange}
             placeholder="e.g., Cherry Tomato, Basmati Rice"
-            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
           />
         </div>
 
@@ -500,8 +588,8 @@ const CropPostForm = () => {
             value={formData.harvestDate}
             onChange={handleInputChange}
             onBlur={handleBlur}
-            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-              errors.harvestDate && touched.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+            className={`w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-white-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg ${
+              errors.harvestDate && touched.harvestDate ? 'border-red-500 ring-2 ring-red-200' : 'border-green-300'
             }`}
             required
           />
@@ -517,13 +605,21 @@ const CropPostForm = () => {
           <label className="block text-sm font-semibold text-gray-700 mb-3">
             <Calendar className="inline w-5 h-5 mr-2" />Best Before Date
           </label>
-          <input
-            type="date"
-            name="expiryDate"
-            value={formData.expiryDate}
-            onChange={handleInputChange}
-            className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
-          />
+        <input
+          type="date"
+          name="expiryDate"
+          value={formData.expiryDate}
+          onChange={handleInputChange}
+          onBlur={handleBlur}
+          className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-white-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all text-base sm:text-lg"
+        />
+        {errors.expiryDate && touched.expiryDate && (
+          <div className="flex items-center mt-2 text-red-600 text-sm">
+            <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+            <span>{errors.expiryDate}</span>
+          </div>
+        )}
+        
         </div>
       </div>
 
@@ -537,7 +633,7 @@ const CropPostForm = () => {
           onChange={handleInputChange}
           rows={6}
           placeholder="Describe your crop quality, growing conditions, and any special features..."
-          className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none hover:border-gray-400 text-base sm:text-lg"
+          className="w-full px-4 py-3 sm:px-6 sm:py-4 border-2 border-green-300 rounded-xl bg-white-50 focus:ring-2 focus:ring-green-400 focus:border-green-400 transition-all resize-none text-base sm:text-lg"
         />
       </div>
 
@@ -554,7 +650,7 @@ const CropPostForm = () => {
               name="organicCertified"
               checked={formData.organicCertified}
               onChange={handleInputChange}
-              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-green-300 rounded focus:ring-green-500 focus:ring-2"
             />
             <div className="ml-3">
               <span className="text-sm font-bold text-gray-800 flex items-center">
@@ -571,7 +667,7 @@ const CropPostForm = () => {
               name="pesticideFree"
               checked={formData.pesticideFree}
               onChange={handleInputChange}
-              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-green-300 rounded focus:ring-green-500 focus:ring-2"
             />
             <div className="ml-3">
               <span className="text-sm font-bold text-gray-800 flex items-center">
@@ -588,7 +684,7 @@ const CropPostForm = () => {
               name="freshlyHarvested"
               checked={formData.freshlyHarvested}
               onChange={handleInputChange}
-              className="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+              className="w-5 h-5 text-green-600 bg-white border-2 border-green-300 rounded focus:ring-green-500 focus:ring-2"
             />
             <div className="ml-3">
               <span className="text-sm font-bold text-gray-800 flex items-center">
@@ -622,7 +718,7 @@ const CropPostForm = () => {
               onBlur={handleBlur}
               placeholder="Enter quantity"
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.quantity && touched.quantity ? 'border-red-500' : 'border-gray-300'
+                errors.quantity && touched.quantity ? 'border-red-500' : 'border-green-300'
               }`}
               required
               min="1"
@@ -641,11 +737,10 @@ const CropPostForm = () => {
             name="unit"
             value={formData.unit}
             onChange={handleInputChange}
-            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black"
+            className="w-full p-3 bg-white border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black"
             required
           >
             <option value="kg">Kilograms (kg)</option>
-            <option value="g">Grams (g)</option>
             <option value="tons">Tons</option>
             <option value="bags">Bags</option>
             <option value="pieces">Pieces</option>
@@ -667,16 +762,44 @@ const CropPostForm = () => {
               onBlur={handleBlur}
               placeholder="Enter price"
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.pricePerUnit && touched.pricePerUnit ? 'border-red-500' : 'border-gray-300'
+                errors.pricePerUnit && touched.pricePerUnit ? 'border-red-500' : 'border-green-300'
               }`}
               required
               min="0"
-              step="0.01"
+              step="1"
             />
           </div>
           {errors.pricePerUnit && touched.pricePerUnit && (
             <p className="mt-1 text-sm text-red-600">{errors.pricePerUnit}</p>
           )}
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-black mb-2">
+            Minimum Quantity for Bulk Orders ({formData.unit || 'unit'}) <span className="text-gray-500">(Optional)</span>
+          </label>
+          <div className="relative">
+            <Package className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+            <input
+              type="number"
+              name="minimumQuantityBulk"
+              value={formData.minimumQuantityBulk}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              placeholder="Enter minimum bulk quantity"
+              className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
+                errors.minimumQuantityBulk && touched.minimumQuantityBulk ? 'border-red-500' : 'border-green-300'
+              }`}
+              min="1"
+              max={formData.quantity || ''}
+            />
+          </div>
+          {errors.minimumQuantityBulk && touched.minimumQuantityBulk && (
+            <p className="mt-1 text-sm text-red-600">{errors.minimumQuantityBulk}</p>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            Set a minimum quantity buyers must purchase for bulk orders. Leave empty if not applicable.
+          </p>
         </div>
       </div>
 
@@ -758,7 +881,7 @@ const CropPostForm = () => {
               onBlur={handleBlur}
               placeholder="+94 XX XXX XXXX"
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.contactNumber && touched.contactNumber ? 'border-red-500' : 'border-gray-300'
+                errors.contactNumber && touched.contactNumber ? 'border-red-500' : 'border-green-300'
               }`}
               required
             />
@@ -780,8 +903,9 @@ const CropPostForm = () => {
             onBlur={handleBlur}
             placeholder="your.email@example.com"
             className={`w-full p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-              errors.email && touched.email ? 'border-red-500' : 'border-gray-300'
+              errors.email && touched.email ? 'border-red-500' : 'border-green-300'
             }`}
+            readOnly
           />
           {errors.email && touched.email && (
             <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -800,9 +924,10 @@ const CropPostForm = () => {
               onChange={handleInputChange}
               onBlur={handleBlur}
               className={`w-full pl-12 p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
-                errors.district && touched.district ? 'border-red-500' : 'border-gray-300'
+                errors.district && touched.district ? 'border-red-500' : 'border-green-300'
               }`}
               required
+              readOnly
             >
               <option value="">Select District</option>
               {sriLankanDistricts.map((district) => (
@@ -827,7 +952,7 @@ const CropPostForm = () => {
             rows="3"
             placeholder="Enter your farm location, nearest town, or specific address"
             className={`w-full p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 resize-none text-black ${
-              errors.location && touched.location ? 'border-red-500' : 'border-gray-300'
+              errors.location && touched.location ? 'border-red-500' : 'border-green-300'
             }`}
             required
           ></textarea>
@@ -851,7 +976,7 @@ const CropPostForm = () => {
           className={`border-2 border-dashed rounded-lg p-8 text-center bg-white transition-all duration-300 ${
             dragActive 
               ? 'border-green-500 bg-green-50' 
-              : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
+              : 'border-green-300 hover:border-green-400 hover:bg-green-50'
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -908,6 +1033,9 @@ const CropPostForm = () => {
             <p><span className="font-semibold text-black">Category:</span> <span className="text-black">{formData.cropCategory}</span></p>
             <p><span className="font-semibold text-black">Quantity:</span> <span className="text-black">{formData.quantity} {formData.unit}</span></p>
             <p><span className="font-semibold text-black">Price:</span> <span className="text-black">LKR {formData.pricePerUnit} per {formData.unit}</span></p>
+            {formData.minimumQuantityBulk && (
+              <p><span className="font-semibold text-black">Min. Bulk Quantity:</span> <span className="text-black">{formData.minimumQuantityBulk} {formData.unit}</span></p>
+            )}
             <p><span className="font-semibold text-black">Harvest Date:</span> <span className="text-black">{formData.harvestDate}</span></p>
           </div>
           <div className="space-y-2">
@@ -977,7 +1105,7 @@ const CropPostForm = () => {
                 <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center font-bold text-lg sm:text-xl transition-all duration-500 transform ${
                   currentStep >= step 
                     ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg scale-105 ring-4 ring-green-200' 
-                    : 'bg-white text-gray-600 border-2 border-gray-300 shadow-sm hover:shadow-md'
+                    : 'bg-white text-gray-600 border-2 border-green-300 shadow-sm hover:shadow-md'
                 }`}>
                   {step}
                 </div>

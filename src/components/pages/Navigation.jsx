@@ -17,12 +17,53 @@ import {
 } from '@heroicons/react/24/outline';
 import logo from '../../assets/images/agrovia.png';
 import { Link } from 'react-router-dom';
+import { useCart } from '../../hooks/useCart';
+import CartPopup from '../CartPopup';
 
 const Navigation = ({ onSidebarToggle }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [notificationCount, setNotificationCount] = useState(3);
+  const [showNotificationPopup, setShowNotificationPopup] = useState(false);
+
+  // Example notifications (replace with real data from backend if available)
+  const notifications = [
+    {
+      id: 1,
+      type: 'order',
+      title: 'Order Delivered',
+      message: 'Your order #12345 has been delivered successfully.',
+      time: '2 hours ago',
+      icon: <HomeIcon className="w-5 h-5 text-green-500" />
+    },
+    {
+      id: 2,
+      type: 'payment',
+      title: 'Payment Successful',
+      message: 'Your payment for order #12345 was successful.',
+      time: '3 hours ago',
+      icon: <CurrencyDollarIcon className="w-5 h-5 text-emerald-500" />
+    },
+    {
+      id: 3,
+      type: 'payment',
+      title: 'Payment Unsuccessful',
+      message: 'Your payment for order #12346 failed. Please try again.',
+      time: '5 hours ago',
+      icon: <CurrencyDollarIcon className="w-5 h-5 text-red-500" />
+    },
+    {
+      id: 4,
+      type: 'crop',
+      title: 'New Crop Added',
+      message: 'Fresh Tomatoes are now available in the marketplace.',
+      time: '1 day ago',
+      icon: <BookOpenIcon className="w-5 h-5 text-yellow-500" />
+    }
+  ];
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showCartPopup, setShowCartPopup] = useState(false);
+  const { getCartItemCount } = useCart();
 
   // Handle scroll effect for navbar
   useEffect(() => {
@@ -103,14 +144,14 @@ const Navigation = ({ onSidebarToggle }) => {
           </button>
           
           <Link to="/" className="flex items-center group">
-            <div className="relative p-3 rounded-2xl transition-all duration-400 transform hover:scale-105">
+            <div className="relative p-3 rounded-2xl transition-all duration-300">
               <img 
                 src={logo} 
                 alt="Agrovia Logo" 
-                className="w-28 h-auto transform group-hover:scale-110 transition-all duration-400 drop-shadow-lg sm:max-w-[70px] pb-[5px]" 
+                className="w-28 h-auto sm:max-w-[70px] pb-[5px] transition-none" 
               />
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-400/15 to-emerald-500/15 opacity-0 group-hover:opacity-100 transition-all duration-400"></div>
-              <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-green-400/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-400"></div>
+              {/* Subtle hover effect: only a faint background, no scale or shadow */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-400/10 to-emerald-500/10 opacity-0 group-hover:opacity-80 transition-all duration-300"></div>
             </div>
           </Link>
         </div>
@@ -134,7 +175,7 @@ const Navigation = ({ onSidebarToggle }) => {
               </button>
             </Link>
 
-            <Link to="/notifications">
+            <div className="relative">
               <button 
                 className="group relative p-3 text-green-700 hover:text-emerald-800 rounded-2xl transition-all duration-400 backdrop-blur-sm transform hover:scale-110 active:scale-95"
                 style={{
@@ -142,6 +183,7 @@ const Navigation = ({ onSidebarToggle }) => {
                   boxShadow: 'inset 0 0 0 2px rgba(16, 185, 129, 0.2), 0 6px 15px rgba(16, 185, 129, 0.2)'
                 }}
                 title="Notifications"
+                onClick={() => setShowNotificationPopup(v => !v)}
               >
                 <BellIcon className="w-5 h-5 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" />
                 {notificationCount > 0 && (
@@ -158,7 +200,52 @@ const Navigation = ({ onSidebarToggle }) => {
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-400/25 to-green-500/25 opacity-0 group-hover:opacity-100 transition-all duration-400"></div>
                 <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-emerald-400/10 to-green-500/10 opacity-0 group-hover:opacity-100 blur-md transition-all duration-400"></div>
               </button>
-            </Link>
+              {/* Notification Popup */}
+              {showNotificationPopup && (
+                <div className="absolute right-0 mt-3 w-96 max-w-[95vw] bg-white rounded-2xl shadow-2xl border border-green-100 z-50 animate-fade-in backdrop-blur-xl"
+                  style={{
+                    background: 'linear-gradient(135deg, #f0fdf4 0%, #f1f5f9 50%, #ecfeff 100%)',
+                    borderColor: 'rgba(16, 185, 129, 0.15)',
+                    boxShadow: '0 12px 40px rgba(16, 185, 129, 0.15), 0 0 0 1px rgba(16, 185, 129, 0.08) inset'
+                  }}
+                >
+                  <div className="p-4 border-b border-green-100 flex items-center gap-2 rounded-t-2xl bg-gradient-to-r from-green-50 to-emerald-50 relative">
+                    <BellIcon className="w-6 h-6 text-green-500" />
+                    <span className="text-lg font-bold text-green-800">Notifications</span>
+                    <button
+                      onClick={() => setShowNotificationPopup(false)}
+                      className="absolute top-3 right-3 p-1 rounded-full hover:bg-green-100 transition-colors"
+                      aria-label="Close notifications"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto divide-y divide-green-50">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-slate-400">No notifications yet.</div>
+                    ) : notifications.map(n => (
+                      <div key={n.id} className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer">
+                        <div className="flex-shrink-0 mt-1">{n.icon}</div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-800 group-hover:text-green-700 transition-colors">{n.title}</div>
+                          <div className="text-sm text-slate-600 mt-0.5">{n.message}</div>
+                          <div className="text-xs text-slate-400 mt-1">{n.time}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-3 text-center border-t border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 rounded-b-2xl">
+                    <Link
+                      to="/notifications"
+                      className="text-green-700 font-semibold hover:underline"
+                      onClick={() => setShowNotificationPopup(false)}
+                    >
+                      View all notifications
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Secondary Actions - Hidden on mobile */}
@@ -219,7 +306,7 @@ const Navigation = ({ onSidebarToggle }) => {
             <div className="flex items-center gap-2">
               {/* User Actions */}
               <div className="hidden md:flex items-center gap-1">
-                <Link to="/community">
+                <Link to="/chat">
                   <button 
                     className="group relative p-3 text-green-600 hover:text-green-800 rounded-xl transition-all duration-300 backdrop-blur-sm"
                     style={{
@@ -234,7 +321,7 @@ const Navigation = ({ onSidebarToggle }) => {
                 </Link>
 
                 <Link to="/cart">
-                  <button 
+                  <button
                     className="group relative p-3 text-green-600 hover:text-green-800 rounded-xl transition-all duration-300 backdrop-blur-sm"
                     style={{
                       background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%)',
@@ -243,6 +330,11 @@ const Navigation = ({ onSidebarToggle }) => {
                     title="Shopping Cart"
                   >
                     <ShoppingCartOutlinedIcon className="!w-5 !h-5 transform group-hover:scale-110 transition-transform duration-200" />
+                    {getCartItemCount() > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg animate-pulse">
+                        {getCartItemCount() > 99 ? '99+' : getCartItemCount()}
+                      </span>
+                    )}
                     <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-400/20 to-green-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </button>
                 </Link>
@@ -336,6 +428,12 @@ const Navigation = ({ onSidebarToggle }) => {
           )}
         </div>
       </div>
+
+      {/* Cart Popup */}
+      <CartPopup 
+        isOpen={showCartPopup} 
+        onClose={() => setShowCartPopup(false)} 
+      />
     </nav>
   );
 };

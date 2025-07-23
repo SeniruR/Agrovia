@@ -18,7 +18,7 @@ const AddCropPostButton = ({
     
     try {
       const user = JSON.parse(userStr);
-      return user.user_type === 1; // farmer role
+      return user.user_type === '1' || user.user_type === '1.1';
     } catch {
       return false;
     }

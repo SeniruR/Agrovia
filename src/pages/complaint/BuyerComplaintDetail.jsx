@@ -47,12 +47,6 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
     }
   };
 
-  const getStatusColor = (status) => {
-    return status === 'consider' 
-      ? 'bg-green-100 text-green-700 border-green-200'
-      : 'bg-red-100 text-red-700 border-red-200';
-  };
-
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-4xl mx-auto">
@@ -87,10 +81,6 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
                   <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(complaint.priority)}`}>
                     {complaint.priority}
                   </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center space-x-1 ${getStatusColor(complaint.status)}`}>
-                    {complaint.status === 'consider' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                    <span>{complaint.status === 'consider' ? 'Considered' : 'Not Considered'}</span>
-                  </span>
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 mb-4">{complaint.title}</h2>
               </div>
@@ -110,6 +100,12 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
                     <p className="font-medium text-slate-800">{complaint.submittedAt.toDateString()}</p>
                   </div>
                 </div>
+                {complaint.category && (
+                  <div>
+                    <p className="text-sm text-slate-500">Category</p>
+                    <p className="font-medium text-slate-800">{complaint.category}</p>
+                  </div>
+                )}
               </div>
               <div className="space-y-4">
                 {complaint.location && (
@@ -130,6 +126,12 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
                     <p className="font-medium text-slate-800">{complaint.cropType}</p>
                   </div>
                 )}
+                {complaint.farmer && (
+                  <div>
+                    <p className="text-sm text-slate-500">Farmer</p>
+                    <p className="font-medium text-slate-800">{complaint.farmer}</p>
+                  </div>
+                )}
                 {complaint.shopName && (
                   <div>
                     <p className="text-sm text-slate-500">Shop Name</p>
@@ -140,6 +142,24 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
                   <div>
                     <p className="text-sm text-slate-500">Transport Company</p>
                     <p className="font-medium text-slate-800">{complaint.transportCompany}</p>
+                  </div>
+                )}
+                {complaint.purchaseDate && (
+                  <div>
+                    <p className="text-sm text-slate-500">Purchase Date</p>
+                    <p className="font-medium text-slate-800">{complaint.purchaseDate}</p>
+                  </div>
+                )}
+                {complaint.deliveryDate && (
+                  <div>
+                    <p className="text-sm text-slate-500">Delivery Date</p>
+                    <p className="font-medium text-slate-800">{complaint.deliveryDate}</p>
+                  </div>
+                )}
+                {complaint.trackingNumber && (
+                  <div>
+                    <p className="text-sm text-slate-500">Tracking Number</p>
+                    <p className="font-medium text-slate-800">{complaint.trackingNumber}</p>
                   </div>
                 )}
               </div>
@@ -165,26 +185,14 @@ const BuyerComplaintDetail = ({ complaint, onBack }) => {
           )}
 
           {/* Status Message */}
-          {!complaint.adminReply && complaint.status === 'consider' && (
+          {!complaint.adminReply && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
               <div className="text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
                   <MessageCircle className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">Under Review</h3>
-                <p className="text-slate-600">Your complaint is being considered. You will receive an admin response soon.</p>
-              </div>
-            </div>
-          )}
-
-          {complaint.status === 'not-consider' && !complaint.adminReply && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <XCircle className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">Not Considered</h3>
-                <p className="text-slate-600">Unfortunately, your complaint was not considered for resolution.</p>
+                <p className="text-slate-600">Your complaint is being reviewed. You will receive an admin response soon.</p>
               </div>
             </div>
           )}

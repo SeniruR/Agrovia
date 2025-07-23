@@ -292,6 +292,11 @@ const BuyerSignup = () => {
         if (formData.password && formData.password.length < 8) {
             newErrors.password = 'Password must be at least 8 characters long';
         }
+        // Password complexity: at least one uppercase letter, one number, and one special character
+        const passwordComplexityRegex = /^(?=.*[0-9])(?=.*[A-Z])(?=.*[!@#$%^&*])/;
+        if (formData.password && !passwordComplexityRegex.test(formData.password)) {
+            newErrors.password = 'Password must include at least one uppercase letter, one number, and one special character';
+        }
         if (formData.password !== formData.confirmPassword) {
             newErrors.confirmPassword = 'Passwords do not match';
         }
@@ -403,14 +408,12 @@ const BuyerSignup = () => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
-            if (result.data && result.data.user) {
-                localStorage.setItem('user', JSON.stringify(result.data.user));
-                window.dispatchEvent(new Event('userChanged'));
-            }
-            setSuccessMessage('Buyer registration successful! Redirecting to login page...');
+            // Do not auto-login. Only show success and redirect to login page.
+            setSuccessMessage('Registration successful! Redirecting to login page...');
             setErrorMessage("");
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            setTimeout(() => navigate('/login'), 2000);
+            localStorage.removeItem('user');
+            setTimeout(() => navigate('/login'), 10000);
         } catch (error) {
             let msg = 'Registration failed. Please try again.';
             if (error.response && error.response.data) {
