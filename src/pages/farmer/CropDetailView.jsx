@@ -296,7 +296,7 @@ const CropDetailView = () => {
                 <div className="text-2xl font-bold text-agrovia-600">LKR {crop.pricePerUnit}</div>
                 <div className="text-sm text-gray-500">per {crop.unit}</div>
                 <div className="text-sm text-green-600 font-medium mt-1">
-                  {crop.quantity} {crop.unit} available
+                  {Math.floor(crop.quantity)} {crop.unit} available
                 </div>
                 {crop.minimumQuantityBulk && (
                   <div className="text-xs text-blue-600 font-medium mt-1 flex items-center justify-center lg:justify-start">
@@ -666,7 +666,7 @@ const CropDetailView = () => {
                 </div>
                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-agrovia-300">
                   <span className="text-sm font-semibold text-gray-700">Quantity:</span>
-                  <span className="font-bold text-lg text-gray-800">{quantity} {crop.unit}</span>
+                  <span className="font-bold text-lg text-gray-800">{Math.floor(quantity)} {crop.unit}</span>
                 </div>
                 <div className="bg-white rounded-lg p-3 shadow-inner">
                   <div className="flex justify-between items-center">
@@ -770,7 +770,7 @@ const CropDetailView = () => {
               <div className="mt-6 text-center">
                 <div className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-semibold shadow-md">
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  {crop.quantity} {crop.unit} Available
+                  {Math.floor(crop.quantity)} {crop.unit} Available
                 </div>
               </div>
             </div>
