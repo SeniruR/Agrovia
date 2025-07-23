@@ -16,30 +16,28 @@ const CropComplaintForm = ({ onBack }) => {
     orderNumber: ''
   });
 
-  // Auto-fill submitter from localStorage if available, or derive from user object
+  // Sync submitter info with logged-in user
   useEffect(() => {
-    try {
-      let userId = localStorage.getItem('userId');
-      let userName = localStorage.getItem('userName');
-      // If not set, try to derive from user object
-      if ((!userId || !userName) && localStorage.getItem('user')) {
-        const userObj = JSON.parse(localStorage.getItem('user'));
-        if (userObj && userObj.id && userObj.full_name) {
-          userId = userObj.id;
-          userName = userObj.full_name;
-          localStorage.setItem('userId', userId);
-          localStorage.setItem('userName', userName);
+    function updateUserInfo() {
+      let userObj = null;
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          userObj = JSON.parse(userStr);
         }
-      }
-      if (userId && userName) {
+      } catch {}
+      if (userObj && userObj.id && userObj.full_name) {
         setFormData(prev => ({
           ...prev,
-          submittedBy: userId,
-          submitterName: userName
+          submittedBy: userObj.id,
+          submitterName: userObj.full_name
         }));
-        setSubmitterQuery(userName);
+        setSubmitterQuery(userObj.full_name);
       }
-    } catch {}
+    }
+    updateUserInfo();
+    window.addEventListener('userChanged', updateUserInfo);
+    return () => window.removeEventListener('userChanged', updateUserInfo);
   }, []);
   // Submitter search state
   const [submitterQuery, setSubmitterQuery] = useState('');
@@ -219,6 +217,7 @@ const CropComplaintForm = ({ onBack }) => {
     } finally {
       setSubmitting(false);
     }
+     window.location.reload();
   };
 
   const handleInputChange = (field, value) => {
@@ -316,17 +315,12 @@ const CropComplaintForm = ({ onBack }) => {
                   <input
                     type="text"
                     value={formData.submitterName}
-                    onChange={e => {
-                      setFormData(prev => ({ ...prev, submitterName: e.target.value, submittedBy: '' }));
-                      setSubmitterQuery(e.target.value);
-                    }}
-                    onFocus={() => { if (submitterSuggestions.length > 0) setShowSubmitterDropdown(true); }}
+                    readOnly
                     className={`w-full px-4 bg-white py-3 rounded-xl border transition-colors ${
                       errors.submittedBy ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200'
                     }`}
                     placeholder="Type your name..."
                     autoComplete="off"
-                    readOnly
                   />
                   {showSubmitterDropdown && submitterQuery.length >= 2 && (
                     <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-56 overflow-y-auto">
