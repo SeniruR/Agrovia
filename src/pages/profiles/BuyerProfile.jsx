@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { 
   User, 
   MapPin, 
@@ -20,37 +21,82 @@ import {
   Activity,
   Heart,
   Clock,
-  DollarSign
+  DollarSign,
+  FileText,
+  Building
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const BuyerProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [buyerData, setBuyerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock buyer data
-  // eslint-disable-next-line no-unused-vars
-  const [buyerData, setBuyerData] = useState({
-    fullName: "Saman Silva",
-    email: "saman.silva@email.com",
-    phoneNumber: "071-987-6543",
-    nic: "199012345678",
-    birthDate: "1990-06-20",
-    district: "Colombo",
-    address: "456 Business Street, Colombo 07",
-    businessType: "Restaurant Owner",
-    buyingPreference: "Organic Vegetables, Fresh Fruits",
-    monthlyBudget: "Rs. 100,000 - 300,000",
-    preferredPayment: "Bank Transfer, Credit Card",
-    deliveryPreference: "Home Delivery",
-    profileImage: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400",
-    verified: true,
-    rating: 4.6,
-    totalOrders: 45,
-    totalSpent: "Rs. 450,000",
-    joinedDate: "2021-03-10",
-    favoriteSuppliers: 8,
-    activeOrders: 3
-  });
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          setError('No authentication token found. Please log in again.');
+          setLoading(false);
+          return;
+        }
+        let apiUrl = import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
+          : (import.meta.env.DEV
+              ? 'http://localhost:5000/api/v1/auth/profile-full'
+              : '/api/v1/auth/profile-full');
+        apiUrl += `?_t=${Date.now()}`;
+        const res = await fetch(apiUrl, {
+          credentials: 'include',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const data = await res.json();
+        const user = data.user || {};
+        const details = user.buyer_details || {};
+        const profileImageUrl = user.profile_image
+          ? `/api/v1/users/${user.id}/profile-image?t=${Date.now()}`
+          : '';
+        setBuyerData({
+          fullName: user.full_name || '-',
+          email: user.email || '-',
+          phoneNumber: user.phone_number || '-',
+          nic: user.nic || '-',
+          birthDate: user.birth_date || null,
+          district: user.district || '-',
+          address: user.address || '-',
+          businessType: details.company_type || '-',
+          buyingPreference: details.company_name || '-',
+          monthlyBudget: details.payment_offer || '-',
+          preferredPayment: details.payment_offer || '-',
+          deliveryPreference: details.company_address || '-',
+          profileImage: profileImageUrl,
+          verified: user.is_active === 1,
+          rating: details.rating || '-',
+          totalOrders: details.total_orders || 0,
+          totalSpent: details.total_spent || '-',
+          activeOrders: details.active_orders || 0,
+          joinedDate: user.created_at || '-'
+        });
+      } catch (err) {
+        setError(err.message || 'Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  if (loading) return <FullScreenLoader message="Loading your profile..." />;
+  if (error) return <div className="text-red-600 text-center py-10">{error}</div>;
+  if (!buyerData) return <div className="text-center py-10">Profile not available.</div>;
 
   // Mock statistics
   const stats = [
@@ -219,6 +265,21 @@ const BuyerProfile = () => {
     </button>
   );
 
+  const InfoCard = ({ label, value, icon: Icon, color = "green" }) => (
+    <div className={`flex flex-col items-start rounded-xl p-4 border
+        ${color === "green" ? "bg-green-50 border-green-100" : ""}
+        ${color === "blue" ? "bg-blue-50 border-blue-100" : ""}
+        ${color === "yellow" ? "bg-yellow-50 border-yellow-100" : ""}
+        ${color === "gray" ? "bg-gray-50 border-gray-100" : ""}
+      `}>
+      <label className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-2">
+        {Icon && <Icon className={`w-4 h-4 text-${color}-600`} />}
+        {label}
+      </label>
+      <p className="text-gray-800 font-medium">{value && value !== "" ? value : "-"}</p>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
       <ProfileHeader />
@@ -245,73 +306,27 @@ const BuyerProfile = () => {
                 <User className="w-6 h-6 text-green-600" />
                 Personal Information
               </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Full Name</label>
-                    <p className="text-gray-800 font-medium">{buyerData.fullName}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">NIC</label>
-                    <p className="text-gray-800 font-medium">{buyerData.nic}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Birth Date</label>
-                    <p className="text-gray-800 font-medium">{new Date(buyerData.birthDate).toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Business Type</label>
-                    <p className="text-gray-800 font-medium">{buyerData.businessType}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Address</label>
-                  <p className="text-gray-800 font-medium">{buyerData.address}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Monthly Budget</label>
-                  <p className="text-gray-800 font-medium">{buyerData.monthlyBudget}</p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <InfoCard label="Full Name" value={buyerData.fullName} icon={User} color="green" />
+                <InfoCard label="NIC" value={buyerData.nic} icon={FileText} color="blue" />
+                <InfoCard label="Birth Date" value={new Date(buyerData.birthDate).toLocaleDateString()} icon={Calendar} color="yellow" />
+                <InfoCard label="Business Type" value={buyerData.businessType} icon={Building} color="green" />
+                <InfoCard label="Monthly Budget" value={buyerData.monthlyBudget} icon={DollarSign} color="green" />
+                <InfoCard label="Address" value={buyerData.address} icon={MapPin} color="gray" />
               </div>
             </div>
 
-            {/* Contact Information */}
+            {/* Business Details */}
             <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                <Phone className="w-6 h-6 text-green-600" />
-                Contact & Preferences
+                <Building className="w-6 h-6 text-green-600" />
+                Business Details
               </h2>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                  <Phone className="w-8 h-8 text-green-600" />
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Phone Number</h3>
-                    <p className="text-gray-600">{buyerData.phoneNumber}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                  <Mail className="w-8 h-8 text-green-600" />
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Email Address</h3>
-                    <p className="text-gray-600">{buyerData.email}</p>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Buying Preference</label>
-                    <p className="text-gray-800 font-medium">{buyerData.buyingPreference}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Preferred Payment</label>
-                    <p className="text-gray-800 font-medium">{buyerData.preferredPayment}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Delivery Preference</label>
-                    <p className="text-gray-800 font-medium">{buyerData.deliveryPreference}</p>
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                <InfoCard label="Company Name" value={buyerData.companyName} icon={FileText} color="blue" />
+                <InfoCard label="Company Type" value={buyerData.businessType} icon={Building} color="green" />
+                <InfoCard label="Company Address" value={buyerData.address} icon={MapPin} color="gray" />
+                <InfoCard label="Payment Offer" value={buyerData.monthlyBudget} icon={CreditCard} color="yellow" />
               </div>
             </div>
           </div>
