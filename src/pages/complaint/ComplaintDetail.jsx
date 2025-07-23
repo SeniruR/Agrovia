@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle, UserX } from 'lucide-react';
 
 const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
+  // Debug: Log the raw complaint data
+  console.log('Raw complaint data:', complaint);
+  
+  // State to store user info if we need to fetch it
+  const [submitterInfo, setSubmitterInfo] = useState(null);
+  
   // Normalize complaint data to handle both camelCase and snake_case field names
   const normalizedComplaint = complaint ? {
     ...complaint,
@@ -9,6 +15,28 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
     orderNumber: complaint.orderNumber || complaint.order_number,
     farmer: complaint.farmer || complaint.to_farmer,
     submittedBy: complaint.submittedBy || complaint.submitted_by,
+    // Look up user name from various possible sources - ensure it's a string
+    submittedByName: (function() {
+      // Try to get the name from various sources
+      const name = complaint.submittedByName || 
+                   complaint.submitted_by_name || 
+                   (complaint.submittedBy && typeof complaint.submittedBy === 'object' && complaint.submittedBy.full_name) || 
+                   (complaint.user && complaint.user.full_name) || 
+                   submitterInfo?.full_name;
+      
+      if (name) return String(name); // Ensure it's a string
+      
+      // If no name but we have an ID, show loading status
+      if (complaint.submittedBy && !isNaN(complaint.submittedBy) && 
+          typeof complaint.submittedBy !== 'object') {
+        return 'Loading...';
+      }
+      
+      // Default fallback
+      return 'Anonymous';
+    })(),
+    // Use farmer name from object if available
+    farmerName: complaint.farmerName || (complaint.farmer && typeof complaint.farmer === 'object' && complaint.farmer.full_name) || '',
     submittedAt: complaint.submittedAt || complaint.submitted_at,
     replyedAt: complaint.replyedAt || complaint.replyed_at
   } : null;
@@ -80,6 +108,35 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
       default: return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
+
+  // Effect to fetch user details if we only have an ID
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (complaint && 
+          (!complaint.submittedByName || complaint.submittedByName === 'Anonymous') && 
+          (complaint.submittedBy || complaint.submitted_by) && 
+          !isNaN(complaint.submittedBy || complaint.submitted_by)) {
+        
+        try {
+          const userId = complaint.submittedBy || complaint.submitted_by;
+          console.log('Fetching user info for ID:', userId);
+          const response = await fetch(`http://localhost:5000/api/v1/users/${userId}`);
+          
+          if (response.ok) {
+            const userData = await response.json();
+            console.log('Found user data:', userData);
+            setSubmitterInfo(userData);
+          } else {
+            console.log('User not found or error fetching user');
+          }
+        } catch (error) {
+          console.error('Error fetching user info:', error);
+        }
+      }
+    };
+    
+    fetchUserInfo();
+  }, [complaint]);
 
   // State for enlarged image modal
   // (already declared above)
@@ -500,7 +557,22 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-medium text-slate-600 mb-1">Submitted by</p>
-                          <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.submittedByName || 'Anonymous'}</p>
+                          <p className="font-semibold text-slate-800 text-sm">
+                            {normalizedComplaint.submittedByName === 'Loading...' ? (
+                              <span className="inline-flex items-center">
+                                <span className="animate-pulse mr-2">⏳</span>
+                                Loading user info...
+                              </span>
+                            ) : (
+                              submitterInfo?.full_name || normalizedComplaint.submittedByName || 'Anonymous'
+                            )}
+                          </p>
+                          {(normalizedComplaint.submittedByName === 'Anonymous' || 
+                            (typeof normalizedComplaint.submittedByName === 'string' && 
+                             normalizedComplaint.submittedByName.startsWith('User ID:'))) && 
+                            normalizedComplaint.submittedBy && (
+                              <p className="text-xs text-slate-500">ID: {normalizedComplaint.submittedBy}</p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -581,7 +653,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                     )}
 
                     {/* Farmer Card */}
-                    {normalizedComplaint.farmer && (
+                    {normalizedComplaint.farmerName && (
                       <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start space-x-3 flex-1">
@@ -590,7 +662,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                             </div>
                             <div className="flex-1">
                               <p className="text-sm font-medium text-slate-600 mb-1">Farmer</p>
-                              <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmer}</p>
+                              <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmerName}</p>
                             </div>
                           </div>
                           {/* Admin Action: Deactivate Farmer - Only for crop complaints and admin users */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Upload, Store, AlertCircle } from 'lucide-react';
 
 const ShopComplaintForm = ({ onBack }) => {
@@ -11,8 +11,23 @@ const ShopComplaintForm = ({ onBack }) => {
     location: '',
     category: '',
     orderNumber: '',
-    purchaseDate: ''
+    purchaseDate: '',
+    shopId: '',
+    userId: ''
   });
+
+  // Sync logged-in user ID
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const userObj = JSON.parse(userStr);
+        if (userObj.id) {
+          setFormData(prev => ({ ...prev, userId: userObj.id }));
+        }
+      } catch {}
+    }
+  }, []);
 
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -20,6 +35,13 @@ const ShopComplaintForm = ({ onBack }) => {
   const [apiError, setApiError] = useState('');
   const [attachments, setAttachments] = useState([]);
   const fileInputRef = React.useRef();
+
+  // Shop search state
+  const [shopQuery, setShopQuery] = useState('');
+  const [shopSuggestions, setShopSuggestions] = useState([]);
+  const [showShopDropdown, setShowShopDropdown] = useState(false);
+  const [shopLoading, setShopLoading] = useState(false);
+  const shopDropdownRef = useRef();
 
   const categories = [
     'Defective Seeds', 'Wrong Product', 'Poor Service', 'Overcharging', 'Contaminated Products', 
@@ -53,12 +75,16 @@ const ShopComplaintForm = ({ onBack }) => {
       formPayload.append('description', formData.description);
       formPayload.append('status', 'consider');
       formPayload.append('priority', formData.priority);
-      formPayload.append('submittedBy', formData.submittedBy);
+      // use numeric userId for submittedBy foreign key
+      formPayload.append('submittedBy', formData.userId);
       formPayload.append('shopName', formData.shopName);
       formPayload.append('location', formData.location);
       formPayload.append('category', formData.category);
       formPayload.append('orderNumber', formData.orderNumber || '');
       formPayload.append('purchaseDate', formData.purchaseDate || '');
+      // include numeric IDs for backend
+      formPayload.append('shopId', formData.shopId);
+      formPayload.append('userId', formData.userId);
       attachments.forEach(file => formPayload.append('attachments', file));
       const response = await fetch('/api/v1/shop-complaints', {
         method: 'POST',
@@ -90,6 +116,48 @@ const ShopComplaintForm = ({ onBack }) => {
 
   const handleAttachmentClick = () => {
     if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  // Debounced shop search
+  useEffect(() => {
+    if (!shopQuery || shopQuery.length < 2) {
+      setShopSuggestions([]);
+      setShowShopDropdown(false);
+      return;
+    }
+    setShopLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/v1/shops?search=${encodeURIComponent(shopQuery)}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setShopSuggestions(data);
+        setShowShopDropdown(true);
+      } catch {
+        setShopSuggestions([]);
+        setShowShopDropdown(false);
+      } finally {
+        setShopLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [shopQuery]);
+
+  // Close shop dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (shopDropdownRef.current && !shopDropdownRef.current.contains(e.target)) {
+        setShowShopDropdown(false);
+      }
+    }
+    if (showShopDropdown) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showShopDropdown]);
+
+  const handleShopSelect = (shop) => {
+    setFormData(prev => ({ ...prev, shopId: shop.id, shopName: shop.shop_name, location: shop.shop_address || '' }));
+    setShopQuery(shop.shop_name);
+    setShowShopDropdown(false);
   };
 
   return (
@@ -168,24 +236,36 @@ const ShopComplaintForm = ({ onBack }) => {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Shop Name *
-                  </label>
+                <div className="relative" ref={shopDropdownRef}>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Shop Name *</label>
                   <input
                     type="text"
-                    value={formData.shopName}
-                    onChange={(e) => handleInputChange('shopName', e.target.value)}
-                    className={`w-full bg-white px-4 py-3 rounded-xl border transition-colors ${
-                      errors.shopName ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
-                    }`}
-                    placeholder="Name of the shop or store"
+                    value={shopQuery}
+                    onChange={e => { setFormData(prev => ({ ...prev, shopName: '' })); setShopQuery(e.target.value); }}
+                    onFocus={() => { if (shopSuggestions.length) setShowShopDropdown(true); }}
+                    className={`w-full bg-white px-4 py-3 rounded-xl border transition-colors ${errors.shopName ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'}`}
+                    placeholder="Type shop name..."
+                    autoComplete="off"
+                    required
                   />
+                  {showShopDropdown && (
+                    <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-56 overflow-y-auto">
+                      {shopLoading ? (
+                        <div className="p-3 text-slate-500 text-sm">Searching...</div>
+                      ) : !shopSuggestions.length ? (
+                        <div className="p-3 text-slate-500 text-sm">No shops found</div>
+                      ) : (
+                        shopSuggestions.map(shop => (
+                          <div key={shop.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-slate-700" onClick={() => handleShopSelect(shop)}>
+                            <div className="font-medium">{shop.shop_name}</div>
+                            <div className="text-xs text-slate-500">{shop.shop_address}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                   {errors.shopName && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center">
-                      <AlertCircle className="w-4 h-4 mr-1" />
-                      {errors.shopName}
-                    </p>
+                    <p className="mt-1 text-sm text-red-600 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.shopName}</p>
                   )}
                 </div>
 
