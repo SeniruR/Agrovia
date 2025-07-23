@@ -98,6 +98,10 @@ import BuyerComplaintDashboard from "./pages/complaint/BuyerComplaintDashboard";
 import PurchaseDetails from "./pages/PurchaseDetails";
 import EditCropPost from "./pages/farmer/EditCropPost";
 
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import NotificationsPage from "./pages/NotificationsPage";
+
 
 
 // import ShopOwnerSignup from "./pages/ShopOwnerSignup";
@@ -228,6 +232,7 @@ const App = () => {
           </Layout>
         }
       />
+
 
       <Route path="/cropListings" element={
           <Layout>
@@ -471,6 +476,12 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/notifications" element={
+          <Layout>
+            <NotificationsPage/>
+          </Layout>
+        }
+      />
  <Route path="/weatheralerts" element={
           <Layout>
             <WeatherNotifications/>
@@ -576,6 +587,18 @@ const App = () => {
       <Route path="/contact" element={
         <Layout>
           <ContactPage/>
+         </Layout>
+      } />
+        
+      <Route path="/terms-of-service" element={
+        <Layout>
+          <TermsOfService />
+        </Layout>
+      } />
+        
+      <Route path="/privacy-policy" element={
+        <Layout>
+          <PrivacyPolicy />
         </Layout>
       } />
 
