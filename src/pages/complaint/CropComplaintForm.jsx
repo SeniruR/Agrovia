@@ -9,6 +9,7 @@ const CropComplaintForm = ({ onBack }) => {
     submitterName: '', // user name for display
     priority: 'medium',
     cropType: '',
+    cropTypeOther: '',
     to_farmer: '', // store farmer ID for submission
     farmerName: '', // store farmer name for display
     category: '',
@@ -138,7 +139,7 @@ const CropComplaintForm = ({ onBack }) => {
   }, [showFarmerDropdown]);
 
   const cropTypes = [
-    'Wheat', 'Rice', 'Corn', 'Tomatoes', 'Potatoes', 'Onions', 'Carrots', 'Lettuce', 'Peppers', 'Other'
+     'Rice', 'Corn', 'Tomatoes', 'Potatoes', 'Onions', 'Carrots', 'Other'
   ];
 
   const categories = [
@@ -151,7 +152,7 @@ const CropComplaintForm = ({ onBack }) => {
     if (!String(formData.title).trim()) newErrors.title = 'Title is required';
     if (!String(formData.description).trim()) newErrors.description = 'Description is required';
     if (!String(formData.submittedBy).trim()) newErrors.submittedBy = 'Your name is required';
-    if (!formData.cropType) newErrors.cropType = 'Crop type is required';
+    if (!formData.cropType || (formData.cropType === 'Other' && !formData.cropTypeOther.trim())) newErrors.cropType = 'Crop type is required';
     if (!formData.category) newErrors.category = 'Category is required';
 
     setErrors(newErrors);
@@ -171,11 +172,14 @@ const CropComplaintForm = ({ onBack }) => {
     setApiError('');
     setSuccess(false);
     if (!validateForm()) return;
-    
+
+    // Determine the value to send for cropType
+    const cropTypeToSend = formData.cropType === 'Other' ? formData.cropTypeOther : formData.cropType;
+
     // Console log to_farmer ID and all form data
     console.log('to_farmer ID:', formData.to_farmer);
-    console.log('All form data:', formData);
-    
+    console.log('All form data:', { ...formData, cropType: cropTypeToSend });
+
     setSubmitting(true);
     try {
       const formPayload = new FormData();
@@ -184,17 +188,17 @@ const CropComplaintForm = ({ onBack }) => {
       formPayload.append('status', 'consider');
       formPayload.append('priority', formData.priority);
       formPayload.append('submittedBy', formData.submittedBy); // user ID
-      formPayload.append('cropType', formData.cropType);
+      formPayload.append('cropType', cropTypeToSend);
       formPayload.append('to_farmer', formData.to_farmer); // send farmer ID
       formPayload.append('category', formData.category);
       formPayload.append('orderNumber', formData.orderNumber || '');
-      
+
       // Log what's being sent to the server
       console.log('Sending to_farmer value:', formData.to_farmer);
       for (let [key, value] of formPayload.entries()) {
         console.log(`FormData - ${key}:`, value);
       }
-      
+
       attachments.forEach(file => formPayload.append('attachments', file));
       const response = await fetch('/api/v1/crop-complaints', {
         method: 'POST',
@@ -204,7 +208,7 @@ const CropComplaintForm = ({ onBack }) => {
       if (response.ok) {
         setSuccess(true);
         setFormData({
-          title: '', description: '', submittedBy: '', submitterName: '', priority: 'medium', cropType: '', to_farmer: '', farmerName: '', category: '', orderNumber: ''
+          title: '', description: '', submittedBy: '', submitterName: '', priority: 'medium', cropType: '', cropTypeOther: '', to_farmer: '', farmerName: '', category: '', orderNumber: ''
         });
         setAttachments([]);
       } else {
@@ -373,6 +377,17 @@ const CropComplaintForm = ({ onBack }) => {
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
+                  {formData.cropType === 'Other' && (
+                    <input
+                      type="text"
+                      value={formData.cropTypeOther}
+                      onChange={e => handleInputChange('cropTypeOther', e.target.value)}
+                      className={`w-full mt-2 px-4 py-3 bg-white rounded-xl border transition-colors ${
+                        errors.cropType ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200'
+                      }`}
+                      placeholder="Please specify the crop type"
+                    />
+                  )}
                   {errors.cropType && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertCircle className="w-4 h-4 mr-1" />
@@ -420,13 +435,13 @@ const CropComplaintForm = ({ onBack }) => {
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
+                  
                   </select>
                 </div>
 
                 <div className="relative" ref={farmerDropdownRef}>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Farmer Name
+                    Farmer Name *
                   </label>
                   <input
                     type="text"
@@ -439,7 +454,7 @@ const CropComplaintForm = ({ onBack }) => {
                     className="w-full px-4 py-3 bg-white rounded-xl border border-slate-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-colors"
                     placeholder="Type farmer name..."
                     autoComplete="off"
-                  />
+                   required/>
                   {showFarmerDropdown && farmerQuery.length >= 2 && (
                     <div className="absolute z-10 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-56 overflow-y-auto">
                       {farmerLoading ? (

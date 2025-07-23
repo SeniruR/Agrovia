@@ -53,11 +53,18 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
 
   const statCards = [
     { title: 'Total Complaints', value: stats.total, icon: MessageSquareX, color: 'text-slate-600' },
-    { title: 'Urgent Priority', value: stats.urgent, icon: MessageSquareX, color: 'text-red-600' },
     { title: 'High Priority', value: stats.high, icon: MessageSquareX, color: 'text-orange-600' },
     { title: 'Medium Priority', value: stats.medium, icon: MessageSquareX, color: 'text-yellow-600' },
     { title: 'Low Priority', value: stats.low, icon: MessageSquareX, color: 'text-green-600' }
   ];
+
+  // Priority filter state
+  const [priorityFilter, setPriorityFilter] = React.useState('all');
+
+  // Filtered complaints based on priority
+  const filteredComplaints = priorityFilter === 'all'
+    ? complaints
+    : complaints.filter(c => c.priority === priorityFilter);
 
   return (
     <div className="min-h-screen p-6">
@@ -69,7 +76,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
         </div>
 
         {/* Stat Cards - Beautiful Modern Layout */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {statCards.map((stat, index) => (
             <div key={index} className={`rounded-2xl shadow-lg border border-slate-100 bg-white p-6 flex flex-col items-center justify-center hover:shadow-xl transition-shadow duration-300 group relative overflow-hidden`}>
               <div className="absolute top-0 left-0 w-full h-2 rounded-t-2xl" style={{background: stat.color.replace('text-', '')}}></div>
@@ -107,6 +114,22 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
           </div>
         )}
 
+        {/* Priority Filter Dropdown */}
+        <div className="flex items-center justify-end mb-4">
+          <label htmlFor="priorityFilter" className="mr-2 text-slate-700 font-medium">Priority:</label>
+          <select
+            id="priorityFilter"
+            value={priorityFilter}
+            onChange={e => setPriorityFilter(e.target.value)}
+            className="border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="all">All</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+
         {/* Recent Complaints - Beautiful Card List Style */}
         <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-100">
           <div className="flex items-center justify-between mb-6">
@@ -120,7 +143,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* First 2 crop complaints */}
-            {complaints.filter(c => c.type === 'crop').slice(0, 2).map((complaint) => (
+            {filteredComplaints.filter(c => c.type === 'crop').slice(0, 2).map((complaint) => (
               <div
                 key={complaint.type + '-' + complaint.id}
                 className="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 shadow-sm hover:shadow-lg p-5 flex flex-col justify-between transition-all duration-200 cursor-pointer"
@@ -167,7 +190,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
               </div>
             ))}
             {/* Next 2 shop complaints */}
-            {complaints.filter(c => c.type === 'shop').slice(0, 2).map((complaint) => (
+            {filteredComplaints.filter(c => c.type === 'shop').slice(0, 2).map((complaint) => (
               <div
                 key={complaint.type + '-' + complaint.id}
                 className="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 shadow-sm hover:shadow-lg p-5 flex flex-col justify-between transition-all duration-200 cursor-pointer"
@@ -214,7 +237,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
               </div>
             ))}
             {/* Last 2 transport complaints */}
-            {complaints.filter(c => c.type === 'transport').slice(0, 2).map((complaint) => (
+            {filteredComplaints.filter(c => c.type === 'transport').slice(0, 2).map((complaint) => (
               <div
                 key={complaint.type + '-' + complaint.id}
                 className="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 shadow-sm hover:shadow-lg p-5 flex flex-col justify-between transition-all duration-200 cursor-pointer"
@@ -260,7 +283,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
                 </div>
               </div>
             ))}
-            {complaints.length === 0 && (
+            {filteredComplaints.length === 0 && (
               <p className="text-sm text-slate-500 italic p-3">No complaints found</p>
             )}
           </div>
