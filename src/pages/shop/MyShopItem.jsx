@@ -126,7 +126,6 @@ const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
               {/* Price and Availability */}
               <div className="bg-green-50 p-5 rounded-xl shadow flex flex-col gap-2">
                 <div className="flex items-center text-green-700 font-bold text-2xl">
-                  <DollarSign className="h-6 w-6 mr-2" />
                   LKR {item.price?.toLocaleString()}
                   {item.unit && <span className="text-lg text-gray-500 ml-2">per {item.unit}</span>}
                 </div>
@@ -1164,7 +1163,6 @@ const MyShopItem = () => {
 
                                 {/* Price */}
                                 <div className="flex items-center text-green-700 font-bold text-lg mb-4">
-                                    <DollarSign className="h-5 w-5 mr-1" />
                                     LKR {item.price?.toLocaleString()}
                                 </div>
 
