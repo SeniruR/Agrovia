@@ -22,7 +22,7 @@ import ModeratorSignup from "./pages/ModeratorSignup";
 import LayoutAll from "./components/LayoutAll"
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
-
+import BulkPurchaseSystem from "./pages/farmer/BulkPurchaseSystem";
 import PaymentSuccess from './pages/PaymentSuccess';
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import CartPage from "./pages/CartPage";
@@ -368,6 +368,13 @@ const App = () => {
       <Route path="/shopreviews" element={
           <Layout>
             <ShopReviews />
+          </Layout>
+        }
+
+      />
+      <Route path="/bulkpurchase" element={
+          <Layout>
+            <BulkPurchaseSystem />
           </Layout>
         }
 
