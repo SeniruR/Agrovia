@@ -35,13 +35,13 @@ export default function SeedsFertilizerForm() {
    useEffect(() => {
   const fetchShopDetails = async () => {
     console.log('⏳ [1] Starting fetch for user ID:', user?.id);
-    console.log('� [1.5] Current user data:', { 
+    console.log('  [1.5] Current user data:', { 
       city: user?.city, 
       phone_no: user?.phone_no, 
       email: user?.email, 
       full_name: user?.full_name 
     });
-    console.log('�🔑 [2] Auth headers:', getAuthHeaders());
+    console.log(' 🔑 [2] Auth headers:', getAuthHeaders());
 
     try {
       console.log('🌐 [3] Making request to endpoint...');
@@ -330,23 +330,10 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   setIsSubmitting(true);
   setSubmitError('');
- let categoryToSend = formData.category;
-  if (formData.category === "Other" && formData.category_other) {
-    categoryToSend = formData.category_other;
-  }
-
-  // Create FormData and ensure correct category is sent
-  const formDataToSend = new FormData();
-  Object.keys(formData).forEach(key => {
-    if (key === 'category') {
-      formDataToSend.append('category', categoryToSend);
-    } else if (key !== 'images' && key !== 'imagePreviews' && key !== 'category_other') {
-      const value = typeof formData[key] === 'boolean' 
-        ? formData[key].toString() 
-        : formData[key];
-      formDataToSend.append(key, value);
-    }
-  });
+  // Prepare category value, handling "Other"
+  const categoryToSend = formData.category === 'Other' && formData.category_other
+    ? formData.category_other
+    : formData.category;
   try {
     // Validate all steps
     const allErrors = {
@@ -361,18 +348,13 @@ const handleSubmit = async (e) => {
       throw new Error('Please fix all validation errors');
     }
 
-    // Create FormData
+    // Create FormData and append fields
     const formDataToSend = new FormData();
-
-    // Append all regular fields
     Object.keys(formData).forEach(key => {
-      if (key !== 'images' && key !== 'imagePreviews') {
-        // Convert boolean values to strings
-        const value = typeof formData[key] === 'boolean' 
-          ? formData[key].toString() 
-          : formData[key];
-        formDataToSend.append(key, value);
-      }
+      if (key === 'images' || key === 'imagePreviews' || key === 'category_other') return;
+      let value = key === 'category' ? categoryToSend : formData[key];
+      if (typeof value === 'boolean') value = value.toString();
+      formDataToSend.append(key, value);
     });
 
     // Append each image file
@@ -408,8 +390,15 @@ const handleSubmit = async (e) => {
 
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Submission failed');
+      // Attempt to parse error message from response
+      let errorMessage = '';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || JSON.stringify(errorData);
+      } catch {
+        errorMessage = await response.text() || response.statusText;
+      }
+      throw new Error(errorMessage || `Submission failed (${response.status})`);
     }
 
     const responseData = await response.json();

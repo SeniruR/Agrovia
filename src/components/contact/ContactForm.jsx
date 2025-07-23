@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { Send, User, Mail, Phone, MessageSquare, AlertCircle, CheckCircle, Leaf } from 'lucide-react';
 

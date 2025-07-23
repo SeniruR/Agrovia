@@ -120,7 +120,8 @@ const Profile = () => {
     const user = data.user || {};
     const details = user.farmer_details || {};
     // Construct profile image URL if user has a profile image
-    const profileImageUrl = user.profile_image ? `/api/v1/users/${user.id}/profile-image` : null;
+    const profileImageUrl = user.profile_image ? 
+      `/api/v1/users/${user.id}/profile-image?t=${Date.now()}` : null;
     return {
       name: user.name || user.full_name || "",
       email: user.email || "",
@@ -160,6 +161,10 @@ const Profile = () => {
           : (import.meta.env.DEV
               ? 'http://localhost:5000/api/v1/auth/profile-full'
               : '/api/v1/auth/profile-full');
+        
+        // Add cache-busting query parameter
+        apiUrl += `?_t=${Date.now()}`;
+        
         const res = await fetch(apiUrl, {
           credentials: 'include',
           headers: {
@@ -179,6 +184,10 @@ const Profile = () => {
             : (import.meta.env.DEV
                 ? `http://localhost:5000/api/v1/organizations/${mapped.organizationId}`
                 : `/api/v1/organizations/${mapped.organizationId}`);
+          
+          // Add cache-busting query parameter
+          orgApiUrl += `?_t=${Date.now()}`;
+          
           const orgRes = await fetch(orgApiUrl, {
             credentials: 'include',
             headers: {
@@ -203,9 +212,24 @@ const Profile = () => {
     fetchProfile();
   }, []);
 
-  // Detect changes
+  // Detect changes - custom comparison to handle File objects
   useEffect(() => {
-    setSaveEnabled(JSON.stringify(profile) !== JSON.stringify(originalProfile));
+    // Compare all fields except profileImage
+    const profileCopy = { ...profile };
+    const originalCopy = { ...originalProfile };
+    
+    // Handle profileImage comparison separately
+    const profileImageChanged = 
+      (profile.profileImage instanceof File) || // New file selected
+      (profile.profileImage !== originalProfile.profileImage); // URL changed
+    
+    // Remove profileImage for JSON comparison
+    delete profileCopy.profileImage;
+    delete originalCopy.profileImage;
+    
+    const otherFieldsChanged = JSON.stringify(profileCopy) !== JSON.stringify(originalCopy);
+    
+    setSaveEnabled(profileImageChanged || otherFieldsChanged);
   }, [profile, originalProfile]);
 
   const handleChange = (e) => {
@@ -233,6 +257,11 @@ const Profile = () => {
         ...prev,
         [name]: file,
       }));
+      
+      // Clear any existing errors when a valid file is selected
+      if (error) {
+        setError(null);
+      }
     } else {
       setProfile((prev) => ({
         ...prev,
@@ -266,6 +295,11 @@ const Profile = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    
+    console.log('Starting profile update...');
+    console.log('Current profile.profileImage:', profile.profileImage);
+    console.log('Is File?', profile.profileImage instanceof File);
+    
     try {
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("No authentication token found.");
@@ -274,6 +308,9 @@ const Profile = () => {
         : (import.meta.env.DEV
             ? 'http://localhost:5000/api/v1/auth/profile-full'
             : '/api/v1/auth/profile-full');
+      
+      // Add cache-busting query parameter
+      apiUrl += `?_t=${Date.now()}`;
 
       // Only send visible fields to the backend, plus full_name and name for backend compatibility
       const formData = new FormData();
@@ -304,10 +341,13 @@ const Profile = () => {
         if (key === "landSize") {
           v = v === null ? null : (isNaN(Number(v)) ? null : Number(v));
         }
-        // Only append file if it's a File
+        // Only append file if it's a File object (newly selected image)
         if (key === "profileImage") {
-          if (v && typeof v !== "string") {
+          if (v && v instanceof File) {
+            console.log(`Appending profile image file: ${v.name}, size: ${v.size}`);
             formData.append(key, v);
+          } else {
+            console.log(`Skipping profile image - not a file object:`, typeof v, v);
           }
         } else if (v !== undefined && v !== null) {
           formData.append(key, v);
@@ -320,6 +360,16 @@ const Profile = () => {
       }
       formData.set('name', safeName);
       formData.set('full_name', safeName);
+
+      // Debug: Log what's being sent
+      console.log('FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          console.log(`${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+        } else {
+          console.log(`${key}: ${value}`);
+        }
+      }
 
       const res = await fetch(apiUrl, {
         method: 'PUT',
@@ -336,7 +386,20 @@ const Profile = () => {
       }
       
       const updated = await res.json();
+      console.log('Backend response:', updated);
+      
       const mapped = mapBackendToProfile(updated);
+      console.log('Mapped profile after update:', mapped);
+      
+      // Preserve the current profile image if it's a File object (newly selected)
+      // Only update the URL if no new file was selected
+      if (profile.profileImage && profile.profileImage instanceof File) {
+        // After successful upload, replace the File object with the new URL
+        const newImageUrl = updated.user?.profile_image ? 
+          `/api/v1/users/${updated.user.id}/profile-image?t=${Date.now()}` : null;
+        mapped.profileImage = newImageUrl;
+      }
+      
       setProfile(mapped);
       setOriginalProfile(mapped);
       setSuccessMessage("Profile updated successfully!");
@@ -426,11 +489,16 @@ const Profile = () => {
                     typeof profile.profileImage === 'object' &&
                     profile.profileImage instanceof File
                   ) {
+                    const imageUrl = URL.createObjectURL(profile.profileImage);
                     return (
                       <img
-                        src={URL.createObjectURL(profile.profileImage)}
+                        src={imageUrl}
                         alt="Profile Preview"
                         className="w-full h-full object-cover"
+                        onLoad={() => {
+                          // Clean up the object URL after the image loads
+                          setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+                        }}
                       />
                     );
                   }

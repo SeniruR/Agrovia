@@ -22,7 +22,7 @@ import ModeratorSignup from "./pages/ModeratorSignup";
 import LayoutAll from "./components/LayoutAll"
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
-
+import BulkPurchaseSystem from "./pages/farmer/BulkPurchaseSystem";
 import PaymentSuccess from './pages/PaymentSuccess';
 import BuyersMarketplace from "./pages/ByersMarketPlace";
 import CartPage from "./pages/CartPage";
@@ -372,6 +372,13 @@ const App = () => {
         }
 
       />
+      <Route path="/bulkpurchase" element={
+          <Layout>
+            <BulkPurchaseSystem />
+          </Layout>
+        }
+
+      />
        <Route path="/transportdashboard" element={
           <Layout>
             <TranspoartManagementDashboard />
@@ -576,12 +583,19 @@ const App = () => {
           <MyOrders />
         </Layout>
       } />
-      
+
+      <Route path="/contact" element={
+        <Layout>
+          <ContactPage/>
+         </Layout>
+      } />
+        
       <Route path="/terms-of-service" element={
         <Layout>
           <TermsOfService />
         </Layout>
       } />
+        
       <Route path="/privacy-policy" element={
         <Layout>
           <PrivacyPolicy />
