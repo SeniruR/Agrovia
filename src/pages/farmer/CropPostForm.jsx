@@ -878,6 +878,7 @@ const CropPostForm = () => {
             className={`w-full p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
               errors.email && touched.email ? 'border-red-500' : 'border-green-300'
             }`}
+            readOnly
           />
           {errors.email && touched.email && (
             <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -899,6 +900,7 @@ const CropPostForm = () => {
                 errors.district && touched.district ? 'border-red-500' : 'border-green-300'
               }`}
               required
+              readOnly
             >
               <option value="">Select District</option>
               {sriLankanDistricts.map((district) => (

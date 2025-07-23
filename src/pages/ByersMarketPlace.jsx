@@ -290,12 +290,8 @@ const ByersMarketplace = () => {
             <span className="text-2xl font-bold text-green-600">
               Rs.{product.price}
             </span>
-            <span className="text-sm text-gray-500">/{product.unit}</span>
-            {product.originalPrice > product.price && (
-              <span className="text-sm text-gray-400 line-through">
-                Rs.{product.originalPrice}
-              </span>
-            )}
+            
+            
           </div>
         </div>
         
