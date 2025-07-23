@@ -53,6 +53,9 @@ const FarmerProfile = () => {
           : (import.meta.env.DEV
               ? 'http://localhost:5000/api/v1/auth/profile-full'
               : '/api/v1/auth/profile-full');
+        
+        // Add cache-busting query parameter instead of headers
+        apiUrl += `?_t=${Date.now()}`;
 
         const res = await fetch(apiUrl, {
           credentials: 'include',
@@ -78,13 +81,20 @@ const FarmerProfile = () => {
           throw new Error('API did not return JSON. Check your proxy and backend.');
         }
         const data = await res.json();
+        console.log('FarmerProfile - Backend response:', data);
+        
         // Merge users and farmer_details fields
         const user = data.user || {};
         const details = user.farmer_details || {};
         
+        console.log('FarmerProfile - User data:', user);
+        console.log('FarmerProfile - Profile image from backend:', user.profile_image);
+        
         // Construct profile image URL if user has a profile image
         const profileImageUrl = user.profile_image ? 
-          `/api/v1/users/${user.id}/profile-image` : '';
+          `/api/v1/users/${user.id}/profile-image?t=${Date.now()}` : '';
+        
+        console.log('FarmerProfile - Constructed image URL:', profileImageUrl);
         
         setFarmerData({
           // User fields (for header, if needed)
@@ -112,6 +122,12 @@ const FarmerProfile = () => {
           soilType: details.soil_type || '-',
           farmingCertifications: details.farming_certifications || '-',
           createdAt: details.created_at || '-',
+        });
+        
+        console.log('FarmerProfile - Final farmer data set:', {
+          profileImage: profileImageUrl,
+          userId: user.id,
+          fullName: user.full_name
         });
       } catch (err) {
         setError(err.message || 'Unknown error');
@@ -163,7 +179,11 @@ const FarmerProfile = () => {
               alt={farmerData.fullName}
               className="w-32 h-32 rounded-full border-4 border-white/20 shadow-lg object-cover"
               onError={e => {
+                console.error('FarmerProfile - Failed to load profile image:', e.target.src);
                 e.target.src = 'https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg';
+              }}
+              onLoad={() => {
+                console.log('FarmerProfile - Profile image loaded successfully:', farmerData.profileImage);
               }}
             />
             {farmerData.verified && (
