@@ -210,6 +210,14 @@ useEffect(() => {
       stepErrors.price = 'Please enter a valid price';
     }
 
+    if (!formData.unit) {
+      stepErrors.unit = 'Please select a unit';
+    }
+
+    if (!formData.available_quantity.trim()) {
+      stepErrors.available_quantity = 'Available quantity is required';
+    }
+
     if (!formData.product_description.trim()) {
       stepErrors.product_description = 'Product description is required';
     } else if (formData.product_description.length < 20) {
@@ -942,13 +950,15 @@ Object.entries(formData).forEach(([key, val]) => {
 
                 <div className="w-full">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Unit
+                    Unit <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="unit"
                     value={formData.unit}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg ${
+                      errors.unit ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    }`}
                   >
                     <option value="">Select unit</option>
                     <option value="kg">Per Kg</option>
@@ -957,22 +967,36 @@ Object.entries(formData).forEach(([key, val]) => {
                     <option value="bottle">Per Bottle</option>
                     <option value="liter">Per Liter</option>
                   </select>
+                  {errors.unit && (
+                    <div className="flex items-center mt-2 text-red-600 text-sm">
+                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span>{errors.unit}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Full Width Fields */}
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Available Quantity
+                  Available Quantity <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="available_quantity"
                   value={formData.available_quantity}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                  className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg ${
+                    errors.available_quantity ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                  }`}
                   placeholder="e.g., 100 packets, 50 kg"
                 />
+                {errors.available_quantity && (
+                  <div className="flex items-center mt-2 text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                    <span>{errors.available_quantity}</span>
+                  </div>
+                )}
               </div>
 
               <div className="w-full">
