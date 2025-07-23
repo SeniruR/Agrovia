@@ -446,6 +446,9 @@ const FarmerSignup = () => {
         const phoneRegex = /^0[0-9]{9}$/;
         if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = 'Phone number must start with 0 and have 10 digits';
         if (formData.password && formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
+        // Password complexity: at least one number, one uppercase letter, and one special character
+        const passwordComplexityRegex = /^(?=.*[0-9])(?=.*[A-Z])(?=.*[!@#$%^&*])/;
+        if (formData.password && !passwordComplexityRegex.test(formData.password)) newErrors.password = 'Password must include at least one uppercase letter, one number, and one special character';
         if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
         if (formData.landSize && (isNaN(formData.landSize) || parseFloat(formData.landSize) <= 0)) newErrors.landSize = 'Please enter a valid land size';
         setErrors(newErrors);
