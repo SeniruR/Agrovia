@@ -47,32 +47,38 @@ const CropRecommendationSystem = () => {
     }));
   };
 
-  const analyzeCrops = () => {
+  const analyzeCrops = async () => {
     setIsLoading(true);
-
-    setTimeout(() => {
-      const allCrops = [...cropDatabase.rice, ...cropDatabase.vegetables, ...cropDatabase.grains];
-      const suitable = allCrops.filter(crop => {
-        const regionMatch = formData.region ? crop.region === formData.region : true;
-        const soilMatch = formData.soilType ? crop.soil.includes(formData.soilType) : true;
-        const rainfallMatch = formData.rainfall ? parseFloat(formData.rainfall) >= 100 && parseFloat(formData.rainfall) <= 1000 : true;
-        const temperatureMatch = formData.temperature ? parseFloat(formData.temperature) >= 15 && parseFloat(formData.temperature) <= 40 : true;
-        const fertilizerMatch = formData.fertilizerUsed === 'true' ? true : crop.fertilizer === 'Low';
-        const irrigationMatch = formData.irrigationUsed === 'true' ? crop.water === 'High' || crop.water === 'Medium' : true;
-        const weatherMatch = formData.weatherCondition ? crop.weather === formData.weatherCondition : true;
-
-        return regionMatch && soilMatch && rainfallMatch && temperatureMatch && fertilizerMatch && irrigationMatch && weatherMatch;
+    try {
+      const response = await fetch('http://127.0.0.1:5000/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
       });
-
-      const recommendations = suitable.map(crop => ({
-        ...crop,
-        suitabilityScore: Math.floor(Math.random() * 20) + 80,
-        estimatedYield: crop.yield
+      const data = await response.json();
+      console.log('Received data:', data); // Debug log
+      console.log('Data type:', typeof data, 'Is array:', Array.isArray(data)); // Debug log
+      const mappedData = data.map(crop => ({
+        name: crop.name,
+        type: crop.type,
+        suitabilityScore: crop.suitabilityScore,
+        estimatedYield: crop.yield, // Note: using 'yield' from database
+        seedRequired: crop.seedRequired,
+        fertilizerNeeded: crop.fertilizerNeeded,
+        season: crop.season,
+        image: crop.image,
+        expectedConditions: crop.expected_conditions || {},
+        harvestPrediction: crop.harvest_prediction || {},
+        suitabilityFactors: crop.suitability_factors || {},
+        dataInsights: crop.data_insights || {}
       }));
-
-      setRecommendations(recommendations.sort((a, b) => b.suitabilityScore - a.suitabilityScore));
+      console.log('Mapped data:', mappedData); // Debug log
+      setRecommendations(mappedData);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   return (
@@ -365,6 +371,86 @@ const CropRecommendationSystem = () => {
                               <span className="text-gray-600">Season: {crop.season}</span>
                             </div>
                           </div>
+                          
+                          {/* Expected Conditions Section */}
+                          {crop.expectedConditions && (
+                            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                              <h4 className="font-medium text-blue-800 mb-2">Optimal Growing Conditions</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="text-blue-700">
+                                  <span className="font-medium">Rainfall:</span> {crop.expectedConditions.optimal_rainfall}
+                                </div>
+                                <div className="text-blue-700">
+                                  <span className="font-medium">Temperature:</span> {crop.expectedConditions.optimal_temperature}
+                                </div>
+                                <div className="text-blue-700 md:col-span-2">
+                                  <span className="font-medium">Best Weather:</span> {crop.expectedConditions.best_weather}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Harvest Prediction Section */}
+                          {crop.harvestPrediction && (
+                            <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                              <h4 className="font-medium text-green-800 mb-2">Harvest Prediction</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="text-green-700">
+                                  <span className="font-medium">Expected Days:</span> {crop.harvestPrediction.expected_days} days
+                                </div>
+                                <div className="text-green-700">
+                                  <span className="font-medium">Harvest Month:</span> {crop.harvestPrediction.harvest_month}
+                                </div>
+                                <div className="text-green-700 md:col-span-2">
+                                  <span className="font-medium">Growth Stage:</span> {crop.harvestPrediction.growth_stage}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Data-Driven Insights Section */}
+                          {crop.dataInsights && Object.keys(crop.dataInsights).length > 0 && (
+                            <div className="mt-3 p-3 bg-purple-50 rounded-lg">
+                              <h4 className="font-medium text-purple-800 mb-2">📊 Real Data Insights</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="text-purple-700">
+                                  <span className="font-medium">Avg Yield:</span> {crop.dataInsights.average_yield_benchmark}
+                                </div>
+                                <div className="text-purple-700">
+                                  <span className="font-medium">Max Potential:</span> {crop.dataInsights.maximum_yield_potential}
+                                </div>
+                                <div className="text-purple-700">
+                                  <span className="font-medium">Typical Harvest:</span> {crop.dataInsights.typical_harvest_time}
+                                </div>
+                                <div className="text-purple-700">
+                                  <span className="font-medium">Best Soil:</span> {crop.dataInsights.best_soil_type}
+                                </div>
+                                <div className="text-purple-700 md:col-span-2">
+                                  <span className="font-medium">Fertilizer Usage:</span> {crop.dataInsights.fertilizer_success_rate}
+                                </div>
+                                <div className="text-purple-700 md:col-span-2">
+                                  <span className="font-medium">Irrigation Usage:</span> {crop.dataInsights.irrigation_success_rate}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Current Conditions Status */}
+                          {crop.suitabilityFactors && (
+                            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                              <h4 className="font-medium text-gray-800 mb-2">Current Conditions Status</h4>
+                              <div className="flex gap-4 text-sm">
+                                <div className={`flex items-center space-x-1 ${crop.suitabilityFactors.rainfall === 'Optimal' ? 'text-green-600' : 'text-amber-600'}`}>
+                                  <span className={`w-2 h-2 rounded-full ${crop.suitabilityFactors.rainfall === 'Optimal' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                                  <span>Rainfall: {crop.suitabilityFactors.rainfall}</span>
+                                </div>
+                                <div className={`flex items-center space-x-1 ${crop.suitabilityFactors.temperature === 'Optimal' ? 'text-green-600' : 'text-amber-600'}`}>
+                                  <span className={`w-2 h-2 rounded-full ${crop.suitabilityFactors.temperature === 'Optimal' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                                  <span>Temperature: {crop.suitabilityFactors.temperature}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
