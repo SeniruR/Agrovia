@@ -21,7 +21,7 @@ const AdminOrganizationApproval = () => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch organizations by status
+  // Fetch organizations summary by status (no details)
   useEffect(() => {
     const fetchOrgs = async () => {
       setLoading(true);
@@ -29,9 +29,9 @@ const AdminOrganizationApproval = () => {
       try {
         let res;
         if (filter === 'all') {
-          res = await axios.get('http://localhost:5000/api/v1/organization-approval/all');
+          res = await axios.get('http://localhost:5000/api/v1/organization-approval/all?summary=1');
         } else {
-          res = await axios.get(`http://localhost:5000/api/v1/organization-approval/${filter}`);
+          res = await axios.get(`http://localhost:5000/api/v1/organization-approval/${filter}?summary=1`);
         }
         setOrganizations(Array.isArray(res.data) ? res.data : (res.data.organizations || []));
       } catch (err) {
@@ -67,14 +67,32 @@ const AdminOrganizationApproval = () => {
     setActionLoading(false);
   };
 
-  // Modal for org details and approve/reject
+  // Modal for org details and approve/reject (fetches details on open)
+  const [orgDetails, setOrgDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
+
+  const openOrgModal = async (org) => {
+    setSelectedOrg(org);
+    setModalOpen(true);
+    setOrgDetails(null);
+    setDetailsError("");
+    setDetailsLoading(true);
+    try {
+      const res = await axios.get(`http://localhost:5000/api/v1/organization-approval/details/${org.id}`);
+      setOrgDetails(res.data);
+    } catch (err) {
+      setDetailsError('Failed to load organization details.');
+    }
+    setDetailsLoading(false);
+  };
+
   const OrgModal = () => {
-    // Determine status from is_active or fallback to status string
-    let statusValue = selectedOrg?.status;
-    if (selectedOrg?.is_active !== undefined && selectedOrg?.is_active !== null) {
-      if (selectedOrg.is_active === 1) statusValue = 'approved';
-      else if (selectedOrg.is_active === 0) statusValue = 'pending';
-      else if (selectedOrg.is_active === -1) statusValue = 'rejected';
+    let statusValue = orgDetails?.status;
+    if (orgDetails?.is_active !== undefined && orgDetails?.is_active !== null) {
+      if (orgDetails.is_active === 1) statusValue = 'approved';
+      else if (orgDetails.is_active === 0) statusValue = 'pending';
+      else if (orgDetails.is_active === -1) statusValue = 'rejected';
     }
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -88,80 +106,88 @@ const AdminOrganizationApproval = () => {
           </div>
           {/* Modal Content */}
           <div className="p-8 space-y-5 overflow-y-auto" style={{ flex: 1 }}>
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-2xl font-bold text-green-700">
-                <Building2 className="w-8 h-8" />
-              </div>
-              <div>
-                <div className="text-lg font-semibold text-green-900">{dash(selectedOrg?.org_name || selectedOrg?.organizationName)}</div>
-                <div className="text-sm text-green-700">{dash(selectedOrg?.org_area || selectedOrg?.area)}</div>
-                <div className="text-xs mt-1">
-                  <span className={`inline-block px-2 py-1 rounded font-semibold ${statusValue === 'approved' ? 'bg-green-100 text-green-700' : statusValue === 'pending' ? 'bg-yellow-100 text-yellow-700' : statusValue === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
-                    {statusValue ? statusValue.charAt(0).toUpperCase() + statusValue.slice(1) : 'Unknown'}
-                  </span>
+            {detailsLoading ? (
+              <div className="text-center text-green-700">Loading details...</div>
+            ) : detailsError ? (
+              <div className="text-center text-red-600">{detailsError}</div>
+            ) : orgDetails ? (
+              <>
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-2xl font-bold text-green-700">
+                    <Building2 className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold text-green-900">{dash(orgDetails?.org_name || orgDetails?.organizationName)}</div>
+                    <div className="text-sm text-green-700">{dash(orgDetails?.org_area || orgDetails?.area)}</div>
+                    <div className="text-xs mt-1">
+                      <span className={`inline-block px-2 py-1 rounded font-semibold ${statusValue === 'approved' ? 'bg-green-100 text-green-700' : statusValue === 'pending' ? 'bg-yellow-100 text-yellow-700' : statusValue === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
+                        {statusValue ? statusValue.charAt(0).toUpperCase() + statusValue.slice(1) : 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-green-700 mb-1">Govijanasewa Niladari Name</label>
-                <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selectedOrg?.govijanasewaniladariname)}</div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-green-700 mb-1">Govijanasewa Niladari Contact</label>
-                <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selectedOrg?.govijanasewaniladariContact)}</div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-green-700 mb-1">Established Date</label>
-                <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selectedOrg?.establishedDate)}</div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-green-700 mb-1">Description</label>
-                <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selectedOrg?.organizationDescription)}</div>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-green-700 mb-1">Letter of Proof</label>
-                {selectedOrg?.letterofProof ? (
-                  <a
-                    href={`http://localhost:5000/api/v1/organization-approval/${selectedOrg.id}/proof`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-green-700 underline"
-                  >
-                    View Document
-                  </a>
-                ) : (
-                  <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">–</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-green-700 mb-1">Govijanasewa Niladari Name</label>
+                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(orgDetails?.govijanasewaniladariname)}</div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-green-700 mb-1">Govijanasewa Niladari Contact</label>
+                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(orgDetails?.govijanasewaniladariContact)}</div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-green-700 mb-1">Established Date</label>
+                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(orgDetails?.establishedDate)}</div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-green-700 mb-1">Description</label>
+                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(orgDetails?.organizationDescription)}</div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-green-700 mb-1">Letter of Proof</label>
+                    {orgDetails?.letterofProof ? (
+                      <a
+                        href={`http://localhost:5000/api/v1/organization-approval/${orgDetails.id}/proof`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-700 underline"
+                      >
+                        View Document
+                      </a>
+                    ) : (
+                      <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">–</div>
+                    )}
+                  </div>
+                </div>
+                {actionError && (
+                  <div className="flex items-center space-x-1 text-red-500 text-sm mt-2">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{actionError}</span>
+                  </div>
                 )}
-              </div>
-            </div>
-            {actionError && (
-              <div className="flex items-center space-x-1 text-red-500 text-sm mt-2">
-                <AlertCircle className="w-4 h-4" />
-                <span>{actionError}</span>
-              </div>
-            )}
-            {actionSuccess && (
-              <div className="flex items-center space-x-1 text-green-600 text-sm mt-2">
-                <Check className="w-4 h-4" />
-                <span>{actionSuccess}</span>
-              </div>
-            )}
+                {actionSuccess && (
+                  <div className="flex items-center space-x-1 text-green-600 text-sm mt-2">
+                    <Check className="w-4 h-4" />
+                    <span>{actionSuccess}</span>
+                  </div>
+                )}
+              </>
+            ) : null}
           </div>
           {/* Modal Footer */}
           <div className="bg-slate-50 px-8 py-4 flex justify-end space-x-4">
             {/* Only show Approve in rejected, only Reject in approved, both in pending */}
-            {filter === 'pending' && (
+            {filter === 'pending' && orgDetails && (
               <>
                 <button
-                  onClick={() => handleAction(selectedOrg.id, 'reject')}
+                  onClick={() => handleAction(orgDetails.id, 'reject')}
                   disabled={actionLoading}
                   className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50"
                 >
                   Reject
                 </button>
                 <button
-                  onClick={() => handleAction(selectedOrg.id, 'approve')}
+                  onClick={() => handleAction(orgDetails.id, 'approve')}
                   disabled={actionLoading}
                   className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50"
                 >
@@ -169,18 +195,18 @@ const AdminOrganizationApproval = () => {
                 </button>
               </>
             )}
-            {filter === 'rejected' && (
+            {filter === 'rejected' && orgDetails && (
               <button
-                onClick={() => handleAction(selectedOrg.id, 'approve')}
+                onClick={() => handleAction(orgDetails.id, 'approve')}
                 disabled={actionLoading}
                 className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50"
               >
                 Approve
               </button>
             )}
-            {filter === 'approved' && (
+            {filter === 'approved' && orgDetails && (
               <button
-                onClick={() => handleAction(selectedOrg.id, 'reject')}
+                onClick={() => handleAction(orgDetails.id, 'reject')}
                 disabled={actionLoading}
                 className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50"
               >
@@ -288,7 +314,7 @@ const AdminOrganizationApproval = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dash(org.establishedDate)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => { setSelectedOrg(org); setModalOpen(true); }}
+                        onClick={() => openOrgModal(org)}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         View

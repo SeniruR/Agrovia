@@ -3,50 +3,22 @@ import { Leaf, Droplets, MapPin, Package, Lightbulb, CheckCircle, AlertCircle } 
 
 const CropRecommendationSystem = () => {
   const [formData, setFormData] = useState({
-    landArea: '',
-    soilType: '',
-    waterAvailability: '',
-    fertilizer: '',
-    seedQuantity: '',
     region: '',
-    season: ''
+    soilType: '',
+    rainfall: '',
+    temperature: '',
+    fertilizerUsed: '',
+    irrigationUsed: '',
+    weatherCondition: '',
+    daysToHarvest: ''
   });
 
   const [recommendations, setRecommendations] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const soilTypes = [
-    'Red-yellow podzolic soil',
-    'Reddish brown earths',
-    'Low humic gley soil',
-    'Alluvial soil',
-    'Regosol',
-    'Grumusol'
-  ];
-
-  const waterLevels = [
-    'High (Irrigated)',
-    'Medium (Rain-fed with irrigation)',
-    'Low (Rain-fed only)'
-  ];
-
-  const regions = [
-    'Western Province',
-    'Central Province',
-    'Southern Province',
-    'Northern Province',
-    'Eastern Province',
-    'North Western Province',
-    'North Central Province',
-    'Uva Province',
-    'Sabaragamuwa Province'
-  ];
-
-  const seasons = [
-    'Maha (October - March)',
-    'Yala (April - September)',
-    'Both seasons'
-  ];
+  const regions = ['North', 'East', 'South', 'West'];
+  const soilTypes = ['Clay', 'Sandy', 'Loam', 'Silt', 'Peaty', 'Chalky'];
+  const weatherConditions = ['Sunny', 'Rainy', 'Cloudy'];
 
   const cropDatabase = {
     rice: [
@@ -75,75 +47,38 @@ const CropRecommendationSystem = () => {
     }));
   };
 
-  const analyzeCrops = () => {
+  const analyzeCrops = async () => {
     setIsLoading(true);
-    
-    setTimeout(() => {
-      const allCrops = [...cropDatabase.rice, ...cropDatabase.vegetables, ...cropDatabase.grains];
-      const suitable = allCrops.filter(crop => {
-        const soilMatch = crop.soil.includes(formData.soilType);
-        const waterMatch = 
-          (formData.waterAvailability === 'High (Irrigated)' && crop.water === 'High') ||
-          (formData.waterAvailability === 'Medium (Rain-fed with irrigation)' && (crop.water === 'Medium' || crop.water === 'High')) ||
-          (formData.waterAvailability === 'Low (Rain-fed only)' && crop.water === 'Low');
-        const seasonMatch = crop.season === 'Both seasons' || crop.season === formData.season;
-        
-        return soilMatch && waterMatch && seasonMatch;
+    try {
+      const response = await fetch('http://127.0.0.1:5000/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
       });
-
-      const landAreaNum = parseFloat(formData.landArea);
-      const recommendations = suitable.map(crop => ({
-        ...crop,
-        suitabilityScore: Math.floor(Math.random() * 20) + 80,
-        estimatedYield: crop.yield,
-        seedRequired: calculateSeedRequirement(crop.name, landAreaNum),
-        fertilizerNeeded: calculateFertilizerNeeded(crop.name, landAreaNum)
+      const data = await response.json();
+      console.log('Received data:', data); // Debug log
+      console.log('Data type:', typeof data, 'Is array:', Array.isArray(data)); // Debug log
+      const mappedData = data.map(crop => ({
+        name: crop.name,
+        type: crop.type,
+        suitabilityScore: crop.suitabilityScore,
+        estimatedYield: crop.yield, // Note: using 'yield' from database
+        seedRequired: crop.seedRequired,
+        fertilizerNeeded: crop.fertilizerNeeded,
+        season: crop.season,
+        image: crop.image,
+        expectedConditions: crop.expected_conditions || {},
+        harvestPrediction: crop.harvest_prediction || {},
+        suitabilityFactors: crop.suitability_factors || {},
+        dataInsights: crop.data_insights || {}
       }));
-
-      setRecommendations(recommendations.sort((a, b) => b.suitabilityScore - a.suitabilityScore));
+      console.log('Mapped data:', mappedData); // Debug log
+      setRecommendations(mappedData);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    } finally {
       setIsLoading(false);
-    }, 2000);
-  };
-
-  const calculateSeedRequirement = (cropName, area) => {
-    const seedRates = {
-      'Bg 352': 100, 'Bg 366': 100, 'At 362': 100,
-      'Tomato': 0.2, 'Cabbage': 0.3, 'Carrot': 3, 'Beans': 60,
-      'Maize': 20, 'Finger Millet': 10, 'Sorghum': 8
-    };
-    return `${(seedRates[cropName] * area).toFixed(1)} kg`;
-  };
-
-  const calculateFertilizerNeeded = (cropName, area) => {
-    const fertilizerRates = {
-      'Bg 352': 150, 'Bg 366': 150, 'At 362': 120,
-      'Tomato': 200, 'Cabbage': 180, 'Carrot': 120, 'Beans': 80,
-      'Maize': 100, 'Finger Millet': 60, 'Sorghum': 70
-    };
-    return `${(fertilizerRates[cropName] * area).toFixed(0)} kg NPK`;
-  };
-
-  const handleSubmit = () => {
-    // Validate required fields
-    if (!formData.landArea || !formData.soilType || !formData.waterAvailability || 
-        !formData.fertilizer || !formData.seedQuantity || !formData.region || !formData.season) {
-      alert('Please fill in all required fields');
-      return;
     }
-    analyzeCrops();
-  };
-
-  const resetForm = () => {
-    setFormData({
-      landArea: '',
-      soilType: '',
-      waterAvailability: '',
-      fertilizer: '',
-      seedQuantity: '',
-      region: '',
-      season: ''
-    });
-    setRecommendations(null);
   };
 
   return (
@@ -178,23 +113,6 @@ const CropRecommendationSystem = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Land Area (Hectares)
-                  </label>
-                  <input
-                    type="number"
-                    name="landArea"
-                    value={formData.landArea}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                    placeholder="Enter land area"
-                    step="0.1"
-                    min="0.1"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Region
                   </label>
                   <select
@@ -210,59 +128,21 @@ const CropRecommendationSystem = () => {
                     ))}
                   </select>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Soil Type
-                </label>
-                <select
-                  name="soilType"
-                  value={formData.soilType}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                  required
-                >
-                  <option value="">Select soil type</option>
-                  {soilTypes.map(soil => (
-                    <option key={soil} value={soil}>{soil}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Water Availability
+                    Soil Type
                   </label>
                   <select
-                    name="waterAvailability"
-                    value={formData.waterAvailability}
+                    name="soilType"
+                    value={formData.soilType}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                     required
                   >
-                    <option value="">Select water level</option>
-                    {waterLevels.map(level => (
-                      <option key={level} value={level}>{level}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Growing Season
-                  </label>
-                  <select
-                    name="season"
-                    value={formData.season}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                    required
-                  >
-                    <option value="">Select season</option>
-                    {seasons.map(season => (
-                      <option key={season} value={season}>{season}</option>
+                    <option value="">Select soil type</option>
+                    {soilTypes.map(soil => (
+                      <option key={soil} value={soil}>{soil}</option>
                     ))}
                   </select>
                 </div>
@@ -271,33 +151,107 @@ const CropRecommendationSystem = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Available Fertilizer (kg)
+                    Rainfall (mm)
                   </label>
                   <input
                     type="number"
-                    name="fertilizer"
-                    value={formData.fertilizer}
+                    name="rainfall"
+                    value={formData.rainfall}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                    placeholder="Enter fertilizer amount"
-                    min="0"
+                    placeholder="Enter rainfall"
+                    min="100"
+                    max="1000"
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Available Seeds (kg)
+                    Temperature (°C)
                   </label>
                   <input
                     type="number"
-                    name="seedQuantity"
-                    value={formData.seedQuantity}
+                    name="temperature"
+                    value={formData.temperature}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                    placeholder="Enter seed quantity"
-                    min="0"
+                    placeholder="Enter temperature"
+                    min="15"
+                    max="40"
                     required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fertilizer Used
+                  </label>
+                  <select
+                    name="fertilizerUsed"
+                    value={formData.fertilizerUsed}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    required
+                  >
+                    <option value="">Select option</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Irrigation Used
+                  </label>
+                  <select
+                    name="irrigationUsed"
+                    value={formData.irrigationUsed}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    required
+                  >
+                    <option value="">Select option</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Weather Condition
+                  </label>
+                  <select
+                    name="weatherCondition"
+                    value={formData.weatherCondition}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    required
+                  >
+                    <option value="">Select weather condition</option>
+                    {weatherConditions.map(condition => (
+                      <option key={condition} value={condition}>{condition}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Days to Harvest
+                  </label>
+                  <input
+                    type="number"
+                    name="daysToHarvest"
+                    value={formData.daysToHarvest}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    placeholder="Enter days to harvest"
+                    min="60"
+                    max="150"
                   />
                 </div>
               </div>
@@ -305,7 +259,7 @@ const CropRecommendationSystem = () => {
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   type="button"
-                  onClick={handleSubmit}
+                  onClick={analyzeCrops}
                   disabled={isLoading}
                   className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
@@ -323,7 +277,16 @@ const CropRecommendationSystem = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={resetForm}
+                  onClick={() => setFormData({
+                    region: '',
+                    soilType: '',
+                    rainfall: '',
+                    temperature: '',
+                    fertilizerUsed: '',
+                    irrigationUsed: '',
+                    weatherCondition: '',
+                    daysToHarvest: ''
+                  })}
                   className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
                 >
                   Reset
@@ -408,6 +371,86 @@ const CropRecommendationSystem = () => {
                               <span className="text-gray-600">Season: {crop.season}</span>
                             </div>
                           </div>
+                          
+                          {/* Expected Conditions Section */}
+                          {crop.expectedConditions && (
+                            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                              <h4 className="font-medium text-blue-800 mb-2">Optimal Growing Conditions</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="text-blue-700">
+                                  <span className="font-medium">Rainfall:</span> {crop.expectedConditions.optimal_rainfall}
+                                </div>
+                                <div className="text-blue-700">
+                                  <span className="font-medium">Temperature:</span> {crop.expectedConditions.optimal_temperature}
+                                </div>
+                                <div className="text-blue-700 md:col-span-2">
+                                  <span className="font-medium">Best Weather:</span> {crop.expectedConditions.best_weather}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Harvest Prediction Section */}
+                          {crop.harvestPrediction && (
+                            <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                              <h4 className="font-medium text-green-800 mb-2">Harvest Prediction</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="text-green-700">
+                                  <span className="font-medium">Expected Days:</span> {crop.harvestPrediction.expected_days} days
+                                </div>
+                                <div className="text-green-700">
+                                  <span className="font-medium">Harvest Month:</span> {crop.harvestPrediction.harvest_month}
+                                </div>
+                                <div className="text-green-700 md:col-span-2">
+                                  <span className="font-medium">Growth Stage:</span> {crop.harvestPrediction.growth_stage}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Data-Driven Insights Section */}
+                          {crop.dataInsights && Object.keys(crop.dataInsights).length > 0 && (
+                            <div className="mt-3 p-3 bg-purple-50 rounded-lg">
+                              <h4 className="font-medium text-purple-800 mb-2">📊 Real Data Insights</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="text-purple-700">
+                                  <span className="font-medium">Avg Yield:</span> {crop.dataInsights.average_yield_benchmark}
+                                </div>
+                                <div className="text-purple-700">
+                                  <span className="font-medium">Max Potential:</span> {crop.dataInsights.maximum_yield_potential}
+                                </div>
+                                <div className="text-purple-700">
+                                  <span className="font-medium">Typical Harvest:</span> {crop.dataInsights.typical_harvest_time}
+                                </div>
+                                <div className="text-purple-700">
+                                  <span className="font-medium">Best Soil:</span> {crop.dataInsights.best_soil_type}
+                                </div>
+                                <div className="text-purple-700 md:col-span-2">
+                                  <span className="font-medium">Fertilizer Usage:</span> {crop.dataInsights.fertilizer_success_rate}
+                                </div>
+                                <div className="text-purple-700 md:col-span-2">
+                                  <span className="font-medium">Irrigation Usage:</span> {crop.dataInsights.irrigation_success_rate}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Current Conditions Status */}
+                          {crop.suitabilityFactors && (
+                            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                              <h4 className="font-medium text-gray-800 mb-2">Current Conditions Status</h4>
+                              <div className="flex gap-4 text-sm">
+                                <div className={`flex items-center space-x-1 ${crop.suitabilityFactors.rainfall === 'Optimal' ? 'text-green-600' : 'text-amber-600'}`}>
+                                  <span className={`w-2 h-2 rounded-full ${crop.suitabilityFactors.rainfall === 'Optimal' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                                  <span>Rainfall: {crop.suitabilityFactors.rainfall}</span>
+                                </div>
+                                <div className={`flex items-center space-x-1 ${crop.suitabilityFactors.temperature === 'Optimal' ? 'text-green-600' : 'text-amber-600'}`}>
+                                  <span className={`w-2 h-2 rounded-full ${crop.suitabilityFactors.temperature === 'Optimal' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                                  <span>Temperature: {crop.suitabilityFactors.temperature}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
