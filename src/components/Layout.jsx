@@ -59,7 +59,7 @@ const Layout = ({ children }) => {
             </div>
           ) : (
             <div className="w-full text-black">
-              <div className="max-w-7xl mx-auto">
+              <div className="mx-auto">
                 {children}
               </div>
             </div>
