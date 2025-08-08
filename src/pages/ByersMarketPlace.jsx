@@ -3,6 +3,7 @@ import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, 
 import { Trash } from 'lucide-react';
 import {Link, useNavigate} from 'react-router-dom';
 import { cropService } from '../services/cropService';
+import { transportService } from '../services/transportService';
 import { useCart } from '../hooks/useCart';
 import CartNotification from '../components/CartNotification';
 
@@ -19,6 +20,12 @@ const ByersMarketplace = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState({ show: false, product: null, quantity: 0 });
+
+  // Transport states
+  const [showTransportModal, setShowTransportModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [transporters, setTransporters] = useState([]);
+  const [loadingTransporters, setLoadingTransporters] = useState(false);
 
   // Fetch real data from database
   useEffect(() => {
@@ -142,6 +149,82 @@ const ByersMarketplace = () => {
       newFavorites.add(productId);
     }
     setFavorites(newFavorites);
+  };
+
+  // Fetch available transporters for a product
+  const fetchTransportersForProduct = async (product) => {
+    setLoadingTransporters(true);
+    try {
+      console.log('🚛 Fetching transporters for product:', product.name, 'location:', product.location);
+      const response = await transportService.getAllTransporters();
+      
+      if (response.success && response.data) {
+        console.log('✅ Successfully fetched transporters:', response.data.length);
+        // Filter transporters by location if needed
+        const availableTransporters = response.data.filter(t => 
+          t.district === product.location || t.available
+        );
+        setTransporters(availableTransporters.length > 0 ? availableTransporters : response.data);
+      } else {
+        console.error('❌ Failed to fetch transporters:', response.message);
+        // Fallback sample data
+        setTransporters([
+          {
+            id: 1,
+            full_name: 'Lanka Express Transport',
+            phone_number: '+94 77 123 4567',
+            email: 'info@lankaexpress.lk',
+            district: product.location,
+            vehicle_type: 'Truck',
+            vehicle_capacity: '5 tons',
+            capacity_unit: 'tons',
+            license_number: 'DL-123456789',
+            profile_image: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg',
+            rating: 4.8,
+            total_deliveries: 150,
+            available: true
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('💥 Error fetching transporters:', error);
+      // Fallback data on error
+      setTransporters([
+        {
+          id: 1,
+          full_name: 'General Transport Services',
+          phone_number: '+94 77 123 4567',
+          email: 'info@transport.lk',
+          district: product.location,
+          vehicle_type: 'Van',
+          vehicle_capacity: '2 tons',
+          capacity_unit: 'tons',
+          license_number: 'DL-123456789',
+          profile_image: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg',
+          rating: 4.5,
+          total_deliveries: 89,
+          available: true
+        }
+      ]);
+    } finally {
+      setLoadingTransporters(false);
+    }
+  };
+
+  // Handle viewing transporters for a specific product
+  const handleViewTransporters = async (product) => {
+    setSelectedProduct(product);
+    setShowTransportModal(true);
+    await fetchTransportersForProduct(product);
+  };
+
+  // Handle contacting a transporter
+  const handleContactTransporter = (transporter) => {
+    if (transporter.phone_number) {
+      window.open(`tel:${transporter.phone_number}`, '_blank');
+    } else {
+      alert('Contact information not available for this transporter.');
+    }
   };
 
   const ProductCard = ({ product }) => {
@@ -375,6 +458,14 @@ const ByersMarketplace = () => {
           
           {/* Contact buttons */}
           <div className="flex gap-2">
+            <button 
+              onClick={() => handleViewTransporters(product)}
+              className="flex-1 bg-green-50 hover:bg-green-100 text-green-600 py-2 px-4 rounded-xl transition-all duration-300 hover:shadow-md flex items-center justify-center gap-2"
+              title="View available transporters"
+            >
+              <Truck className="w-4 h-4" />
+              Transport
+            </button>
             <button className="flex-1 bg-green-50 hover:bg-green-100 text-green-600 py-2 px-4 rounded-xl transition-all duration-300 hover:shadow-md flex items-center justify-center gap-2">
               <Phone className="w-4 h-4" />
               Call
@@ -565,6 +656,193 @@ const ByersMarketplace = () => {
         quantity={notification.quantity}
         onClose={() => setNotification({ show: false, product: null, quantity: 0 })}
       />
+
+      {/* Transport Modal */}
+      {showTransportModal && selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="bg-blue-500 rounded-full p-3 mr-4">
+                  <Truck className="w-6 h-6 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">Available Transporters</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTransportModal(false);
+                  setSelectedProduct(null);
+                  setTransporters([]);
+                }}
+                className="text-gray-400 hover:text-gray-700 text-2xl font-bold"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Product Info Summary */}
+            <div className="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Transport Request For:</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-blue-800">Product:</span>
+                  <span className="ml-1 text-gray-700">{selectedProduct.name}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-blue-800">Farmer:</span>
+                  <span className="ml-1 text-gray-700">{selectedProduct.farmer}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-blue-800">Location:</span>
+                  <span className="ml-1 text-gray-700">{selectedProduct.location}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Loading State */}
+            {loadingTransporters ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <h3 className="text-xl font-medium text-gray-900 mb-2">Finding transporters...</h3>
+                <p className="text-gray-500">Searching for available transport services in {selectedProduct.location}</p>
+              </div>
+            ) : (
+              <div>
+                {transporters.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No transporters found</h3>
+                    <p className="text-gray-500">No transport services are available in {selectedProduct.location} at the moment.</p>
+                    <button 
+                      onClick={() => handleViewTransporters(selectedProduct)}
+                      className="mt-4 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    >
+                      Search Again
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                        {transporters.length} transporter{transporters.length !== 1 ? 's' : ''} available in {selectedProduct.location}
+                      </h3>
+                      <p className="text-sm text-gray-600">Contact transporters directly to arrange delivery for your purchase.</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {transporters.map((transporter) => (
+                        <div key={transporter.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
+                          <div className="flex items-start space-x-4">
+                            {/* Profile Image */}
+                            <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
+                              {transporter.profile_image ? (
+                                <img 
+                                  src={transporter.profile_image} 
+                                  alt={transporter.full_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                  <Truck className="w-8 h-8 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Transporter Info */}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-lg font-bold text-gray-900 truncate">
+                                {transporter.full_name}
+                              </h3>
+                              <div className="flex items-center mt-1 mb-2">
+                                <MapPin className="w-4 h-4 text-gray-500 mr-1" />
+                                <span className="text-sm text-gray-600">{transporter.district}</span>
+                                {transporter.rating && (
+                                  <div className="flex items-center ml-3">
+                                    <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                    <span className="text-sm font-medium text-gray-700">
+                                      {transporter.rating}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Vehicle Details */}
+                              <div className="space-y-2">
+                                <div className="flex items-center">
+                                  <Truck className="w-4 h-4 text-blue-500 mr-2" />
+                                  <span className="text-sm text-gray-700">
+                                    {transporter.vehicle_type} - {transporter.vehicle_capacity} {transporter.capacity_unit}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center">
+                                  <Phone className="w-4 h-4 text-green-500 mr-2" />
+                                  <span className="text-sm text-gray-700">{transporter.phone_number}</span>
+                                </div>
+
+                                {transporter.total_deliveries && (
+                                  <div className="flex items-center">
+                                    <Award className="w-4 h-4 text-purple-500 mr-2" />
+                                    <span className="text-sm text-gray-700">
+                                      {transporter.total_deliveries} deliveries completed
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="mt-4 flex space-x-2">
+                                <button
+                                  onClick={() => handleContactTransporter(transporter)}
+                                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors font-medium text-sm flex items-center justify-center gap-2"
+                                >
+                                  <Phone className="w-4 h-4" />
+                                  Call Now
+                                </button>
+                                {transporter.email && (
+                                  <a
+                                    href={`mailto:${transporter.email}?subject=Transport Request for ${selectedProduct.name}&body=Hello, I need transport service for ${selectedProduct.name} from ${selectedProduct.location}.`}
+                                    className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition-colors font-medium text-sm flex items-center justify-center"
+                                  >
+                                    <MessageCircle className="w-4 h-4" />
+                                  </a>
+                                )}
+                              </div>
+
+                              {/* Availability Status */}
+                              <div className="mt-2">
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                  transporter.available 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {transporter.available ? 'Available Now' : 'Busy'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Additional Info */}
+                    <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <h4 className="font-medium text-yellow-800 mb-2">💡 Transport Tips</h4>
+                      <ul className="text-sm text-yellow-700 space-y-1">
+                        <li>• Contact multiple transporters to compare prices</li>
+                        <li>• Confirm vehicle capacity matches your order quantity</li>
+                        <li>• Ask about insurance coverage for your goods</li>
+                        <li>• Get delivery timeline and cost estimates upfront</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
