@@ -371,6 +371,13 @@ const CropDetailView = () => {
     );
   }
 
+  // Filter transporters by strict district match (case-insensitive, trimmed)
+  const filteredTransporters = transporters.filter(transporter => {
+    const transporterDistrict = (transporter.district || transporter.location || transporter.area || '').toLowerCase().trim();
+    const cropDistrict = (crop.district || '').toLowerCase().trim();
+    return transporterDistrict === cropDistrict;
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br pb-2 from-agrovia-50 to-green-50">
       {/* Horizontal Header */}
@@ -1067,7 +1074,7 @@ const CropDetailView = () => {
               </div>
             ) : (
               <div>
-                {transporters.length === 0 ? (
+                {filteredTransporters.length === 0 ? (
                   <div className="text-center py-12">
                     <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-gray-600 mb-2">No transporters found</h3>
@@ -1075,7 +1082,7 @@ const CropDetailView = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {transporters.map((transporter) => (
+                    {filteredTransporters.map((transporter) => (
                       <div key={transporter.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
                         <div className="flex items-start space-x-4">
                           {/* Profile Image */}
@@ -1155,6 +1162,7 @@ const CropDetailView = () => {
                                   </span>
                                 </div>
                               )}
+                             
                             </div>
 
                             {/* Action Button */}
