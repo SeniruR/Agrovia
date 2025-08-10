@@ -112,6 +112,42 @@ const AdminAccountApproval = () => {
     setActionLoading(false);
   };
 
+  // Helper to render a field
+  const renderField = (label, value, span = 1) => (
+    <div className={span === 2 ? 'md:col-span-2' : ''}>
+      <label className="block text-xs font-medium text-green-700 mb-1">{label}</label>
+      <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(value)}</div>
+    </div>
+  );
+
+  // Helper to render moderator skills
+  const renderSkills = (skills) => (
+    <div className="md:col-span-2">
+      <label className="block text-xs font-medium text-green-700 mb-1">Skill Demonstrations</label>
+      {Array.isArray(skills) && skills.length > 0 ? (
+        <div className="space-y-2">
+          {skills.map((skill, idx) => {
+            // Ensure url starts with http(s)://
+            let safeUrl = skill.url;
+            if (safeUrl && !/^https?:\/\//i.test(safeUrl)) {
+              safeUrl = 'https://' + safeUrl;
+            }
+            return (
+              <div key={idx} className="border border-green-200 rounded-md p-2 bg-green-50">
+                <div className="font-semibold text-green-800">{dash(skill.type_name)}</div>
+                {skill.description && <div className="text-sm text-green-900">Description: {dash(skill.description)}</div>}
+                {skill.url && <div className="text-sm text-green-900">URL: <a href={safeUrl} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">{skill.url}</a></div>}
+                {skill.worker_id && <div className="text-sm text-green-900">Worker ID: {dash(skill.worker_id)}</div>}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-green-700">No skills submitted.</div>
+      )}
+    </div>
+  );
+
   const Modal = () => {
     const isLogistics = activeTab === 'logistics';
     return (
@@ -151,60 +187,36 @@ const AdminAccountApproval = () => {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-green-700 mb-1">Phone</label>
-                <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.phone_number || selected?.phone)}</div>
-              </div>
+              {/* User fields (common) */}
+              {renderField('NIC', selected?.nic)}
+              {renderField('District', selected?.district)}
+              {renderField('Address', selected?.address, 2)}
+              {renderField('Phone', selected?.phone_number)}
+              {renderField('User Type', selected?.user_type)}
+              {renderField('Created At', selected?.created_at)}
+              {renderField('Active', selected?.is_active ? 'Yes' : 'No')}
+              {/* Logistics-specific fields */}
               {isLogistics && (
                 <>
-                  <div>
-                    <label className="block text-xs font-medium text-green-700 mb-1">Address</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.address)}</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-green-700 mb-1">District</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.district)}</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-green-700 mb-1">Vehicle Type</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.vehicle_type)}</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-green-700 mb-1">Vehicle Number</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.vehicle_number)}</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-green-700 mb-1">Vehicle Capacity</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.vehicle_capacity)} {dash(selected?.capacity_unit)}</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-green-700 mb-1">License Number</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.license_number)}</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-green-700 mb-1">License Expiry</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.license_expiry)}</div>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-green-700 mb-1">Additional Info</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.additional_info)}</div>
-                  </div>
+                  {renderField('Vehicle Type', selected?.vehicle_type)}
+                  {renderField('Vehicle Number', selected?.vehicle_number)}
+                  {renderField('Vehicle Capacity', selected?.vehicle_capacity)}
+                  {renderField('Capacity Unit', selected?.capacity_unit)}
+                  {renderField('License Number', selected?.license_number)}
+                  {renderField('License Expiry', selected?.license_expiry)}
+                  {renderField('Additional Info', selected?.additional_info, 2)}
                 </>
               )}
+              {/* Moderator-specific fields */}
               {!isLogistics && (
                 <>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-green-700 mb-1">Description</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.description)}</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-green-700 mb-1">Join Date</label>
-                    <div className="w-full px-3 py-2 border border-green-100 rounded-md bg-green-50 text-green-900">{dash(selected?.joinDate)}</div>
-                  </div>
+                  {renderField('Description', selected?.description, 2)}
+                  {renderField('Join Date', selected?.joinDate)}
+                  {/* Moderator skills section */}
+                  {renderSkills(selected?.skills)}
                 </>
               )}
             </div>
-            {/* Success and error messages are now shown in the footer, not here */}
           </div>
           {/* Modal Footer */}
           <div className="bg-slate-50 px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0 md:space-x-4">
