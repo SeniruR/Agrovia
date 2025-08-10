@@ -2,11 +2,16 @@ import React, { useState, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const CreateArticle = () => {
+  const navigate = useNavigate();
   const [figures, setFigures] = useState([]);
   const [title, setTitle] = useState("");
   const [cover, setCover] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const fileInputRef = useRef();
   const coverInputRef = useRef();
 
@@ -171,10 +176,77 @@ const CreateArticle = () => {
         </div>
       )}
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
       {/* Submit Button */}
       <div className="flex justify-end pt-4">
-        <button className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-3 rounded-lg font-semibold shadow hover:from-green-600 hover:to-emerald-600 transition">
-          Publish Article
+        <button
+          onClick={async () => {
+            try {
+              setError("");
+              setIsSubmitting(true);
+
+              if (!title.trim()) {
+                throw new Error("Title is required");
+              }
+
+              if (!editor?.getHTML() || editor?.getHTML() === "<p>Start writing here...</p>") {
+                throw new Error("Content is required");
+              }
+
+              const formData = new FormData();
+              formData.append("title", title);
+              formData.append("content", editor.getHTML());
+
+              if (cover) {
+                // Convert base64 to blob
+                const response = await fetch(cover);
+                const blob = await response.blob();
+                formData.append("cover_image", blob, "cover.jpg");
+              }
+
+              // Get all image elements from the editor
+              const editorImages = document.querySelectorAll(".ProseMirror img");
+              editorImages.forEach((img, index) => {
+                if (img.src.startsWith("data:")) {
+                  // Convert base64 to blob
+                  const base64 = img.src;
+                  const response = fetch(base64);
+                  const blob = response.blob();
+                  formData.append("figures", blob, figures[index] || `figure-${index + 1}.jpg`);
+                }
+              });
+
+              const response = await axios.post(
+                "http://localhost:5000/api/v1/articles",
+                formData,
+                {
+                  headers: {
+                    "Content-Type": "multipart/form-data",
+                  },
+                }
+              );
+
+              if (response.data.success) {
+                navigate("/knowledge-hub");
+              } else {
+                throw new Error(response.data.message || "Failed to create article");
+              }
+            } catch (err) {
+              setError(err.message || "Failed to create article");
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          disabled={isSubmitting}
+          className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-3 rounded-lg font-semibold shadow hover:from-green-600 hover:to-emerald-600 transition disabled:opacity-50"
+        >
+          {isSubmitting ? "Publishing..." : "Publish Article"}
         </button>
       </div>
     </div>

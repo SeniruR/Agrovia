@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, ChevronDown, ChevronRight, ArrowRight, User, Filter, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const KnowledgeHubHome = () => {
    const navigate = useNavigate();
@@ -15,6 +16,48 @@ const KnowledgeHubHome = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [articles, setArticles] = useState([]);
+
+  // Fetch articles when filters change
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        let url = "http://localhost:5000/api/v1/articles?";
+        const params = new URLSearchParams();
+
+        if (searchTerm) {
+          params.append("searchTerm", searchTerm);
+        }
+
+        if (selectedFilters.topics.length > 0) {
+          params.append("category", selectedFilters.topics.join(","));
+        }
+
+        if (selectedFilters.experts.length > 0) {
+          params.append("author", selectedFilters.experts.join(","));
+        }
+
+        const response = await axios.get(url + params.toString());
+
+        if (response.data.success) {
+          setArticles(response.data.data.articles);
+        } else {
+          throw new Error(response.data.message || "Failed to fetch articles");
+        }
+      } catch (err) {
+        setError(err.message || "Failed to fetch articles");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArticles();
+  }, [searchTerm, selectedFilters]);
 
   const experts = [
     'Kasun Appuhami',
@@ -28,15 +71,17 @@ const KnowledgeHubHome = () => {
   const durations = [];
   const topics = ['Default', 'Rice', 'Carrot', 'Tomato', 'Potato', 'Onion', 'Cabbage', 'Brinjal'];
 
-  const knowledgeCards = [
-    {
-      id: 1,
-      title: 'How to start your Agriculture journey with Rice Cultivation',
-      description: 'Kickstart your agriculture journey with rice cultivation, learn the right knowledge, hands-on guidance, and expert community support for successful farming.',
-      expert: 'Kasun Appuhami',
-      image: 'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&w=800',
-      category: 'Default'
-    },
+  // Transform fetched articles to knowledgeCards format
+  const knowledgeCards = articles.map(article => ({
+    id: article.id,
+    title: article.title,
+    description: article.content.replace(/<[^>]*>/g, '').slice(0, 200) + '...', // Strip HTML and limit length
+    expert: article.author_name,
+    image: article.cover_image 
+      ? `data:${article.cover_image_mime};base64,${Buffer.from(article.cover_image).toString('base64')}`
+      : 'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&w=800',
+    category: article.category || 'Default'
+  })) || [
     {
       id: 2,
       title: 'Optimal Timing for Rice Field Preparation',
@@ -126,6 +171,33 @@ const KnowledgeHubHome = () => {
       topics: []
     });
   };
+
+  // Show loading or error states
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-green-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-green-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {error}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredCards = knowledgeCards.filter(card => {
     const matchesSearch = card.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
