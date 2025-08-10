@@ -191,7 +191,7 @@ const CropDetailView = () => {
       price: Number(crop.pricePerUnit),
       unit: crop.unit,
       farmer: crop.farmerName,
-      location: crop.location,
+      district: crop.district,
       image: crop.images && crop.images.length > 0 ? crop.images[0] : null
     }, quantity);
     setNotification({ show: true, product: {
@@ -1167,12 +1167,7 @@ const CropDetailView = () => {
 
                             {/* Action Button */}
                             <div className="mt-4 flex space-x-2">
-                              <button
-                                onClick={() => handleTransportRequest(transporter)}
-                                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors font-medium text-sm"
-                              >
-                                Request Transport
-                              </button>
+                              
                               {(transporter.phone_number || transporter.phoneNumber || transporter.phone) && (
                                 <a
                                   href={`tel:${transporter.phone_number || transporter.phoneNumber || transporter.phone}`}

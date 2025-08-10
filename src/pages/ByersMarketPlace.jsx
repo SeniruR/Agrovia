@@ -458,14 +458,7 @@ const ByersMarketplace = () => {
           
           {/* Contact buttons */}
           <div className="flex gap-2">
-            <button 
-              onClick={() => handleViewTransporters(product)}
-              className="flex-1 bg-green-50 hover:bg-green-100 text-green-600 py-2 px-4 rounded-xl transition-all duration-300 hover:shadow-md flex items-center justify-center gap-2"
-              title="View available transporters"
-            >
-              <Truck className="w-4 h-4" />
-              Transport
-            </button>
+           
             <button className="flex-1 bg-green-50 hover:bg-green-100 text-green-600 py-2 px-4 rounded-xl transition-all duration-300 hover:shadow-md flex items-center justify-center gap-2">
               <Phone className="w-4 h-4" />
               Call

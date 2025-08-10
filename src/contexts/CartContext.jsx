@@ -30,7 +30,7 @@ export const CartProvider = ({ children }) => {
           price: Number(item.priceAtAddTime),
           unit: item.productUnit,
           farmer: item.farmerName,
-          location: item.location,
+          location: item.district || item.location, // Use district if available, fallback to location
           image: item.productImage,
           quantity: item.quantity,
           addedAt: item.createdAt
@@ -86,7 +86,7 @@ export const CartProvider = ({ children }) => {
           priceAtAddTime: product.price,
           productUnit: product.unit,
           farmerName: product.farmer,
-          location: product.location,
+          location: product.district || product.location, // Use district if available, fallback to location
           productImage: product.image
         }, {
           headers: getAuthHeaders()
@@ -116,7 +116,7 @@ export const CartProvider = ({ children }) => {
               price: product.price,
               unit: product.unit,
               farmer: product.farmer,
-              location: product.location,
+              location: product.district || product.location, // Use district if available, fallback to location
               image: product.image,
               quantity: quantity,
               addedAt: new Date().toISOString()
@@ -147,7 +147,7 @@ export const CartProvider = ({ children }) => {
             price: product.price,
             unit: product.unit,
             farmer: product.farmer,
-            location: product.location,
+            district: product.district || product.location,
             image: product.image,
             quantity: quantity,
             addedAt: new Date().toISOString()
@@ -280,7 +280,7 @@ export const CartProvider = ({ children }) => {
             priceAtAddTime: item.price,
             productUnit: item.unit,
             farmerName: item.farmer,
-            location: item.location,
+            district: item.district || item.location,
             productImage: item.image
           }, {
             headers: getAuthHeaders()
