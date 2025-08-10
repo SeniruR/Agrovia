@@ -27,7 +27,7 @@ const AdminAccountApproval = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Fetch logistics providers from backend
+  // Fetch logistics providers and moderators from backend
   useEffect(() => {
     if (activeTab === 'logistics') {
       setLoading(true);
@@ -35,6 +35,15 @@ const AdminAccountApproval = () => {
         .then(res => res.json())
         .then(data => {
           setAccounts(prev => ({ ...prev, logistics: data }));
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    } else if (activeTab === 'moderators') {
+      setLoading(true);
+      fetch('/api/v1/moderators/accounts')
+        .then(res => res.json())
+        .then(data => {
+          setAccounts(prev => ({ ...prev, moderators: data }));
           setLoading(false);
         })
         .catch(() => setLoading(false));
@@ -53,8 +62,14 @@ const AdminAccountApproval = () => {
       } else {
         url = `/api/v1/transporters/${action === 'approve' ? 'approve' : 'reject'}/${id}`;
       }
+    } else if (activeTab === 'moderators') {
+      if (action === 'suspend') {
+        url = `/api/v1/moderators/suspend/${id}`;
+      } else {
+        url = `/api/v1/moderators/${action === 'approve' ? 'approve' : 'reject'}/${id}`;
+      }
     } else {
-      // For moderators, keep old UI-only logic
+      // fallback: just update UI
       setAccounts(prev => ({
         ...prev,
         [activeTab]: prev[activeTab].filter(a => a.id !== id),
@@ -307,15 +322,6 @@ const AdminAccountApproval = () => {
                 ))}
               </div>
             </div>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              <Filter size={16} />
-              <span>Filters</span>
-              <ChevronDown size={16} />
-            </button>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -352,6 +358,14 @@ const AdminAccountApproval = () => {
                       (activeTab === 'logistics' && acc.district && acc.district.toLowerCase().includes(term)) ||
                       (activeTab !== 'logistics' && acc.joinDate && acc.joinDate.toLowerCase().includes(term))
                     );
+                  })
+                  .sort((a, b) => {
+                    // Sort by created_at descending (latest first)
+                    // If created_at is missing, fallback to id descending
+                    if (a.created_at && b.created_at) {
+                      return new Date(b.created_at) - new Date(a.created_at);
+                    }
+                    return (b.id || 0) - (a.id || 0);
                   })
                   .map(acc => (
                     <tr key={acc.id} className="hover:bg-gray-50">
