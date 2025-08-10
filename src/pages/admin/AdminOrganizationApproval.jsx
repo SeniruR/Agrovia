@@ -42,16 +42,34 @@ const AdminOrganizationApproval = () => {
     fetchOrgs();
   }, [filter]);
 
-  // Approve/Reject handlers
-  const handleAction = async (orgId, action) => {
+  // This state is now managed inside the modal
+  // const [removalMessage, setRemovalMessage] = useState('');
+
+  const handleAction = async (orgId, action, message = '') => {
     setActionLoading(true);
     setActionError("");
     setActionSuccess("");
     try {
-      // Use the correct backend endpoint for approve/reject
-      const res = await axios.post(`http://localhost:5000/api/v1/organization-approval/${orgId}/${action}`);
+      let endpoint = `http://localhost:5000/api/v1/organization-approval/${orgId}/${action}`;
+      let successMsg = '';
+      const body = action === 'remove' ? { message } : null; // Pass message for removal
+
+      if (action === 'suspend') {
+        endpoint = `http://localhost:5000/api/v1/organization-approval/${orgId}/suspend`;
+        successMsg = 'Organization suspended successfully!';
+      } else if (action === 'approve') {
+        successMsg = 'Organization approved successfully!';
+      } else if (action === 'reject') {
+        successMsg = 'Organization rejected successfully!';
+      } else if (action === 'activate') {
+        successMsg = 'Organization activated successfully!';
+      } else if (action === 'remove') {
+        successMsg = 'Organization removed successfully!';
+      }
+
+      const res = await axios.post(endpoint, body);
       if (res.data && res.data.success) {
-        setActionSuccess(`Organization ${action === 'approve' ? 'approved' : 'rejected'} successfully!`);
+        setActionSuccess(successMsg);
         setOrganizations(orgs => orgs.filter(o => o.id !== orgId));
         setTimeout(() => {
           setModalOpen(false);
@@ -88,11 +106,16 @@ const AdminOrganizationApproval = () => {
   };
 
   const OrgModal = () => {
+    // **NEW**: State for removal confirmation now lives inside the modal
+    const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
+    const [removalMessage, setRemovalMessage] = useState('');
+
     let statusValue = orgDetails?.status;
     if (orgDetails?.is_active !== undefined && orgDetails?.is_active !== null) {
       if (orgDetails.is_active === 1) statusValue = 'approved';
       else if (orgDetails.is_active === 0) statusValue = 'pending';
       else if (orgDetails.is_active === -1) statusValue = 'rejected';
+      else if (orgDetails.is_active === 2) statusValue = 'suspended';
     }
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -175,10 +198,45 @@ const AdminOrganizationApproval = () => {
             ) : null}
           </div>
           {/* Modal Footer */}
-          <div className="bg-slate-50 px-8 py-4 flex justify-end space-x-4">
-            {/* Only show Approve in rejected, only Reject in approved, both in pending */}
+          <div className="bg-slate-50 px-8 py-4 flex flex-col items-end">
+            {/* **MODIFIED**: Logic for suspended organizations */}
+            {filter === 'suspended' && orgDetails && (
+              <div className="w-full">
+                <textarea
+                  value={removalMessage}
+                  onChange={(e) => setRemovalMessage(e.target.value)}
+                  placeholder="Enter a message to send before removal..."
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 mb-2 ${showRemoveConfirmation ? 'block' : 'hidden'}`}
+                />
+                <div className="flex justify-end space-x-4">
+                    <button
+                      onClick={() => setShowRemoveConfirmation(true)}
+                      disabled={actionLoading}
+                      className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 ${showRemoveConfirmation ? 'hidden' : 'block'}`}
+                    >
+                      Remove
+                    </button>
+                    <button
+                      onClick={() => handleAction(orgDetails.id, 'remove', removalMessage)}
+                      disabled={actionLoading || !removalMessage.trim()}
+                      className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 ${showRemoveConfirmation ? 'block' : 'hidden'}`}
+                    >
+                      Confirm Removal
+                    </button>
+                    <button
+                      onClick={() => handleAction(orgDetails.id, 'activate')}
+                      disabled={actionLoading}
+                      className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50"
+                    >
+                      Activate
+                    </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Other filters */}
             {filter === 'pending' && orgDetails && (
-              <>
+              <div className="flex justify-end space-x-4">
                 <button
                   onClick={() => handleAction(orgDetails.id, 'reject')}
                   disabled={actionLoading}
@@ -193,7 +251,7 @@ const AdminOrganizationApproval = () => {
                 >
                   Approve
                 </button>
-              </>
+              </div>
             )}
             {filter === 'rejected' && orgDetails && (
               <button
@@ -206,11 +264,11 @@ const AdminOrganizationApproval = () => {
             )}
             {filter === 'approved' && orgDetails && (
               <button
-                onClick={() => handleAction(orgDetails.id, 'reject')}
+                onClick={() => handleAction(orgDetails.id, 'suspend')}
                 disabled={actionLoading}
-                className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50"
+                className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-semibold hover:from-yellow-600 hover:to-yellow-700 transition-all disabled:opacity-50"
               >
-                Reject
+                Suspend
               </button>
             )}
           </div>
@@ -258,7 +316,7 @@ const AdminOrganizationApproval = () => {
               </div>
               {/* Status Filter Tabs */}
               <div className="flex space-x-1 bg-gray-100 p-1 rounded-md">
-                {['all', 'pending', 'approved', 'rejected'].map(status => (
+                {['all', 'pending', 'approved', 'suspended'].map(status => (
                   <button
                     key={status}
                     onClick={() => setFilter(status)}
@@ -282,7 +340,7 @@ const AdminOrganizationApproval = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Govijanasewa Niladari</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -325,6 +383,7 @@ const AdminOrganizationApproval = () => {
                           if (org.is_active === 1) statusValue = 'approved';
                           else if (org.is_active === 0) statusValue = 'pending';
                           else if (org.is_active === -1) statusValue = 'rejected';
+                          else if (org.is_active === 2) statusValue = 'suspended';
                         }
                         return (
                           <span className={`inline-block px-2 py-1 rounded font-semibold ${statusValue === 'approved' ? 'bg-green-100 text-green-700' : statusValue === 'pending' ? 'bg-yellow-100 text-yellow-700' : statusValue === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
