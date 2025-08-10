@@ -7,6 +7,59 @@ import { useAuth } from '../contexts/AuthContext';
 import md5 from 'crypto-js/md5';
 
 const CartPage = () => {
+  const [openTransportModalId, setOpenTransportModalId] = useState(null);
+  const [transporters, setTransporters] = useState([]);
+  const [loadingTransporters, setLoadingTransporters] = useState(false);
+
+  // Filter transporters by district match with logging and flexible matching
+  const filteredTransporters = (transporters, item) => {
+    const itemDistrict = (item.district || item.location || '').toLowerCase().trim();
+    
+    if (!itemDistrict) {
+      console.log('No district found for item:', item.name);
+      return [];
+    }
+
+    console.log('Looking for transporters in district:', itemDistrict);
+    
+    return transporters.filter(transporter => {
+      const transporterDistrict = (transporter.district || transporter.location || transporter.area || '').toLowerCase().trim();
+      console.log('Comparing with transporter district:', transporterDistrict, 'for transporter:', transporter.full_name || transporter.name);
+      
+      // Check if districts are similar (includes partial matches)
+      const isMatch = transporterDistrict.includes(itemDistrict) || itemDistrict.includes(transporterDistrict);
+      if (isMatch) {
+        console.log('Found matching transporter:', transporter.full_name || transporter.name);
+      }
+      return isMatch;
+    });
+  };
+
+  // Fetch transporters from backend
+  const fetchTransporters = async () => {
+    setLoadingTransporters(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/v1/transporters');
+      if (response.ok) {
+        const result = await response.json();
+        let transporterData = [];
+        if (result.success && result.data) {
+          transporterData = result.data;
+        } else if (Array.isArray(result)) {
+          transporterData = result;
+        } else if (result.transporters) {
+          transporterData = result.transporters;
+        }
+        setTransporters(transporterData);
+      } else {
+        setTransporters([]);
+      }
+    } catch {
+      setTransporters([]);
+    } finally {
+      setLoadingTransporters(false);
+    }
+  };
   const navigate = useNavigate();
   const { cartItems, removeFromCart, updateQuantity, clearCart, getCartTotal } = useCart();
   const { getAuthHeaders } = useAuth();
@@ -296,12 +349,82 @@ const CartPage = () => {
                     <div className="flex-1">
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">{item.name}</h3>
                       <p className="text-gray-600 mb-2">by {item.farmer}</p>
-                      <p className="text-sm text-green-600">{item.location}</p>
+                      <div className="flex items-center gap-2 text-green-600 mb-2">
+                        <span className="font-medium">District:</span>
+                        <span className="text-sm bg-green-50 px-2 py-1 rounded-lg border border-green-200">{item.district || item.location}</span>
+                      </div>
                       {minQty > 1 && (
                         <div className="text-xs text-blue-600 font-medium mt-1">
                           <span className="font-bold">Bulk Order:</span> Minimum {minQty} {item.unit}
                         </div>
                       )}
+
+                      {/* View Available Transporters Button */}
+                      <button
+                        className="mt-2 mb-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium flex items-center"
+                        onClick={async () => {
+                          setOpenTransportModalId(item.id);
+                          await fetchTransporters();
+                        }}
+                      >
+                        <ShoppingCart className="w-4 h-4 mr-1" />
+                        View Available Transporters
+                      </button>
+
+                      {/* Transporters Modal */}
+                      {openTransportModalId === item.id && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                            <div className="flex items-center justify-between mb-6">
+                              <h2 className="text-xl font-bold text-gray-900">Available Transporters</h2>
+                              <button
+                                onClick={() => setOpenTransportModalId(null)}
+                                className="text-gray-400 hover:text-gray-700 text-2xl font-bold"
+                                aria-label="Close"
+                              >
+                                &times;
+                              </button>
+                            </div>
+                            {loadingTransporters ? (
+                              <div className="text-center py-8">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">Loading transporters...</h3>
+                              </div>
+                            ) : (
+                              <div>
+                                {transporters.length === 0 ? (
+                                  <div className="text-center py-8">
+                                    <h3 className="text-lg font-medium text-gray-600 mb-2">No transporters found</h3>
+                                    <p className="text-gray-500">No transport services are available at the moment.</p>
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {filteredTransporters(transporters, item).map((transporter) => (
+                                      <div key={transporter.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                                        <h4 className="font-bold text-gray-900 mb-1">{transporter.full_name || transporter.name}</h4>
+                                        <p className="text-sm text-gray-600 mb-1">District: {transporter.district}</p>
+                                        <p className="text-sm text-gray-600 mb-1">Vehicle: {transporter.vehicle_type} ({transporter.vehicle_number})</p>
+                                        <p className="text-sm text-gray-600 mb-1">Phone: {transporter.phone_number}</p>
+                                        <p className="text-sm text-gray-600 mb-1">Rating: {transporter.rating || 'N/A'}</p>
+                                        <button
+                                          className="mt-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
+                                          onClick={() => {
+                                            // Save selected transporter for this item (implement as needed)
+                                            setOpenTransportModalId(null);
+                                          }}
+                                        >
+                                          Select This Transporter
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between mt-4">
                         <div className="text-2xl font-bold text-agrovia-600">
                           LKR {item.price}
