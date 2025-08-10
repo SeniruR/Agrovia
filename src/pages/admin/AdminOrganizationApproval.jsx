@@ -281,12 +281,19 @@ const AdminOrganizationApproval = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Govijanasewa Niladari</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Established</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {organizations
+                  .slice() // copy array to avoid mutating state
+                  .sort((a, b) => {
+                    // Try to use createdDate, fallback to created_at, fallback to 0
+                    const dateA = new Date(a.createdDate || a.created_at || 0);
+                    const dateB = new Date(b.createdDate || b.created_at || 0);
+                    return dateB - dateA;
+                  })
                   .filter(org => {
                     const search = searchTerm.toLowerCase();
                     return (
@@ -311,7 +318,21 @@ const AdminOrganizationApproval = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dash(org.org_area || org.area)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dash(org.govijanasewaniladariname)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dash(org.govijanasewaniladariContact)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dash(org.establishedDate)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(() => {
+                        let statusValue = org.status;
+                        if (org.is_active !== undefined && org.is_active !== null) {
+                          if (org.is_active === 1) statusValue = 'approved';
+                          else if (org.is_active === 0) statusValue = 'pending';
+                          else if (org.is_active === -1) statusValue = 'rejected';
+                        }
+                        return (
+                          <span className={`inline-block px-2 py-1 rounded font-semibold ${statusValue === 'approved' ? 'bg-green-100 text-green-700' : statusValue === 'pending' ? 'bg-yellow-100 text-yellow-700' : statusValue === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {statusValue ? statusValue.charAt(0).toUpperCase() + statusValue.slice(1) : 'Unknown'}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => openOrgModal(org)}

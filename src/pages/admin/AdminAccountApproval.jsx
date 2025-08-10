@@ -24,8 +24,8 @@ const AdminAccountApproval = () => {
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [completedActions, setCompletedActions] = useState({});
 
   // Fetch logistics providers and moderators from backend
   useEffect(() => {
@@ -50,23 +50,31 @@ const AdminAccountApproval = () => {
     }
   }, [activeTab]);
 
-  const handleAction = async (id, action) => {
+  const handleAction = async (id, action, message = '') => {
     setActionLoading(true);
     setActionError('');
     setActionSuccess('');
     let url = '';
     let method = 'POST';
+    let body = null;
+
     if (activeTab === 'logistics') {
       if (action === 'suspend') {
         url = `/api/v1/transporters/suspend/${id}`;
       } else {
         url = `/api/v1/transporters/${action === 'approve' ? 'approve' : 'reject'}/${id}`;
+        if (action === 'reject') {
+          body = JSON.stringify({ message });
+        }
       }
     } else if (activeTab === 'moderators') {
       if (action === 'suspend') {
         url = `/api/v1/moderators/suspend/${id}`;
       } else {
         url = `/api/v1/moderators/${action === 'approve' ? 'approve' : 'reject'}/${id}`;
+        if (action === 'reject') {
+          body = JSON.stringify({ message });
+        }
       }
     } else {
       // fallback: just update UI
@@ -78,8 +86,13 @@ const AdminAccountApproval = () => {
       setActionLoading(false);
       return;
     }
+
     try {
-      const res = await fetch(url, { method });
+      const res = await fetch(url, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body,
+      });
       const data = await res.json();
       if (data.success) {
         if (action === 'approve') {
@@ -102,6 +115,7 @@ const AdminAccountApproval = () => {
             [activeTab]: prev[activeTab].filter(a => a.id !== id),
           }));
         }
+        setCompletedActions(prev => ({ ...prev, [id]: true }));
         setActionSuccess(`${action === 'approve' ? 'Approved' : action === 'suspend' ? 'Suspended' : 'Rejected'} successfully!`);
       } else {
         setActionError(data.message || 'Action failed.');
@@ -150,13 +164,18 @@ const AdminAccountApproval = () => {
 
   const Modal = () => {
     const isLogistics = activeTab === 'logistics';
+    // **FIX**: State for rejection message and box visibility is now local to the Modal.
+    // This prevents re-rendering the parent component on each keystroke.
+    const [rejectionMessage, setRejectionMessage] = useState('');
+    const [showRejectionBox, setShowRejectionBox] = useState(false);
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
         <div className="bg-white rounded-2xl shadow-2xl border border-green-200 max-w-lg w-full p-0 overflow-hidden animate-fadeInUp" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
           {/* Modal Header */}
           <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-4 flex items-center justify-between">
             <h3 className="text-xl font-bold text-white">{isLogistics ? 'Logistics Provider Details' : 'Moderator Details'}</h3>
-            <button onClick={() => { setModalOpen(false); setSelected(null); setActionSuccess(''); setActionError(''); }} className="text-white hover:text-green-100 transition-colors">
+            <button onClick={closeModal} className="text-white hover:text-green-100 transition-colors">
               <X size={28} />
             </button>
           </div>
@@ -220,7 +239,13 @@ const AdminAccountApproval = () => {
           </div>
           {/* Modal Footer */}
           <div className="bg-slate-50 px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0 md:space-x-4">
-            <div className="flex-1 flex items-center">
+            <div className="flex-1 flex flex-col space-y-2">
+              <textarea
+                value={rejectionMessage}
+                onChange={(e) => setRejectionMessage(e.target.value)}
+                placeholder="Enter rejection message..."
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 ${showRejectionBox ? 'block' : 'hidden'}`}
+              />
               {actionError && (
                 <div className="flex items-center space-x-1 text-red-500 text-sm">
                   <AlertCircle className="w-4 h-4" />
@@ -236,18 +261,26 @@ const AdminAccountApproval = () => {
             </div>
             <div className="flex space-x-4">
               {selected?.is_active !== 1 && (
-                <button
-                  onClick={() => handleAction(selected.id, 'reject')}
-                  disabled={actionLoading}
-                  className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50"
-                >
-                  Reject
-                </button>
+                <>
+                  <button
+                    onClick={() => setShowRejectionBox(true)}
+                    className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all ${showRejectionBox ? 'hidden' : 'block'}`}
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleAction(selected.id, 'reject', rejectionMessage)}
+                    disabled={actionLoading || completedActions[selected.id] || !rejectionMessage.trim()}
+                    className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all ${showRejectionBox ? 'block' : 'hidden'}`}
+                  >
+                    Confirm Reject
+                  </button>
+                </>
               )}
               {selected?.is_active === 1 ? (
                 <button
                   onClick={() => handleAction(selected.id, 'suspend')}
-                  disabled={actionLoading}
+                  disabled={actionLoading || completedActions[selected.id]}
                   className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-semibold hover:from-yellow-600 hover:to-yellow-700 transition-all disabled:opacity-50"
                 >
                   Suspend Account
@@ -255,7 +288,7 @@ const AdminAccountApproval = () => {
               ) : (
                 <button
                   onClick={() => handleAction(selected.id, 'approve')}
-                  disabled={actionLoading}
+                  disabled={actionLoading || completedActions[selected.id]}
                   className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50"
                 >
                   Approve
@@ -268,6 +301,17 @@ const AdminAccountApproval = () => {
     );
   };
 
+
+  // **FIX**: The closeModal function no longer needs to reset rejection state,
+  // as it is now handled locally within the Modal and will reset on its own
+  // when the modal is re-opened.
+  const closeModal = () => {
+    setModalOpen(false);
+    setSelected(null);
+    setActionSuccess('');
+    setActionError('');
+    setCompletedActions({});
+  };
 
   if (loading) return <FullScreenLoader />;
 
