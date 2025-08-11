@@ -78,7 +78,9 @@ export const userService = {
             phone_number: currentUser.phone_number || currentUser.phone || '',
             district: currentUser.district || '',
             address: currentUser.address || '',
-            user_type: currentUser.user_type || 1
+            user_type: currentUser.user_type || 1,
+            latitude:currentUser.latitude || '',
+            longitude:currentUser.longitude || ''
           }
         };
       }
