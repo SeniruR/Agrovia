@@ -4,9 +4,11 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 const CreateArticle = () => {
   const navigate = useNavigate();
+  const { token, isAuthenticated } = useAuth();
   const [figures, setFigures] = useState([]);
   const [title, setTitle] = useState("");
   const [cover, setCover] = useState(null);
@@ -212,15 +214,21 @@ const CreateArticle = () => {
 
               // Get all image elements from the editor
               const editorImages = document.querySelectorAll(".ProseMirror img");
-              editorImages.forEach((img, index) => {
+              for (let i = 0; i < editorImages.length; i++) {
+                const img = editorImages[i];
                 if (img.src.startsWith("data:")) {
                   // Convert base64 to blob
                   const base64 = img.src;
-                  const response = fetch(base64);
-                  const blob = response.blob();
-                  formData.append("figures", blob, figures[index] || `figure-${index + 1}.jpg`);
+                  const response = await fetch(base64);
+                  const blob = await response.blob();
+                  formData.append("figures", blob, figures[i] || `figure-${i + 1}.jpg`);
                 }
-              });
+              }
+
+              // Check authentication
+              if (!isAuthenticated()) {
+                throw new Error('Please login to create an article');
+              }
 
               const response = await axios.post(
                 "http://localhost:5000/api/v1/articles",
@@ -228,6 +236,7 @@ const CreateArticle = () => {
                 {
                   headers: {
                     "Content-Type": "multipart/form-data",
+                    "Authorization": `Bearer ${token}`
                   },
                 }
               );
@@ -238,7 +247,19 @@ const CreateArticle = () => {
                 throw new Error(response.data.message || "Failed to create article");
               }
             } catch (err) {
-              setError(err.message || "Failed to create article");
+              if (err.response) {
+                // Server responded with an error
+                setError(err.response.data?.message || err.response.statusText || "Server error");
+                console.error("Server error details:", err.response.data);
+              } else if (err.request) {
+                // Request was made but no response
+                setError("No response from server. Please try again.");
+                console.error("No response from server:", err.request);
+              } else {
+                // Error in request setup
+                setError(err.message || "Failed to create article");
+                console.error("Request setup error:", err);
+              }
             } finally {
               setIsSubmitting(false);
             }
