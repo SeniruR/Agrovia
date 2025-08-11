@@ -304,6 +304,121 @@ export const CartProvider = ({ children }) => {
       syncCartWithDatabase();
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    // Validate input coordinates
+    const numLat1 = parseFloat(lat1);
+    const numLon1 = parseFloat(lon1);
+    const numLat2 = parseFloat(lat2);
+    const numLon2 = parseFloat(lon2);
+    
+    if (isNaN(numLat1) || isNaN(numLon1) || isNaN(numLat2) || isNaN(numLon2)) {
+      console.error('Invalid coordinates provided to calculateDistance:', { lat1, lon1, lat2, lon2 });
+      return 0; // Return 0 for invalid coordinates
+    }
+    
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (numLat2 - numLat1) * Math.PI / 180;
+    const dLon = (numLon2 - numLon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(numLat1 * Math.PI / 180) * Math.cos(numLat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c; // Distance in kilometers
+    
+    return distance;
+  };
+
+  // Calculate transport cost using the provided formula
+  const calculateTransportCost = (distance, weight, transporter) => {
+    // Default rates if not provided by transporter
+    const baseRate = transporter.baseRate || 500; // LKR
+    const perKmRate = transporter.perKmRate || 25; // LKR per km
+    const weightMultiplier = Math.max(1, weight / 100); // Scale weight factor (per 100kg)
+    
+    const deliveryFee = (baseRate + (distance * perKmRate)) * weightMultiplier;
+    return Math.round(deliveryFee * 100) / 100; // Round to 2 decimal places
+  };
+
+  // Add transport to cart item
+  const addTransportToCartItem = (itemId, transporter, userCoordinates, itemCoordinates) => {
+    setCartItems(prevItems =>
+      prevItems.map(item => {
+        if (item.id === itemId) {
+          let transportCost = transporter.baseRate || 500; // Default base rate
+          let distance = 0;
+          
+          // Calculate distance and cost if coordinates are available and valid
+          if (userCoordinates && itemCoordinates && 
+              userCoordinates.latitude && userCoordinates.longitude &&
+              itemCoordinates.latitude && itemCoordinates.longitude) {
+            
+            const userLat = parseFloat(userCoordinates.latitude);
+            const userLon = parseFloat(userCoordinates.longitude);
+            const itemLat = parseFloat(itemCoordinates.latitude);
+            const itemLon = parseFloat(itemCoordinates.longitude);
+            
+            // Only calculate if all coordinates are valid numbers
+            if (!isNaN(userLat) && !isNaN(userLon) && !isNaN(itemLat) && !isNaN(itemLon)) {
+              distance = calculateDistance(userLat, userLon, itemLat, itemLon);
+              
+              // Estimate weight based on quantity (assuming 1kg per unit as default)
+              const estimatedWeight = item.quantity * (item.weightPerUnit || 1);
+              transportCost = calculateTransportCost(distance, estimatedWeight, transporter);
+            }
+          }
+          
+          return {
+            ...item,
+            transporter: {
+              ...transporter,
+              name: transporter.full_name || transporter.name,
+              vehicle: `${transporter.vehicle_type} (${transporter.vehicle_number})`,
+              phone: transporter.phone_number,
+              district: transporter.district,
+              distance: distance,
+              cost: transportCost,
+              baseRate: transporter.baseRate || 500,
+              perKmRate: transporter.perKmRate || 25
+            }
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Remove transport from cart item
+  const removeTransportFromCartItem = (itemId) => {
+    setCartItems(prevItems =>
+      prevItems.map(item => {
+        if (item.id === itemId) {
+          const { transporter, ...itemWithoutTransporter } = item;
+          return itemWithoutTransporter;
+        }
+        return item;
+      })
+    );
+  };
+
+  // Get cart total including transport costs
+  const getCartTotalWithTransport = () => {
+    return cartItems.reduce((total, item) => {
+      const itemTotal = item.price * item.quantity;
+      const transportCost = item.transporter ? item.transporter.cost : 0;
+      return total + itemTotal + transportCost;
+    }, 0);
+  };
+
+  // Get total transport cost
+  const getTotalTransportCost = () => {
+    return cartItems.reduce((total, item) => {
+      const transportCost = item.transporter ? item.transporter.cost : 0;
+      return total + transportCost;
+    }, 0);
+  };
   
   const value = {
     cartItems,
@@ -312,11 +427,17 @@ export const CartProvider = ({ children }) => {
     updateQuantity,
     clearCart,
     getCartTotal,
+    getCartTotalWithTransport,
+    getTotalTransportCost,
     getCartItemCount,
     isCartOpen,
     setIsCartOpen,
     loading,
-    error
+    error,
+    addTransportToCartItem,
+    removeTransportFromCartItem,
+    calculateDistance,
+    calculateTransportCost
   };
   
   return (
