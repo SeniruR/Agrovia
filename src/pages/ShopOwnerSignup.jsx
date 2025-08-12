@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import LocationPicker from '../components/LocationPicker';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
@@ -116,8 +117,95 @@ const ShopOwnerSignup = () => {
     password: '', confirmPassword: '', shopName: '', businessRegistrationNumber: '',
     shopAddress: '', shopPhoneNumber: '', shopEmail: '', shopDescription: '',
     shopCategory: '', operatingHours: '', openingDays: [], deliveryAreas: '',
-    shopLicense: null, shopImage: null, profileImage: null
+    shopLicense: null, shopImage: null, profileImage: null,
+    shopLatitude: '', shopLongitude: ''
   });
+
+
+  // Shop address location modal state
+  const [showShopMapPicker, setShowShopMapPicker] = useState(false);
+  const [pendingShopMapLocation, setPendingShopMapLocation] = useState(null);
+  const [shopLocationError, setShopLocationError] = useState('');
+
+  // Personal address location modal state
+  const [showPersonalMapPicker, setShowPersonalMapPicker] = useState(false);
+  const [pendingPersonalMapLocation, setPendingPersonalMapLocation] = useState(null);
+  const [personalLocationError, setPersonalLocationError] = useState('');
+
+  // Geolocation handler for personal address
+  const handleGetPersonalLocation = async () => {
+    if (!navigator.geolocation) {
+      setPersonalLocationError('Geolocation is not supported by your browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+      setFormData(prev => ({ ...prev, personalLatitude: latitude, personalLongitude: longitude }));
+      const addr = await reverseGeocode(latitude, longitude);
+      setFormData(prev => ({ ...prev, address: addr, personalLatitude: latitude, personalLongitude: longitude }));
+      setPersonalLocationError('');
+    }, (error) => {
+      setPersonalLocationError('Unable to retrieve your location.');
+    });
+  };
+
+  // When user clicks 'Select' in modal, update formData
+  const handlePersonalMapSelectConfirm = async () => {
+    if (pendingPersonalMapLocation) {
+      const { latitude, longitude } = pendingPersonalMapLocation;
+      setShowPersonalMapPicker(false);
+      setFormData(prev => ({ ...prev, personalLatitude: latitude, personalLongitude: longitude }));
+      const addr = await reverseGeocode(latitude, longitude);
+      setFormData(prev => ({ ...prev, address: addr, personalLatitude: latitude, personalLongitude: longitude }));
+      setPendingPersonalMapLocation(null);
+      setPersonalLocationError('');
+    } else {
+      setShowPersonalMapPicker(false);
+    }
+  };
+
+  // Helper: reverse geocode coordinates to address (OpenStreetMap Nominatim)
+  const reverseGeocode = async (lat, lon) => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      return data.display_name || '';
+    } catch {
+      return '';
+    }
+  };
+
+  // Geolocation handler for shop address
+  const handleGetShopLocation = async () => {
+    if (!navigator.geolocation) {
+      setShopLocationError('Geolocation is not supported by your browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+      setFormData(prev => ({ ...prev, shopLatitude: latitude, shopLongitude: longitude }));
+      const addr = await reverseGeocode(latitude, longitude);
+      setFormData(prev => ({ ...prev, shopAddress: addr, shopLatitude: latitude, shopLongitude: longitude }));
+      setShopLocationError('');
+    }, (error) => {
+      setShopLocationError('Unable to retrieve your location.');
+    });
+  };
+
+  // When user clicks 'Select' in modal, update formData
+  const handleShopMapSelectConfirm = async () => {
+    if (pendingShopMapLocation) {
+      const { latitude, longitude } = pendingShopMapLocation;
+      setShowShopMapPicker(false);
+      setFormData(prev => ({ ...prev, shopLatitude: latitude, shopLongitude: longitude }));
+      const addr = await reverseGeocode(latitude, longitude);
+      setFormData(prev => ({ ...prev, shopAddress: addr, shopLatitude: latitude, shopLongitude: longitude }));
+      setPendingShopMapLocation(null);
+      setShopLocationError('');
+    } else {
+      setShowShopMapPicker(false);
+    }
+  };
 
   const [errors, setErrors] = useState({});
 
@@ -209,6 +297,10 @@ const ShopOwnerSignup = () => {
     if (!formData.shopName?.trim()) newErrors.shopName = 'Shop name is required';
     if (!formData.businessRegistrationNumber?.trim()) newErrors.businessRegistrationNumber = 'Business registration number is required';
     if (!formData.shopAddress?.trim()) newErrors.shopAddress = 'Shop address is required';
+    if (!formData.shopLatitude || !formData.shopLongitude) {
+      newErrors.shopLatitude = 'Shop latitude is required';
+      newErrors.shopLongitude = 'Shop longitude is required';
+    }
     if (!formData.shopPhoneNumber?.trim()) newErrors.shopPhoneNumber = 'Shop phone number is required';
     if (!formData.shopCategory) newErrors.shopCategory = 'Shop category is required';
     if (!formData.operatingHours) newErrors.operatingHours = 'Operating hours are required';
@@ -242,9 +334,15 @@ const ShopOwnerSignup = () => {
       data.append('address', formData.address);
       data.append('phone_number', formData.phoneNumber);
       data.append('password', formData.password);
+      // Send user coordinates as 'latitude' and 'longitude'
+      if (formData.personalLatitude) data.append('latitude', formData.personalLatitude);
+      if (formData.personalLongitude) data.append('longitude', formData.personalLongitude);
       data.append('shop_name', formData.shopName);
       data.append('business_registration_number', formData.businessRegistrationNumber);
       data.append('shop_address', formData.shopAddress);
+      // Send shop coordinates as 'shop_latitude' and 'shop_longitude'
+      if (formData.shopLatitude) data.append('shop_latitude', formData.shopLatitude);
+      if (formData.shopLongitude) data.append('shop_longitude', formData.shopLongitude);
       data.append('shop_phone_number', formData.shopPhoneNumber);
       data.append('shop_email', formData.shopEmail);
       data.append('shop_description', formData.shopDescription);
@@ -342,7 +440,61 @@ const ShopOwnerSignup = () => {
                 <InputField icon={FileText} label="NIC Number" name="nic" required placeholder="Enter NIC number" value={formData.nic} error={errors.nic} onChange={handleInputChange} inputRef={el => fieldRefs.current['nic'] = el} />
                 <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['phoneNumber'] = el} />
               </div>
-              <InputField icon={Home} label="Personal Address" name="address" type="textarea" placeholder="Enter your complete personal address" value={formData.address} error={errors.address} onChange={handleInputChange} inputRef={el => fieldRefs.current['address'] = el} />
+              {/* Personal Address with Map/Location Picker */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center space-x-2 text-green-800 font-medium mb-0">
+                    <Home className="w-5 h-5" />
+                    <span>Personal Address</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="bg-green-100 text-green-800 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-green-200 focus:outline-none"
+                      onClick={handleGetPersonalLocation}
+                    >
+                      Use My Location
+                    </button>
+                    <button
+                      type="button"
+                      className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-blue-200 focus:outline-none"
+                      onClick={() => setShowPersonalMapPicker(true)}
+                    >
+                      Select on Map
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  placeholder="Enter your complete personal address"
+                  rows={3}
+                  className="w-full px-4 py-4 border-2 rounded-2xl bg-[#f6f9fb] border-green-200 focus:outline-none focus:ring-2 focus:ring-green-400 transition-all duration-300 text-gray-800"
+                  style={{ minHeight: '64px', resize: 'vertical' }}
+                  ref={el => fieldRefs.current['address'] = el}
+                />
+                {/* Map Picker Modal for Personal Address */}
+                {showPersonalMapPicker && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
+                      <h3 className="text-lg font-semibold mb-2 text-green-800">Select Personal Address Location</h3>
+                      <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
+                        <LocationPicker
+                          latitude={pendingPersonalMapLocation ? pendingPersonalMapLocation.latitude : (formData.personalLatitude ? parseFloat(formData.personalLatitude) : null)}
+                          longitude={pendingPersonalMapLocation ? pendingPersonalMapLocation.longitude : (formData.personalLongitude ? parseFloat(formData.personalLongitude) : null)}
+                          onChange={({ latitude, longitude }) => setPendingPersonalMapLocation({ latitude, longitude })}
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => { setShowPersonalMapPicker(false); setPendingPersonalMapLocation(null); }} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-medium">Cancel</button>
+                        <button onClick={handlePersonalMapSelectConfirm} className="px-4 py-2 rounded bg-green-600 text-white font-semibold">Select</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {personalLocationError && <div className="text-red-500 text-sm mt-1">{personalLocationError}</div>}
+              </div>
               <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" accept="image/*" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} inputRef={el => fieldRefs.current['profileImage'] = el} />
             </div>
 
@@ -353,7 +505,62 @@ const ShopOwnerSignup = () => {
                 <InputField icon={Store} label="Shop Name" name="shopName" required placeholder="Enter your shop name" value={formData.shopName} error={errors.shopName} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopName'] = el} />
                 <InputField icon={FileText} label="Business Registration Number" name="businessRegistrationNumber" required placeholder="Enter business registration number" value={formData.businessRegistrationNumber} error={errors.businessRegistrationNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['businessRegistrationNumber'] = el} />
               </div>
-              <InputField icon={Home} label="Shop Address" name="shopAddress" type="textarea" required placeholder="Enter your shop's complete address" value={formData.shopAddress} error={errors.shopAddress} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopAddress'] = el} />
+              {/* Shop Address with Map/Location Picker */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center space-x-2 text-green-800 font-medium mb-0">
+                    <Home className="w-5 h-5" />
+                    <span>Shop Address</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="bg-green-100 text-green-800 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-green-200 focus:outline-none"
+                      onClick={handleGetShopLocation}
+                    >
+                      Use My Location
+                    </button>
+                    <button
+                      type="button"
+                      className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-blue-200 focus:outline-none"
+                      onClick={() => setShowShopMapPicker(true)}
+                    >
+                      Select on Map
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  name="shopAddress"
+                  value={formData.shopAddress}
+                  onChange={handleInputChange}
+                  placeholder="Enter your shop's complete address"
+                  rows={3}
+                  className="w-full px-4 py-4 border-2 rounded-2xl bg-[#f6f9fb] border-green-200 focus:outline-none focus:ring-2 focus:ring-green-400 transition-all duration-300 text-gray-800"
+                  style={{ minHeight: '64px', resize: 'vertical' }}
+                  ref={el => fieldRefs.current['shopAddress'] = el}
+                />
+                {/* Map Picker Modal */}
+                {showShopMapPicker && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
+                      <h3 className="text-lg font-semibold mb-2 text-green-800">Select Shop Location</h3>
+                      <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
+                        <LocationPicker
+                          latitude={pendingShopMapLocation ? pendingShopMapLocation.latitude : (formData.shopLatitude ? parseFloat(formData.shopLatitude) : null)}
+                          longitude={pendingShopMapLocation ? pendingShopMapLocation.longitude : (formData.shopLongitude ? parseFloat(formData.shopLongitude) : null)}
+                          onChange={({ latitude, longitude }) => setPendingShopMapLocation({ latitude, longitude })}
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => { setShowShopMapPicker(false); setPendingShopMapLocation(null); }} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-medium">Cancel</button>
+                        <button onClick={handleShopMapSelectConfirm} className="px-4 py-2 rounded bg-green-600 text-white font-semibold">Select</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Manual entry for shop coordinates removed. Only map/geolocation selection is available. */}
+                {shopLocationError && <div className="text-red-500 text-sm mt-1">{shopLocationError}</div>}
+              </div>
               <div className="grid md:grid-cols-2 gap-6">
                 <InputField icon={Phone} label="Shop Phone Number" name="shopPhoneNumber" required placeholder="Enter shop's 10-digit phone number" value={formData.shopPhoneNumber} error={errors.shopPhoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopPhoneNumber'] = el} />
                 <InputField icon={Mail} label="Shop Email (Optional)" name="shopEmail" type="email" placeholder="Enter shop email address" value={formData.shopEmail} error={errors.shopEmail} onChange={handleInputChange} inputRef={el => fieldRefs.current['shopEmail'] = el} />

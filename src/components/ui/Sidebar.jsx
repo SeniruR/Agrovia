@@ -26,7 +26,7 @@ import {
 const adminMenuItems = [
   { label: 'Dashboard', icon: HomeIcon, path: '/admindashboard' },
   { label: 'Account Approval', icon: UserPlusIcon, path: '/admin/account-approval' },
-  { label: 'Organization Approval', icon: UserPlusIcon, path: '/admin/organization-approval' },
+  { label: 'Organization Approval', icon: DocumentCheckIcon, path: '/admin/organization-approval' },
   { label: 'Manage Users', icon: UserGroupIcon, path: '/usermanagement' },
   { label: 'Manage Shops', icon: ShoppingBagIcon, path: '/admin/shop' },
   { label: 'Manage Complaints', icon: ChatBubbleLeftRightIcon, path: '/complaintHandling' },
