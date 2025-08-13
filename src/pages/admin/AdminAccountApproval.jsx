@@ -27,6 +27,10 @@ const AdminAccountApproval = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [completedActions, setCompletedActions] = useState({});
 
+  // --- Pagination State ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const accountsPerPage = 50; // You can adjust this number
+
   // Fetch logistics providers and moderators from backend
   useEffect(() => {
     if (activeTab === 'logistics') {
@@ -49,6 +53,12 @@ const AdminAccountApproval = () => {
         .catch(() => setLoading(false));
     }
   }, [activeTab]);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, statusFilter, searchTerm]);
+
 
   const handleAction = async (id, action, message = '') => {
     setActionLoading(true);
@@ -164,8 +174,6 @@ const AdminAccountApproval = () => {
 
   const Modal = () => {
     const isLogistics = activeTab === 'logistics';
-    // **FIX**: State for rejection message and box visibility is now local to the Modal.
-    // This prevents re-rendering the parent component on each keystroke.
     const [rejectionMessage, setRejectionMessage] = useState('');
     const [showRejectionBox, setShowRejectionBox] = useState(false);
 
@@ -301,10 +309,6 @@ const AdminAccountApproval = () => {
     );
   };
 
-
-  // **FIX**: The closeModal function no longer needs to reset rejection state,
-  // as it is now handled locally within the Modal and will reset on its own
-  // when the modal is re-opened.
   const closeModal = () => {
     setModalOpen(false);
     setSelected(null);
@@ -312,6 +316,46 @@ const AdminAccountApproval = () => {
     setActionError('');
     setCompletedActions({});
   };
+
+  // --- Start of Filtering and Pagination Logic ---
+  const filteredAndSortedAccounts = (Array.isArray(accounts[activeTab]) ? accounts[activeTab] : [])
+    .filter(acc => {
+      // Status filter
+      if (statusFilter === 'active') return acc.is_active === 1;
+      if (statusFilter === 'pending') return !acc.is_active;
+      return true;
+    })
+    .filter(acc => {
+      // Search filter
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        (acc.full_name && acc.full_name.toLowerCase().includes(term)) ||
+        (acc.name && acc.name.toLowerCase().includes(term)) ||
+        (acc.email && acc.email.toLowerCase().includes(term)) ||
+        (acc.phone_number && acc.phone_number.toLowerCase().includes(term)) ||
+        (acc.phone && acc.phone.toLowerCase().includes(term)) ||
+        (activeTab === 'logistics' && acc.district && acc.district.toLowerCase().includes(term)) ||
+        (activeTab !== 'logistics' && acc.joinDate && acc.joinDate.toLowerCase().includes(term))
+      );
+    })
+    .sort((a, b) => {
+      // Sort by created_at descending (latest first)
+      if (a.created_at && b.created_at) {
+        return new Date(b.created_at) - new Date(a.created_at);
+      }
+      return (b.id || 0) - (a.id || 0);
+    });
+
+  const totalAccounts = filteredAndSortedAccounts.length;
+  const totalPages = Math.ceil(totalAccounts / accountsPerPage);
+
+  const paginatedAccounts = filteredAndSortedAccounts.slice(
+    (currentPage - 1) * accountsPerPage,
+    currentPage * accountsPerPage
+  );
+  // --- End of Filtering and Pagination Logic ---
+
 
   if (loading) return <FullScreenLoader />;
 
@@ -394,36 +438,8 @@ const AdminAccountApproval = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {(Array.isArray(accounts[activeTab]) ? accounts[activeTab] : [])
-                  .filter(acc => {
-                    // Status filter
-                    if (statusFilter === 'active') return acc.is_active === 1;
-                    if (statusFilter === 'pending') return !acc.is_active;
-                    return true;
-                  })
-                  .filter(acc => {
-                    // Search filter
-                    if (!searchTerm.trim()) return true;
-                    const term = searchTerm.toLowerCase();
-                    return (
-                      (acc.full_name && acc.full_name.toLowerCase().includes(term)) ||
-                      (acc.name && acc.name.toLowerCase().includes(term)) ||
-                      (acc.email && acc.email.toLowerCase().includes(term)) ||
-                      (acc.phone_number && acc.phone_number.toLowerCase().includes(term)) ||
-                      (acc.phone && acc.phone.toLowerCase().includes(term)) ||
-                      (activeTab === 'logistics' && acc.district && acc.district.toLowerCase().includes(term)) ||
-                      (activeTab !== 'logistics' && acc.joinDate && acc.joinDate.toLowerCase().includes(term))
-                    );
-                  })
-                  .sort((a, b) => {
-                    // Sort by created_at descending (latest first)
-                    // If created_at is missing, fallback to id descending
-                    if (a.created_at && b.created_at) {
-                      return new Date(b.created_at) - new Date(a.created_at);
-                    }
-                    return (b.id || 0) - (a.id || 0);
-                  })
-                  .map(acc => (
+                {paginatedAccounts.length > 0 ? (
+                  paginatedAccounts.map(acc => (
                     <tr key={acc.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-green-900">{dash(acc.full_name || acc.name)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dash(acc.email)}</td>
@@ -441,11 +457,79 @@ const AdminAccountApproval = () => {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="text-center py-10 text-gray-500">
+                      No accounts found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
+        
+        {/* --- Pagination Component --- */}
+        {totalAccounts > 0 && (
+          <div className="bg-white px-4 py-3 flex items-center justify-between sm:px-6 mt-4 rounded-xl shadow-lg border border-gray-200">
+            {/* Mobile Pagination */}
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-xl text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Previous
+              </button>
+              <span className="mx-2 text-green-700 font-semibold">Page {currentPage} of {totalPages}</span>
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-xl text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Next
+              </button>
+            </div>
+
+            {/* Desktop Pagination */}
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{(currentPage - 1) * accountsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * accountsPerPage, totalAccounts)}</span> of{' '}
+                  <span className="font-medium">{totalAccounts}</span> results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-xl shadow-sm space-x-2" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 rounded-xl border border-green-300 bg-white text-green-700 font-medium hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <span aria-current="page" className="px-4 py-2 rounded-xl border border-green-300 bg-green-100 text-green-700 font-semibold">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 rounded-xl border border-green-300 bg-white text-green-700 font-medium hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       {/* Modal */}
       {modalOpen && selected && <Modal />}
