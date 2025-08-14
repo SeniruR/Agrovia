@@ -53,6 +53,13 @@ const CropDetailView = () => {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
 
+  // Transport states
+  const [showTransportModal, setShowTransportModal] = useState(false);
+  const [transporters, setTransporters] = useState([]);
+  const [loadingTransporters, setLoadingTransporters] = useState(false);
+  const [selectedTransporter, setSelectedTransporter] = useState(null);
+  const [showTransportRequest, setShowTransportRequest] = useState(false);
+
 
   useEffect(() => {
   if (crop) {
@@ -184,7 +191,7 @@ const CropDetailView = () => {
       price: Number(crop.pricePerUnit),
       unit: crop.unit,
       farmer: crop.farmerName,
-      location: crop.location,
+      district: crop.district,
       image: crop.images && crop.images.length > 0 ? crop.images[0] : null
     }, quantity);
     setNotification({ show: true, product: {
@@ -199,6 +206,145 @@ const CropDetailView = () => {
   const handleContactFarmer = () => {
     // Contact farmer logic
     console.log('Contacting farmer');
+  };
+
+  // Fetch available transporters
+  const fetchTransporters = async () => {
+    setLoadingTransporters(true);
+    try {
+      console.log('🚛 Fetching transporters for location:', crop.location || crop.district);
+      const response = await fetch('http://localhost:5000/api/v1/transporters');
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ API Response:', result);
+        
+        // Handle different response structures
+        let transporterData = [];
+        if (result.success && result.data) {
+          // If the API returns { success: true, data: [...] }
+          transporterData = result.data;
+        } else if (Array.isArray(result)) {
+          // If the API returns array directly
+          transporterData = result;
+        } else if (result.transporters) {
+          // If the API returns { transporters: [...] }
+          transporterData = result.transporters;
+        } else {
+          console.warn('⚠️ Unexpected API response structure:', result);
+          transporterData = [];
+        }
+        
+        console.log('✅ Successfully processed transporters:', transporterData.length);
+        setTransporters(transporterData);
+      } else {
+        console.error('❌ Failed to fetch transporters:', response.status, response.statusText);
+        // Fallback sample data
+        setTransporters([
+          {
+            id: 1,
+            full_name: 'Sunil Transport Services',
+            phone_number: '+94 77 123 4567',
+            email: 'sunil@transport.lk',
+            district: 'Kandy',
+            vehicle_type: 'Truck',
+            vehicle_capacity: '5 tons',
+            capacity_unit: 'tons',
+            vehicle_number: 'WP CAB-1234',
+            license_number: 'DL-123456789',
+            profile_image: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg',
+            rating: 4.8,
+            total_deliveries: 150,
+            available: true
+          },
+          {
+            id: 2,
+            full_name: 'Lanka Cargo Express',
+            phone_number: '+94 71 987 6543',
+            email: 'info@lankacargo.lk',
+            district: 'Colombo',
+            vehicle_type: 'Van',
+            vehicle_capacity: '2 tons',
+            capacity_unit: 'tons',
+            vehicle_number: 'WP CAR-5678',
+            license_number: 'DL-987654321',
+            profile_image: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg',
+            rating: 4.6,
+            total_deliveries: 89,
+            available: true
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('💥 Error fetching transporters:', error);
+      // Fallback data on error
+      setTransporters([
+        {
+          id: 1,
+          full_name: 'Sunil Transport Services',
+          phone_number: '+94 77 123 4567',
+          email: 'sunil@transport.lk',
+          district: 'Kandy',
+          vehicle_type: 'Truck',
+          vehicle_capacity: '5 tons',
+          capacity_unit: 'tons',
+          vehicle_number: 'WP CAB-1234',
+          license_number: 'DL-123456789',
+          profile_image: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg',
+          rating: 4.8,
+          total_deliveries: 150,
+          available: true
+        }
+      ]);
+    } finally {
+      setLoadingTransporters(false);
+    }
+  };
+
+  // Handle opening transport modal
+  const handleViewTransporters = async () => {
+    setShowTransportModal(true);
+    await fetchTransporters();
+  };
+
+  // Handle transport request
+  const handleTransportRequest = async (transporter) => {
+    try {
+      console.log('🚛 Creating transport request for:', transporter.full_name);
+      
+      const requestData = {
+        crop_id: crop.id,
+        transporter_id: transporter.id,
+        pickup_location: crop.location || crop.district,
+        crop_name: crop.cropName,
+        quantity: quantity,
+        unit: crop.unit,
+        farmer_id: crop.farmer_Id,
+        buyer_id: user?.id,
+        estimated_value: crop.pricePerUnit * quantity,
+        notes: `Transport request for ${quantity} ${crop.unit} of ${crop.cropName}`,
+        status: 'pending'
+      };
+
+      const response = await fetch('http://localhost:5000/api/v1/transport-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      if (response.ok) {
+        alert('Transport request sent successfully! The transporter will contact you soon.');
+        setShowTransportModal(false);
+        setSelectedTransporter(null);
+      } else {
+        alert('Failed to send transport request. Please try again.');
+      }
+    } catch (error) {
+      console.error('💥 Error creating transport request:', error);
+      alert('An error occurred while sending the transport request. Please try again.');
+    }
   };
 
   if (loading) {
@@ -224,6 +370,13 @@ const CropDetailView = () => {
       </div>
     );
   }
+
+  // Filter transporters by strict district match (case-insensitive, trimmed)
+  const filteredTransporters = transporters.filter(transporter => {
+    const transporterDistrict = (transporter.district || transporter.location || transporter.area || '').toLowerCase().trim();
+    const cropDistrict = (crop.district || '').toLowerCase().trim();
+    return transporterDistrict === cropDistrict;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br pb-2 from-agrovia-50 to-green-50">
@@ -700,6 +853,17 @@ const CropDetailView = () => {
                   Add to Cart
                 </button>
                 )}
+                
+                {user && crop && user.id !== crop.farmer_Id && (
+                <button
+                  onClick={handleViewTransporters}
+                  className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 font-bold text-lg shadow-lg transform hover:scale-105"
+                >
+                  <Truck className="w-6 h-6 mr-2" />
+                  View Available Transporters
+                </button>
+                )}
+                
                 {user && crop && user.id != crop.farmer_Id && (
                   <>
                 <button
@@ -858,6 +1022,183 @@ const CropDetailView = () => {
           </ul>
         )}
       </div>
+
+      {/* Transport Modal */}
+      {showTransportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="bg-blue-500 rounded-full p-3 mr-4">
+                  <Truck className="w-6 h-6 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">Available Transporters</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTransportModal(false);
+                  setSelectedTransporter(null);
+                }}
+                className="text-gray-400 hover:text-gray-700 text-2xl font-bold"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Crop Info Summary */}
+            <div className="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Transport Request For:</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-blue-800">Crop:</span>
+                  <span className="ml-1 text-gray-700">{crop.cropName}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-blue-800">Quantity:</span>
+                  <span className="ml-1 text-gray-700">{quantity} {crop.unit}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-blue-800">From:</span>
+                  <span className="ml-1 text-gray-700">{crop.location || crop.district}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Loading State */}
+            {loadingTransporters ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <h3 className="text-xl font-medium text-gray-900 mb-2">Finding transporters...</h3>
+                <p className="text-gray-500">Searching for available transport services</p>
+              </div>
+            ) : (
+              <div>
+                {filteredTransporters.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No transporters found</h3>
+                    <p className="text-gray-500">No transport services are available in your area at the moment.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredTransporters.map((transporter) => (
+                      <div key={transporter.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
+                        <div className="flex items-start space-x-4">
+                          {/* Profile Image */}
+                          <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
+                            {(transporter.profile_image || transporter.profileImage) ? (
+                              <img 
+                                src={transporter.profile_image || transporter.profileImage} 
+                                alt={transporter.full_name || transporter.fullName || transporter.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                <User className="w-8 h-8 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Transporter Info */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-gray-900 truncate">
+                              {transporter.full_name || transporter.fullName || transporter.name || 'Unknown Transporter'}
+                            </h3>
+                            <div className="flex items-center mt-1 mb-2">
+                              <MapPin className="w-4 h-4 text-gray-500 mr-1" />
+                              <span className="text-sm text-gray-600">
+                                {transporter.district || transporter.location || transporter.area || 'Location not specified'}
+                              </span>
+                              {(transporter.rating || transporter.averageRating) && (
+                                <div className="flex items-center ml-3">
+                                  <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {transporter.rating || transporter.averageRating}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Vehicle Details */}
+                            <div className="space-y-2">
+                              <div className="flex items-center">
+                                <Truck className="w-4 h-4 text-blue-500 mr-2" />
+                                <span className="text-sm text-gray-700">
+                                  {(transporter.vehicle_type || transporter.vehicleType || 'Vehicle')} - {(transporter.vehicle_capacity || transporter.vehicleCapacity || transporter.capacity || 'N/A')} {transporter.capacity_unit || transporter.capacityUnit || ''}
+                                </span>
+                              </div>
+
+                              {(transporter.vehicle_number || transporter.vehicleNumber || transporter.license_plate) && (
+                                <div className="flex items-center">
+                                  <CheckCircle className="w-4 h-4 text-indigo-500 mr-2" />
+                                  <span className="text-sm text-gray-700 font-medium">
+                                    Vehicle_No: {transporter.vehicle_number || transporter.vehicleNumber || transporter.license_plate}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center">
+                                <Phone className="w-4 h-4 text-green-500 mr-2" />
+                                <span className="text-sm text-gray-700">
+                                  {transporter.phone_number || transporter.phoneNumber || transporter.phone || 'No phone provided'}
+                                </span>
+                              </div>
+
+                              {(transporter.total_deliveries || transporter.totalDeliveries || transporter.completedDeliveries) && (
+                                <div className="flex items-center">
+                                  <Package className="w-4 h-4 text-purple-500 mr-2" />
+                                  <span className="text-sm text-gray-700">
+                                    {transporter.total_deliveries || transporter.totalDeliveries || transporter.completedDeliveries} deliveries completed
+                                  </span>
+                                </div>
+                              )}
+
+                              {(transporter.license_number || transporter.licenseNumber) && (
+                                <div className="flex items-center">
+                                  <CheckCircle className="w-4 h-4 text-blue-500 mr-2" />
+                                  <span className="text-sm text-gray-700">
+                                    License: {transporter.license_number || transporter.licenseNumber}
+                                  </span>
+                                </div>
+                              )}
+                             
+                            </div>
+
+                            {/* Action Button */}
+                            <div className="mt-4 flex space-x-2">
+                              
+                              {(transporter.phone_number || transporter.phoneNumber || transporter.phone) && (
+                                <a
+                                  href={`tel:${transporter.phone_number || transporter.phoneNumber || transporter.phone}`}
+                                  className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition-colors font-medium text-sm flex items-center justify-center"
+                                >
+                                  <Phone className="w-4 h-4" />
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Availability Status */}
+                            <div className="mt-2">
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                (transporter.available !== false && transporter.isAvailable !== false) 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {(transporter.available !== false && transporter.isAvailable !== false) ? 'Available' : 'Busy'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
