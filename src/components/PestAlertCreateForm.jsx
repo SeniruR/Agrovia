@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function PestAlertCreateForm({ onSuccess }) {
+export default function PestAlertCreateForm({ onCreated, onCancel }) {
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -9,6 +9,17 @@ export default function PestAlertCreateForm({ onSuccess }) {
     reported_by: ''
   });
   const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    // Fetch users for the Reporter ID dropdown
+    fetch('/api/v1/users/all')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.data) setUsers(data.data);
+      })
+      .catch(() => setUsers([]));
+  }, []);
 
   const inputStyle = {
     width: '100%',
@@ -34,8 +45,7 @@ export default function PestAlertCreateForm({ onSuccess }) {
     e.preventDefault();
     setLoading(true);
     try {
-      // Replace with your API endpoint
-      const response = await fetch('/api/pest-alerts', {
+      const response = await fetch('/api/v1/pest-alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -48,12 +58,13 @@ export default function PestAlertCreateForm({ onSuccess }) {
           severity: 'low',
           reported_by: ''
         });
-        if (onSuccess) onSuccess();
+  if (onCreated) onCreated();
       } else {
-        alert('Failed to create pest alert.');
+        const errorText = await response.text();
+  alert('Failed to create pest alert.\n' + errorText);
       }
     } catch (err) {
-      alert('Error creating pest alert.');
+  alert('Error creating pest alert.\n' + err.message);
     }
     setLoading(false);
   };
@@ -165,6 +176,40 @@ export default function PestAlertCreateForm({ onSuccess }) {
             fontSize: 14,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
+          }}>Crop</label>
+          <input
+            name="crop"
+            value={form.crop || ''}
+            onChange={handleChange}
+            placeholder="Crop (e.g. Rice, Wheat)"
+            style={inputStyle}
+          />
+
+          <label style={{
+            fontWeight: 600,
+            color: '#2e7d32',
+            marginBottom: 8,
+            display: 'block',
+            fontSize: 14,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}>Symptoms</label>
+          <input
+            name="symptoms"
+            value={form.symptoms || ''}
+            onChange={handleChange}
+            placeholder="Symptoms (e.g. Leaf spots, Wilting)"
+            style={inputStyle}
+          />
+
+          <label style={{
+            fontWeight: 600,
+            color: '#2e7d32',
+            marginBottom: 8,
+            display: 'block',
+            fontSize: 14,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
           }}>Location</label>
           <input
             name="location"
@@ -212,17 +257,25 @@ export default function PestAlertCreateForm({ onSuccess }) {
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
           }}>Reporter ID</label>
-          <input
+          <select
             name="reported_by"
             value={form.reported_by}
             onChange={handleChange}
-            placeholder="Your user identification"
             required
             style={{
               ...inputStyle,
               marginBottom: 32,
+              background: '#fff',
+              cursor: 'pointer',
             }}
-          />
+          >
+            <option value="">Select a user...</option>
+            {users.map(user => (
+              <option key={user.id} value={user.id}>
+                {user.full_name} (ID: {user.id})
+              </option>
+            ))}
+          </select>
 
           <button
             type="submit"
@@ -270,6 +323,31 @@ export default function PestAlertCreateForm({ onSuccess }) {
                 SUBMIT PEST ALERT
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px 0',
+              background: '#bdbdbd',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: 18,
+              border: 'none',
+              borderRadius: 16,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              marginTop: 12,
+              marginBottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+            }}
+          >
+            Cancel
           </button>
         </form>
       </div>

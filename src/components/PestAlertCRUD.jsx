@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PestAlertCreateForm from './PestAlertCreateForm';
 
-function PestAlertList({ onEdit }) {
+function PestAlertList({ onEdit, onView }) {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -83,8 +83,8 @@ function PestAlertList({ onEdit }) {
                 <div style={{fontWeight:700,marginBottom:8}}>Recommendations:</div>
                 <ul style={{margin:0,paddingLeft:24}}>
                   {alert.recommendations ? alert.recommendations.split('\n').map((rec,i)=>(
-                    <li key={i} style={{marginBottom:4,display:'flex',alignItems:'center',gap:8}}>
-                      <span style={{display:'inline-block',background:'#c8e6c9',color:'#2e7d32',borderRadius:'50%',width:26,height:26,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{i+1}</span>
+                      <li key={i} style={{marginBottom:4,display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{background:'#c8e6c9',color:'#2e7d32',borderRadius:'50%',width:26,height:26,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{i+1}</span>
                       <span>{rec}</span>
                     </li>
                   )): <li>No recommendations</li>}
@@ -95,7 +95,10 @@ function PestAlertList({ onEdit }) {
                 </div>
               </div>
             </div>
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:18}}>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:18,gap:8}}>
+              <button onClick={() => onView(alert)} style={{
+                background:'#1976d2',color:'#fff',fontWeight:700,padding:'10px 28px',border:'none',borderRadius:12,fontSize:16,boxShadow:'0 2px 8px #1976d222',cursor:'pointer',transition:'all 0.2s'
+              }}>View Details</button>
               <button onClick={() => onEdit(alert)} style={{
                 background:'#43a047',color:'#fff',fontWeight:700,padding:'10px 28px',border:'none',borderRadius:12,fontSize:16,boxShadow:'0 2px 8px #43a04722',cursor:'pointer',transition:'all 0.2s',marginLeft:8
               }}>Edit</button>
@@ -186,39 +189,43 @@ export default function PestAlertCRUD() {
   const [editing, setEditing] = useState(null);
   const [refresh, setRefresh] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
+  const [viewing, setViewing] = useState(null);
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>
       {/* Floating Create Button */}
-      {!editing && !showCreate && (
+      {!editing && !showCreate && !viewing && (
         <button
           onClick={() => setShowCreate(true)}
           style={{
             position: 'fixed',
-            top: 40,
-            right: 60,
+            bottom: 40,
+            right: 40,
             zIndex: 100,
             background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
             color: '#fff',
             fontWeight: 700,
-            fontSize: 18,
+            fontSize: 20,
             border: 'none',
-            borderRadius: 32,
-            boxShadow: '0 4px 24px 0 rgba(56, 249, 215, 0.15)',
-            padding: '16px 32px',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
+            borderRadius: '50%',
+            boxShadow: '0 4px 24px 0 rgba(56, 249, 215, 0.18)',
+            width: 72,
+            height: 72,
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            outline: 'none',
           }}
+          title="Create Pest Alert"
         >
-          <span style={{ fontSize: 22 }}>＋</span> Create Pest Alert
+          <span style={{ fontSize: 36, lineHeight: 1 }}>＋</span>
         </button>
       )}
 
-      {/* Modal Form */}
-      {showCreate && !editing && (
+      {/* View Details Modal */}
+      {viewing && !editing && !showCreate && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -226,20 +233,26 @@ export default function PestAlertCRUD() {
           width: '100vw',
           height: '100vh',
           background: 'rgba(0,0,0,0.18)',
-          zIndex: 200,
+          zIndex: 300,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          <div style={{ position: 'relative', zIndex: 201 }}>
-            <PestAlertCreateForm
-              onSuccess={() => {
-                setShowCreate(false);
-                setRefresh(r => r + 1);
-              }}
-            />
+          <div style={{ position: 'relative', zIndex: 301, background: '#fff', borderRadius: 24, padding: 40, minWidth: 400, maxWidth: 600, boxShadow: '0 8px 32px 0 rgba(76, 175, 80, 0.18)' }}>
+            <h2 style={{color:'#2e7d32',fontWeight:800,marginBottom:16,letterSpacing:'-1px'}}>Pest Alert Details</h2>
+            <div style={{marginBottom:16}}><b>Title:</b> {viewing.title}</div>
+            <div style={{marginBottom:16}}><b>Description:</b> {viewing.description}</div>
+            <div style={{marginBottom:16}}><b>Location:</b> {viewing.location || 'N/A'}</div>
+            <div style={{marginBottom:16}}><b>Severity:</b> {viewing.severity}</div>
+            <div style={{marginBottom:16}}><b>Crop:</b> {viewing.crop || 'N/A'}</div>
+            <div style={{marginBottom:16}}><b>Symptoms:</b> {viewing.symptoms || 'N/A'}</div>
+            <div style={{marginBottom:16}}><b>Recommendations:</b><br/>{viewing.recommendations ? viewing.recommendations.split('\n').map((rec,i)=>(<div key={i}>- {rec}</div>)) : 'N/A'}</div>
+            <div style={{marginBottom:16}}><b>Estimated Loss:</b> {viewing.estimated_loss || 'N/A'}</div>
+            <div style={{marginBottom:16}}><b>Affected Area:</b> {viewing.affected_area || 'N/A'}</div>
+            <div style={{marginBottom:16}}><b>Reported By (User ID):</b> {viewing.reported_by}</div>
+            <div style={{marginBottom:16}}><b>Created At:</b> {viewing.created_at ? new Date(viewing.created_at).toLocaleString() : 'N/A'}</div>
             <button
-              onClick={() => setShowCreate(false)}
+              onClick={() => setViewing(null)}
               style={{
                 position: 'absolute',
                 top: 18,
@@ -262,8 +275,46 @@ export default function PestAlertCRUD() {
       )}
 
       {/* List and Edit Form */}
-      {!editing && <PestAlertList key={refresh} onEdit={setEditing} />}
+      {!editing && !viewing && <PestAlertList key={refresh} onEdit={setEditing} onView={setViewing} />}
       {editing && <PestAlertEditForm alert={editing} onCancel={() => setEditing(null)} onUpdated={() => { setEditing(null); setRefresh(r => r + 1); }} />}
+      {/* Create Form Modal */}
+      {showCreate && !editing && !viewing && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.18)',
+          zIndex: 300,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{ position: 'relative', zIndex: 301, background: '#fff', borderRadius: 24, padding: 40, minWidth: 400, maxWidth: 600, boxShadow: '0 8px 32px 0 rgba(76, 175, 80, 0.18)' }}>
+            <PestAlertCreateForm onCancel={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); setRefresh(r => r + 1); }} />
+            <button
+              onClick={() => setShowCreate(false)}
+              style={{
+                position: 'absolute',
+                top: 18,
+                right: 18,
+                background: 'rgba(255,255,255,0.7)',
+                border: 'none',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
+                fontSize: 22,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px 0 rgba(0,0,0,0.08)',
+              }}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
