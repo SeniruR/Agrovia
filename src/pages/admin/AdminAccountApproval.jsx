@@ -5,6 +5,14 @@ import { User, Check, X, AlertCircle, Truck, ShieldCheck, Search, Filter, Chevro
 // Helper for displaying a dash if value is empty
 const dash = v => (v === undefined || v === null || v === '' ? '–' : v);
 
+// Helper to get account status
+const getAccountStatus = acc => {
+  if (acc.is_active === 1) return 'Approved';
+  if (acc.disable_case_id === 5) return 'Suspended';
+  if (acc.disable_case_id != null) return 'Pending';
+  return null; // not shown
+};
+
 
 const ROLE_OPTIONS = [
   { id: 'logistics', label: 'Logistics Providers' },
@@ -33,37 +41,29 @@ const AdminAccountApproval = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const accountsPerPage = 50; // You can adjust this number
 
-  // Fetch logistics providers and moderators from backend
+  // Fetch accounts from backend whenever filter type changes
   useEffect(() => {
+    setLoading(true);
+    let url = '';
     if (roleFilter === 'logistics') {
-      setLoading(true);
-      fetch('/api/v1/transporters/accounts')
-        .then(res => res.json())
-        .then(data => {
-          setAccounts(prev => ({ ...prev, logistics: data }));
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+      url = '/api/v1/transporters/accounts';
     } else if (roleFilter === 'moderators') {
-      setLoading(true);
-      fetch('/api/v1/moderators/accounts')
-        .then(res => res.json())
-        .then(data => {
-          setAccounts(prev => ({ ...prev, moderators: data }));
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+      url = '/api/v1/moderators/accounts';
     } else if (roleFilter === 'shopowners') {
-      setLoading(true);
-      fetch('/api/v1/shopowners/accounts')
+      url = '/api/v1/shopowners/accounts';
+    }
+    if (url) {
+      fetch(url)
         .then(res => res.json())
         .then(data => {
-          setAccounts(prev => ({ ...prev, shopowners: data }));
+          setAccounts(prev => ({ ...prev, [roleFilter]: data }));
           setLoading(false);
         })
         .catch(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-  }, [roleFilter]);
+  }, [roleFilter, statusFilter]);
 
   // Reset page to 1 when filters change
   useEffect(() => {
@@ -110,7 +110,7 @@ const AdminAccountApproval = () => {
       // fallback: just update UI
       setAccounts(prev => ({
         ...prev,
-        [activeTab]: prev[activeTab].filter(a => a.id !== id),
+        [roleFilter]: prev[roleFilter].filter(a => a.id !== id),
       }));
       setActionSuccess(`${action === 'approve' ? 'Approved' : action === 'suspend' ? 'Suspended' : 'Rejected'} successfully!`);
       setActionLoading(false);
@@ -128,25 +128,30 @@ const AdminAccountApproval = () => {
         if (action === 'approve') {
           setAccounts(prev => ({
             ...prev,
-            [activeTab]: prev[activeTab].map(a =>
+            [roleFilter]: prev[roleFilter].map(a =>
               a.id === id ? { ...a, is_active: 1 } : a
             ),
           }));
         } else if (action === 'suspend') {
           setAccounts(prev => ({
             ...prev,
-            [activeTab]: prev[activeTab].map(a =>
+            [roleFilter]: prev[roleFilter].map(a =>
               a.id === id ? { ...a, is_active: 0 } : a
             ),
           }));
         } else {
           setAccounts(prev => ({
             ...prev,
-            [activeTab]: prev[activeTab].filter(a => a.id !== id),
+            [roleFilter]: prev[roleFilter].filter(a => a.id !== id),
           }));
         }
         setCompletedActions(prev => ({ ...prev, [id]: true }));
-        setActionSuccess(`${action === 'approve' ? 'Approved' : action === 'suspend' ? 'Suspended' : 'Rejected'} successfully!`);
+        // Show 'Reactivated successfully!' if reactivating a suspended account
+        if (action === 'approve' && selected && getAccountStatus(selected) === 'Suspended') {
+          setActionSuccess('Reactivated successfully!');
+        } else {
+          setActionSuccess(`${action === 'approve' ? 'Approved' : action === 'suspend' ? 'Suspended' : 'Rejected'} successfully!`);
+        }
       } else {
         setActionError(data.message || 'Action failed.');
       }
@@ -303,39 +308,51 @@ const AdminAccountApproval = () => {
               )}
             </div>
             <div className="flex space-x-4">
-              {selected?.is_active !== 1 && (
-                <>
-                  <button
-                    onClick={() => setShowRejectionBox(true)}
-                    className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all ${showRejectionBox ? 'hidden' : 'block'}`}
-                  >
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => handleAction(selected.id, 'reject', rejectionMessage)}
-                    disabled={actionLoading || completedActions[selected.id] || !rejectionMessage.trim()}
-                    className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all ${showRejectionBox ? 'block' : 'hidden'}`}
-                  >
-                    Confirm Reject
-                  </button>
-                </>
-              )}
-              {selected?.is_active === 1 ? (
-                <button
-                  onClick={() => handleAction(selected.id, 'suspend')}
-                  disabled={actionLoading || completedActions[selected.id]}
-                  className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-semibold hover:from-yellow-600 hover:to-yellow-700 transition-all disabled:opacity-50"
-                >
-                  Suspend Account
-                </button>
-              ) : (
+              {getAccountStatus(selected) === 'Suspended' ? (
                 <button
                   onClick={() => handleAction(selected.id, 'approve')}
                   disabled={actionLoading || completedActions[selected.id]}
                   className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50"
                 >
-                  Approve
+                  Reactivate
                 </button>
+              ) : (
+                <>
+                  {selected?.is_active !== 1 && (
+                    <>
+                      <button
+                        onClick={() => setShowRejectionBox(true)}
+                        className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all ${showRejectionBox ? 'hidden' : 'block'}`}
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => handleAction(selected.id, 'reject', rejectionMessage)}
+                        disabled={actionLoading || completedActions[selected.id] || !rejectionMessage.trim()}
+                        className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all ${showRejectionBox ? 'block' : 'hidden'}`}
+                      >
+                        Confirm Reject
+                      </button>
+                    </>
+                  )}
+                  {selected?.is_active === 1 ? (
+                    <button
+                      onClick={() => handleAction(selected.id, 'suspend')}
+                      disabled={actionLoading || completedActions[selected.id]}
+                      className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-semibold hover:from-yellow-600 hover:to-yellow-700 transition-all disabled:opacity-50"
+                    >
+                      Suspend Account
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleAction(selected.id, 'approve')}
+                      disabled={actionLoading || completedActions[selected.id]}
+                      className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -354,10 +371,13 @@ const AdminAccountApproval = () => {
 
   // --- Start of Filtering and Pagination Logic ---
   const filteredAndSortedAccounts = (Array.isArray(accounts[roleFilter]) ? accounts[roleFilter] : [])
+    .map(acc => ({ ...acc, _status: getAccountStatus(acc) }))
+    .filter(acc => acc._status !== null)
     .filter(acc => {
       // Status filter
-      if (statusFilter === 'active') return acc.is_active === 1;
-      if (statusFilter === 'pending') return !acc.is_active;
+      if (statusFilter === 'active') return acc._status === 'Approved';
+      if (statusFilter === 'pending') return acc._status === 'Pending';
+      if (statusFilter === 'suspended') return acc._status === 'Suspended';
       return true;
     })
     .filter(acc => {
@@ -440,7 +460,7 @@ const AdminAccountApproval = () => {
 
               {/* Status Filter Tabs */}
               <div className="flex space-x-1 bg-gray-100 p-1 rounded-md">
-                {[{ key: 'all', label: 'All' }, { key: 'active', label: 'Active' }, { key: 'pending', label: 'Pending' }].map(tab => (
+                {[{ key: 'all', label: 'All' }, { key: 'active', label: 'Active' }, { key: 'pending', label: 'Pending' }, { key: 'suspended', label: 'Suspended' }].map(tab => (
                   <button
                     key={tab.key}
                     onClick={() => setStatusFilter(tab.key)}
@@ -481,7 +501,9 @@ const AdminAccountApproval = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dash(acc.phone_number || acc.phone)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{roleFilter === 'logistics' ? dash(acc.district) : roleFilter === 'shopowners' ? dash(acc.shop_name) : dash(acc.joinDate)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`inline-block px-2 py-1 rounded font-semibold ${acc.is_active ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{acc.is_active ? 'Approved' : 'Pending'}</span>
+                        <span className={`inline-block px-2 py-1 rounded font-semibold ${
+                          acc._status === 'Approved' ? 'bg-green-100 text-green-700' : acc._status === 'Suspended' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>{acc._status}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
