@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import FullScreenLoader from "../components/ui/FullScreenLoader";
+import FullScreenLoader from "../../components/ui/FullScreenLoader";
 import Select from "react-select";
 
 const districts = [

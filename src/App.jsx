@@ -29,9 +29,10 @@ import CartPage from "./pages/CartPage";
 import AgriShopMarketplace from "./pages/shop/Items";
 import ShopProductView from "./pages/shop/ShopProductView";
 import CropListings from "./pages/CropListing";
-import FarmerProfileEdit from "./pages/Profile";
+import FarmerProfileEdit from "./pages/profiles/FarmerEditProfile";
 import FarmerProfile from "./pages/profiles/FarmerProfile";
 import BuyerProfile from "./pages/profiles/BuyerProfile";
+import BuyerEditProfile from "./pages/profiles/BuyerEditProfile";
 import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
 import TransporterProfile from "./pages/profiles/TransporterProfile";
 import ProfileRouter from "./components/ProfileRouter";
@@ -263,6 +264,12 @@ const App = () => {
       <Route path="/profile/buyer" element={
           <Layout>
             <BuyerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/buyer/edit" element={
+          <Layout>
+            <BuyerEditProfile />
          </Layout>
         }
       />

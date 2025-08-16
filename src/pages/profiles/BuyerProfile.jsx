@@ -69,11 +69,10 @@ const BuyerProfile = () => {
           email: user.email || '-',
           phoneNumber: user.phone_number || '-',
           nic: user.nic || '-',
-          birthDate: user.birth_date || null,
           district: user.district || '-',
           address: user.address || '-',
           businessType: details.company_type || '-',
-          buyingPreference: details.company_name || '-',
+          companyName: details.company_name || '-',
           monthlyBudget: details.payment_offer || '-',
           preferredPayment: details.payment_offer || '-',
           deliveryPreference: details.company_address || '-',
@@ -200,7 +199,7 @@ const BuyerProfile = () => {
           <div className="flex flex-col gap-3">
             {!isEditing ? (
               <button
-                onClick={() => setIsEditing(true)}
+                onClick={() => navigate('/profile/buyer/edit')}
                 className="bg-white/20 hover:bg-white/30 text-white px-6 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 backdrop-blur-sm border border-white/20"
               >
                 <Edit3 size={16} />
@@ -309,10 +308,10 @@ const BuyerProfile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <InfoCard label="Full Name" value={buyerData.fullName} icon={User} color="green" />
                 <InfoCard label="NIC" value={buyerData.nic} icon={FileText} color="blue" />
-                <InfoCard label="Birth Date" value={new Date(buyerData.birthDate).toLocaleDateString()} icon={Calendar} color="yellow" />
-                <InfoCard label="Business Type" value={buyerData.businessType} icon={Building} color="green" />
-                <InfoCard label="Monthly Budget" value={buyerData.monthlyBudget} icon={DollarSign} color="green" />
                 <InfoCard label="Address" value={buyerData.address} icon={MapPin} color="gray" />
+                <InfoCard label="Email" value={buyerData.email} icon={User} color="green" />
+                <InfoCard label="District" value={buyerData.district} icon={FileText} color="blue" />
+                <InfoCard label="Phone Number" value={buyerData.phoneNumber} icon={MapPin} color="gray" />
               </div>
             </div>
 
@@ -326,7 +325,6 @@ const BuyerProfile = () => {
                 <InfoCard label="Company Name" value={buyerData.companyName} icon={FileText} color="blue" />
                 <InfoCard label="Company Type" value={buyerData.businessType} icon={Building} color="green" />
                 <InfoCard label="Company Address" value={buyerData.address} icon={MapPin} color="gray" />
-                <InfoCard label="Payment Offer" value={buyerData.monthlyBudget} icon={CreditCard} color="yellow" />
               </div>
             </div>
           </div>
