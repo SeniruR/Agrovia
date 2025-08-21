@@ -23,7 +23,8 @@ export const CartProvider = ({ children }) => {
       });
       
       if (response.data.success) {
-        setCartItems(response.data.data.map(item => ({
+        // Map API cart items to local shape
+        let mappedItems = response.data.data.map(item => ({
           id: item.productId,
           cartItemId: item.id,
           name: item.productName,
@@ -34,7 +35,70 @@ export const CartProvider = ({ children }) => {
           image: item.productImage,
           quantity: item.quantity,
           addedAt: item.createdAt
-        })));
+        }));
+
+        // Try to fetch transport allocations and merge into cart items so selections persist after refresh
+        try {
+          const allocResp = await axios.get('http://localhost:5000/api/transport-allocations', {
+            headers: getAuthHeaders()
+          });
+
+          const allocations = allocResp && allocResp.data ? (allocResp.data.data || allocResp.data) : [];
+
+          if (Array.isArray(allocations) && allocations.length > 0) {
+            // Helper to convert allocation object into transporter shape expected by UI
+            const mapAllocToTransporter = (alloc, item) => {
+              const name = alloc.transporter_name || alloc.full_name || alloc.name || alloc.transport_name || null;
+              const vehicleType = alloc.vehicle_type ?? alloc.vehicle ?? null;
+              const vehicleNumber = alloc.vehicle_number ?? alloc.vehicle_no ?? alloc.vehicleNumber ?? null;
+              const phone = alloc.phone_number ?? alloc.phone ?? alloc.phoneNumber ?? null;
+              const baseRate = Number(alloc.base_rate ?? alloc.baseRate ?? alloc.baseRateValue ?? 500);
+              const perKmRate = Number(alloc.per_km_rate ?? alloc.perKmRate ?? alloc.perKmRateValue ?? 25);
+              const distance = Number(alloc.calculated_distance ?? alloc.distance ?? 0) || 0;
+              const cost = Number(alloc.transport_cost ?? alloc.cost ?? 0) || 0;
+
+              return {
+                ...alloc,
+                name: name || `Transporter ${alloc.transporter_id ?? alloc.id ?? ''}`,
+                full_name: name,
+                vehicle_type: vehicleType,
+                vehicle_number: vehicleNumber,
+                phone_number: phone,
+                vehicle: `${vehicleType || ''}${vehicleNumber ? ' (' + vehicleNumber + ')' : ''}`,
+                district: alloc.district ?? alloc.location ?? null,
+                distance,
+                cost,
+                baseRate,
+                perKmRate
+              };
+            };
+
+            // Merge allocations to mappedItems by cart_item_id or product id
+            mappedItems = mappedItems.map(ci => {
+              // Find matching allocation
+              const found = allocations.find(a =>
+                (a.cart_item_id && Number(a.cart_item_id) === Number(ci.cartItemId)) ||
+                (a.cart_item_id && Number(a.cart_item_id) === Number(ci.id)) ||
+                (a.product_id && Number(a.product_id) === Number(ci.id)) ||
+                (a.product_id && Number(a.product_id) === Number(ci.cartItemId))
+              );
+
+              if (found) {
+                const transporter = mapAllocToTransporter(found, ci);
+                return {
+                  ...ci,
+                  transporter: transporter
+                };
+              }
+              return ci;
+            });
+          }
+        } catch (allocErr) {
+          // If allocations fetch fails, continue without transporters
+          console.warn('Could not fetch transport allocations:', allocErr?.message || allocErr);
+        }
+
+        setCartItems(mappedItems);
       }
     } catch (err) {
       console.error('Error fetching cart items:', err);
