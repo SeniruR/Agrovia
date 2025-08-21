@@ -12,6 +12,8 @@ const CartPage = () => {
   const [loadingTransporters, setLoadingTransporters] = useState(false);
   const [itemCoordinates, setItemCoordinates] = useState({});
   const [loadingCoordinates, setLoadingCoordinates] = useState({});
+  // Payment method state for each cart item
+  const [paymentMethods, setPaymentMethods] = useState({});
 
   // Helper function to diagnose why fetch might be failing
   const diagnoseFetchError = (error, url) => {
@@ -652,6 +654,15 @@ const CartPage = () => {
     form.submit();
   };
 
+  // Helper: Check if all items with 'Hire Transport' have a transporter selected
+  const allHireTransportSelected = cartItems.every(item => {
+    const method = paymentMethods[item.id] || "Pickup";
+    if (method === "Hire Transport") {
+      return !!item.transporter;
+    }
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-agrovia-50 to-green-50 flex items-center justify-center">
@@ -725,6 +736,8 @@ const CartPage = () => {
               const maxQty = getMaxQuantity(item);
               const isMinQty = item.quantity <= minQty;
               const isMaxQty = item.quantity >= maxQty;
+              // Default payment method: Pickup
+              const paymentMethod = paymentMethods[item.id] || "Pickup";
 
               return (
                 <div key={item.id} className="bg-white rounded-2xl p-6 shadow-lg border border-agrovia-100">
@@ -753,8 +766,20 @@ const CartPage = () => {
                         <span className="text-sm bg-green-50 px-2 py-1 rounded-lg border border-green-200">{item.district || item.location}</span>
                       </div>
 
+                      {/* Payment Method Select */}
+                      <div className="mb-2">
+                        <label className="block text-base font-bold text-agrovia-700 mb-1">Payment Method</label>
+                        <select
+                          className="w-40 px-3 py-2 border-2 border-agrovia-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-agrovia-500 bg-agrovia-50 text-agrovia-700 text-base font-bold shadow-md"
+                          value={paymentMethod}
+                          onChange={e => setPaymentMethods(pm => ({ ...pm, [item.id]: e.target.value }))}
+                        >
+                          <option value="Pickup">Pickup</option>
+                          <option value="Hire Transport">Hire Transport</option>
+                        </select>
+                      </div>
+
                       {/* Coordinates & Transport Costs Section */}
-                   
                       {minQty > 1 && (
                         <div className="text-xs text-blue-600 font-medium mt-1">
                           <span className="font-bold">Bulk Order:</span> Minimum {minQty} {item.unit}
@@ -802,25 +827,27 @@ const CartPage = () => {
                           </div>
                         </div>
                       ) : (
-                        <button
-                          className="mt-2 mb-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium flex items-center"
-                          onClick={async () => {
-                            setOpenTransportModalId(item.id);
-                            await fetchTransporters();
-                            // Automatically fetch coordinates when opening transport modal
-                            if (!itemCoordinates[item.id]) {
-                              await fetchItemCoordinates(item.id);
-                            }
-                          }}
-                        >
-                          <Truck className="w-4 h-4 mr-1" />
-                          Select Transport
-                          {itemCoordinates[item.id] && user && user.latitude && user.longitude && (
-                            <span className="ml-1 text-xs bg-blue-400 px-1 rounded">
-                              ✓ Ready
-                            </span>
-                          )}
-                        </button>
+                        paymentMethod === "Hire Transport" && (
+                          <button
+                            className="mt-2 mb-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium flex items-center"
+                            onClick={async () => {
+                              setOpenTransportModalId(item.id);
+                              await fetchTransporters();
+                              // Automatically fetch coordinates when opening transport modal
+                              if (!itemCoordinates[item.id]) {
+                                await fetchItemCoordinates(item.id);
+                              }
+                            }}
+                          >
+                            <Truck className="w-4 h-4 mr-1" />
+                            Select Transport
+                            {itemCoordinates[item.id] && user && user.latitude && user.longitude && (
+                              <span className="ml-1 text-xs bg-blue-400 px-1 rounded">
+                                ✓ Ready
+                              </span>
+                            )}
+                          </button>
+                        )
                       )}
 
                       {/* Transporters Modal */}
@@ -962,25 +989,130 @@ const CartPage = () => {
                                         
                                         <button
                                           className="mt-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
-                                          onClick={() => {
+                                          onClick={async () => {
                                             const userCoords = user && user.latitude && user.longitude ? {
                                               latitude: parseFloat(user.latitude),
                                               longitude: parseFloat(user.longitude)
                                             } : null;
-                                            
                                             const itemCoords = itemCoordinates[item.id] && !itemCoordinates[item.id].error ? {
                                               latitude: parseFloat(itemCoordinates[item.id].latitude),
                                               longitude: parseFloat(itemCoordinates[item.id].longitude)
                                             } : null;
-                                            
-                                            // Validate coordinates before proceeding
+
+                                            // Defensive checks: ensure cart row id and transporter id exist
+                                            const cartRowId = item.cartItemId ?? item.id; // prefer DB cart row id when available
+                                            if (!item || !cartRowId) {
+                                              console.error('Cannot create transport allocation: missing cart_item_id (cart row id)', { item });
+                                              alert('Cannot add transport: missing cart_item_id');
+                                              return;
+                                            }
+                                            if (!transporter || (!transporter.id && !transporter.transport_id)) {
+                                              console.error('Cannot create transport allocation: missing transporter id', { transporter });
+                                              alert('Cannot add transport: missing transporter id');
+                                              return;
+                                            }
+
+                                            // Build safe, flat payload only with primitive values
+                                            const safeCartItemId = Number(cartRowId);
+                                            const safeTransportId = Number(transporter.transport_id ?? transporter.id);
+                                            const safeTransporterId = Number(transporter.id);
+                                            const safeQuantity = Number(item.quantity) || 1;
+                                            const safeUserLat = userCoords && !isNaN(Number(userCoords.latitude)) ? Number(userCoords.latitude) : null;
+                                            const safeUserLon = userCoords && !isNaN(Number(userCoords.longitude)) ? Number(userCoords.longitude) : null;
+                                            const safeItemLat = itemCoords && !isNaN(Number(itemCoords.latitude)) ? Number(itemCoords.latitude) : null;
+                                            const safeItemLon = itemCoords && !isNaN(Number(itemCoords.longitude)) ? Number(itemCoords.longitude) : null;
+
+                                            // Map transporter field variants (camelCase/snake_case) so we don't send nulls
+                                            const vehicleType = transporter.vehicle_type ?? transporter.vehicleType ?? transporter.vehicle ?? null;
+                                            const vehicleNumber = transporter.vehicle_number ?? transporter.vehicleNumber ?? transporter.vehicleNo ?? null;
+                                            const phoneNumber = transporter.phone_number ?? transporter.phone ?? transporter.phoneNumber ?? null;
+                                            const baseRateVal = Number(transporter.base_rate ?? transporter.baseRate ?? transporter.baseRateValue ?? 500);
+                                            const perKmRateVal = Number(transporter.per_km_rate ?? transporter.perKmRate ?? transporter.perKmRateValue ?? 25);
+                                            const districtVal = transporter.district ?? transporter.location ?? transporter.area ?? null;
+
+                                            // Compute distance and estimated cost if coordinates available
+                                            let calculatedDistance = null;
+                                            let transportCost = null;
+                                            if (safeUserLat !== null && safeUserLon !== null && safeItemLat !== null && safeItemLon !== null) {
+                                              calculatedDistance = Number(calculateDistance(safeUserLat, safeUserLon, safeItemLat, safeItemLon).toFixed(2));
+                                              const estimatedWeight = item.quantity * (item.weightPerUnit || 1);
+                                              const weightMultiplier = Math.max(1, estimatedWeight / 100);
+                                              transportCost = Number(((baseRateVal + (calculatedDistance * perKmRateVal)) * weightMultiplier).toFixed(2));
+                                            }
+
+                                            const payload = {
+                                              // Backend expects snake_case primitive fields only
+                                              cart_item_id: isNaN(safeCartItemId) ? null : safeCartItemId,
+                                              transport_id: isNaN(safeTransportId) ? null : safeTransportId,
+                                              transporter_id: isNaN(safeTransporterId) ? null : safeTransporterId,
+                                              quantity: safeQuantity,
+                                              // transporter snapshot fields (mapped)
+                                              vehicle_type: vehicleType,
+                                              vehicle_number: vehicleNumber,
+                                              phone_number: phoneNumber,
+                                              base_rate: isNaN(baseRateVal) ? null : baseRateVal,
+                                              per_km_rate: isNaN(perKmRateVal) ? null : perKmRateVal,
+                                              // computed values
+                                              calculated_distance: calculatedDistance,
+                                              transport_cost: transportCost,
+                                              district: districtVal,
+                                              // flattened coordinates
+                                              user_latitude: safeUserLat,
+                                              user_longitude: safeUserLon,
+                                              item_latitude: safeItemLat,
+                                              item_longitude: safeItemLon
+                                            };
+
+                                            // Use the exact URL you indicated and include auth headers if available
+                                            const url = 'http://localhost:5000/api/transport-allocations';
+                                            const headers = {
+                                              'Content-Type': 'application/json',
+                                              ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {})
+                                            };
+
+                                            try {
+                                              // Print a clear, stringified version of the payload for easier inspection
+                                              console.log('➡️ POST', url, 'payload:', payload);
+                                              console.log('➡️ Request payload (stringified):', JSON.stringify(payload, null, 2));
+                                              console.log('➡️ Headers:', headers);
+                                              const res = await fetch(url, {
+                                                method: 'POST',
+                                                headers: { ...headers, 'Accept': 'application/json' },
+                                                credentials: 'include',
+                                                body: JSON.stringify(payload)
+                                              });
+
+                                              const text = await res.text();
+                                              let body;
+                                              try { body = JSON.parse(text); } catch (e) { body = text; }
+
+                                              if (res.ok) {
+                                                console.log('✅ Transport allocation created:', body);
+                                                alert('Transport added successfully');
+                                              } else {
+                                                console.error(`❌ Transport allocation failed (status ${res.status})`, body);
+                                                // Helpful alerts for devs/users
+                                                if (res.status >= 500) {
+                                                  alert('Server error while adding transport (500). Check backend logs.');
+                                                } else if (res.status === 401 || res.status === 403) {
+                                                  alert('Authentication error when adding transport. Please log in.');
+                                                } else {
+                                                  const msg = body && body.message ? body.message : `Failed to add transport (status ${res.status})`;
+                                                  alert(msg);
+                                                }
+                                              }
+                                            } catch (err) {
+                                              console.error('❌ Network/fetch error adding transport:', err);
+                                              alert('Network error while adding transport');
+                                            }
+
+                                            // Keep UI behavior: update local cart state
                                             if (userCoords && itemCoords && 
                                                 !isNaN(userCoords.latitude) && !isNaN(userCoords.longitude) &&
                                                 !isNaN(itemCoords.latitude) && !isNaN(itemCoords.longitude)) {
                                               addTransportToCartItem(item.id, transporter, userCoords, itemCoords);
                                               setOpenTransportModalId(null);
                                             } else {
-                                              // Add without coordinates - cost will be base rate
                                               addTransportToCartItem(item.id, transporter, null, null);
                                               setOpenTransportModalId(null);
                                             }
@@ -1130,15 +1262,7 @@ const CartPage = () => {
                     <>
                       <p className="text-gray-700">{user.address}{user.district ? `, ${user.district}` : ''}{user.country ? `, ${user.country}` : ', Sri Lanka'}</p>
                       <p className="text-gray-700">{user.full_name} {user.phone_number ? `| ${user.phone_number}` : ''}</p>
-                      <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-                        <p className="text-sm font-medium text-blue-700">Location Coordinates (Database Values):</p>
-                        <p className="text-sm text-blue-600">
-                          <strong>Latitude:</strong> {user.latitude !== undefined && user.latitude !== null ? user.latitude : 'Not available in database'}
-                        </p>
-                        <p className="text-sm text-blue-600">
-                          <strong>Longitude:</strong> {user.longitude !== undefined && user.longitude !== null ? user.longitude : 'Not available in database'}
-                        </p>
-                      </div>
+                      
                     </>
                   ) : (
                     <>
@@ -1156,12 +1280,15 @@ const CartPage = () => {
                 )}
               </div>
               
-              <button
-                onClick={handleCheckout}
-                className="w-full bg-gradient-to-r from-agrovia-500 to-agrovia-600 text-white py-4 rounded-xl hover:from-agrovia-600 hover:to-agrovia-700 transition-all duration-300 font-semibold text-lg shadow-lg transform hover:scale-105"
-              >
-                Proceed to Checkout
-              </button>
+              {/* Proceed to Checkout only if all Hire Transport items have transporter selected */}
+              {allHireTransportSelected && (
+                <button
+                  onClick={handleCheckout}
+                  className="w-full bg-gradient-to-r from-agrovia-500 to-agrovia-600 text-white py-4 rounded-xl hover:from-agrovia-600 hover:to-agrovia-700 transition-all duration-300 font-semibold text-lg shadow-lg transform hover:scale-105"
+                >
+                  Proceed to Checkout
+                </button>
+              )}
               
               <Link
                 to="/byersmarket"
