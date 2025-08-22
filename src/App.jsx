@@ -101,6 +101,7 @@ import EditCropPost from "./pages/farmer/EditCropPost";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import NotificationsPage from "./pages/NotificationsPage";
+import FuturePriceForecast from "./pages/future_price_forcast";
 
 
 
@@ -491,6 +492,12 @@ const App = () => {
       <Route path="/priceforcast" element={
         <Layout>
           <PriceForcasting />
+        </Layout>
+      }
+      />
+      <Route path="/priceforcast-new" element={
+        <Layout>
+          <FuturePriceForecast />
         </Layout>
       }
       />
