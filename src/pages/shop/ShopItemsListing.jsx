@@ -59,10 +59,24 @@ useEffect(() => {
   const fetchProducts = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/v1/shop-products');
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
+      // Treat 304 Not Modified and 204 No Content as non-error cases.
+      if (response.status === 304) {
+        console.debug('Products not modified (304) - keeping existing items');
+        setError(null);
+        setIsLoading(false);
+        return;
       }
-  const payload = await response.json();
+      if (response.status === 204) {
+        console.debug('Products returned 204 No Content - clearing items');
+        setShopItems([]);
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+      if (!response.ok) {
+        throw new Error('Failed to fetch products: ' + response.status);
+      }
+      const payload = await response.json();
   const data = payload?.data || payload || [];
 
     // filter out products that belong to inactive shops

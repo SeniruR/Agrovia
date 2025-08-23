@@ -397,47 +397,47 @@ const EditModal = React.memo(({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block mb-1 font-medium text-green-900">Shop Name*</label>
-                            <input
-                                type="text"
-                                name="shop_name"
-                                value={editFormData.shop_name}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
+              <input
+                type="text"
+                name="shop_name"
+                value={editFormData.shop_name}
+                readOnly
+                className="w-full p-3 border border-green-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                required
+              />
                         </div>
                         <div>
                             <label className="block mb-1 font-medium text-green-900">Owner Name*</label>
-                            <input
-                                type="text"
-                                name="owner_name"
-                                value={editFormData.owner_name}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
+              <input
+                type="text"
+                name="owner_name"
+                value={editFormData.owner_name}
+                readOnly
+                className="w-full p-3 border border-green-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                required
+              />
                         </div>
                         <div>
                             <label className="block mb-1 font-medium text-green-900">Phone Number*</label>
-                            <input
-                                type="tel"
-                                name="phone_no"
-                                value={editFormData.phone_no}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
+              <input
+                type="tel"
+                name="phone_no"
+                value={editFormData.phone_no}
+                readOnly
+                className="w-full p-3 border border-green-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                required
+              />
                         </div>
                         <div>
                             <label className="block mb-1 font-medium text-green-900">Shop Address*</label>
-                            <input
-                                type="text"
-                                name="shop_address"
-                                value={editFormData.shop_address}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                                required
-                            />
+              <input
+                type="text"
+                name="shop_address"
+                value={editFormData.shop_address}
+                readOnly
+                className="w-full p-3 border border-green-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                required
+              />
                         </div>
                         <div>
                             <label className="block mb-1 font-medium text-green-900">Product Name*</label>
@@ -488,20 +488,6 @@ const EditModal = React.memo(({
                             </select>
                         </div>
                         <div>
-                            <label className="block mb-1 font-medium text-green-900">Season</label>
-                            <select
-                                name="season"
-                                value={editFormData.season}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                            >
-                                <option value="">Select season</option>
-                                <option value="yala">Yala Season</option>
-                                <option value="maha">Maha Season</option>
-                                <option value="all-year">All Year Round</option>
-                            </select>
-                        </div>
-                        <div>
                             <label className="block mb-1 font-medium text-green-900">Price (LKR)*</label>
                             <input
                                 type="number"
@@ -528,13 +514,19 @@ const EditModal = React.memo(({
                         </div>
                         <div>
                             <label className="block mb-1 font-medium text-green-900">Unit</label>
-                            <input
-                                type="text"
-                                name="unit"
-                                value={editFormData.unit}
-                                onChange={handleEditChange}
-                                className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                            />
+                  <select
+                    name="unit"
+                    value={editFormData.unit}
+                    onChange={handleEditChange}
+                    className="w-full p-3 border border-green-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  >
+                    <option value="">Select unit</option>
+                    <option value="kg">Per Kg</option>
+                    <option value="g">Per Gram</option>
+                    <option value="packet">Per Packet</option>
+                    <option value="bottle">Per Bottle</option>
+                    <option value="liter">Per Liter</option>
+                  </select>
                         </div>
                         <div>
                             <label className="block mb-1 font-medium text-green-900">Usage History</label>
@@ -810,7 +802,10 @@ const MyShopItem = () => {
         try {
           const token = localStorage.getItem('authToken');
           const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
-          const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
+          // Prefer context headers only if they include Authorization; otherwise fall back to localStorage token.
+          const headers = (headersFromCtx && headersFromCtx.Authorization)
+            ? headersFromCtx
+            : (token ? { Authorization: `Bearer ${token}` } : {});
 
           const response = await axios.get('http://localhost:5000/api/v1/shop-products/my-shop', { headers, signal: controller.signal });
 
@@ -894,7 +889,9 @@ const MyShopItem = () => {
     try {
       const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
       const token = localStorage.getItem('authToken');
-      const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
+      const headers = (headersFromCtx && headersFromCtx.Authorization)
+        ? headersFromCtx
+        : (token ? { Authorization: `Bearer ${token}` } : {});
 
   const res = await axios.put('http://localhost:5000/api/v1/shop-products/shop', updated, { headers });
   const normalized = normalizeShop(res.data?.data || res.data || null);
@@ -1329,7 +1326,7 @@ const MyShopItem = () => {
                                   Manage Orders
                                 </button>
                                 <button
-                                  onClick={() => navigate('/contact-us')}
+                                  onClick={() => navigate('/complaintHandling')}
                                   className="px-4 py-2 bg-white border border-green-300 text-green-700 rounded hover:bg-green-50 transition-colors"
                                 >
                                   Contact Support

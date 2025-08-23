@@ -11,6 +11,8 @@ export default function SeedsFertilizerForm() {
 ];
   const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const navigate = useNavigate();
+  // Toggle verbose debug logs during development
+  const DEBUG = false;
   const [formData, setFormData] = useState({
     shop_name: '',
     owner_name: '',
@@ -32,97 +34,84 @@ export default function SeedsFertilizerForm() {
     terms_accepted: false
   });
    useEffect(() => {
-  const fetchShopDetails = async () => {
-    console.log('⏳ [1] Starting fetch for user ID:', user?.id);
-    console.log('  [1.5] Current user data:', { 
-      phone_no: user?.phone_no, 
-      email: user?.email, 
-      full_name: user?.full_name 
-    });
-    console.log(' 🔑 [2] Auth headers:', getAuthHeaders());
+    const controller = new AbortController();
+    let cancelled = false;
 
-    try {
-      console.log('🌐 [3] Making request to endpoint...');
-      const response = await fetch('http://localhost:5000/api/v1/shop-products/my-shop-view', {
-        headers: getAuthHeaders(),
-      });
+    const fetchShopDetails = async () => {
+      // Only log when debugging
+      if (DEBUG) console.log('⏳ [1] Starting fetch for user ID:', user?.id);
 
-      console.log('✅ [4] Response received:', { status: response.status });
+      try {
+        const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
+        if (DEBUG) console.log(' 🔑 [2] Auth headers:', headers);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.statusText}`);
+        const response = await fetch('http://localhost:5000/api/v1/shop-products/my-shop-view', {
+          headers,
+          signal: controller.signal
+        });
+
+        if (cancelled) return;
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (DEBUG) console.log('✅ [5] Parsed response data:', data);
+
+        if (data && data.success) {
+          const updatedData = {
+            shop_name: data.data.shop_name || '',
+            email: data.data.email || user?.email || '',
+            phone_no: data.data.phone_no || user?.phone_no || '',
+            shop_address: data.data.shop_address || '',
+            owner_name: data.data.owner_name || user?.full_name || '',
+          };
+          if (!cancelled) setFormData(prev => ({ ...prev, ...updatedData }));
+        } else if (!cancelled) {
+          // fallback to user info if API reports not-success
+          const fallbackData = {
+            email: user?.email || '',
+            phone_no: user?.phone_no || '',
+            owner_name: user?.full_name || '',
+          };
+          if (!cancelled) setFormData(prev => ({ ...prev, ...fallbackData }));
+        }
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          if (DEBUG) console.debug('Shop details fetch aborted');
+          return;
+        }
+        if (DEBUG) console.error('❌ [4] Fetch failed:', { message: error.message });
+        // Fallback to user data if API fails
+        if (!cancelled) {
+          const errorFallbackData = {
+            email: user?.email || '',
+            phone_no: user?.phone_no || '',
+            owner_name: user?.full_name || '',
+          };
+          setFormData(prev => ({ ...prev, ...errorFallbackData }));
+        }
       }
+    };
 
-      const data = await response.json();
-      console.log('✅ [5] Parsed response data:', data);
-
-      if (data.success) {
-        const updatedData = {
-          shop_name: data.data.shop_name || '',
-          email: data.data.email || user.email || '',
-          phone_no: data.data.phone_no || user.phone_no || '',
-          shop_address: data.data.shop_address || '',
-          owner_name: data.data.owner_name || user.full_name || '',
-        };
-        console.log('📋 [5.5] Data being set:', updatedData);
-        
-        setFormData((prev) => ({
-          ...prev,
-          ...updatedData
-        }));
-      } else {
-        console.warn('⚠ [6] Response not successful:', data);
-        // If no shop data exists, still populate with user data as fallback
-        const fallbackData = {
-          email: user.email || '',
-          phone_no: user.phone_no || '',
-          owner_name: user.full_name || '',
-        };
-        console.log('📋 [6.5] Fallback data being set:', fallbackData);
-        
-        setFormData((prev) => ({
-          ...prev,
-          ...fallbackData
-        }));
-      }
-    } catch (error) {
-      console.error('❌ [4] Fetch failed:', { message: error.message });
-      // Fallback to user data if API fails
-      const errorFallbackData = {
-        email: user.email || '',
-        phone_no: user.phone_no || '',
-        owner_name: user.full_name || '',
-      };
-      console.log('📋 [7.5] Error fallback data being set:', errorFallbackData);
-      
-      setFormData((prev) => ({
-        ...prev,
-        ...errorFallbackData
-      }));
-    } finally {
-      console.log('🏁 [8] Fetch completed');
-    }
-  };
-
-  if (user?.id) {
-    fetchShopDetails();
-  } else {
-    console.log('⛔ [0] No user ID - skipping fetch');
-    // Even if no user ID, populate with available user data
-    if (user) {
+    if (user?.id) {
+      fetchShopDetails();
+    } else if (user) {
+      if (DEBUG) console.log('⛔ [0] No user ID - using basic user data');
       const basicUserData = {
         email: user.email || '',
         phone_no: user.phone_no || '',
         owner_name: user.full_name || '',
       };
-      console.log('📋 [0.5] Setting basic user data:', basicUserData);
-      setFormData((prev) => ({
-        ...prev,
-        ...basicUserData
-      }));
+      setFormData(prev => ({ ...prev, ...basicUserData }));
     }
-  }
-}, [user, getAuthHeaders]);
+
+    return () => {
+      cancelled = true;
+      try { controller.abort(); } catch (e) { /* ignore */ }
+    };
+  }, [user]);
 
 // Debug useEffect to monitor formData changes
 useEffect(() => {
@@ -457,18 +446,22 @@ const handleSubmit = async (e) => {
     setIsSubmitting(false);
   }
 };
-  console.log("Validation results:", {
-  step1: validateStep1(),
-  step2: validateStep2(),
-  step3: validateStep3()
-});
+  if (DEBUG || isSubmitting) {
+    console.log("Validation results:", {
+      step1: validateStep1(),
+      step2: validateStep2(),
+      step3: validateStep3()
+    });
 
-  console.log("Form Data:", formData);
+    console.log("Form Data:", formData);
 
-console.log("Submitting form data:", formData);
-Object.entries(formData).forEach(([key, val]) => {
-  if (!val) console.warn(`${key} is missing or empty`);
-});
+    if (DEBUG || isSubmitting) {
+      console.log("Submitting form data:", formData);
+      Object.entries(formData).forEach(([key, val]) => {
+        if (!val) console.warn(`${key} is missing or empty`);
+      });
+    }
+  }
 // const sanitizedData = Object.fromEntries(
 //   Object.entries(formData).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
 // );
