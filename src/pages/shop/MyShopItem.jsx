@@ -254,9 +254,8 @@ const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
                         <span>{item.shop_address}</span>
                       </div>
                     )}
-                    {/* City removed per request */}
-                    { (item.productType || item.product_type) && (
-                      <p className="text-gray-700"><span className="font-medium">Product Type:</span> {item.productType || item.product_type}</p>
+                    {item.city && (
+                      <p className="text-gray-700"><span className="font-medium">City:</span> {item.city}</p>
                     )}
                   </div>
                 </div>
@@ -800,15 +799,22 @@ const MyShopItem = () => {
       return false;
      };
 
-     // Fetch data from backend (only once user or auth headers available)
-     useEffect(() => {
+    // Fetch data from backend (run when `user` changes). We intentionally avoid
+    // depending on `getAuthHeaders` (often unstable if the context recreates the function)
+    // and add cancellation so repeated renders or unmounts won't spawn overlapping requests.
+    useEffect(() => {
+      const controller = new AbortController();
+      let cancelled = false;
+
       const fetchShopItems = async () => {
         try {
           const token = localStorage.getItem('authToken');
           const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
           const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
 
-          const response = await axios.get('http://localhost:5000/api/v1/shop-products/my-shop', { headers });
+          const response = await axios.get('http://localhost:5000/api/v1/shop-products/my-shop', { headers, signal: controller.signal });
+
+          if (cancelled) return;
 
           // Debug the response structure
           console.log('API Response:', response.data);
@@ -817,11 +823,9 @@ const MyShopItem = () => {
           const products = response.data.products || response.data.data || response.data || [];
 
           // If we have a logged-in user, try to filter the returned list to items owned by them.
-          // Some backend endpoints already scope to the user's shop; this is a safe client-side guard.
           let finalProducts = products;
           if (user) {
             const owned = Array.isArray(products) ? products.filter(p => isItemOwnedByUser(p, user)) : [];
-            // If filtering yields results, use them; otherwise fall back to server response (server may already return scoped items)
             finalProducts = owned.length ? owned : products;
           }
 
@@ -832,23 +836,30 @@ const MyShopItem = () => {
             images: Array.isArray(p.images) ? p.images : (p.images ? (typeof p.images === 'string' ? p.images.split(',').map(s => s.trim()) : [p.images]) : [])
           }));
 
-          setShopItems(normalized);
+          if (!cancelled) setShopItems(normalized);
+
           // also fetch shop details for the edit panel
           try {
-            const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
-            const token = localStorage.getItem('authToken');
-            const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
-            const shopRes = await axios.get('http://localhost:5000/api/v1/shop-products/my-shop-view', { headers });
+            const shopRes = await axios.get('http://localhost:5000/api/v1/shop-products/my-shop-view', { headers, signal: controller.signal });
             const raw = shopRes.data?.data || shopRes.data || null;
             if (raw) {
-              const normalized = normalizeShop(raw);
-              console.log('Normalized shop details (fetch):', normalized);
-              setShopDetails(normalized);
-            } else setShopDetails(null);
-          } catch (e) { /* ignore */ }
-          setError(null);
+              const normalizedShop = normalizeShop(raw);
+              console.log('Normalized shop details (fetch):', normalizedShop);
+              if (!cancelled) setShopDetails(normalizedShop);
+            } else if (!cancelled) setShopDetails(null);
+          } catch (e) {
+            if (!cancelled) {
+              // swallow shop details errors — it's non-fatal for product listing
+              console.debug('Shop details fetch failed (ignored):', e?.message || e);
+            }
+          }
+
+          if (!cancelled) setError(null);
 
         } catch (err) {
+          // Don't proceed if request was aborted
+          if (err.name === 'CanceledError' || err.message === 'canceled') return;
+
           console.error('API Error:', {
             message: err.message,
             response: err.response?.data,
@@ -856,19 +867,28 @@ const MyShopItem = () => {
           });
 
           if (err.response?.status === 404) {
-            setShopItems([]);
-            setError("Your shop currently has no products");
+            if (!cancelled) {
+              setShopItems([]);
+              setError("Your shop currently has no products");
+            }
           } else {
-            setError(err.response?.data?.message || "Failed to load products");
+            if (!cancelled) setError(err.response?.data?.message || "Failed to load products");
           }
         } finally {
-          setLoading(false);
+          if (!cancelled) setLoading(false);
         }
       };
 
       fetchShopItems();
-      // re-run when user or auth helper changes
-    }, [user, getAuthHeaders]);
+
+      return () => {
+        cancelled = true;
+        try { controller.abort(); } catch (e) { /* ignore */ }
+      };
+      // only re-run when the authenticated user changes. `getAuthHeaders` may not be
+      // a stable reference from context, so avoid depending on it here to prevent
+      // repeated fetch loops; if you control AuthContext, memoize getAuthHeaders there.
+    }, [user]);
 
   const handleShopUpdate = async (updated) => {
     try {
