@@ -580,8 +580,7 @@ if (error) {
                 {[
                   { key: 'all', label: 'All' },
                   { key: 'active', label: 'Active' },
-                  { key: 'inactive', label: 'Inactive' },
-                  { key: 'pending', label: 'Pending' }
+                  { key: 'inactive', label: 'Inactive' }
                 ].map(tab => (
                   <button
                     key={tab.key}

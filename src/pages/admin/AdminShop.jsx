@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, PauseCircle, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, PauseCircle, X, Users, UserCheck, UserX, Activity } from 'lucide-react';
 
 // Dummy data for shops and items
 const dummyShops = [
@@ -245,6 +245,10 @@ const AdminShop = () => {
   // Search for items in selected shop
   const [itemSearch, setItemSearch] = useState('');
 
+  // Pagination for shops (table style)
+  const [currentPage, setCurrentPage] = useState(1);
+  const shopsPerPage = 9;
+
   // Filter shops by tab and search
   const filteredShops = shops.filter(shop => {
     // Tab filter
@@ -257,6 +261,26 @@ const AdminShop = () => {
       shop.city.toLowerCase().includes(search.toLowerCase())
     );
   });
+
+  // --- Shop stats and pagination ---
+  const shopStats = {
+    total: shops.length,
+    active: shops.filter(s => !s.suspended).length,
+    suspended: shops.filter(s => s.suspended).length
+  };
+
+  const statusColors = {
+    active: 'bg-green-100 text-green-800',
+    suspended: 'bg-red-100 text-red-800'
+  };
+
+  const totalShops = filteredShops.length;
+  const totalPages = Math.ceil(totalShops / shopsPerPage) || 1;
+  const paginatedShops = filteredShops.slice((currentPage - 1) * shopsPerPage, currentPage * shopsPerPage);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(1);
+  }, [filteredShops, currentPage, totalPages]);
 
   // Suspend shop
   const handleSuspendShop = (shopId) => {
@@ -314,11 +338,10 @@ const AdminShop = () => {
           </div>
         </div>
 
-        {/* Search and Filter Bar (UserManagement style) */}
+        {/* Search and Filter Bar (aligned with UserManagement) */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full">
-              {/* Search */}
+            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
@@ -329,80 +352,142 @@ const AdminShop = () => {
                   className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 w-full sm:w-64"
                 />
               </div>
-              {/* Status Filter Tabs */}
+
               <div className="flex space-x-1 bg-gray-100 p-1 rounded-md">
-                {[
-                  { key: 'all', label: 'All' },
-                  { key: 'active', label: 'Active' },
-                  { key: 'suspended', label: 'Suspended' }
-                ].map(tab => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                      activeTab === tab.key
-                        ? 'bg-green-600 text-white'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
+                {[{ key: 'all', label: 'All' }, { key: 'active', label: 'Active' }, { key: 'suspended', label: 'Suspended' }].map(tab => (
+                  <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`px-3 py-1 rounded text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}>
                     {tab.label}
                   </button>
                 ))}
               </div>
             </div>
-            <button
-              onClick={() => setShowFilters(f => !f)}
-              className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              {/* Filter icon */}
+            <button onClick={() => setShowFilters(f => !f)} className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.414V19a1 1 0 01-1.447.894l-2-1A1 1 0 019 18v-4.586a1 1 0 00-.293-.707L2.293 6.707A1 1 0 012 6V5a1 1 0 011-1z" /></svg>
               <span>Filters</span>
             </button>
           </div>
-          {showFilters && (
-            <div className="mt-4 p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm">
-              <span className="font-semibold">(Add more shop filters here if needed)</span>
-            </div>
-          )}
+          {showFilters && <div className="mt-4 p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm"><span className="font-semibold">(Add more shop filters here if needed)</span></div>}
         </div>
 
-        {/* Shop Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredShops.map(shop => (
-            <div key={shop.shopId} className={`bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 p-6 flex flex-col`}>
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-bold text-green-800">{shop.shopName}</h2>
-                {shop.suspended && (
-                  <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-semibold">Suspended</span>
-                )}
+  {/* Stats Cards */}
+  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-base text-gray-600 font-medium">Total Shops</p>
+                <p className="text-4xl font-bold text-gray-900 mt-2">{shopStats.total}</p>
               </div>
-              <div className="mb-2 text-gray-700">
-                <span className="font-semibold">Owner:</span> {shop.owner}<br />
-                <span className="font-semibold">City:</span> {shop.city}<br />
-                <span className="font-semibold">Phone:</span> {shop.phone}<br />
-                <span className="font-semibold">Email:</span> {shop.email}<br />
-                <span className="font-semibold">Address:</span> {shop.address}
-              </div>
-              <div className="flex gap-2 mb-4">
-                <button
-                  className="px-5 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all text-sm"
-                  onClick={() => openShopModal(shop)}
-                >
-                  View Items
-                </button>
-                <button
-                  className={`px-5 py-2 rounded-xl font-semibold transition-all ${shop.suspended
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
-                    : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'} flex items-center gap-2`}
-                  onClick={() => handleSuspendShop(shop.shopId)}
-                >
-                  <PauseCircle className="h-4 w-4" />
-                  {shop.suspended ? 'Unsuspend Shop' : 'Suspend Shop'}
-                </button>
+              <div className="bg-green-100 p-3 rounded-full">
+                <Users className="text-green-600" size={32} />
               </div>
             </div>
-          ))}
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-base text-gray-600 font-medium">Active</p>
+                <p className="text-4xl font-bold text-green-600 mt-2">{shopStats.active}</p>
+              </div>
+              <div className="bg-green-100 p-3 rounded-full">
+                <UserCheck className="text-green-600" size={32} />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-base text-gray-600 font-medium">Suspended</p>
+                <p className="text-4xl font-bold text-red-600 mt-2">{shopStats.suspended}</p>
+              </div>
+              <div className="bg-red-100 p-3 rounded-full">
+                <UserX className="text-red-600" size={32} />
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Shops Table */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedShops.length > 0 ? (
+                  paginatedShops.map(shop => (
+                    <tr key={shop.shopId} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                            <span className="text-green-600 font-medium">{shop.shopName[0]}</span>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{shop.shopName}</div>
+                            <div className="text-sm text-gray-500">{shop.address}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{shop.owner}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{shop.city}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{shop.phone}<br/>{shop.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${shop.suspended ? statusColors.suspended : statusColors.active}`}>{shop.suspended ? 'Suspended' : 'Active'}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button onClick={() => openShopModal(shop)} className="text-blue-600 hover:text-blue-900">View</button>
+                          <button onClick={() => handleSuspendShop(shop.shopId)} className="text-yellow-600 hover:text-yellow-900">{shop.suspended ? 'Unsuspend' : 'Suspend'}</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="text-center py-10 text-gray-500">No shops found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Pagination */}
+        {totalShops > 0 && (
+          <div className="bg-white px-4 py-3 flex items-center justify-between sm:px-6 mt-4 rounded-xl shadow-lg border border-gray-200">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-xl text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">Previous</button>
+              <span className="mx-2 text-green-700 font-semibold">Page {currentPage} of {totalPages}</span>
+              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-xl text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">Next</button>
+            </div>
+
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">Showing <span className="font-medium">{(currentPage - 1) * shopsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * shopsPerPage, totalShops)}</span> of <span className="font-medium">{totalShops}</span> results</p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-xl shadow-sm space-x-2" aria-label="Pagination">
+                  <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 rounded-xl border border-green-300 bg-white text-green-700 font-medium hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  </button>
+                  <span aria-current="page" className="px-4 py-2 rounded-xl border border-green-300 bg-green-100 text-green-700 font-semibold">Page {currentPage} of {totalPages}</span>
+                  <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-2 rounded-xl border border-green-300 bg-white text-green-700 font-medium hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Shop Details Modal */}
         {showShopModal && selectedShop && (
