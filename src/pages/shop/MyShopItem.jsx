@@ -1,3 +1,10 @@
+  // Map backend reason codes to user-friendly labels
+  const reasonLabels = {
+    delivery_issue: 'Delivery issue',
+    price_problem: 'Price problem',
+    item_issue: 'Item issue',
+    other: 'Other',
+  };
 import  { useState, useEffect,useCallback } from 'react';
 import React from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -1316,8 +1323,43 @@ const MyShopItem = () => {
                           <div className="mt-6">
                             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-900">
                               <h4 className="font-semibold text-lg">Your shop is currently disabled</h4>
-                              <p className="text-sm mt-1 text-gray-700">Your shop has been temporarily disabled due to detected unexpected behaviour. While the shop is disabled, your listed items will not be visible to customers in the public marketplace.</p>
+                              {/* (reason block moved below so it sits right above affected-items) */}
+
+                              <p className="text-sm mt-3 text-gray-700">Your shop has been temporarily disabled due to detected unexpected behaviour. While the shop is disabled, your listed items will not be visible to customers in the public marketplace.</p>
                               <p className="text-sm mt-2 text-gray-700">You may still manage orders that customers have placed. To view and act on customer orders (fulfil, cancel, or update status), please visit your Orders page.</p>
+
+                              {/* Suspension reason and detail if present - show immediately before affected-items */}
+                              {shopDetails?.suspension_reason && (
+                                <div className="mb-2 mt-2">
+                                  <div className="font-semibold text-yellow-900">
+                                    Reason: {reasonLabels[shopDetails.suspension_reason] || shopDetails.suspension_reason}
+                                  </div>
+                                  {shopDetails.suspension_detail && (
+                                    <div className="text-sm text-yellow-800 mt-1">{shopDetails.suspension_detail}</div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Suspended items list (if any) - show after the explanatory paragraphs */}
+                              {Array.isArray(shopDetails.suspension_items) && shopDetails.suspension_items.length > 0 && (
+                                <div className="mt-4 bg-yellow-100 border border-yellow-200 p-3 rounded-md">
+                                  <h5 className="font-semibold text-yellow-900">Affected item(s)</h5>
+                                  <ul className="mt-2 space-y-2">
+                                    {shopDetails.suspension_items.map(it => (
+                                      <li key={it.id} className="flex items-center justify-between bg-white/40 p-2 rounded">
+                                        <div>
+                                          <div className="font-medium text-yellow-900">{it.product_name}</div>
+                                          <div className="text-xs text-gray-700">{it.category}</div>
+                                        </div>
+                                        <div className="text-green-700 font-semibold">Rs {Number(it.price).toLocaleString('en-LK', { minimumFractionDigits: 2 })}</div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              <p className="text-sm mt-4 text-gray-700">If you need further clarification or would like to resolve this suspension, please contact our support team using the buttons below or email <a href="mailto:agrovia.customercare@gmail.com" className="text-green-700 underline">agrovia.customercare@gmail.com</a>.</p>
+
                               <div className="mt-3 flex flex-wrap gap-2">
                                 <button
                                   onClick={() => navigate('/orders')}
@@ -1331,9 +1373,6 @@ const MyShopItem = () => {
                                 >
                                   Contact Support
                                 </button>
-                                <a href="mailto:support@agrovia.lk" className="px-4 py-2 inline-flex items-center border border-gray-300 rounded text-gray-700 hover:bg-gray-50">
-                                  Email support@agrovia.lk
-                                </a>
                                 <button
                                   onClick={() => setShowEditShopModal(true)}
                                   className="px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
