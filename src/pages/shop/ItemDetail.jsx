@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, 
   Star, 
@@ -27,6 +27,44 @@ const ItemDetail = ({ item, onBack }) => {
   
   const { addToCart } = useCart();
 
+  const containerRef = useRef(null);
+
+  // Helper: scroll an element into view accounting for a fixed header height
+  const scrollToElementWithOffset = (el, offset = 96) => {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const absoluteTop = rect.top + window.pageYOffset;
+    const scrollTarget = Math.max(absoluteTop - offset, 0);
+    window.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+  };
+
+  // If page opens with a hash or hash changes, scroll with offset so headings are not hidden by header
+  useEffect(() => {
+    const doScrollToHash = () => {
+      const hash = window.location.hash;
+      if (hash) {
+        try {
+          const el = document.querySelector(hash);
+          if (el) {
+            // compute header height if present
+            const header = document.querySelector('.bg-white.shadow-lg.border-b');
+            const headerHeight = header ? header.getBoundingClientRect().height + 12 : 96;
+            scrollToElementWithOffset(el, headerHeight);
+          }
+        } catch (err) {
+          // ignore invalid selector
+        }
+      }
+    };
+
+    // initial check
+    doScrollToHash();
+
+    // listen for future hash changes
+    window.addEventListener('hashchange', doScrollToHash);
+    return () => window.removeEventListener('hashchange', doScrollToHash);
+  }, []);
+
   const handleAddToCart = () => {
     if (item.inStock) {
       addToCart(item, quantity);
@@ -53,10 +91,11 @@ const ItemDetail = ({ item, onBack }) => {
   };
 
   const features = item.features.split(', ');
-useEffect(() => {
+  useEffect(() => {
     fetch('http://localhost:5000/api/v1/shop-products')
       .then((res) => res.json())
-      .then((data) => {
+      .then((payload) => {
+        const data = payload?.data || payload || [];
         setProducts(data);
       })
       .catch((err) => {
@@ -176,10 +215,7 @@ useEffect(() => {
                   <span className="font-bold text-lg text-gray-700">{item.rating}</span>
                   <span className="text-gray-500">({item.reviewCount} reviews)</span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-500">
-                  <MapPin className="w-5 h-5" />
-                  <span className="font-semibold">{item.city}</span>
-                </div>
+                {/* City removed from product detail view per design */}
               </div>
 
               {/* Price Section */}
@@ -310,7 +346,7 @@ useEffect(() => {
                   </div>
                   <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
                     <h4 className="font-bold text-emerald-800 mb-3">Product Type</h4>
-                    <p className="text-emerald-700 text-lg capitalize">{item.product_type}</p>
+                      <p className="text-emerald-700 text-lg capitalize">{item.productType || item.product_type || '—'}</p>
                   </div>
                 </div>
               </div>
@@ -388,7 +424,7 @@ useEffect(() => {
                       </div>
                       <div className="flex items-center gap-3">
                         <MapPin className="w-5 h-5" />
-                        <span>{item.city}</span>
+                        {/* city removed */}
                       </div>
                     </div>
                   </div>

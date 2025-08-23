@@ -1,5 +1,70 @@
 import  { useState, useEffect,useCallback } from 'react';
 import React from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix default marker icon for leaflet in React
+try {
+  delete L.Icon.Default.prototype._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  });
+} catch (e) {
+  // ignore in environments where leaflet not available during SSR
+}
+// Top-level LocationPicker so multiple components can reuse it
+const LocationPicker = ({ show, onClose, onSelect, initialPosition }) => {
+  const [position, setPosition] = useState(initialPosition || [7.8731, 80.7718]); // default Sri Lanka
+
+  function LocationMarker() {
+    useMapEvents({
+      click(e) {
+        setPosition([e.latlng.lat, e.latlng.lng]);
+      }
+    });
+    return <Marker position={position} />;
+  }
+
+  return show ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
+        <h3 className="text-lg font-semibold mb-2 text-green-800">Select Location</h3>
+        <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
+          <MapContainer center={position} zoom={8} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <LocationMarker />
+          </MapContainer>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-medium">Cancel</button>
+          <button type="button" onClick={() => { onSelect(position); }} className="px-4 py-2 rounded bg-green-600 text-white font-semibold">Select</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+};
+// Local option lists (mirror ShopOwnerSignup)
+const openingDaysOptions = [
+  { value: 'Monday', label: 'Monday' }, { value: 'Tuesday', label: 'Tuesday' },
+  { value: 'Wednesday', label: 'Wednesday' }, { value: 'Thursday', label: 'Thursday' },
+  { value: 'Friday', label: 'Friday' }, { value: 'Saturday', label: 'Saturday' },
+  { value: 'Sunday', label: 'Sunday' }
+];
+const shopCategoryOptions = [
+  'Agricultural Supplies', 'Seeds & Plants', 'Fertilizers & Chemicals', 'Farm Equipment',
+  'Irrigation Systems', 'Tools & Hardware', 'Organic Products', 'Animal Feed',
+  'Agricultural Technology', 'General Agriculture Store'
+];
+const operatingHoursOptions = [
+  '6:00 AM - 6:00 PM', '7:00 AM - 7:00 PM', '8:00 AM - 8:00 PM',
+  '9:00 AM - 9:00 PM', '24/7', 'Custom Hours'
+];
 import { Search, MapPin, Phone, Mail, Star, Award, Package, DollarSign, Eye, Heart, Edit, Trash2, X, ArrowLeft, Upload } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
@@ -189,8 +254,9 @@ const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
                         <span>{item.shop_address}</span>
                       </div>
                     )}
-                    {item.city && (
-                      <p className="text-gray-700"><span className="font-medium">City:</span> {item.city}</p>
+                    {/* City removed per request */}
+                    { (item.productType || item.product_type) && (
+                      <p className="text-gray-700"><span className="font-medium">Product Type:</span> {item.productType || item.product_type}</p>
                     )}
                   </div>
                 </div>
@@ -259,18 +325,9 @@ const EditModal = React.memo(({
     setEditFormData
 }) => {
     const renderCategoryOptions = () => {
-      if (!editFormData.product_type) {
-        return (
-          <>
-            <option value="">Select product type first</option>
-          </>
-        );
-      }
-
       const optionsMap = {
         seeds: [
           { value: "vegetable", label: "Vegetable Seeds" },
-         
           { value: "grain", label: "Grain Seeds" }
         ],
         fertilizer: [
@@ -286,14 +343,19 @@ const EditModal = React.memo(({
           { value: "insecticide", label: "Insecticide" }
         ]
       };
+      // default fallback categories (merged) when no product_type selected
+      const defaultCategories = [
+        { value: '', label: 'Select category' },
+        ...new Map(Object.values(optionsMap).flat().map(o => [o.value, o])).values()
+      ];
+
+      const key = (editFormData.product_type || '').toString().toLowerCase();
+      const list = key ? (optionsMap[key] || []) : defaultCategories;
 
       return (
         <>
-          <option value="">Select category</option>
-          {optionsMap[editFormData.product_type]?.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
+          {list.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </>
       );
@@ -662,6 +724,32 @@ const MyShopItem = () => {
     const [shopItems, setShopItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [shopDetails, setShopDetails] = useState(null);
+    const [showEditShopModal, setShowEditShopModal] = useState(false);
+
+    // Normalize shop payloads from API into a consistent shape
+    const normalizeShop = (raw) => {
+      if (!raw) return null;
+      // accept multiple possible field names and types for is_active
+      const rawIsActive = typeof raw.is_active !== 'undefined' ? raw.is_active : (typeof raw.isActive !== 'undefined' ? raw.isActive : raw.active);
+      let is_active = 0;
+      if (typeof rawIsActive === 'boolean') is_active = rawIsActive ? 1 : 0;
+      else if (typeof rawIsActive === 'string') is_active = (rawIsActive === '1' || rawIsActive.toLowerCase() === 'true') ? 1 : 0;
+      else if (typeof rawIsActive === 'number') is_active = rawIsActive === 1 ? 1 : 0;
+
+      return {
+        ...raw,
+        is_active,
+        shop_phone_number: raw.shop_phone_number || raw.phone_no || raw.phone || '',
+        shop_email: raw.shop_email || raw.email || '',
+        shop_address: raw.shop_address || raw.address || '',
+        latitude: raw.latitude || raw.lat || null,
+        longitude: raw.longitude || raw.lng || null,
+        shop_image: raw.shop_image || raw.shop_image || null
+      };
+    };
+
+  // ...existing code...
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -689,52 +777,120 @@ const MyShopItem = () => {
         existingImages: []
     });
 
-    // Fetch data from backend
- useEffect(() => {
-  const fetchShopItems = async () => {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await axios.get(
-        'http://localhost:5000/api/v1/shop-products/my-shop', 
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      // Debug the response structure
-      console.log('API Response:', response.data);
-      
-      // Handle different possible response structures
-      const products = response.data.products || 
-                       response.data.data || 
-                       response.data || 
-                       [];
-      
-      setShopItems(products);
-      setError(null);
-      
-    } catch (err) {
-      console.error('API Error:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
-      
-      if (err.response?.status === 404) {
-        setShopItems([]);
-        setError("Your shop currently has no products");
-      } else {
-        setError(err.response?.data?.message || "Failed to load products");
+     // Helper: determine whether a product belongs to the logged-in user
+     const isItemOwnedByUser = (item, userObj) => {
+      if (!userObj) return false;
+      const userIds = [userObj.id, userObj.userId, userObj._id, userObj.uid].filter(Boolean).map(String);
+      const userEmails = [userObj.email, userObj.username].filter(Boolean).map(s => String(s).toLowerCase());
+      const possibleNames = [userObj.name, userObj.fullName, userObj.displayName].filter(Boolean).map(s => String(s).toLowerCase());
+
+      // Common item fields that might reference the owner
+      const idFields = ['user_id','userId','owner_id','ownerId','shop_id','shopId','shop_user_id','created_by','createdBy'];
+      for (const f of idFields) {
+        if (item[f] && userIds.includes(String(item[f]))) return true;
       }
-    } finally {
-      setLoading(false);
+
+      // Email or contact based match
+      if (item.owner_email && userEmails.includes(String(item.owner_email).toLowerCase())) return true;
+      if (item.email && userEmails.includes(String(item.email).toLowerCase())) return true;
+
+      // Name based fallback
+      if (item.owner_name && possibleNames.includes(String(item.owner_name).toLowerCase())) return true;
+
+      return false;
+     };
+
+     // Fetch data from backend (only once user or auth headers available)
+     useEffect(() => {
+      const fetchShopItems = async () => {
+        try {
+          const token = localStorage.getItem('authToken');
+          const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
+          const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
+
+          const response = await axios.get('http://localhost:5000/api/v1/shop-products/my-shop', { headers });
+
+          // Debug the response structure
+          console.log('API Response:', response.data);
+
+          // Handle different possible response structures
+          const products = response.data.products || response.data.data || response.data || [];
+
+          // If we have a logged-in user, try to filter the returned list to items owned by them.
+          // Some backend endpoints already scope to the user's shop; this is a safe client-side guard.
+          let finalProducts = products;
+          if (user) {
+            const owned = Array.isArray(products) ? products.filter(p => isItemOwnedByUser(p, user)) : [];
+            // If filtering yields results, use them; otherwise fall back to server response (server may already return scoped items)
+            finalProducts = owned.length ? owned : products;
+          }
+
+          // Normalize items: many components expect `shopitemid` and `images` fields.
+          const normalized = (Array.isArray(finalProducts) ? finalProducts : []).map(p => ({
+            ...p,
+            shopitemid: p.shopitemid || p.id || p.productId || String(p.id || p.productId || p.shopitemid),
+            images: Array.isArray(p.images) ? p.images : (p.images ? (typeof p.images === 'string' ? p.images.split(',').map(s => s.trim()) : [p.images]) : [])
+          }));
+
+          setShopItems(normalized);
+          // also fetch shop details for the edit panel
+          try {
+            const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
+            const token = localStorage.getItem('authToken');
+            const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
+            const shopRes = await axios.get('http://localhost:5000/api/v1/shop-products/my-shop-view', { headers });
+            const raw = shopRes.data?.data || shopRes.data || null;
+            if (raw) {
+              const normalized = normalizeShop(raw);
+              console.log('Normalized shop details (fetch):', normalized);
+              setShopDetails(normalized);
+            } else setShopDetails(null);
+          } catch (e) { /* ignore */ }
+          setError(null);
+
+        } catch (err) {
+          console.error('API Error:', {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status
+          });
+
+          if (err.response?.status === 404) {
+            setShopItems([]);
+            setError("Your shop currently has no products");
+          } else {
+            setError(err.response?.data?.message || "Failed to load products");
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchShopItems();
+      // re-run when user or auth helper changes
+    }, [user, getAuthHeaders]);
+
+  const handleShopUpdate = async (updated) => {
+    try {
+      const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
+      const token = localStorage.getItem('authToken');
+      const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
+
+  const res = await axios.put('http://localhost:5000/api/v1/shop-products/shop', updated, { headers });
+  const normalized = normalizeShop(res.data?.data || res.data || null);
+  console.log('Normalized shop details (update):', normalized);
+  setShopDetails(normalized);
+      setShowEditShopModal(false);
+      alert('Shop details updated');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update shop details');
     }
   };
 
-  fetchShopItems();
-}, []);
+  useEffect(() => {
+    console.log('shopDetails changed:', shopDetails);
+  }, [shopDetails]);
 
     // Clean up image previews when component unmounts
     useEffect(() => {
@@ -806,24 +962,25 @@ const MyShopItem = () => {
     formData.append('remainingImages', JSON.stringify(remainingImages));
 
     // Axios PUT request
+    const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
+    const token = localStorage.getItem('authToken');
+    const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
+
     const response = await axios.put(
       `http://localhost:5000/api/v1/shop-products/${editFormData.shopitemid}`,
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }
+      { headers }
     );
 
     //  Use response.data.product, not itemData
-    const updatedItem = response.data.product;
+    const updatedItemRaw = response.data?.product || response.data?.data || response.data;
+    const updatedItem = {
+      ...updatedItemRaw,
+      shopitemid: updatedItemRaw?.shopitemid || updatedItemRaw?.id || updatedItemRaw?.productId,
+      images: Array.isArray(updatedItemRaw?.images) ? updatedItemRaw.images : (updatedItemRaw?.images ? [updatedItemRaw.images] : [])
+    };
 
-    setShopItems(prevItems =>
-      prevItems.map(item =>
-        item.shopitemid === updatedItem.shopitemid ? updatedItem : item
-      )
-    );
+    setShopItems(prevItems => prevItems.map(item => (String(item.shopitemid) === String(updatedItem.shopitemid) ? updatedItem : item)));
 
     setShowEditModal(false);
     setSelectedItem(null);
@@ -849,8 +1006,7 @@ const MyShopItem = () => {
       images: [],
       existingImages: []
     });
-     alert('Product updated successfully!');
-  window.location.reload();
+  alert('Product updated successfully!');
   } catch (error) {
     console.error('Error updating item:', error);
     console.error('Detailed error:', error);
@@ -878,51 +1034,58 @@ const MyShopItem = () => {
 
     // Set edit form data when opening edit modal
     const handleEdit = (item) => {
+        // Normalize incoming item fields and prefer shop-level fields when available
+        const imagesArray = Array.isArray(item.images)
+          ? item.images
+          : (typeof item.images === 'string' && item.images.trim() ? item.images.split(',').map(s => s.trim()) : []);
+
+        // Map categories back to broad product_type when possible
+        const mapCategoryToType = (cat) => {
+          if (!cat) return '';
+          const c = String(cat).toLowerCase();
+          // Broad keyword mapping. Order matters: more specific keywords first.
+          const mapping = [
+            { type: 'seeds', keywords: ['seed', 'grain', 'rice', 'maize', 'wheat', 'vegetable', 'pulse', 'legume', 'seedling'] },
+            { type: 'fertilizer', keywords: ['fertil', 'npk', 'organic', 'compost', 'urea', 'manure', 'fertilizer', 'soil'] },
+            { type: 'chemical', keywords: ['pesticide', 'herbicide', 'fungicide', 'insecticide', 'chemical', 'pesticides', 'herbicides'] }
+          ];
+
+          for (const m of mapping) {
+            for (const kw of m.keywords) {
+              if (c.includes(kw)) return m.type;
+            }
+          }
+
+          return '';
+        };
+
+        const inferredProductType = item.product_type || mapCategoryToType(item.category) || '';
+
         setSelectedItem(item);
         setEditFormData({
-            shopitemid: item.shopitemid || '',
-            shop_name: item.shop_name || '',
-            owner_name: item.owner_name || '',
-            phone_no: item.phone_no || '',
-            shop_address: item.shop_address || '',
+            shopitemid: item.shopitemid || item.id || item.productId || '',
+            shop_name: item.shop_name || item.shop_name || '',
+            owner_name: item.owner_name || item.owner || '',
+            phone_no: item.phone_no || item.phone || item.contact || '',
+            shop_address: item.shop_address || (item.shop_address === undefined ? '' : item.shop_address),
             city: item.city || '',
-            product_type: item.product_type || '',
-            product_name: item.product_name || '',
-            brand: item.brand || '',
+            product_type: inferredProductType,
+            product_name: item.product_name || item.product_name || '',
+            brand: item.brand || item.brand_name || '',
             category: item.category || '',
             season: item.season || '',
             price: item.price || 0,
             unit: item.unit || '',
-            available_quantity: item.available_quantity || 0,
-            product_description: item.product_description || '',
+            available_quantity: item.available_quantity || item.quantity || 0,
+            product_description: item.product_description || item.description || '',
             usage_history: item.usage_history || '',
-            organic_certified: item.organic_certified || false,
-            terms_accepted: item.terms_accepted || false,
-            images: [],
-            existingImages: item.images ? item.images.map(img => ({ 
-                url: img,
-                markedForDeletion: false 
-            })) : []
+            organic_certified: Boolean(item.organic_certified),
+            terms_accepted: Boolean(item.terms_accepted),
+            images: [], // for new uploaded files
+            existingImages: imagesArray.map(url => ({ url, markedForDeletion: false }))
         });
-     let imagesArray = [];
 
-  if (Array.isArray(item.images)) {
-    imagesArray = item.images;
-  } else if (typeof item.images === 'string' && item.images.trim() !== '') {
-    imagesArray = item.images.split(',').map(url => url.trim());
-  }
-
-  setEditFormData({
-    ...item,
-    images: [], // for new uploaded files (empty at start)
-    existingImages: imagesArray.map(url => ({
-      url,
-      markedForDeletion: false
-    })),
-  });
-
-  setSelectedItem(item);
-  setShowEditModal(true);
+        setShowEditModal(true);
     };
 
     const handleDelete = (shopitemid) => {
@@ -932,20 +1095,23 @@ const MyShopItem = () => {
 
     const handleDeleteConfirm = async () => {
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/shop-products/${itemToDelete}`, {
-                method: 'DELETE',
-            });
+      const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
+      const token = localStorage.getItem('authToken');
+      const headers = headersFromCtx || { Authorization: token ? `Bearer ${token}` : undefined };
 
-            const data = await res.json();
-            
+      const res = await fetch(`http://localhost:5000/api/v1/shop-products/${itemToDelete}`, {
+        method: 'DELETE',
+        headers
+      });
 
-            if (res.ok) {
-                alert('Product deleted successfully');
-                setShopItems(prev => prev.filter(item => item.shopitemid !== itemToDelete));
-               
-            } else {
-                alert(`Failed to delete: ${data.message}`);
-            }
+      const data = await res.json();
+
+      if (res.ok) {
+        alert('Product deleted successfully');
+        setShopItems(prev => prev.filter(item => String(item.shopitemid) !== String(itemToDelete)));
+      } else {
+        alert(`Failed to delete: ${data.message || data.error || 'Unknown error'}`);
+      }
         } catch (err) {
             console.error('Error:', err);
             alert('Network error - could not connect to server');
@@ -1024,12 +1190,12 @@ const MyShopItem = () => {
                     </div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2">Error Loading Products</h2>
                     <p className="text-gray-600 mb-4">{error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                        Try Again
-                    </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Try Again
+          </button>
                 </div>
             </div>
         );
@@ -1055,6 +1221,26 @@ const MyShopItem = () => {
                         <h1 className="text-4xl font-bold text-green-800 mb-2">My Shop Items</h1>
                         <p className="text-green-600 text-lg">Manage your agricultural products and shop inventory</p>
                     </div>
+
+                    {/* Shop details panel */}
+                    {shopDetails && (
+                      <div className="bg-white p-4 rounded-lg shadow mb-6">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h2 className="text-xl font-bold text-green-800">{shopDetails.shop_name || 'My Shop'}</h2>
+                            <p className="text-sm text-gray-600">{shopDetails.shop_description}</p>
+                            <div className="mt-2 text-sm text-gray-700">
+                              {shopDetails.shop_address && <div>{shopDetails.shop_address}</div>}
+                              {shopDetails.shop_phone_number && <div>Phone: {shopDetails.shop_phone_number}</div>}
+                              {shopDetails.shop_email && <div>Email: {shopDetails.shop_email}</div>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button className="px-4 py-2 bg-blue-100 text-blue-700 rounded" onClick={() => setShowEditShopModal(true)}>Edit Shop Details</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Search and Filter Bar */}
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -1098,15 +1284,50 @@ const MyShopItem = () => {
                     <div className="mt-4 text-sm text-green-600">
                         Showing {filteredItems.length} of {shopItems.length} products
                     </div>
-                      {/* Add Item Button */}
-                    <div className="mt-6 flex justify-end">
-        <button
-            onClick={() => navigate('/itempostedForm')}
-            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow transition-colors flex items-center"
-        >
-            + Add Item
-        </button>
-    </div>
+                      {/* Add Item Button or Disabled notice */}
+                      {shopDetails && (
+                        Number(shopDetails.is_active) === 1 ? (
+                          <div className="mt-6 flex justify-end">
+                            <button
+                              onClick={() => navigate('/itempostedForm')}
+                              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow transition-colors flex items-center"
+                            >
+                              + Add Item
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-6">
+                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-900">
+                              <h4 className="font-semibold text-lg">Your shop is currently disabled</h4>
+                              <p className="text-sm mt-1 text-gray-700">Your shop has been temporarily disabled due to detected unexpected behaviour. While the shop is disabled, your listed items will not be visible to customers in the public marketplace.</p>
+                              <p className="text-sm mt-2 text-gray-700">You may still manage orders that customers have placed. To view and act on customer orders (fulfil, cancel, or update status), please visit your Orders page.</p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => navigate('/orders')}
+                                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                                >
+                                  Manage Orders
+                                </button>
+                                <button
+                                  onClick={() => navigate('/contact-us')}
+                                  className="px-4 py-2 bg-white border border-green-300 text-green-700 rounded hover:bg-green-50 transition-colors"
+                                >
+                                  Contact Support
+                                </button>
+                                <a href="mailto:support@agrovia.lk" className="px-4 py-2 inline-flex items-center border border-gray-300 rounded text-gray-700 hover:bg-gray-50">
+                                  Email support@agrovia.lk
+                                </a>
+                                <button
+                                  onClick={() => setShowEditShopModal(true)}
+                                  className="px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                >
+                                  Edit Shop Details
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      )}
                 </div>
             </div>
 
@@ -1228,8 +1449,163 @@ const MyShopItem = () => {
             />
         )}
             {showDeleteModal && <DeleteModal onConfirm={handleDeleteConfirm} onCancel={() => setShowDeleteModal(false)} />}
+            {showEditShopModal && (
+              <EditShopModal
+                shopDetails={shopDetails}
+                onClose={() => setShowEditShopModal(false)}
+                onSave={handleShopUpdate}
+              />
+            )}
         </div>
     );
+};
+
+const EditShopModal = ({ shopDetails, onClose, onSave }) => {
+  const [form, setForm] = useState({
+    shop_name: shopDetails?.shop_name || '',
+    shop_address: shopDetails?.shop_address || '',
+    shop_phone_number: shopDetails?.shop_phone_number || '',
+    shop_email: shopDetails?.shop_email || '',
+    shop_description: shopDetails?.shop_description || '',
+    shop_category: shopDetails?.shop_category || '',
+    operating_hours: shopDetails?.operating_hours || '',
+    opening_days: Array.isArray(shopDetails?.opening_days) ? shopDetails.opening_days : (shopDetails?.opening_days ? shopDetails.opening_days.split(',').map(s => s.trim()) : []),
+    delivery_areas: shopDetails?.delivery_areas || '',
+    latitude: shopDetails?.latitude || null,
+    longitude: shopDetails?.longitude || null
+  });
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [pendingLocation, setPendingLocation] = useState(null); // { address, latitude, longitude }
+
+  // reverse geocode helper using Nominatim (OpenStreetMap)
+  const reverseGeocode = async (lat, lon) => {
+    try {
+      const resp = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+        params: { format: 'jsonv2', lat, lon }
+      });
+      // prefer display_name, otherwise try address components
+      if (resp.data) {
+        return resp.data.display_name || (resp.data.address ? Object.values(resp.data.address).join(', ') : null);
+      }
+    } catch (err) {
+      // ignore errors, caller will fallback
+    }
+    return null;
+  };
+
+  const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+  const handleLocationSelect = async (pos) => {
+    const [lat, lon] = pos;
+    const address = await reverseGeocode(lat, lon);
+    const resolved = address || `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    // stage selection as pending; user must confirm to apply to form
+    setPendingLocation({ address: resolved, latitude: lat, longitude: lon });
+    setShowLocationPicker(false);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // persist opening_days as a CSV string to avoid JSON-array brackets in DB
+    const payload = {
+      ...form,
+      opening_days: Array.isArray(form.opening_days) ? form.opening_days.join(',') : form.opening_days
+    };
+    onSave(payload);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start md:items-center justify-center bg-black/40 p-4 overflow-auto">
+      <div className="bg-white rounded-2xl p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Edit Shop Details</h3>
+          <button onClick={onClose} className="text-gray-500">Close</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input name="shop_name" value={form.shop_name} onChange={handleChange} className="w-full p-2 border rounded" placeholder="Shop name" />
+          <div className="flex gap-2">
+            <input name="shop_address" value={form.shop_address} onChange={handleChange} className="flex-1 p-2 border rounded" placeholder="Address" />
+            <button type="button" onClick={() => setShowLocationPicker(true)} className="px-3 py-2 bg-blue-100 rounded">Pick</button>
+          </div>
+          {/* Pending location picked from map — show preview and require user to confirm */}
+          {pendingLocation && (
+            <div className="p-3 border rounded bg-yellow-50 flex items-start justify-between">
+              <div className="text-sm text-gray-800">
+                <div className="font-medium">Selected location (preview)</div>
+                <div className="mt-1">{pendingLocation.address}</div>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <button type="button" onClick={() => {
+                  // apply pending location to the form
+                  setForm(prev => ({ ...prev, shop_address: pendingLocation.address, latitude: pendingLocation.latitude, longitude: pendingLocation.longitude }));
+                  setPendingLocation(null);
+                }} className="px-3 py-1 bg-green-600 text-white rounded">Use this location</button>
+                <button type="button" onClick={() => setPendingLocation(null)} className="px-3 py-1 border rounded">Discard</button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Shop Category</label>
+              <select name="shop_category" value={form.shop_category || ''} onChange={handleChange} className="w-full p-2 border rounded">
+                <option value="">Select category</option>
+                {shopCategoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Operating Hours</label>
+              <select name="operating_hours" value={form.operating_hours || ''} onChange={handleChange} className="w-full p-2 border rounded">
+                <option value="">Select operating hours</option>
+                {operatingHoursOptions.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Opening Days (use Ctrl+Click to select multiple)</label>
+            <select name="opening_days" multiple value={form.opening_days || []} onChange={(e) => {
+              const selected = Array.from(e.target.selectedOptions).map(o => o.value);
+              setForm(prev => ({ ...prev, opening_days: selected }));
+            }} className="w-full p-2 border rounded h-36">
+              {openingDaysOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Areas</label>
+            <textarea name="delivery_areas" value={form.delivery_areas || ''} onChange={handleChange} className="w-full p-2 border rounded" placeholder="List areas you deliver to (comma separated)" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input name="shop_phone_number" value={form.shop_phone_number} onChange={handleChange} className="w-full p-2 border rounded" placeholder="Phone" />
+            <input name="shop_email" value={form.shop_email} onChange={handleChange} className="w-full p-2 border rounded" placeholder="Email" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea name="shop_description" value={form.shop_description} onChange={handleChange} className="w-full p-2 border rounded" placeholder="Description" />
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded">Save</button>
+          </div>
+
+          {showLocationPicker && (
+            <LocationPicker
+              show={showLocationPicker}
+              initialPosition={[form.latitude || 7.8731, form.longitude || 80.7718]}
+              onClose={() => setShowLocationPicker(false)}
+              onSelect={(pos) => { handleLocationSelect(pos); }}
+            />
+          )}
+        </form>
+      </div>
+    </div>
+  );
 };
 
 export default MyShopItem;

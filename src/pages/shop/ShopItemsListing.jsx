@@ -42,6 +42,19 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const { addToCart, getCartItemsCount } = useCart();
+
+  // Infer a normalized product type from available fields (product_type, category, name)
+  const inferProductType = (item) => {
+    const raw = (item.product_type || item.category || item.product_name || '').toString().toLowerCase();
+    if (!raw) return 'other';
+    // keyword mappings
+    if (raw.includes('seed') || /\b(sow|sprout|seedling|grain|bean)\b/.test(raw)) return 'seeds';
+    if (raw.includes('fertil') || raw.includes('manure') || raw.includes('compost') || /\b(npk|urea|nitrate)\b/.test(raw)) return 'fertilizer';
+    if (raw.includes('pesticide') || raw.includes('herbicide') || raw.includes('insecticide') || raw.includes('chemical') || raw.includes('fungicide')) return 'chemical';
+    // fallback: if it contains common product-type words
+    if (raw.includes('chem') ) return 'chemical';
+    return 'other';
+  };
 useEffect(() => {
   const fetchProducts = async () => {
     try {
@@ -49,13 +62,17 @@ useEffect(() => {
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }
-      const data = await response.json();
-      
-     setShopItems(data.map(item => ({
+  const payload = await response.json();
+  const data = payload?.data || payload || [];
+
+    // filter out products that belong to inactive shops
+    const activeData = (data || []).filter(item => Number(item.is_active) === 1);
+
+     setShopItems(activeData.map(item => ({
   ...item,
   organicCertified: Boolean(item.organic_certified),
   termsAccepted: Boolean(item.terms_accepted),
-  productType: item.product_type,
+  productType: inferProductType(item),
   productName: item.product_name,
   inStock: item.available_quantity > 0,
   rating: Number(item.rating) || 4.0,
@@ -68,7 +85,6 @@ useEffect(() => {
     item.images.filter(img => img) : // Remove empty/null images
     [item.images || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'],
   shopName: item.shop_name,
-  city: item.city
 })));
     } catch (err) {
       console.error('Error fetching products:', err);
@@ -246,10 +262,6 @@ useEffect(() => {
                 <span className="text-sm text-gray-500">({item.reviewCount})</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-gray-500 text-sm">
-              <MapPin className="w-4 h-4" />
-              {item.city}
-            </div>
           </div>
           <div className="bg-emerald-50 rounded-xl p-4 mb-4">
             <div className="flex items-baseline gap-2 mb-1">
@@ -339,10 +351,6 @@ useEffect(() => {
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
               <span className="text-sm font-bold text-gray-700">{item.rating}</span>
               <span className="text-sm text-gray-500">({item.reviewCount})</span>
-            </div>
-            <div className="flex items-center gap-1 text-gray-500 text-sm">
-              <MapPin className="w-4 h-4" />
-              {item.city}
             </div>
             <div className="flex justify-end items-end flex-1">
               <button 
@@ -655,12 +663,12 @@ useEffect(() => {
                   <h3 className="text-emerald-700 font-bold text-xl flex items-center gap-2">
                     <Leaf className="w-6 h-6" /> Farming Tips
                   </h3>
-                  <div className="mt-4 text-gray-700 text-base">
+                    <div className="mt-4 text-gray-700 text-base">
                     <div className="flex items-start gap-3 mb-3">
                       <div className="bg-emerald-100 rounded-full p-1.5 mt-1">
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
                       </div>
-                      <p>Use this {selectedProduct.product_type} during early morning or late evening for best results.</p>
+                      <p>Use this {selectedProduct.productType || selectedProduct.product_type || 'product'} during early morning or late evening for best results.</p>
                     </div>
                     <div className="flex items-start gap-3 mb-3">
                       <div className="bg-emerald-100 rounded-full p-1.5 mt-1">
@@ -730,20 +738,11 @@ useEffect(() => {
                   </div>
                   {/* Column 2 */}
                   <div className="space-y-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <p className="text-base font-medium text-blue-600">City</p>
-                      <input
-                        type="text"
-                        value={selectedProduct.city}
-                        readOnly
-                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
-                      />
-                    </div>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <p className="text-base font-medium text-gray-600">Product Type</p>
                       <input
                         type="text"
-                        value={selectedProduct.product_type}
+                        value={selectedProduct.productType || selectedProduct.product_type || ''}
                         readOnly
                         className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
                       />
