@@ -766,18 +766,25 @@ const CartPage = () => {
                         <span className="text-sm bg-green-50 px-2 py-1 rounded-lg border border-green-200">{item.district || item.location}</span>
                       </div>
 
-                      {/* Payment Method Select */}
-                      <div className="mb-2">
-                        <label className="block text-base font-bold text-agrovia-700 mb-1">Payment Method</label>
-                        <select
-                          className="w-40 px-3 py-2 border-2 border-agrovia-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-agrovia-500 bg-agrovia-50 text-agrovia-700 text-base font-bold shadow-md"
-                          value={paymentMethod}
-                          onChange={e => setPaymentMethods(pm => ({ ...pm, [item.id]: e.target.value }))}
-                        >
-                          <option value="Pickup">Pickup</option>
-                          <option value="Hire Transport">Hire Transport</option>
-                        </select>
-                      </div>
+                      {/* Payment Method Select (hidden once transporter is chosen) */}
+                      {!item.transporter ? (
+                        <div className="mb-2">
+                          <label className="block text-base font-bold text-agrovia-700 mb-1">Payment Method</label>
+                          <select
+                            className="w-40 px-3 py-2 border-2 border-agrovia-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-agrovia-500 bg-agrovia-50 text-agrovia-700 text-base font-bold shadow-md"
+                            value={paymentMethod}
+                            onChange={e => setPaymentMethods(pm => ({ ...pm, [item.id]: e.target.value }))}
+                          >
+                            <option value="Pickup">Pickup</option>
+                            <option value="Hire Transport">Hire Transport</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="mb-2">
+                          <label className="block text-base font-bold text-agrovia-700 mb-1">Payment Method</label>
+                          <div className="inline-block px-3 py-2 bg-blue-50 text-blue-700 rounded-lg border border-blue-100 font-semibold">Hire Transport</div>
+                        </div>
+                      )}
 
                       {/* Coordinates & Transport Costs Section */}
                       {minQty > 1 && (
