@@ -1,98 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Wheat, Apple, Carrot, Grape, TrendingUp, Calendar, ChevronDown, Target, Zap, Brain, BarChart3, TrendingDown } from 'lucide-react';
 
-const crops = [
+// Default crop data as fallback - simplified
+const defaultCrops = [
   { 
-    id: 'wheat', 
-    name: 'Wheat', 
-    icon: Wheat, 
-    currentPrice: 285.50, 
-    forecastChange: 8.4, 
-    unit: '$/ton',
-    nextWeekForecast: 295.20
-  },
-  { 
-    id: 'corn', 
-    name: 'Corn', 
-    icon: Wheat, 
-    currentPrice: 195.25, 
-    forecastChange: 12.1, 
-    unit: '$/ton',
-    nextWeekForecast: 205.80
-  },
-  { 
-    id: 'rice', 
-    name: 'Rice', 
-    icon: Wheat, 
-    currentPrice: 420.80, 
-    forecastChange: 15.6, 
-    unit: '$/ton',
-    nextWeekForecast: 445.30
-  },
-  { 
-    id: 'soybeans', 
-    name: 'Soybeans', 
-    icon: Wheat, 
-    currentPrice: 515.60, 
-    forecastChange: 6.8, 
-    unit: '$/ton',
-    nextWeekForecast: 535.40
-  },
-  { 
-    id: 'apples', 
-    name: 'Apples', 
+    id: 'tomato', 
+    name: 'Tomato', 
     icon: Apple, 
-    currentPrice: 1250.00, 
+    currentPrice: 89.50, 
+    forecastChange: 7.2, 
+    unit: 'LKR/kg',
+    nextWeekForecast: 95.40
+  },
+  { 
+    id: 'cabbage', 
+    name: 'Cabbage', 
+    icon: Apple, 
+    currentPrice: 145.00, 
+    forecastChange: 5.8, 
+    unit: 'LKR/kg',
+    nextWeekForecast: 153.40
+  },
+  { 
+    id: 'beans', 
+    name: 'Beans', 
+    icon: Apple, 
+    currentPrice: 390.00, 
     forecastChange: 3.2, 
-    unit: '$/ton',
-    nextWeekForecast: 1280.50
-  },
-  { 
-    id: 'carrots', 
-    name: 'Carrots', 
-    icon: Carrot, 
-    currentPrice: 680.30, 
-    forecastChange: 18.9, 
-    unit: '$/ton',
-    nextWeekForecast: 720.80
-  },
-  { 
-    id: 'grapes', 
-    name: 'Grapes', 
-    icon: Grape, 
-    currentPrice: 1850.75, 
-    forecastChange: 9.3, 
-    unit: '$/ton',
-    nextWeekForecast: 1920.40
-  },
-  { 
-    id: 'potatoes', 
-    name: 'Potatoes', 
-    icon: Carrot, 
-    currentPrice: 340.20, 
-    forecastChange: 14.7, 
-    unit: '$/ton',
-    nextWeekForecast: 365.10
-  },
-  {
-    id: 'tomatoes',
-    name: 'Tomatoes',
-    icon: Apple,
-    currentPrice: 890.50,
-    forecastChange: 7.2,
-    unit: '$/ton',
-    nextWeekForecast: 925.40
-  },
-  {
-    id: 'onions',
-    name: 'Onions',
-    icon: Apple,
-    currentPrice: 245.80,
-    forecastChange: 11.6,
-    unit: '$/ton',
-    nextWeekForecast: 265.30
+    unit: 'LKR/kg',
+    nextWeekForecast: 402.48
   }
 ];
+
+// Icon mapping for crop categories
+const getCropIcon = (cropName) => {
+  const iconMap = {
+    'tomato': Apple,
+    'onions': Apple,
+    'carrots': Carrot,
+    'rice': Wheat,
+    'wheat': Wheat,
+    'corn': Wheat,
+    'corns': Wheat,
+    'cabbage': Apple,
+    'beans': Apple,
+    'cucumber': Apple,
+    'default': Wheat
+  };
+  
+  const normalizedName = cropName.toLowerCase().replace(/\s+/g, '');
+  return iconMap[normalizedName] || iconMap['default'];
+};
 
 const CropSelector = ({
   selectedCrop,
@@ -101,6 +59,70 @@ const CropSelector = ({
   onSearchChange,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [crops, setCrops] = useState(defaultCrops);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch available crops from API
+  useEffect(() => {
+    const fetchCrops = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch('http://localhost:5001/crops', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch crops from API');
+        }
+        
+        const data = await response.json();
+        console.log('API Response:', data);
+        
+        if (data.success && data.cropsData && Array.isArray(data.cropsData)) {
+          // Transform API crops into our component format
+          const transformedCrops = data.cropsData.map(cropData => {
+            const cropName = cropData.displayName || cropData.name;
+            const IconComponent = getCropIcon(cropName);
+            
+            // Generate mock prices based on crop name (you can improve this)
+            const basePrice = Math.floor(Math.random() * 300) + 50;
+            const forecastChange = (Math.random() * 20).toFixed(1);
+            
+            return {
+              id: cropData.id,
+              name: cropName,
+              icon: IconComponent,
+              currentPrice: basePrice,
+              forecastChange: parseFloat(forecastChange),
+              unit: 'LKR/kg',
+              nextWeekForecast: basePrice * (1 + parseFloat(forecastChange) / 100),
+              category: cropData.category
+            };
+          }).slice(0, 20); // Limit to first 20 crops to avoid UI clutter
+          
+          setCrops(transformedCrops);
+          console.log('Transformed crops:', transformedCrops.length);
+        } else {
+          console.warn('Invalid crops data from API, using defaults');
+          setCrops(defaultCrops);
+        }
+      } catch (err) {
+        console.error('Error fetching crops:', err);
+        setError('Failed to load crops from server, using defaults');
+        setCrops(defaultCrops);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCrops();
+  }, []);
 
   const filteredCrops = crops.filter(crop =>
     crop.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -121,6 +143,12 @@ const CropSelector = ({
           <TrendingUp className="w-6 h-6 text-green-600" />
         </div>
         <h2 className="text-2xl font-bold text-gray-800">Select Crop for Forecast</h2>
+        {loading && (
+          <div className="text-sm text-blue-600">Loading crops...</div>
+        )}
+        {error && (
+          <div className="text-sm text-red-600">{error}</div>
+        )}
       </div>
       
       <div className="relative mb-6">
@@ -328,6 +356,7 @@ const PriceChart = ({ cropName, timePeriod, onTimePeriodChange }) => {
   };
 
   const timePeriods = [
+    { value: '1w', label: '1 Week' },
     { value: '1m', label: '1 Month' },
     { value: '3m', label: '3 Months' },
     { value: '6m', label: '6 Months' },
@@ -800,8 +829,8 @@ const Statistics = ({ cropName }) => {
 };
 
 function FuturePriceForecast() {
-  const [selectedCrop, setSelectedCrop] = useState('wheat');
-  const [timePeriod, setTimePeriod] = useState('3m');
+  const [selectedCrop, setSelectedCrop] = useState('tomato'); // Default to tomato
+  const [timePeriod, setTimePeriod] = useState('1w');
   const [searchTerm, setSearchTerm] = useState('');
 
   return (
