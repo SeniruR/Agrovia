@@ -73,6 +73,34 @@ const DriverDeliveriesPage = () => {
     }
   };
 
+  // Optimistic start delivery: move from pending -> inProgress and switch tab, then PATCH server
+  const startDelivery = async (delivery) => {
+    if (!delivery) return;
+
+    setDeliveriesByStatus(prev => {
+      const pending = (prev.pending || []).filter(d => d.id !== delivery.id);
+      const inProgress = [{ ...delivery, status: 'in-progress' }, ...(prev.inProgress || [])];
+      return { ...prev, pending, inProgress };
+    });
+
+    setActiveTab('inProgress');
+
+    try {
+      await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'in-progress' }),
+      });
+    } catch (err) {
+      console.error('Failed to persist delivery start to server', err);
+      // We keep optimistic update; optionally handle revert or show error to user.
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -191,14 +219,12 @@ const DriverDeliveriesPage = () => {
 
           
           {delivery.status === 'pending' && (
-           
-              <button className="flex-1 bg-gradient-to-r from-green-600 to-green-800 text-white py-2 px-4 rounded-lg hover:from-green-700 hover:to-green-900 transition-colors">
-
-
+            <button
+              onClick={() => startDelivery(delivery)}
+              className="flex-1 bg-gradient-to-r from-green-600 to-green-800 text-white py-2 px-4 rounded-lg hover:from-green-700 hover:to-green-900 transition-colors"
+            >
               Start Delivery
-                
-</button>
-           
+            </button>
           )}
           
           {delivery.status === 'in-progress' && (
