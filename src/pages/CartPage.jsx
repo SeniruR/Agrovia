@@ -388,22 +388,83 @@ const CartPage = () => {
   const fetchTransporters = async () => {
     setLoadingTransporters(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/transporters');
-      if (response.ok) {
-        const result = await response.json();
-        let transporterData = [];
-        if (result.success && result.data) {
-          transporterData = result.data;
-        } else if (Array.isArray(result)) {
-          transporterData = result;
-        } else if (result.transporters) {
-          transporterData = result.transporters;
-        }
-        setTransporters(transporterData);
-      } else {
+      // include auth headers if available
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {})
+      };
+
+      const response = await fetch('http://localhost:5000/api/v1/transporters', {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to fetch transporters, status:', response.status);
         setTransporters([]);
+        return;
       }
-    } catch {
+
+      const result = await response.json();
+      let transporterData = [];
+      if (result && result.success && result.data) {
+        transporterData = result.data;
+      } else if (Array.isArray(result)) {
+        transporterData = result;
+      } else if (result && result.transporters) {
+        transporterData = result.transporters;
+      } else if (result && typeof result === 'object') {
+        // try to pull any array-like prop
+        const arr = Object.values(result).find(v => Array.isArray(v));
+        if (arr) transporterData = arr;
+      }
+
+      // Normalizer: map common API variants to a stable shape used by UI
+      const normalize = (t) => {
+        const id = t?.id ?? t?.transport_id ?? t?.transporter_id ?? null;
+        const name = t?.full_name ?? t?.name ?? t?.transport_name ?? t?.transporter_name ?? null;
+        const phone = t?.phone_number ?? t?.phone ?? t?.contact ?? t?.phoneNumber ?? null;
+        const vehicle_type = t?.vehicle_type ?? t?.vehicleType ?? t?.vehicle ?? null;
+        const vehicle_number = t?.vehicle_number ?? t?.vehicleNumber ?? t?.vehicle_no ?? null;
+        const district = t?.district ?? t?.location ?? t?.area ?? null;
+        const baseRate = Number(t?.base_rate ?? t?.baseRate ?? t?.baseRateValue ?? 500);
+        const perKmRate = Number(t?.per_km_rate ?? t?.perKmRate ?? t?.perKmRateValue ?? 25);
+  // rating removed per UX request
+
+        return {
+          ...t,
+          id,
+          transport_id: t?.transport_id ?? id,
+          transporter_id: t?.transporter_id ?? id,
+          name: name || (id ? `Transporter ${id}` : null),
+          full_name: name,
+          phone_number: phone,
+          phone: phone,
+          vehicle_type,
+          vehicle_number,
+          vehicle: vehicle_type ? `${vehicle_type}${vehicle_number ? ' (' + vehicle_number + ')' : ''}` : vehicle_number,
+          district,
+          baseRate,
+          perKmRate,
+          perKm: perKmRate
+        };
+      };
+
+      let normalized = transporterData.map(normalize);
+
+      // Filter out clearly invalid/placeholder entries
+      const cleaned = normalized.filter(t => {
+        const nameOk = t.name && typeof t.name === 'string' && t.name.trim().length > 1 && !/^unknown/i.test(t.name.trim());
+        const idOk = t.id != null;
+        const phoneOk = !t.phone || (String(t.phone).replace(/\D/g, '').length >= 6);
+        return idOk && nameOk && phoneOk;
+      });
+
+      // If filtering removed everything, fall back to normalized list to avoid empty UI
+      setTransporters(cleaned.length > 0 ? cleaned : normalized);
+    } catch (err) {
+      console.error('Error fetching transporters:', err);
       setTransporters([]);
     } finally {
       setLoadingTransporters(false);
@@ -766,18 +827,25 @@ const CartPage = () => {
                         <span className="text-sm bg-green-50 px-2 py-1 rounded-lg border border-green-200">{item.district || item.location}</span>
                       </div>
 
-                      {/* Payment Method Select */}
-                      <div className="mb-2">
-                        <label className="block text-base font-bold text-agrovia-700 mb-1">Payment Method</label>
-                        <select
-                          className="w-40 px-3 py-2 border-2 border-agrovia-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-agrovia-500 bg-agrovia-50 text-agrovia-700 text-base font-bold shadow-md"
-                          value={paymentMethod}
-                          onChange={e => setPaymentMethods(pm => ({ ...pm, [item.id]: e.target.value }))}
-                        >
-                          <option value="Pickup">Pickup</option>
-                          <option value="Hire Transport">Hire Transport</option>
-                        </select>
-                      </div>
+                      {/* Payment Method Select (hidden once transporter is chosen) */}
+                      {!item.transporter ? (
+                        <div className="mb-2">
+                          <label className="block text-base font-bold text-agrovia-700 mb-1">Payment Method</label>
+                          <select
+                            className="w-40 px-3 py-2 border-2 border-agrovia-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-agrovia-500 bg-agrovia-50 text-agrovia-700 text-base font-bold shadow-md"
+                            value={paymentMethod}
+                            onChange={e => setPaymentMethods(pm => ({ ...pm, [item.id]: e.target.value }))}
+                          >
+                            <option value="Pickup">Pickup</option>
+                            <option value="Hire Transport">Hire Transport</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="mb-2">
+                          <label className="block text-base font-bold text-agrovia-700 mb-1">Payment Method</label>
+                          <div className="inline-block px-3 py-2 bg-blue-50 text-blue-700 rounded-lg border border-blue-100 font-semibold">Hire Transport</div>
+                        </div>
+                      )}
 
                       {/* Coordinates & Transport Costs Section */}
                       {minQty > 1 && (
@@ -797,7 +865,7 @@ const CartPage = () => {
                               </div>
                               <p className="text-sm text-gray-700 mt-1 font-medium">{item.transporter.name}</p>
                               <p className="text-xs text-gray-600">{item.transporter.vehicle}</p>
-                              <p className="text-xs text-gray-600">Phone: {item.transporter.phone}</p>
+                              <p className="text-xs text-gray-600">Phone: {item.transporter.phone_no ?? item.transporter.phone_number ?? item.transporter.phone ?? 'N/A'}</p>
                               
                               {/* Transport Cost - Only show total */}
                               {item.transporter.cost > 0 && (
@@ -899,8 +967,7 @@ const CartPage = () => {
                                         <h4 className="font-bold text-gray-900 mb-1">{transporter.full_name || transporter.name}</h4>
                                         <p className="text-sm text-gray-600 mb-1">District: {transporter.district}</p>
                                         <p className="text-sm text-gray-600 mb-1">Vehicle: {transporter.vehicle_type} ({transporter.vehicle_number})</p>
-                                        <p className="text-sm text-gray-600 mb-1">Phone: {transporter.phone_number}</p>
-                                        <p className="text-sm text-gray-600 mb-1">Rating: {transporter.rating || 'N/A'}</p>
+                                        <p className="text-sm text-gray-600 mb-1">Phone: {transporter.phone_no ?? transporter.phone_number ?? transporter.phone ?? 'N/A'}</p>
                                         <p className="text-sm text-gray-600 mb-3">
                                           Base Rate: LKR {transporter.baseRate || 500} | Per KM: LKR {transporter.perKmRate || 25}
                                         </p>
@@ -1025,7 +1092,8 @@ const CartPage = () => {
                                             // Map transporter field variants (camelCase/snake_case) so we don't send nulls
                                             const vehicleType = transporter.vehicle_type ?? transporter.vehicleType ?? transporter.vehicle ?? null;
                                             const vehicleNumber = transporter.vehicle_number ?? transporter.vehicleNumber ?? transporter.vehicleNo ?? null;
-                                            const phoneNumber = transporter.phone_number ?? transporter.phone ?? transporter.phoneNumber ?? null;
+                                            // Prefer DB phone_no but include phone_number for backward compatibility
+                                            const phoneNumber = transporter.phone_no ?? transporter.phone_number ?? transporter.phone ?? transporter.phoneNumber ?? null;
                                             const baseRateVal = Number(transporter.base_rate ?? transporter.baseRate ?? transporter.baseRateValue ?? 500);
                                             const perKmRateVal = Number(transporter.per_km_rate ?? transporter.perKmRate ?? transporter.perKmRateValue ?? 25);
                                             const districtVal = transporter.district ?? transporter.location ?? transporter.area ?? null;
@@ -1049,7 +1117,9 @@ const CartPage = () => {
                                               // transporter snapshot fields (mapped)
                                               vehicle_type: vehicleType,
                                               vehicle_number: vehicleNumber,
+                                              // Include both names so backend that expects phone_no receives it
                                               phone_number: phoneNumber,
+                                              phone_no: transporter.phone_no ?? phoneNumber,
                                               base_rate: isNaN(baseRateVal) ? null : baseRateVal,
                                               per_km_rate: isNaN(perKmRateVal) ? null : perKmRateVal,
                                               // computed values

@@ -51,7 +51,8 @@ export const CartProvider = ({ children }) => {
               const name = alloc.transporter_name || alloc.full_name || alloc.name || alloc.transport_name || null;
               const vehicleType = alloc.vehicle_type ?? alloc.vehicle ?? null;
               const vehicleNumber = alloc.vehicle_number ?? alloc.vehicle_no ?? alloc.vehicleNumber ?? null;
-              const phone = alloc.phone_number ?? alloc.phone ?? alloc.phoneNumber ?? null;
+              // Prefer DB phone_no if present, otherwise fall back to common variants
+              const phone = alloc.phone_no ?? alloc.phone_number ?? alloc.phone ?? alloc.phoneNumber ?? null;
               const baseRate = Number(alloc.base_rate ?? alloc.baseRate ?? alloc.baseRateValue ?? 500);
               const perKmRate = Number(alloc.per_km_rate ?? alloc.perKmRate ?? alloc.perKmRateValue ?? 25);
               const distance = Number(alloc.calculated_distance ?? alloc.distance ?? 0) || 0;
@@ -63,7 +64,10 @@ export const CartProvider = ({ children }) => {
                 full_name: name,
                 vehicle_type: vehicleType,
                 vehicle_number: vehicleNumber,
-                phone_number: phone,
+                // Preserve original DB field and common variants so UI and other code can access them
+                phone_no: alloc.phone_no ?? null,
+                phone_number: alloc.phone_number ?? phone,
+                phone: phone,
                 vehicle: `${vehicleType || ''}${vehicleNumber ? ' (' + vehicleNumber + ')' : ''}`,
                 district: alloc.district ?? alloc.location ?? null,
                 distance,
@@ -434,13 +438,18 @@ export const CartProvider = ({ children }) => {
             }
           }
           
+          // Resolve phone values preferring DB phone_no
+          const resolvedPhone = transporter.phone_no ?? transporter.phone_number ?? transporter.phone ?? transporter.phoneNumber ?? null;
           return {
             ...item,
             transporter: {
               ...transporter,
               name: transporter.full_name || transporter.name,
               vehicle: `${transporter.vehicle_type} (${transporter.vehicle_number})`,
-              phone: transporter.phone_number,
+              // Preserve both phone_no and phone_number for backend compatibility
+              phone_no: transporter.phone_no ?? null,
+              phone_number: transporter.phone_number ?? resolvedPhone,
+              phone: resolvedPhone,
               district: transporter.district,
               distance: distance,
               cost: transportCost,

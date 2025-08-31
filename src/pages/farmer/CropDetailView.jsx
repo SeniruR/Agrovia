@@ -1339,7 +1339,7 @@ const CropDetailView = () => {
                               <div className="flex items-center">
                                 <Phone className="w-4 h-4 text-green-500 mr-2" />
                                 <span className="text-sm text-gray-700">
-                                  {transporter.phone_number || transporter.phoneNumber || transporter.phone || 'No phone provided'}
+                                  {transporter.phone_no ?? transporter.phone_number ?? transporter.phoneNumber ?? transporter.phone ?? 'No phone provided'}
                                 </span>
                               </div>
 
@@ -1366,9 +1366,9 @@ const CropDetailView = () => {
                             {/* Action Button */}
                             <div className="mt-4 flex space-x-2">
                               
-                              {(transporter.phone_number || transporter.phoneNumber || transporter.phone) && (
+                              {(transporter.phone_no || transporter.phone_number || transporter.phoneNumber || transporter.phone) && (
                                 <a
-                                  href={`tel:${transporter.phone_number || transporter.phoneNumber || transporter.phone}`}
+                                  href={`tel:${transporter.phone_no ?? transporter.phone_number ?? transporter.phoneNumber ?? transporter.phone}`}
                                   className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition-colors font-medium text-sm flex items-center justify-center"
                                 >
                                   <Phone className="w-4 h-4" />
