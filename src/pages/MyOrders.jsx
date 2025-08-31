@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { CheckCircle, Truck, Package, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle, Truck, Package, Clock, AlertCircle, Search } from 'lucide-react';
 
 const MyOrders = () => {
   const { getAuthHeaders, loading: authLoading } = useAuth();
@@ -8,6 +8,8 @@ const MyOrders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [transportFilter, setTransportFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -42,9 +44,30 @@ const MyOrders = () => {
 
   // Derive status categories
   const statuses = Array.from(new Set(orders.map(o => o.status)));
-  const filteredOrders = activeTab === 'all'
-    ? orders
-    : orders.filter(o => o.status === activeTab);
+
+  // First apply status filter
+  const statusFiltered = activeTab === 'all' ? orders : orders.filter(o => o.status === activeTab);
+
+  // Apply transporter-assigned filter and search across orders/products
+  const filteredOrders = (statusFiltered || []).map(order => {
+    const products = (order.products || []).filter(product => {
+      // transport filter
+      const hasTransport = product.transports && product.transports.length > 0;
+      if (transportFilter === 'assigned' && !hasTransport) return false;
+      if (transportFilter === 'not_assigned' && hasTransport) return false;
+
+      // search filter
+      const q = (searchTerm || '').toLowerCase().trim();
+      if (!q) return true;
+      const hay = [
+        order.externalOrderId, order.orderId, order.id,
+        product.productName, product.productLocation, product.productDistrict,
+        order.deliveryName, order.deliveryPhone, order.deliveryAddress
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+    return { ...order, products };
+  }).filter(o => o.products && o.products.length > 0);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -75,18 +98,38 @@ const MyOrders = () => {
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-2xl font-bold text-green-600">{orders.length}</div>
-            <div className="text-sm text-gray-600">Total Orders</div>
-          </div>
-          {statuses.map(status => (
-            <div key={status} className="bg-white rounded-lg p-4 shadow-sm">
-              <div className="text-2xl font-bold text-gray-800">{orders.filter(o => o.status === status).length}</div>
-              <div className="text-sm text-gray-600 capitalize">{status}</div>
+  {/* summary cards removed as requested */}
+        {/* Status Filter Tabs */}
+        <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 items-center w-full">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search orders or products..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
+                />
+              </div>
+              <div className="flex space-x-1 bg-gray-100 p-1 rounded-md">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'assigned', label: 'Assigned' },
+                  { key: 'not_assigned', label: 'Not assigned' }
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setTransportFilter(tab.key)}
+                    className={`px-3 py-1 rounded text-sm font-medium transition-colors ${transportFilter === tab.key ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          ))}
+          </div>
         </div>
         {/* Status Filter Tabs */}
         <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">

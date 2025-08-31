@@ -1,87 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Phone, Clock, Package, Navigation, CheckCircle, AlertCircle, User, Calendar, Truck } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const DriverDeliveriesPage = () => {
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const { getAuthHeaders, loading: authLoading, user } = useAuth();
 
-  // Mock delivery data
-  const deliveries = {
-    pending: [
-      {
-        id: 'DEL001',
-        farmerName: 'Sunil Perera',
-        farmerPhone: '+94771234567',
-        buyerName: 'Green Valley Stores',
-        buyerPhone: '+94712345678',
-        crop: 'Rice (Red)',
-        quantity: '50 kg',
-        pickupLocation: 'Kurunegala, North Western Province',
-        deliveryLocation: 'Colombo 07, Western Province',
-        distance: '85 km',
-        estimatedTime: '2 hours',
-        amount: 'Rs. 12,500',
-        scheduledDate: '2025-06-25',
-        scheduledTime: '08:00 AM',
-        status: 'pending'
-      },
-      {
-        id: 'DEL002',
-        farmerName: 'Kamala Silva',
-        farmerPhone: '+94777654321',
-        buyerName: 'City Fresh Market',
-        buyerPhone: '+94719876543',
-        crop: 'Coconut',
-        quantity: '100 pieces',
-        pickupLocation: 'Gampaha, Western Province',
-        deliveryLocation: 'Kandy, Central Province',
-        distance: '120 km',
-        estimatedTime: '3 hours',
-        amount: 'Rs. 8,000',
-        scheduledDate: '2025-06-25',
-        scheduledTime: '10:30 AM',
-        status: 'pending'
+  const [deliveriesByStatus, setDeliveriesByStatus] = useState({ pending: [], inProgress: [], completed: [] });
+  const [loadingDeliveries, setLoadingDeliveries] = useState(true);
+  const [deliveriesError, setDeliveriesError] = useState(null);
+
+  useEffect(() => {
+    const fetchDeliveries = async () => {
+      setLoadingDeliveries(true);
+      setDeliveriesError(null);
+      try {
+        const res = await fetch('http://localhost:5000/api/v1/driver/deliveries', {
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to fetch deliveries');
+        const data = await res.json();
+        const list = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+
+        const pending = [];
+        const inProgress = [];
+        const completed = [];
+
+        list.forEach(d => {
+          const s = (d.status || '').toLowerCase();
+          if (s === 'completed') completed.push(d);
+          else if (s === 'in-progress' || s === 'inprogress' || s === 'in_progress' || s === 'in progress') inProgress.push(d);
+          else pending.push(d);
+        });
+
+        setDeliveriesByStatus({ pending, inProgress, completed });
+      } catch (err) {
+        setDeliveriesError(err.message || 'Error loading deliveries');
+      } finally {
+        setLoadingDeliveries(false);
       }
-    ],
-    inProgress: [
-      {
-        id: 'DEL003',
-        farmerName: 'Ranjan Fernando',
-        farmerPhone: '+94765432109',
-        buyerName: 'Fresh Foods Ltd',
-        buyerPhone: '+94723456789',
-        crop: 'Tomatoes',
-        quantity: '25 kg',
-        pickupLocation: 'Matale, Central Province',
-        deliveryLocation: 'Negombo, Western Province',
-        distance: '95 km',
-        estimatedTime: '2.5 hours',
-        amount: 'Rs. 6,750',
-        scheduledDate: '2025-06-24',
-        scheduledTime: '02:00 PM',
-        status: 'in-progress'
+    };
+
+    if (!authLoading) fetchDeliveries();
+  }, [getAuthHeaders, authLoading]);
+
+  // Open Google Maps directions (prefers coordinates, falls back to addresses)
+  const openGoogleMaps = (delivery) => {
+    try {
+      const hasCoords = delivery.farmerLatitude && delivery.farmerLongitude && delivery.buyerLatitude && delivery.buyerLongitude;
+      let url = 'https://www.google.com/maps/dir/?api=1';
+      if (hasCoords) {
+        // origin = farmer (pickup), destination = buyer (delivery)
+        url += `&origin=${delivery.farmerLatitude},${delivery.farmerLongitude}`;
+        url += `&destination=${delivery.buyerLatitude},${delivery.buyerLongitude}`;
+      } else {
+        // fallback to using pickup and delivery addresses
+        const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
+        const destination = encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
+        url += `&origin=${origin}&destination=${destination}`;
       }
-    ],
-    completed: [
-      {
-        id: 'DEL004',
-        farmerName: 'Nimal Jayasinghe',
-        farmerPhone: '+94754321098',
-        buyerName: 'Organic Market Hub',
-        buyerPhone: '+94734567890',
-        crop: 'Carrots',
-        quantity: '30 kg',
-        pickupLocation: 'Nuwara Eliya, Central Province',
-        deliveryLocation: 'Mount Lavinia, Western Province',
-        distance: '140 km',
-        estimatedTime: '4 hours',
-        amount: 'Rs. 9,200',
-        scheduledDate: '2025-06-23',
-        scheduledTime: '06:00 AM',
-        status: 'completed',
-        completedAt: '2025-06-23 12:30 PM'
-      }
-    ]
+      // Open in new tab (this will open Google Maps web, mobile may prompt to open app)
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open Google Maps', err);
+      // fallback: open maps.google.com
+      window.open('https://www.google.com/maps', '_blank');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -105,14 +94,16 @@ const DriverDeliveriesPage = () => {
   const DeliveryCard = ({ delivery }) => (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4">
       <div className="flex justify-between items-start mb-3">
-        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
           <Package className="w-5 h-5 text-green-600" />
-          <span className="font-semibold text-gray-800">{delivery.id}</span>
+          <span className="font-semibold text-gray-800">{delivery.externalOrderId || delivery.orderId || delivery.id}</span>
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(delivery.status)} flex items-center space-x-1`}>
+        <div className="flex items-center gap-2">
+          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(delivery.status)} flex items-center space-x-1`}>
           {getStatusIcon(delivery.status)}
           <span className="capitalize">{delivery.status.replace('-', ' ')}</span>
-        </span>
+          </span>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -122,7 +113,7 @@ const DriverDeliveriesPage = () => {
             <span className="text-lg font-bold text-green-700">{delivery.amount}</span>
           </div>
           <div className="text-green-700">
-            <span className="font-semibold">{delivery.crop}</span> - {delivery.quantity}
+            <span className="font-semibold">{delivery.productName || delivery.crop || 'Unknown crop'}</span> - {delivery.quantity} {delivery.productUnit || delivery.unit || ''}
           </div>
         </div>
 
@@ -188,13 +179,13 @@ const DriverDeliveriesPage = () => {
         )}
 
         <div className="flex space-x-2 pt-3">
-     <button 
-  className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
-  onClick={() => setSelectedDelivery(delivery)}
->
-  <Navigation className="w-4 h-4" />
-  <span>View Route</span>
-</button>
+    <button 
+      className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
+      onClick={() => openGoogleMaps(delivery)}
+    >
+      <Navigation className="w-4 h-4" />
+      <span>View Route</span>
+    </button>
 
 
 
@@ -255,8 +246,14 @@ const DriverDeliveriesPage = () => {
 
         {/* Delivery Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {deliveries[activeTab].length > 0 ? (
-            deliveries[activeTab].map((delivery) => (
+          {loadingDeliveries ? (
+            <div className="col-span-full text-center py-12">
+              <div className="text-gray-500">Loading deliveries...</div>
+            </div>
+          ) : deliveriesError ? (
+            <div className="col-span-full text-center py-12 text-red-600">{deliveriesError}</div>
+          ) : deliveriesByStatus[activeTab] && deliveriesByStatus[activeTab].length > 0 ? (
+            deliveriesByStatus[activeTab].map((delivery) => (
               <DeliveryCard key={delivery.id} delivery={delivery} />
             ))
           ) : (
