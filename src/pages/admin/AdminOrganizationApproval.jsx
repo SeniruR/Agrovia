@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import FullScreenLoader from '../../components/ui/FullScreenLoader';
-import { Building2, MapPin, User, Phone, FileText, Calendar, Users, Check, X, AlertCircle } from 'lucide-react';
+import { Building2, MapPin, User, Phone, FileText, Calendar, Users, Check, X, AlertCircle, Search } from 'lucide-react';
 import axios from 'axios';
 
 // Helper for displaying a dash if value is empty
@@ -20,6 +20,10 @@ const AdminOrganizationApproval = () => {
   const [filter, setFilter] = useState('pending');
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // --- Pagination State ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const organizationsPerPage = 50; // You can adjust this number
 
   // Fetch organizations summary by status (no details)
   useEffect(() => {
@@ -42,8 +46,11 @@ const AdminOrganizationApproval = () => {
     fetchOrgs();
   }, [filter]);
 
-  // This state is now managed inside the modal
-  // const [removalMessage, setRemovalMessage] = useState('');
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchTerm]);
+
 
   const handleAction = async (orgId, action, message = '') => {
     setActionLoading(true);
@@ -106,7 +113,6 @@ const AdminOrganizationApproval = () => {
   };
 
   const OrgModal = () => {
-    // **NEW**: State for removal confirmation now lives inside the modal
     const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
     const [removalMessage, setRemovalMessage] = useState('');
 
@@ -199,7 +205,6 @@ const AdminOrganizationApproval = () => {
           </div>
           {/* Modal Footer */}
           <div className="bg-slate-50 px-8 py-4 flex flex-col items-end">
-            {/* **MODIFIED**: Logic for suspended organizations */}
             {filter === 'suspended' && orgDetails && (
               <div className="w-full">
                 <textarea
@@ -234,7 +239,6 @@ const AdminOrganizationApproval = () => {
               </div>
             )}
             
-            {/* Other filters */}
             {filter === 'pending' && orgDetails && (
               <div className="flex justify-end space-x-4">
                 <button
@@ -277,6 +281,33 @@ const AdminOrganizationApproval = () => {
     );
   };
 
+  // --- Start of Filtering and Pagination Logic ---
+  const filteredAndSortedOrganizations = organizations
+    .slice() // copy array to avoid mutating state
+    .sort((a, b) => {
+      const dateA = new Date(a.createdDate || a.created_at || 0);
+      const dateB = new Date(b.createdDate || b.created_at || 0);
+      return dateB - dateA;
+    })
+    .filter(org => {
+      const search = searchTerm.toLowerCase();
+      return (
+        (org.org_name || org.organizationName || '').toLowerCase().includes(search) ||
+        (org.org_area || org.area || '').toLowerCase().includes(search) ||
+        (org.govijanasewaniladariname || '').toLowerCase().includes(search) ||
+        (org.govijanasewaniladariContact || '').toLowerCase().includes(search)
+      );
+    });
+
+  const totalOrganizations = filteredAndSortedOrganizations.length;
+  const totalPages = Math.ceil(totalOrganizations / organizationsPerPage);
+
+  const paginatedOrganizations = filteredAndSortedOrganizations.slice(
+    (currentPage - 1) * organizationsPerPage,
+    currentPage * organizationsPerPage
+  );
+  // --- End of Filtering and Pagination Logic ---
+
   if (loading) {
     return <FullScreenLoader />;
   }
@@ -294,7 +325,6 @@ const AdminOrganizationApproval = () => {
               <h1 className="text-4xl font-bold text-white">Organization Approval</h1>
               <p className="text-green-100 text-lg mt-2">Approve or reject farmer organizations</p>
             </div>
-            {/* Filter Tabs moved to filter/search section below */}
           </div>
         </div>
       </div>
@@ -305,7 +335,7 @@ const AdminOrganizationApproval = () => {
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               {/* Search */}
               <div className="relative">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
                   placeholder="Search organizations..."
@@ -344,24 +374,8 @@ const AdminOrganizationApproval = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {organizations
-                  .slice() // copy array to avoid mutating state
-                  .sort((a, b) => {
-                    // Try to use createdDate, fallback to created_at, fallback to 0
-                    const dateA = new Date(a.createdDate || a.created_at || 0);
-                    const dateB = new Date(b.createdDate || b.created_at || 0);
-                    return dateB - dateA;
-                  })
-                  .filter(org => {
-                    const search = searchTerm.toLowerCase();
-                    return (
-                      (org.org_name || org.organizationName || '').toLowerCase().includes(search) ||
-                      (org.org_area || org.area || '').toLowerCase().includes(search) ||
-                      (org.govijanasewaniladariname || '').toLowerCase().includes(search) ||
-                      (org.govijanasewaniladariContact || '').toLowerCase().includes(search)
-                    );
-                  })
-                  .map(org => (
+                {paginatedOrganizations.length > 0 ? (
+                  paginatedOrganizations.map(org => (
                   <tr key={org.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -401,11 +415,79 @@ const AdminOrganizationApproval = () => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="text-center py-10 text-gray-500">
+                      No organizations found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
+        
+        {/* --- Pagination Component --- */}
+        {totalOrganizations > 0 && (
+          <div className="bg-white px-4 py-3 flex items-center justify-between sm:px-6 mt-4 rounded-xl shadow-lg border border-gray-200">
+            {/* Mobile Pagination */}
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-xl text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Previous
+              </button>
+              <span className="mx-2 text-green-700 font-semibold">Page {currentPage} of {totalPages}</span>
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="relative inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-xl text-green-700 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Next
+              </button>
+            </div>
+
+            {/* Desktop Pagination */}
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{(currentPage - 1) * organizationsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * organizationsPerPage, totalOrganizations)}</span> of{' '}
+                  <span className="font-medium">{totalOrganizations}</span> results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-xl shadow-sm space-x-2" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 rounded-xl border border-green-300 bg-white text-green-700 font-medium hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <span aria-current="page" className="px-4 py-2 rounded-xl border border-green-300 bg-green-100 text-green-700 font-semibold">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 rounded-xl border border-green-300 bg-white text-green-700 font-medium hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       {/* Org Modal */}
       {modalOpen && selectedOrg && <OrgModal />}
