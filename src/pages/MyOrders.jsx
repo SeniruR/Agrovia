@@ -123,8 +123,70 @@ const MyOrders = () => {
                 <h3 className="font-medium text-gray-800">Products:</h3>
                 <ul className="list-disc list-inside text-gray-700">
                   {order.products?.map(product => (
-                    <li key={product.id}>
-                      {product.productName} - Quantity: {product.quantity}
+                    <li key={product.id} className="mb-2 w-full">
+                      <div className="flex items-start w-full">
+                        <div className="w-full">
+                          <div className="font-medium">{product.productName} <span className="text-sm text-gray-500">× {product.quantity}{' '}{product.productUnit || product.unit || product.productUnitName || ''}</span></div>
+                          {/* Show pickup vs delivery */}
+                          {product.transports && product.transports.length > 0 ? (
+                            <div className="mt-2 w-full">
+                              <div className="w-full flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-md p-3 shadow-sm">
+                                <Truck className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                  <div className="font-semibold text-blue-800">Delivery details</div>
+                                  {/* Delivery person block - styled like farmer details */}
+                                  <div className="mt-2 bg-white border-l-4 border-blue-400 rounded-md p-3 shadow-sm">
+                                    <div className="text-xs text-gray-500">Delivery person</div>
+                                    <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
+                                      <div>Name: <span className="font-medium text-blue-700">{product.transports[0].transporter_name || (product.transports[0].transporter_id ? `Transporter ${product.transports[0].transporter_id}` : 'Assigned Transport')}</span></div>
+                                      <div>Phone: {product.transports[0].transporter_phone ? (<a className="text-blue-700 font-medium" href={`tel:${product.transports[0].transporter_phone}`}>{product.transports[0].transporter_phone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                                      <div className="col-span-2 text-sm text-gray-700">Transport cost: <span className="font-medium">{product.transports[0].transport_cost ? `LKR ${product.transports[0].transport_cost}` : '—'}</span></div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-3">Note: You can arrange transport dates according to your preference.</div>
+                                  {/* Farmer block (same structure for both pickup and delivery) */}
+                                  {product.productFarmerName || product.productFarmerPhone || product.productLocation ? (
+                                    <div className="mt-3 bg-white border-l-4 border-gray-200 rounded-md p-3 shadow-sm">
+                                      <div className="text-xs text-gray-500">Farmer details</div>
+                                      <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
+                                        <div>Name: <span className="font-medium">{product.productFarmerName || '—'}</span></div>
+                                        <div>Phone: {product.productFarmerPhone ? (<a className="text-blue-700 font-medium" href={`tel:${product.productFarmerPhone}`}>{product.productFarmerPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                                        {product.productLocation ? (<div className="col-span-2 text-sm text-gray-700">Location: <span className="font-medium">{product.productLocation}</span></div>) : null}
+                                        {product.productDistrict ? (<div className="col-span-2 text-xs text-gray-600">District: {product.productDistrict}</div>) : null}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  <div className="text-sm text-gray-700 mt-2">Amount: {product.quantity} {product.productUnit || product.unit || product.productUnitName || ''}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-2 w-full">
+                              <div className="w-full flex items-start gap-3 bg-green-50 border border-green-200 rounded-md p-3 shadow-sm">
+                                <Package className="w-5 h-5 text-green-700 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                  <div className="font-semibold text-green-800">Pickup details</div>
+                                  {/* Farmer block (same structure for both pickup and delivery) */}
+                                  {product.productFarmerName || product.productFarmerPhone || product.productLocation ? (
+                                    <div className="mt-2 bg-white border-l-4 border-green-400 rounded-md p-3 shadow-sm">
+                                      <div className="text-xs text-gray-500">Farmer details</div>
+                                      <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
+                                        <div>Name: <span className="font-medium">{product.productFarmerName || '—'}</span></div>
+                                        <div>Phone: {product.productFarmerPhone ? (<a className="text-green-700 font-medium" href={`tel:${product.productFarmerPhone}`}>{product.productFarmerPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                                        {product.productLocation ? (<div className="col-span-2 text-sm text-gray-700">Location: <span className="font-medium">{product.productLocation}</span></div>) : null}
+                                        {product.productDistrict ? (<div className="col-span-2 text-xs text-gray-600">District: {product.productDistrict}</div>) : null}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-1 text-sm text-green-700">{product.productLocation || product.location || product.farmerName || 'Seller location'}</div>
+                                  )}
+                                  <div className="text-sm text-gray-700 mt-2">Amount: {product.quantity} {product.productUnit || product.unit || product.productUnitName || ''}</div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </li>
                   )) || <li>No products available</li>}
                 </ul>
