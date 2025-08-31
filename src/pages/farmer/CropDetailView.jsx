@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+  // Use build-time env var for backend URL (must be inside component for browser)
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -38,20 +40,10 @@ const CropDetailView = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageIdx, setModalImageIdx] = useState(0);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviews, setReviews] = useState([
-    {
-      user: 'A. Perera',
-      rating: 5,
-      comment: 'Excellent quality, very fresh!'
-    },
-    {
-      user: 'B. Silva',
-      rating: 4,
-      comment: 'Good rice, delivery was quick.'
-    }
-  ]);
+  const [reviews, setReviews] = useState([]);
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
+  const [reviewImages, setReviewImages] = useState([]);
 
   // Transport states
   const [showTransportModal, setShowTransportModal] = useState(false);
@@ -173,6 +165,53 @@ const CropDetailView = () => {
       fetchCropData();
     }
   }, [id]);
+
+  // Fetch reviews when crop data is loaded
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!crop || !crop.id) return;
+      try {
+        const response = await fetch(`/api/v1/crop-reviews?crop_id=${crop.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.reviews)) {
+            // Map backend attachments (string or array) to images for frontend display
+            const formattedReviews = data.reviews.map(review => {
+              let images = [];
+              if (Array.isArray(review.attachments)) {
+                images = review.attachments;
+              } else if (typeof review.attachments === 'string' && review.attachments.trim() !== '') {
+                images = review.attachments.split(',').map(s => s.trim()).filter(Boolean);
+              } else if (Array.isArray(review.attachment_urls)) {
+                images = review.attachment_urls;
+              }
+              // Parse rating as number if it's a string like '3 Stars'
+              let rating = review.rating;
+              if (typeof rating === 'string') {
+                const match = rating.match(/(\d+)/);
+                rating = match ? parseInt(match[1], 10) : 0;
+              }
+              return {
+                id: review.id,
+                user: review.buyer_name || 'Anonymous',
+                rating,
+                comment: review.comment,
+                images,
+                created_at: review.created_at
+              };
+            });
+            setReviews(formattedReviews);
+            console.log('Fetched reviews:', formattedReviews);
+          }
+        } else {
+          console.error('Failed to fetch reviews');
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      }
+    };
+    fetchReviews();
+  }, [crop]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -977,25 +1016,145 @@ const CropDetailView = () => {
               <label className="block text-sm font-semibold mb-2">Comment:</label>
               <textarea value={newComment} onChange={e => setNewComment(e.target.value)} className="w-full p-2 border rounded" rows={3} />
             </div>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-2">Upload Images:</label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files);
+                    // Convert to array of file objects with preview URLs
+                    const imageFiles = files.map(file => ({
+                      file,
+                      preview: URL.createObjectURL(file)
+                    }));
+                    setReviewImages([...reviewImages, ...imageFiles]);
+                  }}
+                  className="hidden"
+                  id="review-images"
+                />
+                <label htmlFor="review-images" className="flex flex-col items-center cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-sm text-gray-600 font-medium">Click to upload photos of the crop</span>
+                  <span className="text-xs text-gray-500 mt-1">JPG, PNG, GIF up to 5MB</span>
+                </label>
+              </div>
+              {/* Preview uploaded images */}
+              {reviewImages.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {reviewImages.map((img, idx) => (
+                      <div key={idx} className="relative group">
+                        <img 
+                          src={img.preview} 
+                          alt={`Review image ${idx + 1}`} 
+                          className="w-16 h-16 object-cover rounded-md border border-gray-200"
+                        />
+                        <button
+                          onClick={() => {
+                            const newImages = [...reviewImages];
+                            newImages.splice(idx, 1);
+                            setReviewImages(newImages);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove image"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="flex space-x-4">
               <button
-                onClick={() => setShowReviewModal(false)}
+                onClick={() => {
+                  setShowReviewModal(false);
+                  setReviewImages([]);
+                }}
                 className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
               >Cancel</button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (newRating > 0 && newComment.trim()) {
-                    setReviews([...reviews, { user: user?.name || 'Anonymous', rating: newRating, comment: newComment }]);
-                    setNewRating(0);
-                    setNewComment('');
-                    setShowReviewModal(false);
+                    try {
+                      // First check if the user is logged in
+                      if (!user || !user.id) {
+                        alert('Please log in to submit a review');
+                        return;
+                      }
+                      
+                      // Create FormData to handle file uploads
+                      const formData = new FormData();
+                      formData.append('crop_id', crop.id);
+                      formData.append('buyer_id', user.id);
+                      formData.append('rating', newRating); // Send numeric rating
+                      formData.append('comment', newComment);
+                      
+                      // Append all image files
+                      reviewImages.forEach((img, index) => {
+                        if (img.file) {
+                          formData.append(`attachments`, img.file);
+                        }
+                      });
+                      
+                      // Send data to server
+                      const response = await fetch('/api/v1/crop-reviews', {
+                        method: 'POST',
+                        headers: {
+                          ...getAuthHeaders(),
+                          // Don't set Content-Type when using FormData, browser will set it with boundary
+                        },
+                        body: formData,
+                      });
+                      
+                      if (response.ok) {
+                        const data = await response.json();
+                        
+                        // Update UI with the new review
+                        const newReview = { 
+                          id: data.id,
+                          user: user?.name || 'Anonymous', 
+                          rating: newRating, 
+                          comment: newComment,
+                          images: data.review?.attachment_urls || [] 
+                        };
+                        
+                        setReviews(prevReviews => [newReview, ...prevReviews]);
+                        
+                        // Show success message
+                        alert('Review submitted successfully!');
+                      } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        alert(`Error: ${errorData.message || 'Failed to submit review'}`);
+                      }
+                    } catch (error) {
+                      console.error('Error submitting review:', error);
+                      alert('Error submitting review. Please try again.');
+                    } finally {
+                      setNewRating(0);
+                      setNewComment('');
+                      setReviewImages([]);
+                      setShowReviewModal(false);
+                    }
+                  } else {
+                    alert('Please provide both a rating and a comment.');
                   }
                 }}
                 className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-700 text-white font-bold shadow hover:from-yellow-600 hover:to-yellow-800 transition-all"
               >Submit</button>
             </div>
             <button
-              onClick={() => setShowReviewModal(false)}
+              onClick={() => {
+                setShowReviewModal(false);
+                setReviewImages([]);
+              }}
               className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold"
               aria-label="Close"
             >&times;</button>
@@ -1010,15 +1169,54 @@ const CropDetailView = () => {
           <div className="text-gray-500 text-center">No reviews yet. Be the first to review!</div>
         ) : (
           <ul className="space-y-4">
-            {reviews.map((r, idx) => (
-              <li key={idx} className="border-b pb-4">
-                <div className="flex items-center mb-1">
-                  {[...Array(r.rating)].map((_, i) => <Star key={i} className="w-4 h-4 text-yellow-400 mr-1 inline" />)}
-                  <span className="ml-2 font-semibold text-gray-800">{r.user}</span>
-                </div>
-                <div className="text-gray-700">{r.comment}</div>
-              </li>
-            ))}
+            {reviews.map((review, idx) => {
+              // Ensure rating is a valid, finite, non-negative integer
+              const safeRating = Number.isFinite(Number(review.rating)) && Number(review.rating) > 0 ? Math.floor(Number(review.rating)) : 0;
+              // Debug: print the review object to the console
+              console.log('Review object:', review);
+              return (
+                <li key={review.id || idx} className="border-b pb-4">
+                  <div className="flex items-center mb-1">
+                    <span className="font-semibold text-gray-800">{review.user || review.buyer_name}</span>
+                    <span className="ml-4 text-xs text-gray-500">
+                      {review.created_at ? new Date(review.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric', month: 'short', day: 'numeric'
+                      }) : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center mb-1 mt-1">
+                    {Array.from({ length: safeRating }).map((_, i) => (
+                      <Star key={i} className="w-4 h-4 text-yellow-400 mr-1 inline" />
+                    ))}
+                  </div>
+                  <div className="text-gray-700 mb-2">{review.comment}</div>
+                  {review.images && review.images.length > 0 && (
+                    <div className="mt-2">
+                      <div className="flex flex-wrap gap-2">
+                        {review.images.map((img, imgIdx) => {
+                          let imgPath = img;
+                          if (!img.startsWith('http') && !img.startsWith('/uploads/')) {
+                            imgPath = '/uploads/' + img;
+                          }
+                          const imgUrl = imgPath.startsWith('http') ? imgPath : `${BACKEND_URL}${imgPath}`;
+                          // Debug: print the image URL to the console
+                          console.log('Review image URL:', imgUrl);
+                          return (
+                            <a key={imgIdx} href={imgUrl} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={imgUrl}
+                                alt={`Review image ${imgIdx + 1}`}
+                                className="w-32 h-32 object-cover rounded border border-gray-200 hover:border-yellow-400 transition-colors"
+                              />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
