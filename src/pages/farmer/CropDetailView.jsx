@@ -1117,15 +1117,15 @@ const CropDetailView = () => {
                       if (response.ok) {
                         const data = await response.json();
                         
-                        // Update UI with the new review
+                        // Update UI with the new review, showing buyer's name immediately
                         const newReview = { 
                           id: data.id,
-                          user: user?.name || 'Anonymous', 
+                          buyer_name: user?.full_name || user?.name || 'Anonymous',
+                          buyer_id: user?.id,
                           rating: newRating, 
                           comment: newComment,
                           images: data.review?.attachment_urls || [] 
                         };
-                        
                         setReviews(prevReviews => [newReview, ...prevReviews]);
                         
                         // Show success message
