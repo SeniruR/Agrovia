@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Package, Navigation, CheckCircle, AlertCircle, User, Calendar, Truck } from 'lucide-react';
+import { MapPin, Phone, Clock, Package, Navigation, CheckCircle, AlertCircle, User, Calendar, Truck, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const DriverDeliveriesPage = () => {
@@ -11,41 +11,58 @@ const DriverDeliveriesPage = () => {
   const [loadingDeliveries, setLoadingDeliveries] = useState(true);
   const [deliveriesError, setDeliveriesError] = useState(null);
 
-  useEffect(() => {
-    const fetchDeliveries = async () => {
-      setLoadingDeliveries(true);
-      setDeliveriesError(null);
-      try {
-        const res = await fetch('http://localhost:5000/api/v1/driver/deliveries', {
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeaders()
-          },
-          credentials: 'include'
-        });
-        if (!res.ok) throw new Error('Failed to fetch deliveries');
-        const data = await res.json();
-        const list = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+  // Function to fetch deliveries (extracted for reuse)
+  const fetchDeliveries = async () => {
+    setLoadingDeliveries(true);
+    setDeliveriesError(null);
+    try {
+      const res = await fetch('http://localhost:5000/api/v1/driver/deliveries', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch deliveries');
+      const data = await res.json();
+      const list = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
 
-        const pending = [];
-        const inProgress = [];
-        const completed = [];
-
-        list.forEach(d => {
-          const s = (d.status || '').toLowerCase();
-          if (s === 'completed') completed.push(d);
-          else if (s === 'in-progress' || s === 'inprogress' || s === 'in_progress' || s === 'in progress') inProgress.push(d);
-          else pending.push(d);
-        });
-
-        setDeliveriesByStatus({ pending, inProgress, completed });
-      } catch (err) {
-        setDeliveriesError(err.message || 'Error loading deliveries');
-      } finally {
-        setLoadingDeliveries(false);
+      // Debug: log the first delivery to see transport_cost
+      if (list.length > 0) {
+        console.log('Sample delivery data:', list[0]);
+        console.log('Transport cost:', list[0].transport_cost);
       }
-    };
 
+      const pending = [];
+      const inProgress = [];
+      const completed = [];
+
+      list.forEach(d => {
+        const s = (d.status || '').toLowerCase().trim();
+        console.log(`Delivery ${d.id}: status="${d.status}" -> normalized="${s}"`);
+        
+        if (s === 'completed' || s === 'delivered') {
+          completed.push(d);
+        } else if (s === 'in-progress' || s === 'inprogress' || s === 'in_progress' || s === 'in progress') {
+          console.log(`✅ Delivery ${d.id} categorized as IN-PROGRESS`);
+          inProgress.push(d);
+        } else {
+          console.log(`⏳ Delivery ${d.id} categorized as PENDING (default)`);
+          pending.push(d);
+        }
+      });
+
+      console.log(`📊 Final counts: ${pending.length} pending, ${inProgress.length} in-progress, ${completed.length} completed`);
+
+      setDeliveriesByStatus({ pending, inProgress, completed });
+    } catch (err) {
+      setDeliveriesError(err.message || 'Error loading deliveries');
+    } finally {
+      setLoadingDeliveries(false);
+    }
+  };
+
+  useEffect(() => {
     if (!authLoading) fetchDeliveries();
   }, [getAuthHeaders, authLoading]);
 
@@ -70,6 +87,161 @@ const DriverDeliveriesPage = () => {
       console.error('Failed to open Google Maps', err);
       // fallback: open maps.google.com
       window.open('https://www.google.com/maps', '_blank');
+    }
+  };
+
+  // Start delivery: open farmer location and update status to in-progress
+  const startDelivery = async (delivery) => {
+    if (!delivery) return;
+
+    // Open farmer location in Google Maps
+    try {
+      let url = 'https://www.google.com/maps/search/?api=1&query=';
+      
+      if (delivery.farmerLatitude && delivery.farmerLongitude) {
+        // Use coordinates if available
+        url += `${delivery.farmerLatitude},${delivery.farmerLongitude}`;
+      } else if (delivery.pickupLocation) {
+        // Use pickup location address
+        url += encodeURIComponent(delivery.pickupLocation);
+      } else if (delivery.farmerAddress) {
+        // Fallback to farmer address
+        url += encodeURIComponent(delivery.farmerAddress);
+      } else {
+        // Fallback message
+        alert('Farmer location not available');
+        return;
+      }
+      
+      // Open farmer location in new tab
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open farmer location in maps', err);
+    }
+
+    // Update status in database first
+    try {
+      console.log(`Starting delivery for ID: ${delivery.id}, current status: ${delivery.status}`);
+      
+      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'in-progress' }),
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Status update successful:', result);
+        
+        // Successfully updated in database, refresh deliveries to get latest state
+        console.log('Refreshing deliveries...');
+        await fetchDeliveries();
+        console.log('Setting active tab to inProgress');
+        setActiveTab('inProgress');
+      } else {
+        const errorData = await response.json();
+        console.error('Status update failed:', errorData);
+        alert(`Failed to start delivery: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to persist delivery start to server', err);
+      alert('Failed to start delivery. Please try again.');
+    }
+  };
+
+  // Go to buyer location for in-progress deliveries
+  const goToBuyer = (delivery) => {
+    try {
+      let url = 'https://www.google.com/maps/search/?api=1&query=';
+      
+      if (delivery.buyerLatitude && delivery.buyerLongitude) {
+        // Use coordinates if available
+        url += `${delivery.buyerLatitude},${delivery.buyerLongitude}`;
+      } else if (delivery.deliveryLocation) {
+        // Use delivery location address
+        url += encodeURIComponent(delivery.deliveryLocation);
+      } else if (delivery.buyerAddress) {
+        // Fallback to buyer address
+        url += encodeURIComponent(delivery.buyerAddress);
+      } else {
+        // Fallback message
+        alert('Buyer location not available');
+        return;
+      }
+      
+      // Open buyer location in new tab
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open buyer location in maps', err);
+    }
+  };
+
+  // Mark delivery as completed
+  const completeDelivery = async (delivery) => {
+    if (!delivery) return;
+
+    // Update status in database first
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'completed' }),
+      });
+
+      if (response.ok) {
+        // Successfully updated in database, refresh deliveries to get latest state
+        await fetchDeliveries();
+        setActiveTab('completed');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to complete delivery: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to persist delivery completion to server', err);
+      alert('Failed to complete delivery. Please try again.');
+    }
+  };
+
+  // Delete delivery from completed section
+  const deleteDelivery = async (delivery) => {
+    if (!delivery) return;
+
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete the delivery for ${delivery.productName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        // Successfully deleted, refresh deliveries to get latest state
+        await fetchDeliveries();
+        // Stay on completed tab
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to delete delivery: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to delete delivery', err);
+      alert('Failed to delete delivery. Please try again.');
     }
   };
 
@@ -143,6 +315,17 @@ const DriverDeliveriesPage = () => {
           </div>
         </div>
 
+        {/* Transport Cost */}
+        <div className="bg-yellow-50 rounded-lg p-3">
+          <div className="flex items-center space-x-2">
+            <Truck className="w-4 h-4 text-yellow-600" />
+            <span className="text-sm font-medium text-yellow-700">Transport Cost:</span>
+            <span className="text-lg font-bold text-yellow-800">
+              {delivery.transport_cost ? `Rs.${delivery.transport_cost}` : 'N/A'}
+            </span>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <div className="flex items-start space-x-2">
             <MapPin className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
@@ -167,6 +350,9 @@ const DriverDeliveriesPage = () => {
             <span>{delivery.scheduledDate} at {delivery.scheduledTime}</span>
           </div>
           <div className="flex items-center space-x-4">
+            {delivery.calculated_distance && (
+              <span className="font-medium text-blue-600">{delivery.calculated_distance} km</span>
+            )}
             <span>{delivery.distance}</span>
             <span>{delivery.estimatedTime}</span>
           </div>
@@ -179,31 +365,48 @@ const DriverDeliveriesPage = () => {
         )}
 
         <div className="flex space-x-2 pt-3">
-    <button 
-      className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
-      onClick={() => openGoogleMaps(delivery)}
-    >
-      <Navigation className="w-4 h-4" />
-      <span>View Route</span>
-    </button>
+          <button 
+            className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
+            onClick={() => openGoogleMaps(delivery)}
+          >
+            <Navigation className="w-4 h-4" />
+            <span>View Route</span>
+          </button>
 
-
-
-          
           {delivery.status === 'pending' && (
-           
-              <button className="flex-1 bg-gradient-to-r from-green-600 to-green-800 text-white py-2 px-4 rounded-lg hover:from-green-700 hover:to-green-900 transition-colors">
-
-
+            <button
+              onClick={() => startDelivery(delivery)}
+              className="flex-1 bg-gradient-to-r from-green-600 to-green-800 text-white py-2 px-4 rounded-lg hover:from-green-700 hover:to-green-900 transition-colors"
+            >
               Start Delivery
-                
-</button>
-           
+            </button>
           )}
           
           {delivery.status === 'in-progress' && (
-            <button className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-              Mark Complete
+            <>
+              <button
+                onClick={() => goToBuyer(delivery)}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>Go to Buyer</span>
+              </button>
+              <button
+                onClick={() => completeDelivery(delivery)}
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Mark Complete
+              </button>
+            </>
+          )}
+
+          {delivery.status === 'completed' && (
+            <button
+              onClick={() => deleteDelivery(delivery)}
+              className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete Delivery</span>
             </button>
           )}
         </div>
