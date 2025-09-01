@@ -27,6 +27,12 @@ const DriverDeliveriesPage = () => {
         const data = await res.json();
         const list = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
 
+        // Debug: log the first delivery to see transport_cost
+        if (list.length > 0) {
+          console.log('Sample delivery data:', list[0]);
+          console.log('Transport cost:', list[0].transport_cost);
+        }
+
         const pending = [];
         const inProgress = [];
         const completed = [];
@@ -168,6 +174,17 @@ const DriverDeliveriesPage = () => {
               <Phone className="w-3 h-3" />
               <span>{delivery.buyerPhone}</span>
             </div>
+          </div>
+        </div>
+
+        {/* Transport Cost */}
+        <div className="bg-yellow-50 rounded-lg p-3">
+          <div className="flex items-center space-x-2">
+            <Truck className="w-4 h-4 text-yellow-600" />
+            <span className="text-sm font-medium text-yellow-700">Transport Cost:</span>
+            <span className="text-lg font-bold text-yellow-800">
+              {delivery.transport_cost ? `Rs.${delivery.transport_cost}` : 'N/A'}
+            </span>
           </div>
         </div>
 
