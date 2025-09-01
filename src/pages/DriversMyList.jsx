@@ -83,6 +83,31 @@ const DriverDeliveriesPage = () => {
   const startDelivery = async (delivery) => {
     if (!delivery) return;
 
+    // Open farmer location in Google Maps
+    try {
+      let url = 'https://www.google.com/maps/search/?api=1&query=';
+      
+      if (delivery.farmerLatitude && delivery.farmerLongitude) {
+        // Use coordinates if available
+        url += `${delivery.farmerLatitude},${delivery.farmerLongitude}`;
+      } else if (delivery.pickupLocation) {
+        // Use pickup location address
+        url += encodeURIComponent(delivery.pickupLocation);
+      } else if (delivery.farmerAddress) {
+        // Fallback to farmer address
+        url += encodeURIComponent(delivery.farmerAddress);
+      } else {
+        // Fallback message
+        alert('Farmer location not available');
+        return;
+      }
+      
+      // Open farmer location in new tab
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open farmer location in maps', err);
+    }
+
     setDeliveriesByStatus(prev => {
       const pending = (prev.pending || []).filter(d => d.id !== delivery.id);
       const inProgress = [{ ...delivery, status: 'in-progress' }, ...(prev.inProgress || [])];
@@ -103,6 +128,61 @@ const DriverDeliveriesPage = () => {
       });
     } catch (err) {
       console.error('Failed to persist delivery start to server', err);
+      // We keep optimistic update; optionally handle revert or show error to user.
+    }
+  };
+
+  // Go to buyer location for in-progress deliveries
+  const goToBuyer = (delivery) => {
+    try {
+      let url = 'https://www.google.com/maps/search/?api=1&query=';
+      
+      if (delivery.buyerLatitude && delivery.buyerLongitude) {
+        // Use coordinates if available
+        url += `${delivery.buyerLatitude},${delivery.buyerLongitude}`;
+      } else if (delivery.deliveryLocation) {
+        // Use delivery location address
+        url += encodeURIComponent(delivery.deliveryLocation);
+      } else if (delivery.buyerAddress) {
+        // Fallback to buyer address
+        url += encodeURIComponent(delivery.buyerAddress);
+      } else {
+        // Fallback message
+        alert('Buyer location not available');
+        return;
+      }
+      
+      // Open buyer location in new tab
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open buyer location in maps', err);
+    }
+  };
+
+  // Mark delivery as completed
+  const completeDelivery = async (delivery) => {
+    if (!delivery) return;
+
+    setDeliveriesByStatus(prev => {
+      const inProgress = (prev.inProgress || []).filter(d => d.id !== delivery.id);
+      const completed = [{ ...delivery, status: 'completed', completedAt: new Date().toLocaleString() }, ...(prev.completed || [])];
+      return { ...prev, inProgress, completed };
+    });
+
+    setActiveTab('completed');
+
+    try {
+      await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'completed' }),
+      });
+    } catch (err) {
+      console.error('Failed to persist delivery completion to server', err);
       // We keep optimistic update; optionally handle revert or show error to user.
     }
   };
@@ -212,6 +292,9 @@ const DriverDeliveriesPage = () => {
             <span>{delivery.scheduledDate} at {delivery.scheduledTime}</span>
           </div>
           <div className="flex items-center space-x-4">
+            {delivery.calculated_distance && (
+              <span className="font-medium text-blue-600">{delivery.calculated_distance} km</span>
+            )}
             <span>{delivery.distance}</span>
             <span>{delivery.estimatedTime}</span>
           </div>
@@ -224,17 +307,14 @@ const DriverDeliveriesPage = () => {
         )}
 
         <div className="flex space-x-2 pt-3">
-    <button 
-      className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
-      onClick={() => openGoogleMaps(delivery)}
-    >
-      <Navigation className="w-4 h-4" />
-      <span>View Route</span>
-    </button>
+          <button 
+            className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
+            onClick={() => openGoogleMaps(delivery)}
+          >
+            <Navigation className="w-4 h-4" />
+            <span>View Route</span>
+          </button>
 
-
-
-          
           {delivery.status === 'pending' && (
             <button
               onClick={() => startDelivery(delivery)}
@@ -245,9 +325,21 @@ const DriverDeliveriesPage = () => {
           )}
           
           {delivery.status === 'in-progress' && (
-            <button className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-              Mark Complete
-            </button>
+            <>
+              <button
+                onClick={() => goToBuyer(delivery)}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>Go to Buyer</span>
+              </button>
+              <button
+                onClick={() => completeDelivery(delivery)}
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Mark Complete
+              </button>
+            </>
           )}
         </div>
       </div>
