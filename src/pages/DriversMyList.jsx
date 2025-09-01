@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Package, Navigation, CheckCircle, AlertCircle, User, Calendar, Truck } from 'lucide-react';
+import { MapPin, Phone, Clock, Package, Navigation, CheckCircle, AlertCircle, User, Calendar, Truck, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const DriverDeliveriesPage = () => {
@@ -11,47 +11,58 @@ const DriverDeliveriesPage = () => {
   const [loadingDeliveries, setLoadingDeliveries] = useState(true);
   const [deliveriesError, setDeliveriesError] = useState(null);
 
-  useEffect(() => {
-    const fetchDeliveries = async () => {
-      setLoadingDeliveries(true);
-      setDeliveriesError(null);
-      try {
-        const res = await fetch('http://localhost:5000/api/v1/driver/deliveries', {
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeaders()
-          },
-          credentials: 'include'
-        });
-        if (!res.ok) throw new Error('Failed to fetch deliveries');
-        const data = await res.json();
-        const list = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+  // Function to fetch deliveries (extracted for reuse)
+  const fetchDeliveries = async () => {
+    setLoadingDeliveries(true);
+    setDeliveriesError(null);
+    try {
+      const res = await fetch('http://localhost:5000/api/v1/driver/deliveries', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch deliveries');
+      const data = await res.json();
+      const list = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
 
-        // Debug: log the first delivery to see transport_cost
-        if (list.length > 0) {
-          console.log('Sample delivery data:', list[0]);
-          console.log('Transport cost:', list[0].transport_cost);
-        }
-
-        const pending = [];
-        const inProgress = [];
-        const completed = [];
-
-        list.forEach(d => {
-          const s = (d.status || '').toLowerCase();
-          if (s === 'completed') completed.push(d);
-          else if (s === 'in-progress' || s === 'inprogress' || s === 'in_progress' || s === 'in progress') inProgress.push(d);
-          else pending.push(d);
-        });
-
-        setDeliveriesByStatus({ pending, inProgress, completed });
-      } catch (err) {
-        setDeliveriesError(err.message || 'Error loading deliveries');
-      } finally {
-        setLoadingDeliveries(false);
+      // Debug: log the first delivery to see transport_cost
+      if (list.length > 0) {
+        console.log('Sample delivery data:', list[0]);
+        console.log('Transport cost:', list[0].transport_cost);
       }
-    };
 
+      const pending = [];
+      const inProgress = [];
+      const completed = [];
+
+      list.forEach(d => {
+        const s = (d.status || '').toLowerCase().trim();
+        console.log(`Delivery ${d.id}: status="${d.status}" -> normalized="${s}"`);
+        
+        if (s === 'completed' || s === 'delivered') {
+          completed.push(d);
+        } else if (s === 'in-progress' || s === 'inprogress' || s === 'in_progress' || s === 'in progress') {
+          console.log(`✅ Delivery ${d.id} categorized as IN-PROGRESS`);
+          inProgress.push(d);
+        } else {
+          console.log(`⏳ Delivery ${d.id} categorized as PENDING (default)`);
+          pending.push(d);
+        }
+      });
+
+      console.log(`📊 Final counts: ${pending.length} pending, ${inProgress.length} in-progress, ${completed.length} completed`);
+
+      setDeliveriesByStatus({ pending, inProgress, completed });
+    } catch (err) {
+      setDeliveriesError(err.message || 'Error loading deliveries');
+    } finally {
+      setLoadingDeliveries(false);
+    }
+  };
+
+  useEffect(() => {
     if (!authLoading) fetchDeliveries();
   }, [getAuthHeaders, authLoading]);
 
@@ -79,7 +90,7 @@ const DriverDeliveriesPage = () => {
     }
   };
 
-  // Optimistic start delivery: move from pending -> inProgress and switch tab, then PATCH server
+  // Start delivery: open farmer location and update status to in-progress
   const startDelivery = async (delivery) => {
     if (!delivery) return;
 
@@ -108,16 +119,11 @@ const DriverDeliveriesPage = () => {
       console.error('Failed to open farmer location in maps', err);
     }
 
-    setDeliveriesByStatus(prev => {
-      const pending = (prev.pending || []).filter(d => d.id !== delivery.id);
-      const inProgress = [{ ...delivery, status: 'in-progress' }, ...(prev.inProgress || [])];
-      return { ...prev, pending, inProgress };
-    });
-
-    setActiveTab('inProgress');
-
+    // Update status in database first
     try {
-      await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}`, {
+      console.log(`Starting delivery for ID: ${delivery.id}, current status: ${delivery.status}`);
+      
+      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -126,9 +132,26 @@ const DriverDeliveriesPage = () => {
         credentials: 'include',
         body: JSON.stringify({ status: 'in-progress' }),
       });
+
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Status update successful:', result);
+        
+        // Successfully updated in database, refresh deliveries to get latest state
+        console.log('Refreshing deliveries...');
+        await fetchDeliveries();
+        console.log('Setting active tab to inProgress');
+        setActiveTab('inProgress');
+      } else {
+        const errorData = await response.json();
+        console.error('Status update failed:', errorData);
+        alert(`Failed to start delivery: ${errorData.message || 'Unknown error'}`);
+      }
     } catch (err) {
       console.error('Failed to persist delivery start to server', err);
-      // We keep optimistic update; optionally handle revert or show error to user.
+      alert('Failed to start delivery. Please try again.');
     }
   };
 
@@ -163,16 +186,9 @@ const DriverDeliveriesPage = () => {
   const completeDelivery = async (delivery) => {
     if (!delivery) return;
 
-    setDeliveriesByStatus(prev => {
-      const inProgress = (prev.inProgress || []).filter(d => d.id !== delivery.id);
-      const completed = [{ ...delivery, status: 'completed', completedAt: new Date().toLocaleString() }, ...(prev.completed || [])];
-      return { ...prev, inProgress, completed };
-    });
-
-    setActiveTab('completed');
-
+    // Update status in database first
     try {
-      await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -181,9 +197,51 @@ const DriverDeliveriesPage = () => {
         credentials: 'include',
         body: JSON.stringify({ status: 'completed' }),
       });
+
+      if (response.ok) {
+        // Successfully updated in database, refresh deliveries to get latest state
+        await fetchDeliveries();
+        setActiveTab('completed');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to complete delivery: ${errorData.message || 'Unknown error'}`);
+      }
     } catch (err) {
       console.error('Failed to persist delivery completion to server', err);
-      // We keep optimistic update; optionally handle revert or show error to user.
+      alert('Failed to complete delivery. Please try again.');
+    }
+  };
+
+  // Delete delivery from completed section
+  const deleteDelivery = async (delivery) => {
+    if (!delivery) return;
+
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete the delivery for ${delivery.productName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        // Successfully deleted, refresh deliveries to get latest state
+        await fetchDeliveries();
+        // Stay on completed tab
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to delete delivery: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to delete delivery', err);
+      alert('Failed to delete delivery. Please try again.');
     }
   };
 
@@ -340,6 +398,16 @@ const DriverDeliveriesPage = () => {
                 Mark Complete
               </button>
             </>
+          )}
+
+          {delivery.status === 'completed' && (
+            <button
+              onClick={() => deleteDelivery(delivery)}
+              className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete Delivery</span>
+            </button>
           )}
         </div>
       </div>
