@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { CheckCircle, Truck, Package, Clock, AlertCircle, Search } from 'lucide-react';
+import { CheckCircle, Truck, Package, Clock, AlertCircle, Search, Phone } from 'lucide-react';
 
 const FarmerViewOrders = () => {
     const { getAuthHeaders, loading: authLoading } = useAuth();
@@ -211,6 +211,15 @@ const FarmerViewOrders = () => {
                                                                 <div>Name: <span className="font-medium text-blue-700">{transport.transporter_name || `Transporter ${transport.transporter_id || ''}`}</span></div>
                                                                 <div>Phone: {transport.transporter_phone ? (<a className="text-blue-700 font-medium" href={`tel:${transport.transporter_phone}`}>{transport.transporter_phone}</a>) : (<span className="text-gray-500">—</span>)}</div>
                                                             </div>
+                                                                {/* Call actions */}
+                                                                <div className="mt-3 flex items-center space-x-2">
+                                                                    {transport.transporter_phone ? (
+                                                                        <a href={`tel:${transport.transporter_phone}`} className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm">
+                                                                            <Phone className="w-4 h-4 mr-2" />
+                                                                            Call transporter
+                                                                        </a>
+                                                                    ) : null}
+                                                                </div>
                                                             <div className="text-xs text-gray-600 mt-2">
                                                                 {getTransportStatusLabel(tstatus) || ((transport && (transport.status || transport.transport_status || transport.delivery_status || transport.order_transport_status || transport.transporter_status)) ? (`Raw status: ${transport.status || transport.transport_status || transport.delivery_status || transport.order_transport_status || transport.transporter_status}`) : 'The transporter is assigned. Status unavailable.')}
                                                             </div>
@@ -233,8 +242,17 @@ const FarmerViewOrders = () => {
                                                                     <div className="text-xs text-gray-500">Buyer contact</div>
                                                                     <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
                                                                         <div>Name: <span className="font-medium">{order.deliveryName || '—'}</span></div>
-                                                                        <div>Phone: {order.deliveryPhone ? (<a className="text-green-700 font-medium" href={`tel:${order.deliveryPhone}`}>{order.deliveryPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                                                                            <div>Phone: {order.deliveryPhone ? (<a className="text-green-700 font-medium" href={`tel:${order.deliveryPhone}`}>{order.deliveryPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
                                                                     </div>
+                                                                        {/* quick call action for buyer */}
+                                                                        {order.deliveryPhone ? (
+                                                                            <div className="mt-3">
+                                                                                <a href={`tel:${order.deliveryPhone}`} className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white rounded-md text-sm">
+                                                                                    <Phone className="w-4 h-4 mr-2" />
+                                                                                    Call buyer
+                                                                                </a>
+                                                                            </div>
+                                                                        ) : null}
                                                                 </div>
                                                             ) : null}
                                                         </div>
