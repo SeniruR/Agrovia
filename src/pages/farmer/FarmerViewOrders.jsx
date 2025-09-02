@@ -46,6 +46,57 @@ const FarmerViewOrders = () => {
         }
     };
 
+    // Normalize transporter or order status into one of four canonical states:
+    // 'pending' | 'collecting' | 'in-progress' | 'completed'
+    // Accepts a transport row and an optional fallbackStatus (e.g. order.status)
+    const getTransportStatus = (transport, fallbackStatus) => {
+        // pull any raw status from the transport row first
+        const rawTransport = transport && (transport.status || transport.transport_status || transport.delivery_status || transport.transporter_status || transport.order_transport_status || '');
+        let raw = rawTransport ? rawTransport.toString().toLowerCase().trim() : (fallbackStatus ? fallbackStatus.toString().toLowerCase().trim() : '');
+
+        // If nothing present, consider it not started
+        if (!raw) return 'pending';
+
+        // map common synonyms into the four canonical states
+        const collectingSyn = ['collecting', 'collecting_from_farmer', 'collecting-from-farmer', 'on_the_way', 'on-the-way', 'on_the_way_to_pickup', 'coming_to_pickup', 'coming_to_collect'];
+        const pickedUpSyn = ['collected', 'collected_from_farmer', 'collected-from-farmer', 'picked_up'];
+        const inProgressSyn = ['in-progress', 'inprogress', 'in_progress', 'in progress', 'delivering', 'out_for_delivery', 'out-for-delivery'];
+        const completedSyn = ['completed', 'delivered'];
+        const pendingSyn = ['pending', 'assigned', 'not_started', 'queued'];
+
+        if (collectingSyn.includes(raw)) return 'collecting';
+        if (pickedUpSyn.includes(raw)) return 'in-progress';
+        if (inProgressSyn.includes(raw)) return 'in-progress';
+        if (completedSyn.includes(raw)) return 'completed';
+        if (pendingSyn.includes(raw)) return 'pending';
+
+        // fallback to pending when unknown
+        return 'pending';
+    };
+
+    const getTransportStatusColor = (status) => {
+        switch (status) {
+            case 'collecting': return 'text-yellow-700 bg-yellow-100';
+            case 'in-progress': return 'text-blue-700 bg-blue-100';
+            case 'completed': return 'text-green-700 bg-green-100';
+            case 'pending': return 'text-gray-700 bg-gray-100';
+            default: return 'text-gray-700 bg-gray-100';
+        }
+    };
+
+    // Friendly labels for transporter status (farmer-facing) — restricted to four states
+    // Using the exact phrasing requested by the user
+    const getTransportStatusLabel = (status) => {
+        if (!status) return '';
+        switch (status) {
+            case 'pending': return 'not yet started collecting';
+            case 'collecting': return 'comming to pick up from you';
+            case 'in-progress': return 'deliver to the customer';
+            case 'completed': return 'delivery completed';
+            default: return status.toString().replace(/[-_]/g, ' ');
+        }
+    };
+
     if (authLoading || loading) return <p>Loading orders...</p>;
     if (error) return <p className="text-red-600">Error: {error}</p>;
 
@@ -127,45 +178,73 @@ const FarmerViewOrders = () => {
                             <div className="mt-4">
                                 <h3 className="font-medium text-gray-800">Products:</h3>
                                 <ul className="list-disc list-inside text-gray-700">
-                                    {order.products?.map(product => (
-                                        <li key={product.id} className="mb-2 w-full">
-                                            <div className="font-medium">{product.productName} <span className="text-sm text-gray-500">× {product.quantity} {product.productUnit || product.unit || ''}</span></div>
-                                            {/* If transporter assigned, show transporter card so farmer knows who will collect */}
-                                            {product.transports && product.transports.length > 0 ? (
-                                                <div className="mt-2 w-full bg-blue-50 border border-blue-200 rounded-md p-3 shadow-sm">
-                                                    <div className="font-semibold text-blue-800">Transporter assigned</div>
-                                                    <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
-                                                        <div>Name: <span className="font-medium text-blue-700">{product.transports[0].transporter_name || `Transporter ${product.transports[0].transporter_id || ''}`}</span></div>
-                                                        <div>Phone: {product.transports[0].transporter_phone ? (<a className="text-blue-700 font-medium" href={`tel:${product.transports[0].transporter_phone}`}>{product.transports[0].transporter_phone}</a>) : (<span className="text-gray-500">—</span>)}</div>
-                                                    </div>
-                                                    <div className="text-xs text-gray-600 mt-2">The transporter listed above will collect the goods from your location for transportation.</div>
-                                                </div>
-                                            ) : (
-                                                <div className="mt-2 w-full bg-yellow-50 border border-yellow-200 rounded-md p-3 shadow-sm">
-                                                    <div className="font-semibold text-yellow-800">No transporter assigned</div>
-                                                    <div className="text-sm text-gray-700 mt-2">No transporter is assigned — the buyer will collect the goods from your location.</div>
-                                                </div>
-                                            )}
-
-                                            <div className="mt-2 w-full flex items-start gap-3 bg-green-50 border border-green-200 rounded-md p-3">
-                                                <Package className="w-5 h-5 text-green-700 flex-shrink-0 mt-0.5" />
-                                                <div className="flex-1">
-                                                    <div className="font-semibold text-green-800">Buyer details</div>
-                                                    <div className="mt-1 text-sm text-green-700"><span className="font-medium">Buyer's location:</span> {order.deliveryAddress || product.productLocation || 'Buyer provided address'}</div>
-                                                    {order.deliveryDistrict ? (<div className="text-xs text-gray-600 mt-1">District: {order.deliveryDistrict}</div>) : (product.productDistrict ? (<div className="text-xs text-gray-600 mt-1">District: {product.productDistrict}</div>) : null)}
-                                                    {order.deliveryName || order.deliveryPhone ? (
-                                                        <div className="mt-3 bg-white border-l-4 border-green-400 rounded-md p-3 shadow-sm">
-                                                            <div className="text-xs text-gray-500">Buyer contact</div>
+                                    {order.products && order.products.length > 0 ? (
+                                        order.products.map(product => {
+                                            const transport = (product.transports && product.transports.length > 0) ? product.transports[0] : null;
+                                            // item status: prefer product-level status, then any itemStatus alias, then parent order status
+                                            const itemStatusRaw = product.status || product.itemStatus || order.status || '';
+                                            const itemStatus = itemStatusRaw ? itemStatusRaw.toString().toLowerCase() : '';
+                                            // pass product/item-level status as fallback so transporter label matches product status when transport row has no status
+                                            const tstatus = getTransportStatus(transport, itemStatusRaw);
+                                                                                        return (
+                                                                                                <li key={product.id} className="mb-2 w-full">
+                                                                                                        <div className="flex items-center justify-between">
+                                                                                                            <div className="font-medium">{product.productName} <span className="text-sm text-gray-500">× {product.quantity} {product.productUnit || product.unit || ''}</span></div>
+                                                                                                            {itemStatus && (
+                                                                                                                <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(itemStatus)}`}>
+                                                                                                                    {itemStatus.replace(/[-_]/g, ' ')}
+                                                                                                                </span>
+                                                                                                            )}
+                                                                                                        </div>
+                                                    {/* If transporter assigned, show transporter card so farmer knows who will collect */}
+                                                    {transport ? (
+                                                        <div className="mt-2 w-full bg-blue-50 border border-blue-200 rounded-md p-3 shadow-sm">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="font-semibold text-blue-800">Transporter assigned</div>
+                                                                <div>
+                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getTransportStatusColor(tstatus)}`}>
+                                                                        {getTransportStatusLabel(tstatus) || 'status unknown'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                             <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
-                                                                <div>Name: <span className="font-medium">{order.deliveryName || '—'}</span></div>
-                                                                <div>Phone: {order.deliveryPhone ? (<a className="text-green-700 font-medium" href={`tel:${order.deliveryPhone}`}>{order.deliveryPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                                                                <div>Name: <span className="font-medium text-blue-700">{transport.transporter_name || `Transporter ${transport.transporter_id || ''}`}</span></div>
+                                                                <div>Phone: {transport.transporter_phone ? (<a className="text-blue-700 font-medium" href={`tel:${transport.transporter_phone}`}>{transport.transporter_phone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                                                            </div>
+                                                            <div className="text-xs text-gray-600 mt-2">
+                                                                {getTransportStatusLabel(tstatus) || ((transport && (transport.status || transport.transport_status || transport.delivery_status || transport.order_transport_status || transport.transporter_status)) ? (`Raw status: ${transport.status || transport.transport_status || transport.delivery_status || transport.order_transport_status || transport.transporter_status}`) : 'The transporter is assigned. Status unavailable.')}
                                                             </div>
                                                         </div>
-                                                    ) : null}
-                                                </div>
-                                            </div>
-                                        </li>
-                                    )) || <li>No products</li>}
+                                                    ) : (
+                                                        <div className="mt-2 w-full bg-yellow-50 border border-yellow-200 rounded-md p-3 shadow-sm">
+                                                            <div className="font-semibold text-yellow-800">No transporter assigned</div>
+                                                            <div className="text-sm text-gray-700 mt-2">No transporter is assigned — the buyer will collect the goods from your location.</div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="mt-2 w-full flex items-start gap-3 bg-green-50 border border-green-200 rounded-md p-3">
+                                                        <Package className="w-5 h-5 text-green-700 flex-shrink-0 mt-0.5" />
+                                                        <div className="flex-1">
+                                                            <div className="font-semibold text-green-800">Buyer details</div>
+                                                            <div className="mt-1 text-sm text-green-700"><span className="font-medium">Buyer's location:</span> {order.deliveryAddress || product.productLocation || 'Buyer provided address'}</div>
+                                                            {order.deliveryDistrict ? (<div className="text-xs text-gray-600 mt-1">District: {order.deliveryDistrict}</div>) : (product.productDistrict ? (<div className="text-xs text-gray-600 mt-1">District: {product.productDistrict}</div>) : null)}
+                                                            {order.deliveryName || order.deliveryPhone ? (
+                                                                <div className="mt-3 bg-white border-l-4 border-green-400 rounded-md p-3 shadow-sm">
+                                                                    <div className="text-xs text-gray-500">Buyer contact</div>
+                                                                    <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
+                                                                        <div>Name: <span className="font-medium">{order.deliveryName || '—'}</span></div>
+                                                                        <div>Phone: {order.deliveryPhone ? (<a className="text-green-700 font-medium" href={`tel:${order.deliveryPhone}`}>{order.deliveryPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            );
+                                        })
+                                    ) : (
+                                        <li>No products</li>
+                                    )}
                                 </ul>
                             </div>
                         </div>

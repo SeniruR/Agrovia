@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Package, Navigation, CheckCircle, AlertCircle, User, Calendar, Truck, Trash2 } from 'lucide-react';
+import { MapPin, Phone, Clock, Package, Navigation, CheckCircle, AlertCircle, User, Calendar, Truck, Trash2, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const DriverDeliveriesPage = () => {
@@ -10,6 +10,10 @@ const DriverDeliveriesPage = () => {
   const [deliveriesByStatus, setDeliveriesByStatus] = useState({ pending: [], inProgress: [], completed: [] });
   const [loadingDeliveries, setLoadingDeliveries] = useState(true);
   const [deliveriesError, setDeliveriesError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
+  const [districtFilter, setDistrictFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Function to fetch deliveries (extracted for reuse)
   const fetchDeliveries = async () => {
@@ -38,16 +42,31 @@ const DriverDeliveriesPage = () => {
       const completed = [];
 
       list.forEach(d => {
-        const s = (d.status || '').toLowerCase().trim();
-        console.log(`Delivery ${d.id}: status="${d.status}" -> normalized="${s}"`);
-        
-        if (s === 'completed' || s === 'delivered') {
+        const raw = (d.status || '').toLowerCase().trim();
+        // Normalize into canonical statuses used by the UI
+        let normalized = 'pending';
+        if (raw === 'completed' || raw === 'delivered') {
+          normalized = 'completed';
+        } else if (['in-progress', 'inprogress', 'in_progress', 'in progress', 'collected', 'collected-from-farmer', 'collected_from_farmer'].includes(raw)) {
+          // already collected or actively delivering
+          normalized = 'in-progress';
+        } else if (['collecting', 'collecting-from-farmer', 'collecting_from_farmer'].includes(raw)) {
+          // transporter has started but not yet collected from farmer
+          normalized = 'collecting';
+        } else {
+          normalized = 'pending';
+        }
+
+        // Overwrite status for UI simplicity (shows normalized label)
+        d.status = normalized;
+        console.log(`Delivery ${d.id}: raw="${raw}" -> normalized="${normalized}"`);
+
+        // Bucket: both collecting and in-progress are shown under inProgress tab
+        if (normalized === 'completed') {
           completed.push(d);
-        } else if (s === 'in-progress' || s === 'inprogress' || s === 'in_progress' || s === 'in progress') {
-          console.log(`✅ Delivery ${d.id} categorized as IN-PROGRESS`);
+        } else if (normalized === 'in-progress' || normalized === 'collecting') {
           inProgress.push(d);
         } else {
-          console.log(`⏳ Delivery ${d.id} categorized as PENDING (default)`);
           pending.push(d);
         }
       });
@@ -69,23 +88,120 @@ const DriverDeliveriesPage = () => {
   // Open Google Maps directions (prefers coordinates, falls back to addresses)
   const openGoogleMaps = (delivery) => {
     try {
+      // If transporter is in 'collecting' state, show route from transporter's current location to farmer pickup
+      if (delivery.status === 'collecting') {
+        // Prefer device geolocation for real-time transporter location
+        if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              try {
+                const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+                const destination = delivery.farmerLatitude && delivery.farmerLongitude
+                  ? `${delivery.farmerLatitude},${delivery.farmerLongitude}`
+                  : encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
+                const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+                window.open(url, '_blank');
+              } catch (err) {
+                console.error('Failed to open Google Maps from geolocation callback', err);
+                window.open('https://www.google.com/maps', '_blank');
+              }
+            },
+            (err) => {
+              // If geolocation fails (permission denied, timeout), fall back to using pickup location as origin
+              console.warn('Geolocation failed, falling back to pickup->farmer route', err);
+              try {
+                const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
+                const destination = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
+                // If transporter position not available, show search for farmer pickup instead
+                const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+                window.open(url, '_blank');
+              } catch (err2) {
+                console.error('Fallback failed', err2);
+                window.open('https://www.google.com/maps', '_blank');
+              }
+            },
+            { timeout: 8000 }
+          );
+          return;
+        }
+
+        // If geolocation API is not available, fall back to using pickup location / farmer address
+        const fallbackOrigin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
+        const fallbackDestination = encodeURIComponent(delivery.farmerAddress || delivery.pickupLocation || '');
+        window.open(`https://www.google.com/maps/dir/?api=1&origin=${fallbackOrigin}&destination=${fallbackDestination}`, '_blank');
+        return;
+      }
+
+      // If in-progress, show route from transporter current location -> buyer
+      if (delivery.status === 'in-progress') {
+        if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              try {
+                const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+                const destination = delivery.buyerLatitude && delivery.buyerLongitude
+                  ? `${delivery.buyerLatitude},${delivery.buyerLongitude}`
+                  : encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
+                const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+                window.open(url, '_blank');
+              } catch (err) {
+                console.error('Failed to open Google Maps from geolocation callback', err);
+                window.open('https://www.google.com/maps', '_blank');
+              }
+            },
+            (err) => {
+              console.warn('Geolocation failed, falling back to farmer->buyer route', err);
+              try {
+                const hasCoords = delivery.farmerLatitude && delivery.farmerLongitude && delivery.buyerLatitude && delivery.buyerLongitude;
+                let url = 'https://www.google.com/maps/dir/?api=1';
+                if (hasCoords) {
+                  url += `&origin=${delivery.farmerLatitude},${delivery.farmerLongitude}`;
+                  url += `&destination=${delivery.buyerLatitude},${delivery.buyerLongitude}`;
+                } else {
+                  const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
+                  const destination = encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
+                  url += `&origin=${origin}&destination=${destination}`;
+                }
+                window.open(url, '_blank');
+              } catch (err2) {
+                console.error('Fallback failed', err2);
+                window.open('https://www.google.com/maps', '_blank');
+              }
+            },
+            { timeout: 8000 }
+          );
+          return;
+        }
+
+        // geolocation not available -> fallback to farmer->buyer route
+        const hasCoords = delivery.farmerLatitude && delivery.farmerLongitude && delivery.buyerLatitude && delivery.buyerLongitude;
+        let url = 'https://www.google.com/maps/dir/?api=1';
+        if (hasCoords) {
+          url += `&origin=${delivery.farmerLatitude},${delivery.farmerLongitude}`;
+          url += `&destination=${delivery.buyerLatitude},${delivery.buyerLongitude}`;
+        } else {
+          const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
+          const destination = encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
+          url += `&origin=${origin}&destination=${destination}`;
+        }
+        window.open(url, '_blank');
+        return;
+      }
+
+      // Default behavior: show route from farmer (pickup) to buyer (delivery)
       const hasCoords = delivery.farmerLatitude && delivery.farmerLongitude && delivery.buyerLatitude && delivery.buyerLongitude;
       let url = 'https://www.google.com/maps/dir/?api=1';
       if (hasCoords) {
-        // origin = farmer (pickup), destination = buyer (delivery)
         url += `&origin=${delivery.farmerLatitude},${delivery.farmerLongitude}`;
         url += `&destination=${delivery.buyerLatitude},${delivery.buyerLongitude}`;
       } else {
-        // fallback to using pickup and delivery addresses
         const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
         const destination = encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
         url += `&origin=${origin}&destination=${destination}`;
       }
-      // Open in new tab (this will open Google Maps web, mobile may prompt to open app)
       window.open(url, '_blank');
     } catch (err) {
       console.error('Failed to open Google Maps', err);
-      // fallback: open maps.google.com
       window.open('https://www.google.com/maps', '_blank');
     }
   };
@@ -94,155 +210,167 @@ const DriverDeliveriesPage = () => {
   const startDelivery = async (delivery) => {
     if (!delivery) return;
 
-    // Open farmer location in Google Maps
-    try {
-      let url = 'https://www.google.com/maps/search/?api=1&query=';
-      
-      if (delivery.farmerLatitude && delivery.farmerLongitude) {
-        // Use coordinates if available
-        url += `${delivery.farmerLatitude},${delivery.farmerLongitude}`;
-      } else if (delivery.pickupLocation) {
-        // Use pickup location address
-        url += encodeURIComponent(delivery.pickupLocation);
-      } else if (delivery.farmerAddress) {
-        // Fallback to farmer address
-        url += encodeURIComponent(delivery.farmerAddress);
-      } else {
-        // Fallback message
-        alert('Farmer location not available');
-        return;
-      }
-      
-      // Open farmer location in new tab
-      window.open(url, '_blank');
-    } catch (err) {
-      console.error('Failed to open farmer location in maps', err);
-    }
+    // Show confirmation before starting delivery
+    showConfirm(
+      'Start delivery',
+      'Are you sure you want to start this delivery and head to the farmer?',
+      async () => {
+        // On confirm: try to open directions from transporter's current location -> farmer
+        const openDirectionsToFarmer = async () => {
+          // Build destination (farmer) string
+          const destination = delivery.farmerLatitude && delivery.farmerLongitude
+            ? `${delivery.farmerLatitude},${delivery.farmerLongitude}`
+            : encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
 
-    // Update status in database first
-    try {
-      console.log(`Starting delivery for ID: ${delivery.id}, current status: ${delivery.status}`);
-      
-      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({ status: 'in-progress' }),
-      });
+          if (!destination) {
+            alert('Farmer location not available');
+            return;
+          }
 
-      console.log('Response status:', response.status);
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Status update successful:', result);
-        
-        // Successfully updated in database, refresh deliveries to get latest state
-        console.log('Refreshing deliveries...');
-        await fetchDeliveries();
-        console.log('Setting active tab to inProgress');
-        setActiveTab('inProgress');
-      } else {
-        const errorData = await response.json();
-        console.error('Status update failed:', errorData);
-        alert(`Failed to start delivery: ${errorData.message || 'Unknown error'}`);
+          // Helper to get current position as a promise
+          const getCurrentPosition = () => new Promise((resolve, reject) => {
+            if (!navigator || !navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
+              return reject(new Error('Geolocation not available'));
+            }
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
+          });
+
+          try {
+            const pos = await getCurrentPosition();
+            const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+            window.open(url, '_blank');
+            return;
+          } catch (err) {
+            // Geolocation failed or denied — fall back to showing farmer location only
+            console.warn('Geolocation unavailable or denied, falling back to farmer location', err);
+            const url = `https://www.google.com/maps/search/?api=1&query=${destination}`;
+            window.open(url, '_blank');
+            return;
+          }
+        };
+
+        try {
+          await openDirectionsToFarmer();
+        } catch (err) {
+          console.error('Failed to open directions to farmer', err);
+        }
+
+        await performStatusUpdate(delivery.id, 'collecting', 'Delivery started: collecting from farmer');
       }
-    } catch (err) {
-      console.error('Failed to persist delivery start to server', err);
-      alert('Failed to start delivery. Please try again.');
-    }
+    );
   };
 
-  // Go to buyer location for in-progress deliveries
-  const goToBuyer = (delivery) => {
-    try {
-      let url = 'https://www.google.com/maps/search/?api=1&query=';
-      
-      if (delivery.buyerLatitude && delivery.buyerLongitude) {
-        // Use coordinates if available
-        url += `${delivery.buyerLatitude},${delivery.buyerLongitude}`;
-      } else if (delivery.deliveryLocation) {
-        // Use delivery location address
-        url += encodeURIComponent(delivery.deliveryLocation);
-      } else if (delivery.buyerAddress) {
-        // Fallback to buyer address
-        url += encodeURIComponent(delivery.buyerAddress);
-      } else {
-        // Fallback message
-        alert('Buyer location not available');
-        return;
+  // Mark that the transporter has collected from the farmer and is heading to buyer
+  const markCollectedFromFarmer = async (delivery) => {
+    if (!delivery) return;
+    showConfirm(
+      'Confirm collection',
+      'Have you collected the goods from the farmer?',
+      async () => {
+        // Persist as the canonical 'in-progress' status (driver has collected and is delivering)
+        await performStatusUpdate(delivery.id, 'in-progress', 'Marked as collected from farmer — heading to buyer');
       }
-      
-      // Open buyer location in new tab
-      window.open(url, '_blank');
-    } catch (err) {
-      console.error('Failed to open buyer location in maps', err);
-    }
+    );
   };
+
+  // ...existing code...
 
   // Mark delivery as completed
   const completeDelivery = async (delivery) => {
     if (!delivery) return;
-
-    // Update status in database first
-    try {
-      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({ status: 'completed' }),
-      });
-
-      if (response.ok) {
-        // Successfully updated in database, refresh deliveries to get latest state
-        await fetchDeliveries();
+    showConfirm(
+      'Complete delivery',
+      'Are you sure you handed over the goods to the customer?',
+      async () => {
+        await performStatusUpdate(delivery.id, 'completed', 'Delivery marked as completed');
         setActiveTab('completed');
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to complete delivery: ${errorData.message || 'Unknown error'}`);
       }
-    } catch (err) {
-      console.error('Failed to persist delivery completion to server', err);
-      alert('Failed to complete delivery. Please try again.');
-    }
+    );
   };
 
   // Delete delivery from completed section
   const deleteDelivery = async (delivery) => {
     if (!delivery) return;
+    showConfirm(
+      'Delete delivery',
+      `Are you sure you want to delete the delivery for ${delivery.productName}? This action cannot be undone.`,
+      async () => {
+        try {
+          const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
+            credentials: 'include',
+          });
 
-    // Confirm deletion
-    if (!window.confirm(`Are you sure you want to delete the delivery for ${delivery.productName}? This action cannot be undone.`)) {
-      return;
-    }
+          if (response.ok) {
+            await fetchDeliveries();
+          } else {
+            const errorData = await response.json();
+            alert(`Failed to delete delivery: ${errorData.message || 'Unknown error'}`);
+          }
+        } catch (err) {
+          console.error('Failed to delete delivery', err);
+          alert('Failed to delete delivery. Please try again.');
+        }
+      }
+    );
+  };
 
+  // Helper to perform status updates and show toast
+  const performStatusUpdate = async (orderTransportId, status, successMessage) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${delivery.id}`, {
-        method: 'DELETE',
+      const response = await fetch(`http://localhost:5000/api/v1/driver/deliveries/${orderTransportId}/status`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),
         },
         credentials: 'include',
+        body: JSON.stringify({ status }),
       });
 
       if (response.ok) {
-        // Successfully deleted, refresh deliveries to get latest state
+        showToast(successMessage);
         await fetchDeliveries();
-        // Stay on completed tab
       } else {
         const errorData = await response.json();
-        alert(`Failed to delete delivery: ${errorData.message || 'Unknown error'}`);
+        alert(`Failed to update status: ${errorData.message || 'Unknown error'}`);
       }
     } catch (err) {
-      console.error('Failed to delete delivery', err);
-      alert('Failed to delete delivery. Please try again.');
+      console.error('Failed to update status', err);
+      alert('Failed to update delivery status. Please try again.');
     }
+  };
+
+  // Confirmation modal & toast state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [confirmAction, setConfirmAction] = useState(null);
+
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+
+  const showConfirm = (title, message, onConfirm) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setConfirmOpen(true);
+  };
+
+  const hideConfirm = () => {
+    setConfirmOpen(false);
+    setConfirmAction(null);
+  };
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 3000);
   };
 
   const getStatusColor = (status) => {
@@ -264,7 +392,7 @@ const DriverDeliveriesPage = () => {
   };
 
   const DeliveryCard = ({ delivery }) => (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4">
+    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4 flex flex-col h-full">
       <div className="flex justify-between items-start mb-3">
           <div className="flex items-center space-x-2">
           <Package className="w-5 h-5 text-green-600" />
@@ -278,7 +406,7 @@ const DriverDeliveriesPage = () => {
         </div>
       </div>
 
-      <div className="space-y-3">
+  <div className="space-y-3 flex-1 flex flex-col">
         <div className="bg-green-50 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-green-800">Crop Details</span>
@@ -289,8 +417,8 @@ const DriverDeliveriesPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="bg-gray-50 rounded-lg p-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1">
+          <div className="bg-gray-50 rounded-lg p-3 flex flex-col justify-between">
             <div className="flex items-center space-x-2 mb-2">
               <User className="w-4 h-4 text-gray-600" />
               <span className="text-sm font-medium text-gray-600">Farmer</span>
@@ -300,9 +428,26 @@ const DriverDeliveriesPage = () => {
               <Phone className="w-3 h-3" />
               <span>{delivery.farmerPhone}</span>
             </div>
+            <div className="flex items-center space-x-1 text-sm text-gray-600 mt-1">
+              <MapPin className="w-3 h-3" />
+              <span>{delivery.farmerAddress || delivery.pickupLocation || 'Address not available'}</span>
+            </div>
+            <div className="mt-3">
+              {delivery.farmerPhone ? (
+                <a
+                  href={`tel:${delivery.farmerPhone}`}
+                  className="inline-flex items-center gap-2 px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Call Farmer</span>
+                </a>
+              ) : (
+                <span className="text-xs text-gray-400">No farmer phone</span>
+              )}
+            </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-3">
+          <div className="bg-gray-50 rounded-lg p-3 flex flex-col justify-between">
             <div className="flex items-center space-x-2 mb-2">
               <Package className="w-4 h-4 text-gray-600" />
               <span className="text-sm font-medium text-gray-600">Buyer</span>
@@ -311,6 +456,23 @@ const DriverDeliveriesPage = () => {
             <div className="flex items-center space-x-1 text-sm text-gray-600">
               <Phone className="w-3 h-3" />
               <span>{delivery.buyerPhone}</span>
+            </div>
+            <div className="flex items-center space-x-1 text-sm text-gray-600 mt-1">
+              <MapPin className="w-3 h-3" />
+              <span>{delivery.buyerAddress || delivery.deliveryLocation || 'Address not available'}</span>
+            </div>
+            <div className="mt-3">
+              {delivery.buyerPhone ? (
+                <a
+                  href={`tel:${delivery.buyerPhone}`}
+                  className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Call Buyer</span>
+                </a>
+              ) : (
+                <span className="text-xs text-gray-400">No buyer phone</span>
+              )}
             </div>
           </div>
         </div>
@@ -381,21 +543,25 @@ const DriverDeliveriesPage = () => {
               Start Delivery
             </button>
           )}
-          
+
+          {/* collecting: transporter is en route to farmer; only allow 'Collected from farmer' when arrived */}
+          {delivery.status === 'collecting' && (
+            <button
+              onClick={() => markCollectedFromFarmer(delivery)}
+              className="flex-1 bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors"
+            >
+              Collected from Farmer
+            </button>
+          )}
+
+          {/* in-progress: transporter has collected and should go to buyer */}
           {delivery.status === 'in-progress' && (
             <>
-              <button
-                onClick={() => goToBuyer(delivery)}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-              >
-                <MapPin className="w-4 h-4" />
-                <span>Go to Buyer</span>
-              </button>
               <button
                 onClick={() => completeDelivery(delivery)}
                 className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
               >
-                Mark Complete
+                Handed over to Customer
               </button>
             </>
           )}
@@ -414,6 +580,49 @@ const DriverDeliveriesPage = () => {
     </div>
   );
 
+  // Compute display list once to keep JSX simple
+  const computeDisplayList = () => {
+  // Build the source list from all buckets; statusFilter will narrow results if set
+  let sourceList = [ ...(deliveriesByStatus.pending || []), ...(deliveriesByStatus.inProgress || []), ...(deliveriesByStatus.completed || []) ];
+
+    const list = sourceList.filter(d => {
+      // explicit status filter overrides category selection
+      if (statusFilter && statusFilter !== 'all') {
+        if (statusFilter === 'in-progress') {
+          if (!(d.status === 'in-progress')) return false;
+        } else if (statusFilter === 'collecting') {
+          if (!(d.status === 'collecting')) return false;
+        } else if (statusFilter === 'completed') {
+          if (!(d.status === 'completed')) return false;
+        } else if (statusFilter === 'pending') {
+          if (!(d.status === 'pending')) return false;
+        }
+      }
+      // district filter
+      if (districtFilter && districtFilter !== 'all') {
+        const pickup = (d.pickupDistrict || '').toString();
+        const delivery = (d.deliveryDistrict || '').toString();
+        if (pickup !== districtFilter && delivery !== districtFilter) return false;
+      }
+      const q = (searchTerm || '').toLowerCase().trim();
+      if (!q) return true;
+      const hay = [d.externalOrderId, d.orderId, d.productName, d.crop, d.farmerName, d.buyerName, d.pickupLocation, d.deliveryLocation].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+
+    if (sortBy === 'newest') {
+      list.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+    } else if (sortBy === 'oldest') {
+      list.sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+    } else if (sortBy === 'distance') {
+      list.sort((a,b)=> (a.calculated_distance || Infinity) - (b.calculated_distance || Infinity));
+    }
+
+    return list;
+  };
+
+  const displayList = computeDisplayList();
+
   return (
     <div className="min-h-screen bg-gray-50 w-full">
       {/* Header */}
@@ -430,44 +639,58 @@ const DriverDeliveriesPage = () => {
 
       {/* Content */}
       <div className="w-full px-4 md:px-8 py-6">
-        {/* Tabs */}
-        <div className="flex bg-white rounded-lg p-1 mb-6 shadow-sm border max-w-3xl mx-auto">
-          {['pending', 'inProgress', 'completed'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? 'bg-green-600 text-white'
-                  : 'text-gray-600 hover:text-green-600'
-              }`}
-            >
-              {tab === 'inProgress' ? 'In Progress' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+        {/* Filters & Search */}
+        <div className="bg-white rounded-lg p-4 mb-4 mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+            <div className="flex items-center w-full sm:w-2/3">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full" placeholder="Search deliveries, products, buyer, farmer..." />
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              {/* category buttons removed; use the Status dropdown below to filter by status */}
+              <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1 text-sm">
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="distance">Nearest</option>
+              </select>
+              <select value={districtFilter} onChange={e=>setDistrictFilter(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1 text-sm">
+                <option value="all">All districts</option>
+                {(() => {
+                  const all = [ ...(deliveriesByStatus.pending || []), ...(deliveriesByStatus.inProgress || []), ...(deliveriesByStatus.completed || []) ];
+                  const districts = [...new Set(all.map(d => d.pickupDistrict || d.deliveryDistrict || '').filter(Boolean))].sort();
+                  return districts.map(dist => <option key={dist} value={dist}>{dist}</option>);
+                })()}
+              </select>
+              <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1 text-sm">
+                <option value="all">Any status</option>
+                <option value="pending">Pending</option>
+                <option value="collecting">Collecting</option>
+                <option value="in-progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Delivery Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+  {/* (Tabs removed) Category buttons above control which deliveries are shown */}
+
+  {/* Delivery Cards Grid */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {loadingDeliveries ? (
             <div className="col-span-full text-center py-12">
               <div className="text-gray-500">Loading deliveries...</div>
             </div>
           ) : deliveriesError ? (
             <div className="col-span-full text-center py-12 text-red-600">{deliveriesError}</div>
-          ) : deliveriesByStatus[activeTab] && deliveriesByStatus[activeTab].length > 0 ? (
-            deliveriesByStatus[activeTab].map((delivery) => (
-              <DeliveryCard key={delivery.id} delivery={delivery} />
-            ))
+          ) : displayList && displayList.length > 0 ? (
+            displayList.map(delivery => <DeliveryCard key={delivery.id} delivery={delivery} />)
           ) : (
             <div className="col-span-full text-center py-12 bg-white rounded-lg shadow-sm border">
               <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No deliveries found</h3>
-              <p className="text-gray-500">
-                {activeTab === 'pending' && "You don't have any pending deliveries."}
-                {activeTab === 'inProgress' && "No deliveries in progress."}
-                {activeTab === 'completed' && "No completed deliveries yet."}
-              </p>
+              <p className="text-gray-500">No deliveries found for the selected filters.</p>
             </div>
           )}
         </div>
@@ -496,6 +719,27 @@ const DriverDeliveriesPage = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-3">{confirmTitle}</h3>
+            <p className="text-gray-600 mb-4">{confirmMessage}</p>
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => { hideConfirm(); }} className="px-4 py-2 rounded bg-gray-200">No</button>
+              <button onClick={async () => { hideConfirm(); if (confirmAction) await confirmAction(); }} className="px-4 py-2 rounded bg-green-600 text-white">Yes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toastVisible && (
+        <div className="fixed bottom-6 right-6 bg-black text-white px-4 py-2 rounded shadow-lg z-50">
+          {toastMessage}
         </div>
       )}
     </div>
