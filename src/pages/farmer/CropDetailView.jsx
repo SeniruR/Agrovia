@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+  // Use build-time env var for backend URL (must be inside component for browser)
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -38,20 +40,17 @@ const CropDetailView = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageIdx, setModalImageIdx] = useState(0);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviews, setReviews] = useState([
-    {
-      user: 'A. Perera',
-      rating: 5,
-      comment: 'Excellent quality, very fresh!'
-    },
-    {
-      user: 'B. Silva',
-      rating: 4,
-      comment: 'Good rice, delivery was quick.'
-    }
-  ]);
+  const [reviews, setReviews] = useState([]);
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
+  const [reviewImages, setReviewImages] = useState([]);
+
+  // Transport states
+  const [showTransportModal, setShowTransportModal] = useState(false);
+  const [transporters, setTransporters] = useState([]);
+  const [loadingTransporters, setLoadingTransporters] = useState(false);
+  const [selectedTransporter, setSelectedTransporter] = useState(null);
+  const [showTransportRequest, setShowTransportRequest] = useState(false);
 
 
   useEffect(() => {
@@ -167,6 +166,53 @@ const CropDetailView = () => {
     }
   }, [id]);
 
+  // Fetch reviews when crop data is loaded
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!crop || !crop.id) return;
+      try {
+        const response = await fetch(`/api/v1/crop-reviews?crop_id=${crop.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.reviews)) {
+            // Map backend attachments (string or array) to images for frontend display
+            const formattedReviews = data.reviews.map(review => {
+              let images = [];
+              if (Array.isArray(review.attachments)) {
+                images = review.attachments;
+              } else if (typeof review.attachments === 'string' && review.attachments.trim() !== '') {
+                images = review.attachments.split(',').map(s => s.trim()).filter(Boolean);
+              } else if (Array.isArray(review.attachment_urls)) {
+                images = review.attachment_urls;
+              }
+              // Parse rating as number if it's a string like '3 Stars'
+              let rating = review.rating;
+              if (typeof rating === 'string') {
+                const match = rating.match(/(\d+)/);
+                rating = match ? parseInt(match[1], 10) : 0;
+              }
+              return {
+                id: review.id,
+                user: review.buyer_name || 'Anonymous',
+                rating,
+                comment: review.comment,
+                images,
+                created_at: review.created_at
+              };
+            });
+            setReviews(formattedReviews);
+            console.log('Fetched reviews:', formattedReviews);
+          }
+        } else {
+          console.error('Failed to fetch reviews');
+        }
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      }
+    };
+    fetchReviews();
+  }, [crop]);
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
@@ -184,7 +230,7 @@ const CropDetailView = () => {
       price: Number(crop.pricePerUnit),
       unit: crop.unit,
       farmer: crop.farmerName,
-      location: crop.location,
+      district: crop.district,
       image: crop.images && crop.images.length > 0 ? crop.images[0] : null
     }, quantity);
     setNotification({ show: true, product: {
@@ -199,6 +245,145 @@ const CropDetailView = () => {
   const handleContactFarmer = () => {
     // Contact farmer logic
     console.log('Contacting farmer');
+  };
+
+  // Fetch available transporters
+  const fetchTransporters = async () => {
+    setLoadingTransporters(true);
+    try {
+      console.log('🚛 Fetching transporters for location:', crop.location || crop.district);
+      const response = await fetch('http://localhost:5000/api/v1/transporters');
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ API Response:', result);
+        
+        // Handle different response structures
+        let transporterData = [];
+        if (result.success && result.data) {
+          // If the API returns { success: true, data: [...] }
+          transporterData = result.data;
+        } else if (Array.isArray(result)) {
+          // If the API returns array directly
+          transporterData = result;
+        } else if (result.transporters) {
+          // If the API returns { transporters: [...] }
+          transporterData = result.transporters;
+        } else {
+          console.warn('⚠️ Unexpected API response structure:', result);
+          transporterData = [];
+        }
+        
+        console.log('✅ Successfully processed transporters:', transporterData.length);
+        setTransporters(transporterData);
+      } else {
+        console.error('❌ Failed to fetch transporters:', response.status, response.statusText);
+        // Fallback sample data
+        setTransporters([
+          {
+            id: 1,
+            full_name: 'Sunil Transport Services',
+            phone_number: '+94 77 123 4567',
+            email: 'sunil@transport.lk',
+            district: 'Kandy',
+            vehicle_type: 'Truck',
+            vehicle_capacity: '5 tons',
+            capacity_unit: 'tons',
+            vehicle_number: 'WP CAB-1234',
+            license_number: 'DL-123456789',
+            profile_image: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg',
+            rating: 4.8,
+            total_deliveries: 150,
+            available: true
+          },
+          {
+            id: 2,
+            full_name: 'Lanka Cargo Express',
+            phone_number: '+94 71 987 6543',
+            email: 'info@lankacargo.lk',
+            district: 'Colombo',
+            vehicle_type: 'Van',
+            vehicle_capacity: '2 tons',
+            capacity_unit: 'tons',
+            vehicle_number: 'WP CAR-5678',
+            license_number: 'DL-987654321',
+            profile_image: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg',
+            rating: 4.6,
+            total_deliveries: 89,
+            available: true
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('💥 Error fetching transporters:', error);
+      // Fallback data on error
+      setTransporters([
+        {
+          id: 1,
+          full_name: 'Sunil Transport Services',
+          phone_number: '+94 77 123 4567',
+          email: 'sunil@transport.lk',
+          district: 'Kandy',
+          vehicle_type: 'Truck',
+          vehicle_capacity: '5 tons',
+          capacity_unit: 'tons',
+          vehicle_number: 'WP CAB-1234',
+          license_number: 'DL-123456789',
+          profile_image: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg',
+          rating: 4.8,
+          total_deliveries: 150,
+          available: true
+        }
+      ]);
+    } finally {
+      setLoadingTransporters(false);
+    }
+  };
+
+  // Handle opening transport modal
+  const handleViewTransporters = async () => {
+    setShowTransportModal(true);
+    await fetchTransporters();
+  };
+
+  // Handle transport request
+  const handleTransportRequest = async (transporter) => {
+    try {
+      console.log('🚛 Creating transport request for:', transporter.full_name);
+      
+      const requestData = {
+        crop_id: crop.id,
+        transporter_id: transporter.id,
+        pickup_location: crop.location || crop.district,
+        crop_name: crop.cropName,
+        quantity: quantity,
+        unit: crop.unit,
+        farmer_id: crop.farmer_Id,
+        buyer_id: user?.id,
+        estimated_value: crop.pricePerUnit * quantity,
+        notes: `Transport request for ${quantity} ${crop.unit} of ${crop.cropName}`,
+        status: 'pending'
+      };
+
+      const response = await fetch('http://localhost:5000/api/v1/transport-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      if (response.ok) {
+        alert('Transport request sent successfully! The transporter will contact you soon.');
+        setShowTransportModal(false);
+        setSelectedTransporter(null);
+      } else {
+        alert('Failed to send transport request. Please try again.');
+      }
+    } catch (error) {
+      console.error('💥 Error creating transport request:', error);
+      alert('An error occurred while sending the transport request. Please try again.');
+    }
   };
 
   if (loading) {
@@ -224,6 +409,13 @@ const CropDetailView = () => {
       </div>
     );
   }
+
+  // Filter transporters by strict district match (case-insensitive, trimmed)
+  const filteredTransporters = transporters.filter(transporter => {
+    const transporterDistrict = (transporter.district || transporter.location || transporter.area || '').toLowerCase().trim();
+    const cropDistrict = (crop.district || '').toLowerCase().trim();
+    return transporterDistrict === cropDistrict;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br pb-2 from-agrovia-50 to-green-50">
@@ -700,6 +892,17 @@ const CropDetailView = () => {
                   Add to Cart
                 </button>
                 )}
+                
+                {user && crop && user.id !== crop.farmer_Id && (
+                <button
+                  onClick={handleViewTransporters}
+                  className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 font-bold text-lg shadow-lg transform hover:scale-105"
+                >
+                  <Truck className="w-6 h-6 mr-2" />
+                  View Available Transporters
+                </button>
+                )}
+                
                 {user && crop && user.id != crop.farmer_Id && (
                   <>
                 <button
@@ -813,25 +1016,145 @@ const CropDetailView = () => {
               <label className="block text-sm font-semibold mb-2">Comment:</label>
               <textarea value={newComment} onChange={e => setNewComment(e.target.value)} className="w-full p-2 border rounded" rows={3} />
             </div>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-2">Upload Images:</label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files);
+                    // Convert to array of file objects with preview URLs
+                    const imageFiles = files.map(file => ({
+                      file,
+                      preview: URL.createObjectURL(file)
+                    }));
+                    setReviewImages([...reviewImages, ...imageFiles]);
+                  }}
+                  className="hidden"
+                  id="review-images"
+                />
+                <label htmlFor="review-images" className="flex flex-col items-center cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-sm text-gray-600 font-medium">Click to upload photos of the crop</span>
+                  <span className="text-xs text-gray-500 mt-1">JPG, PNG, GIF up to 5MB</span>
+                </label>
+              </div>
+              {/* Preview uploaded images */}
+              {reviewImages.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {reviewImages.map((img, idx) => (
+                      <div key={idx} className="relative group">
+                        <img 
+                          src={img.preview} 
+                          alt={`Review image ${idx + 1}`} 
+                          className="w-16 h-16 object-cover rounded-md border border-gray-200"
+                        />
+                        <button
+                          onClick={() => {
+                            const newImages = [...reviewImages];
+                            newImages.splice(idx, 1);
+                            setReviewImages(newImages);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove image"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="flex space-x-4">
               <button
-                onClick={() => setShowReviewModal(false)}
+                onClick={() => {
+                  setShowReviewModal(false);
+                  setReviewImages([]);
+                }}
                 className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
               >Cancel</button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (newRating > 0 && newComment.trim()) {
-                    setReviews([...reviews, { user: user?.name || 'Anonymous', rating: newRating, comment: newComment }]);
-                    setNewRating(0);
-                    setNewComment('');
-                    setShowReviewModal(false);
+                    try {
+                      // First check if the user is logged in
+                      if (!user || !user.id) {
+                        alert('Please log in to submit a review');
+                        return;
+                      }
+                      
+                      // Create FormData to handle file uploads
+                      const formData = new FormData();
+                      formData.append('crop_id', crop.id);
+                      formData.append('buyer_id', user.id);
+                      formData.append('rating', newRating); // Send numeric rating
+                      formData.append('comment', newComment);
+                      
+                      // Append all image files
+                      reviewImages.forEach((img, index) => {
+                        if (img.file) {
+                          formData.append(`attachments`, img.file);
+                        }
+                      });
+                      
+                      // Send data to server
+                      const response = await fetch('/api/v1/crop-reviews', {
+                        method: 'POST',
+                        headers: {
+                          ...getAuthHeaders(),
+                          // Don't set Content-Type when using FormData, browser will set it with boundary
+                        },
+                        body: formData,
+                      });
+                      
+                      if (response.ok) {
+                        const data = await response.json();
+                        
+                        // Update UI with the new review, showing buyer's name immediately
+                        const newReview = { 
+                          id: data.id,
+                          buyer_name: user?.full_name || user?.name || 'Anonymous',
+                          buyer_id: user?.id,
+                          rating: newRating, 
+                          comment: newComment,
+                          images: data.review?.attachment_urls || [] 
+                        };
+                        setReviews(prevReviews => [newReview, ...prevReviews]);
+                        
+                        // Show success message
+                        alert('Review submitted successfully!');
+                      } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        alert(`Error: ${errorData.message || 'Failed to submit review'}`);
+                      }
+                    } catch (error) {
+                      console.error('Error submitting review:', error);
+                      alert('Error submitting review. Please try again.');
+                    } finally {
+                      setNewRating(0);
+                      setNewComment('');
+                      setReviewImages([]);
+                      setShowReviewModal(false);
+                    }
+                  } else {
+                    alert('Please provide both a rating and a comment.');
                   }
                 }}
                 className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-700 text-white font-bold shadow hover:from-yellow-600 hover:to-yellow-800 transition-all"
               >Submit</button>
             </div>
             <button
-              onClick={() => setShowReviewModal(false)}
+              onClick={() => {
+                setShowReviewModal(false);
+                setReviewImages([]);
+              }}
               className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold"
               aria-label="Close"
             >&times;</button>
@@ -846,18 +1169,234 @@ const CropDetailView = () => {
           <div className="text-gray-500 text-center">No reviews yet. Be the first to review!</div>
         ) : (
           <ul className="space-y-4">
-            {reviews.map((r, idx) => (
-              <li key={idx} className="border-b pb-4">
-                <div className="flex items-center mb-1">
-                  {[...Array(r.rating)].map((_, i) => <Star key={i} className="w-4 h-4 text-yellow-400 mr-1 inline" />)}
-                  <span className="ml-2 font-semibold text-gray-800">{r.user}</span>
-                </div>
-                <div className="text-gray-700">{r.comment}</div>
-              </li>
-            ))}
+            {reviews.map((review, idx) => {
+              // Ensure rating is a valid, finite, non-negative integer
+              const safeRating = Number.isFinite(Number(review.rating)) && Number(review.rating) > 0 ? Math.floor(Number(review.rating)) : 0;
+              // Debug: print the review object to the console
+              console.log('Review object:', review);
+              return (
+                <li key={review.id || idx} className="border-b pb-4">
+                  <div className="flex items-center mb-1">
+                    <span className="font-semibold text-gray-800">{review.user || review.buyer_name}</span>
+                    <span className="ml-4 text-xs text-gray-500">
+                      {review.created_at ? new Date(review.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric', month: 'short', day: 'numeric'
+                      }) : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center mb-1 mt-1">
+                    {Array.from({ length: safeRating }).map((_, i) => (
+                      <Star key={i} className="w-4 h-4 text-yellow-400 mr-1 inline" />
+                    ))}
+                  </div>
+                  <div className="text-gray-700 mb-2">{review.comment}</div>
+                  {review.images && review.images.length > 0 && (
+                    <div className="mt-2">
+                      <div className="flex flex-wrap gap-2">
+                        {review.images.map((img, imgIdx) => {
+                          let imgPath = img;
+                          if (!img.startsWith('http') && !img.startsWith('/uploads/')) {
+                            imgPath = '/uploads/' + img;
+                          }
+                          const imgUrl = imgPath.startsWith('http') ? imgPath : `${BACKEND_URL}${imgPath}`;
+                          // Debug: print the image URL to the console
+                          console.log('Review image URL:', imgUrl);
+                          return (
+                            <a key={imgIdx} href={imgUrl} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={imgUrl}
+                                alt={`Review image ${imgIdx + 1}`}
+                                className="w-32 h-32 object-cover rounded border border-gray-200 hover:border-yellow-400 transition-colors"
+                              />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
+
+      {/* Transport Modal */}
+      {showTransportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="bg-blue-500 rounded-full p-3 mr-4">
+                  <Truck className="w-6 h-6 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">Available Transporters</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTransportModal(false);
+                  setSelectedTransporter(null);
+                }}
+                className="text-gray-400 hover:text-gray-700 text-2xl font-bold"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Crop Info Summary */}
+            <div className="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Transport Request For:</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-blue-800">Crop:</span>
+                  <span className="ml-1 text-gray-700">{crop.cropName}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-blue-800">Quantity:</span>
+                  <span className="ml-1 text-gray-700">{quantity} {crop.unit}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-blue-800">From:</span>
+                  <span className="ml-1 text-gray-700">{crop.location || crop.district}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Loading State */}
+            {loadingTransporters ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <h3 className="text-xl font-medium text-gray-900 mb-2">Finding transporters...</h3>
+                <p className="text-gray-500">Searching for available transport services</p>
+              </div>
+            ) : (
+              <div>
+                {filteredTransporters.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Truck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No transporters found</h3>
+                    <p className="text-gray-500">No transport services are available in your area at the moment.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredTransporters.map((transporter) => (
+                      <div key={transporter.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
+                        <div className="flex items-start space-x-4">
+                          {/* Profile Image */}
+                          <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
+                            {(transporter.profile_image || transporter.profileImage) ? (
+                              <img 
+                                src={transporter.profile_image || transporter.profileImage} 
+                                alt={transporter.full_name || transporter.fullName || transporter.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                <User className="w-8 h-8 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Transporter Info */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-gray-900 truncate">
+                              {transporter.full_name || transporter.fullName || transporter.name || 'Unknown Transporter'}
+                            </h3>
+                            <div className="flex items-center mt-1 mb-2">
+                              <MapPin className="w-4 h-4 text-gray-500 mr-1" />
+                              <span className="text-sm text-gray-600">
+                                {transporter.district || transporter.location || transporter.area || 'Location not specified'}
+                              </span>
+                              {(transporter.rating || transporter.averageRating) && (
+                                <div className="flex items-center ml-3">
+                                  <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {transporter.rating || transporter.averageRating}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Vehicle Details */}
+                            <div className="space-y-2">
+                              <div className="flex items-center">
+                                <Truck className="w-4 h-4 text-blue-500 mr-2" />
+                                <span className="text-sm text-gray-700">
+                                  {(transporter.vehicle_type || transporter.vehicleType || 'Vehicle')} - {(transporter.vehicle_capacity || transporter.vehicleCapacity || transporter.capacity || 'N/A')} {transporter.capacity_unit || transporter.capacityUnit || ''}
+                                </span>
+                              </div>
+
+                              {(transporter.vehicle_number || transporter.vehicleNumber || transporter.license_plate) && (
+                                <div className="flex items-center">
+                                  <CheckCircle className="w-4 h-4 text-indigo-500 mr-2" />
+                                  <span className="text-sm text-gray-700 font-medium">
+                                    Vehicle_No: {transporter.vehicle_number || transporter.vehicleNumber || transporter.license_plate}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center">
+                                <Phone className="w-4 h-4 text-green-500 mr-2" />
+                                <span className="text-sm text-gray-700">
+                                  {transporter.phone_no ?? transporter.phone_number ?? transporter.phoneNumber ?? transporter.phone ?? 'No phone provided'}
+                                </span>
+                              </div>
+
+                              {(transporter.total_deliveries || transporter.totalDeliveries || transporter.completedDeliveries) && (
+                                <div className="flex items-center">
+                                  <Package className="w-4 h-4 text-purple-500 mr-2" />
+                                  <span className="text-sm text-gray-700">
+                                    {transporter.total_deliveries || transporter.totalDeliveries || transporter.completedDeliveries} deliveries completed
+                                  </span>
+                                </div>
+                              )}
+
+                              {(transporter.license_number || transporter.licenseNumber) && (
+                                <div className="flex items-center">
+                                  <CheckCircle className="w-4 h-4 text-blue-500 mr-2" />
+                                  <span className="text-sm text-gray-700">
+                                    License: {transporter.license_number || transporter.licenseNumber}
+                                  </span>
+                                </div>
+                              )}
+                             
+                            </div>
+
+                            {/* Action Button */}
+                            <div className="mt-4 flex space-x-2">
+                              
+                              {(transporter.phone_no || transporter.phone_number || transporter.phoneNumber || transporter.phone) && (
+                                <a
+                                  href={`tel:${transporter.phone_no ?? transporter.phone_number ?? transporter.phoneNumber ?? transporter.phone}`}
+                                  className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition-colors font-medium text-sm flex items-center justify-center"
+                                >
+                                  <Phone className="w-4 h-4" />
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Availability Status */}
+                            <div className="mt-2">
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                (transporter.available !== false && transporter.isAvailable !== false) 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {(transporter.available !== false && transporter.isAvailable !== false) ? 'Available' : 'Busy'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

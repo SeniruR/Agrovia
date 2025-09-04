@@ -23,18 +23,86 @@ export const CartProvider = ({ children }) => {
       });
       
       if (response.data.success) {
-        setCartItems(response.data.data.map(item => ({
+        // Map API cart items to local shape
+        let mappedItems = response.data.data.map(item => ({
           id: item.productId,
           cartItemId: item.id,
           name: item.productName,
           price: Number(item.priceAtAddTime),
           unit: item.productUnit,
           farmer: item.farmerName,
-          location: item.location,
+          location: item.district || item.location, // Use district if available, fallback to location
           image: item.productImage,
           quantity: item.quantity,
           addedAt: item.createdAt
-        })));
+        }));
+
+        // Try to fetch transport allocations and merge into cart items so selections persist after refresh
+        try {
+          const allocResp = await axios.get('http://localhost:5000/api/transport-allocations', {
+            headers: getAuthHeaders()
+          });
+
+          const allocations = allocResp && allocResp.data ? (allocResp.data.data || allocResp.data) : [];
+
+          if (Array.isArray(allocations) && allocations.length > 0) {
+            // Helper to convert allocation object into transporter shape expected by UI
+            const mapAllocToTransporter = (alloc, item) => {
+              const name = alloc.transporter_name || alloc.full_name || alloc.name || alloc.transport_name || null;
+              const vehicleType = alloc.vehicle_type ?? alloc.vehicle ?? null;
+              const vehicleNumber = alloc.vehicle_number ?? alloc.vehicle_no ?? alloc.vehicleNumber ?? null;
+              // Prefer DB phone_no if present, otherwise fall back to common variants
+              const phone = alloc.phone_no ?? alloc.phone_number ?? alloc.phone ?? alloc.phoneNumber ?? null;
+              const baseRate = Number(alloc.base_rate ?? alloc.baseRate ?? alloc.baseRateValue ?? 500);
+              const perKmRate = Number(alloc.per_km_rate ?? alloc.perKmRate ?? alloc.perKmRateValue ?? 25);
+              const distance = Number(alloc.calculated_distance ?? alloc.distance ?? 0) || 0;
+              const cost = Number(alloc.transport_cost ?? alloc.cost ?? 0) || 0;
+
+              return {
+                ...alloc,
+                name: name || `Transporter ${alloc.transporter_id ?? alloc.id ?? ''}`,
+                full_name: name,
+                vehicle_type: vehicleType,
+                vehicle_number: vehicleNumber,
+                // Preserve original DB field and common variants so UI and other code can access them
+                phone_no: alloc.phone_no ?? null,
+                phone_number: alloc.phone_number ?? phone,
+                phone: phone,
+                vehicle: `${vehicleType || ''}${vehicleNumber ? ' (' + vehicleNumber + ')' : ''}`,
+                district: alloc.district ?? alloc.location ?? null,
+                distance,
+                cost,
+                baseRate,
+                perKmRate
+              };
+            };
+
+            // Merge allocations to mappedItems by cart_item_id or product id
+            mappedItems = mappedItems.map(ci => {
+              // Find matching allocation
+              const found = allocations.find(a =>
+                (a.cart_item_id && Number(a.cart_item_id) === Number(ci.cartItemId)) ||
+                (a.cart_item_id && Number(a.cart_item_id) === Number(ci.id)) ||
+                (a.product_id && Number(a.product_id) === Number(ci.id)) ||
+                (a.product_id && Number(a.product_id) === Number(ci.cartItemId))
+              );
+
+              if (found) {
+                const transporter = mapAllocToTransporter(found, ci);
+                return {
+                  ...ci,
+                  transporter: transporter
+                };
+              }
+              return ci;
+            });
+          }
+        } catch (allocErr) {
+          // If allocations fetch fails, continue without transporters
+          console.warn('Could not fetch transport allocations:', allocErr?.message || allocErr);
+        }
+
+        setCartItems(mappedItems);
       }
     } catch (err) {
       console.error('Error fetching cart items:', err);
@@ -86,7 +154,7 @@ export const CartProvider = ({ children }) => {
           priceAtAddTime: product.price,
           productUnit: product.unit,
           farmerName: product.farmer,
-          location: product.location,
+          location: product.district || product.location, // Use district if available, fallback to location
           productImage: product.image
         }, {
           headers: getAuthHeaders()
@@ -116,7 +184,7 @@ export const CartProvider = ({ children }) => {
               price: product.price,
               unit: product.unit,
               farmer: product.farmer,
-              location: product.location,
+              location: product.district || product.location, // Use district if available, fallback to location
               image: product.image,
               quantity: quantity,
               addedAt: new Date().toISOString()
@@ -147,7 +215,7 @@ export const CartProvider = ({ children }) => {
             price: product.price,
             unit: product.unit,
             farmer: product.farmer,
-            location: product.location,
+            district: product.district || product.location,
             image: product.image,
             quantity: quantity,
             addedAt: new Date().toISOString()
@@ -280,7 +348,7 @@ export const CartProvider = ({ children }) => {
             priceAtAddTime: item.price,
             productUnit: item.unit,
             farmerName: item.farmer,
-            location: item.location,
+            district: item.district || item.location,
             productImage: item.image
           }, {
             headers: getAuthHeaders()
@@ -304,6 +372,126 @@ export const CartProvider = ({ children }) => {
       syncCartWithDatabase();
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    // Validate input coordinates
+    const numLat1 = parseFloat(lat1);
+    const numLon1 = parseFloat(lon1);
+    const numLat2 = parseFloat(lat2);
+    const numLon2 = parseFloat(lon2);
+    
+    if (isNaN(numLat1) || isNaN(numLon1) || isNaN(numLat2) || isNaN(numLon2)) {
+      console.error('Invalid coordinates provided to calculateDistance:', { lat1, lon1, lat2, lon2 });
+      return 0; // Return 0 for invalid coordinates
+    }
+    
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (numLat2 - numLat1) * Math.PI / 180;
+    const dLon = (numLon2 - numLon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(numLat1 * Math.PI / 180) * Math.cos(numLat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c; // Distance in kilometers
+    
+    return distance;
+  };
+
+  // Calculate transport cost using the provided formula
+  const calculateTransportCost = (distance, weight, transporter) => {
+    // Default rates if not provided by transporter
+    const baseRate = transporter.baseRate || 500; // LKR
+    const perKmRate = transporter.perKmRate || 25; // LKR per km
+    const weightMultiplier = Math.max(1, weight / 100); // Scale weight factor (per 100kg)
+    
+    const deliveryFee = (baseRate + (distance * perKmRate)) * weightMultiplier;
+    return Math.round(deliveryFee * 100) / 100; // Round to 2 decimal places
+  };
+
+  // Add transport to cart item
+  const addTransportToCartItem = (itemId, transporter, userCoordinates, itemCoordinates) => {
+    setCartItems(prevItems =>
+      prevItems.map(item => {
+        if (item.id === itemId) {
+          let transportCost = transporter.baseRate || 500; // Default base rate
+          let distance = 0;
+          
+          // Calculate distance and cost if coordinates are available and valid
+          if (userCoordinates && itemCoordinates && 
+              userCoordinates.latitude && userCoordinates.longitude &&
+              itemCoordinates.latitude && itemCoordinates.longitude) {
+            
+            const userLat = parseFloat(userCoordinates.latitude);
+            const userLon = parseFloat(userCoordinates.longitude);
+            const itemLat = parseFloat(itemCoordinates.latitude);
+            const itemLon = parseFloat(itemCoordinates.longitude);
+            
+            // Only calculate if all coordinates are valid numbers
+            if (!isNaN(userLat) && !isNaN(userLon) && !isNaN(itemLat) && !isNaN(itemLon)) {
+              distance = calculateDistance(userLat, userLon, itemLat, itemLon);
+              
+              // Estimate weight based on quantity (assuming 1kg per unit as default)
+              const estimatedWeight = item.quantity * (item.weightPerUnit || 1);
+              transportCost = calculateTransportCost(distance, estimatedWeight, transporter);
+            }
+          }
+          
+          // Resolve phone values preferring DB phone_no
+          const resolvedPhone = transporter.phone_no ?? transporter.phone_number ?? transporter.phone ?? transporter.phoneNumber ?? null;
+          return {
+            ...item,
+            transporter: {
+              ...transporter,
+              name: transporter.full_name || transporter.name,
+              vehicle: `${transporter.vehicle_type} (${transporter.vehicle_number})`,
+              // Preserve both phone_no and phone_number for backend compatibility
+              phone_no: transporter.phone_no ?? null,
+              phone_number: transporter.phone_number ?? resolvedPhone,
+              phone: resolvedPhone,
+              district: transporter.district,
+              distance: distance,
+              cost: transportCost,
+              baseRate: transporter.baseRate || 500,
+              perKmRate: transporter.perKmRate || 25
+            }
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Remove transport from cart item
+  const removeTransportFromCartItem = (itemId) => {
+    setCartItems(prevItems =>
+      prevItems.map(item => {
+        if (item.id === itemId) {
+          const { transporter, ...itemWithoutTransporter } = item;
+          return itemWithoutTransporter;
+        }
+        return item;
+      })
+    );
+  };
+
+  // Get cart total including transport costs
+  const getCartTotalWithTransport = () => {
+    return cartItems.reduce((total, item) => {
+      const itemTotal = item.price * item.quantity;
+      const transportCost = item.transporter ? item.transporter.cost : 0;
+      return total + itemTotal + transportCost;
+    }, 0);
+  };
+
+  // Get total transport cost
+  const getTotalTransportCost = () => {
+    return cartItems.reduce((total, item) => {
+      const transportCost = item.transporter ? item.transporter.cost : 0;
+      return total + transportCost;
+    }, 0);
+  };
   
   const value = {
     cartItems,
@@ -312,11 +500,17 @@ export const CartProvider = ({ children }) => {
     updateQuantity,
     clearCart,
     getCartTotal,
+    getCartTotalWithTransport,
+    getTotalTransportCost,
     getCartItemCount,
     isCartOpen,
     setIsCartOpen,
     loading,
-    error
+    error,
+    addTransportToCartItem,
+    removeTransportFromCartItem,
+    calculateDistance,
+    calculateTransportCost
   };
   
   return (
