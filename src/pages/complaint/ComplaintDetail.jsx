@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle, UserX } from 'lucide-react';
 
 const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
+  // Debug: Log the raw complaint data
+  console.log('Raw complaint data:', complaint);
+  
+  // State to store user info if we need to fetch it
+  const [submitterInfo, setSubmitterInfo] = useState(null);
+  
   // Normalize complaint data to handle both camelCase and snake_case field names
   const normalizedComplaint = complaint ? {
     ...complaint,
@@ -9,6 +15,28 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
     orderNumber: complaint.orderNumber || complaint.order_number,
     farmer: complaint.farmer || complaint.to_farmer,
     submittedBy: complaint.submittedBy || complaint.submitted_by,
+    // Look up user name from various possible sources - ensure it's a string
+    submittedByName: (function() {
+      // Try to get the name from various sources
+      const name = complaint.submittedByName || 
+                   complaint.submitted_by_name || 
+                   (complaint.submittedBy && typeof complaint.submittedBy === 'object' && complaint.submittedBy.full_name) || 
+                   (complaint.user && complaint.user.full_name) || 
+                   submitterInfo?.full_name;
+      
+      if (name) return String(name); // Ensure it's a string
+      
+      // If no name but we have an ID, show loading status
+      if (complaint.submittedBy && !isNaN(complaint.submittedBy) && 
+          typeof complaint.submittedBy !== 'object') {
+        return 'Loading...';
+      }
+      
+      // Default fallback
+      return 'Anonymous';
+    })(),
+    // Use farmer name from object if available
+    farmerName: complaint.farmerName || (complaint.farmer && typeof complaint.farmer === 'object' && complaint.farmer.full_name) || '',
     submittedAt: complaint.submittedAt || complaint.submitted_at,
     replyedAt: complaint.replyedAt || complaint.replyed_at
   } : null;
@@ -23,6 +51,8 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   const [currentReply, setCurrentReply] = useState(normalizedComplaint?.reply || '');
   // Image modal state
   const [enlargedImage, setEnlargedImage] = useState(null);
+  // Zoom state for modal image
+  const [isZoomed, setIsZoomed] = useState(false);
   // Farmer deactivation state
   const [farmerDeactivated, setFarmerDeactivated] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
@@ -79,6 +109,48 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
     }
   };
 
+  // Effect to fetch user details if we only have an ID
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (complaint && 
+          (!complaint.submittedByName || complaint.submittedByName === 'Anonymous') && 
+          (complaint.submittedBy || complaint.submitted_by) && 
+          !isNaN(complaint.submittedBy || complaint.submitted_by)) {
+        
+        try {
+          const userId = complaint.submittedBy || complaint.submitted_by;
+          console.log('Fetching user info for ID:', userId);
+          const response = await fetch(`http://localhost:5000/api/v1/users/${userId}`);
+          
+          if (response.ok) {
+            const userData = await response.json();
+            console.log('Found user data:', userData);
+            setSubmitterInfo(userData);
+          } else {
+            console.log('User not found or error fetching user');
+          }
+        } catch (error) {
+          console.error('Error fetching user info:', error);
+        }
+      }
+    };
+    
+    fetchUserInfo();
+  }, [complaint]);
+
+  // State for enlarged image modal
+  // (already declared above)
+  // Add ESC key support to close modal
+  useEffect(() => {
+    if (!enlargedImage) return;
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setEnlargedImage(null);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [enlargedImage]);
+
+  // ...existing code...
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
@@ -485,7 +557,22 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-medium text-slate-600 mb-1">Submitted by</p>
-                          <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.submittedByName || 'Anonymous'}</p>
+                          <p className="font-semibold text-slate-800 text-sm">
+                            {normalizedComplaint.submittedByName === 'Loading...' ? (
+                              <span className="inline-flex items-center">
+                                <span className="animate-pulse mr-2">⏳</span>
+                                Loading user info...
+                              </span>
+                            ) : (
+                              submitterInfo?.full_name || normalizedComplaint.submittedByName || 'Anonymous'
+                            )}
+                          </p>
+                          {(normalizedComplaint.submittedByName === 'Anonymous' || 
+                            (typeof normalizedComplaint.submittedByName === 'string' && 
+                             normalizedComplaint.submittedByName.startsWith('User ID:'))) && 
+                            normalizedComplaint.submittedBy && (
+                              <p className="text-xs text-slate-500">ID: {normalizedComplaint.submittedBy}</p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -566,7 +653,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                     )}
 
                     {/* Farmer Card */}
-                    {normalizedComplaint.farmer && (
+                    {normalizedComplaint.farmerName && (
                       <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start space-x-3 flex-1">
@@ -575,7 +662,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                             </div>
                             <div className="flex-1">
                               <p className="text-sm font-medium text-slate-600 mb-1">Farmer</p>
-                              <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmer}</p>
+                              <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmerName}</p>
                             </div>
                           </div>
                           {/* Admin Action: Deactivate Farmer - Only for crop complaints and admin users */}
@@ -763,7 +850,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                                   src={`data:image/jpeg;base64,${file}`}
                                   alt={`Attachment ${idx + 1}`}
                                   className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
-                                  onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
+                                  onClick={() => { console.log('Attachment clicked', idx); setEnlargedImage(`data:image/jpeg;base64,${file}`); }}
                                   onError={(e) => {
                                     console.error("Attachment image load error", idx);
                                     e.target.style.display = 'none';
@@ -798,7 +885,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                                     src={imageData}
                                     alt="Shop Attachment"
                                     className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
-                                    onClick={() => setEnlargedImage(imageData)}
+                                    onClick={() => { console.log('Shop image clicked'); setEnlargedImage(imageData); }}
                                     onError={(e) => {
                                       console.error("Shop image load error with data URL");
                                       e.target.style.display = 'none';
@@ -808,7 +895,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                                     <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                       <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                      </svg>
+                                    </svg>
                                     </div>
                                   </div>
                                 </div>
@@ -825,7 +912,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                                     src={`data:image/jpeg;base64,${imageData}`}
                                     alt="Shop Attachment"
                                     className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
-                                    onClick={() => setEnlargedImage(`data:image/jpeg;base64,${imageData}`)}
+                                    onClick={() => { console.log('Shop image (base64) clicked'); setEnlargedImage(`data:image/jpeg;base64,${imageData}`); }}
                                     onError={(e) => {
                                       console.error("Shop image load error with base64");
                                       e.target.style.display = 'none';
@@ -835,7 +922,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                                     <div className="bg-white/90 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                       <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                      </svg>
+                                    </svg>
                                     </div>
                                   </div>
                                 </div>
@@ -858,7 +945,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                                   src={`data:image/jpeg;base64,${file}`}
                                   alt={`Attachment ${idx + 1}`}
                                   className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
-                                  onClick={() => setEnlargedImage(`data:image/jpeg;base64,${file}`)}
+                                  onClick={() => { console.log('Shop images array clicked', idx); setEnlargedImage(`data:image/jpeg;base64,${file}`); }}
                                   onError={(e) => {
                                     console.error("Image load error");
                                     e.target.style.display = 'none';
@@ -882,23 +969,6 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                       })}
                     </div>
                   </div>
-                  {/* Enhanced Image Modal */}
-                  {enlargedImage && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setEnlargedImage(null)}>
-                      <div className="relative max-w-5xl max-h-[90vh] p-4" onClick={e => e.stopPropagation()}>
-                        <img src={enlargedImage} alt="Enlarged Attachment" className="max-w-full max-h-full rounded-2xl shadow-2xl border-4 border-white" />
-                        <button
-                          onClick={() => setEnlargedImage(null)}
-                          className="absolute -top-2 -right-2 bg-white hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-full p-3 shadow-lg transition-colors"
-                          style={{ zIndex: 10 }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -1036,8 +1106,55 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
           </div>
         </div>
       </div>
+      {/* Enhanced Image Modal (single, at root) */}
+      {enlargedImage && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-90 backdrop-blur-sm p-4"
+          onClick={() => setEnlargedImage(null)}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div
+            className="relative w-full h-full flex items-center justify-center"
+            onClick={e => {
+              // Only close modal if click is outside the image
+              if (e.target === e.currentTarget) {
+                setEnlargedImage(null);
+                setIsZoomed(false);
+              }
+            }}
+          >
+            <img
+              src={enlargedImage}
+              alt="Enlarged Attachment"
+              className={`rounded-lg shadow-2xl transition-all duration-300 cursor-zoom-${isZoomed ? 'out' : 'in'} ${isZoomed ? 'object-cover' : 'object-contain'}`}
+              style={{
+                maxWidth: isZoomed ? 'none' : '90vw',
+                maxHeight: isZoomed ? 'none' : '90vh',
+                width: isZoomed ? 'auto' : 'auto',
+                height: isZoomed ? 'auto' : 'auto',
+                cursor: isZoomed ? 'zoom-out' : 'zoom-in',
+              }}
+              onClick={e => {
+                e.stopPropagation();
+                setIsZoomed(z => !z);
+              }}
+            />
+            <button
+              onClick={() => { setEnlargedImage(null); setIsZoomed(false); }}
+              className="absolute top-4 right-4 bg-white bg-opacity-90 hover:bg-white text-slate-700 hover:text-red-600 rounded-full p-3 shadow-lg transition-all duration-200 hover:scale-110 z-10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg backdrop-blur-sm">
+              <p className="text-sm">Click outside to close • ESC to close</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}
 
 export default ComplaintDetail;

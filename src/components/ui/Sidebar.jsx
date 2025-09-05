@@ -3,6 +3,9 @@ import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import FullScreenLoader from './FullScreenLoader';
 import { Link, useLocation } from 'react-router-dom';
 import { userService } from '../../services/userService';
+import { useSubscriptionAccess } from '../../hooks/useSubscriptionAccess';
+import { useAlertAccess } from '../../hooks/useAlertAccess';
+import useForecastAccess from '../../hooks/useForecastAccess';
 import { 
   ChevronDownIcon, 
   ChevronRightIcon,
@@ -26,7 +29,7 @@ import {
 const adminMenuItems = [
   { label: 'Dashboard', icon: HomeIcon, path: '/admindashboard' },
   { label: 'Account Approval', icon: UserPlusIcon, path: '/admin/account-approval' },
-  { label: 'Organization Approval', icon: UserPlusIcon, path: '/admin/organization-approval' },
+  { label: 'Organization Approval', icon: DocumentCheckIcon, path: '/admin/organization-approval' },
   { label: 'Manage Users', icon: UserGroupIcon, path: '/usermanagement' },
   { label: 'Manage Shops', icon: ShoppingBagIcon, path: '/admin/shop' },
   { label: 'Manage Complaints', icon: ChatBubbleLeftRightIcon, path: '/complaintHandling' },
@@ -39,7 +42,10 @@ const farmerMenuItems = [
   { label: 'My Orders', icon: DocumentTextIcon, path: '/farmervieworders' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile/farmer' },
   { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },
-  { label: 'Crop Recommendation', icon: DocumentCheckIcon, path: '/cropreco' },
+  { label: 'AI Features', icon: DocumentCheckIcon, subcategories: [
+    { name: 'Crop Recommendation', path: '/cropreco' },
+    { name: 'Price Forecast', path: '/priceforcast' },
+  ] },
   { label: 'Marketplace', icon: ShoppingBagIcon, subcategories: [
     { name: 'Crop Marketplace', path: '/byersmarket' },
     { name: 'Agri Shop (Fertilizers)', path: '/agrishop' },
@@ -67,8 +73,16 @@ const buyerMenuItems = [
 
 const shopOwnerMenuItems = [
   { label: 'Shop Dashboard', icon: HomeIcon, path: '/shopdashboard' },
-  { label: 'Post Item', icon: PlusCircleIcon, path: '/itempostedForm' },
   { label: 'My Shop Item', icon: ShoppingBagIcon, path: '/myshopitem' },
+  { label: 'Marketplace', icon: ShoppingBagIcon, subcategories: [
+    { name: 'Crop Marketplace', path: '/byersmarket' },
+    { name: 'Agri Shop (Fertilizers)', path: '/agrishop' },
+  ] },
+  { label: 'Cart', icon: ShoppingCartOutlinedIcon, path: '/cart' },
+  { label: 'My Orders', icon: DocumentTextIcon, path: '/orders' },
+  { label: 'Price Forecast', icon: DocumentTextIcon, path: '/priceforcast' },
+  { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },
+  { label: 'Complaint Dashboard', icon: ChatBubbleLeftRightIcon, path: '/buyer-com-dash' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile/shop-owner' },
 ];
 
@@ -117,11 +131,60 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
 
+  // Check if user has access to crop recommendation (option_id = 1)
+  const { hasAccess: hasCropRecommendationAccess } = useSubscriptionAccess('1');
+  
+  // Check if user has access to alerts (option_id = 32)
+  const { hasAccess: hasAlertAccess } = useAlertAccess();
+  
+  // Check if user has access to price forecast (option_id = 22)
+  const { hasAccess: hasForecastAccess } = useForecastAccess();
+
   // Check authentication status (you can replace this with your auth logic)
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     setIsLoggedIn(!!token);
   }, []);
+
+  // Update menu when subscription access changes
+  useEffect(() => {
+    if (userType === '1' || userType === 1) {
+      // Re-filter farmer menu items when subscription access changes
+      const menu = farmerMenuItems.map(item => {
+        // If this is the AI Features item, filter subcategories based on access
+        if (item.label === 'AI Features') {
+          const filteredSubcategories = item.subcategories.filter(sub => {
+            if (sub.name === 'Crop Recommendation') {
+              return hasCropRecommendationAccess;
+            }
+            if (sub.name === 'Price Forecast') {
+              return hasForecastAccess;
+            }
+            return true;
+          });
+          // Only show AI Features if at least one subcategory is accessible
+          return filteredSubcategories.length > 0 ? { ...item, subcategories: filteredSubcategories } : null;
+        }
+        // If this is the Alerts item, check alert access
+        if (item.label === 'Alerts') {
+          return hasAlertAccess ? item : null;
+        }
+        // Show all other items
+        return item;
+      }).filter(Boolean); // Remove null items
+      setFilteredMenu(menu);
+    } else if (userType === '3' || userType === 3) {
+      // Re-filter shop menu items when subscription access changes
+      const menu = shopOwnerMenuItems.map(item => {
+        if (item.label === 'Price Forecast') {
+          return hasForecastAccess ? item : null;
+        }
+        // Show all other items including marketplace and cart
+        return item;
+      }).filter(Boolean); // Remove null items
+      setFilteredMenu(menu);
+    }
+  }, [hasCropRecommendationAccess, hasAlertAccess, hasForecastAccess, userType]);
 
   // Fetch user type on mount using userService
   useEffect(() => {
@@ -150,11 +213,40 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
           } else if (type === '1.1' || type === 1.1) {
             menu = farmerOrganizerMenuItems;
           } else if (type === '1' || type === 1) {
-            menu = farmerMenuItems;
+            // Filter farmer menu items based on subscription access
+            menu = farmerMenuItems.map(item => {
+              // If this is the AI Features item, filter subcategories based on access
+              if (item.label === 'AI Features') {
+                const filteredSubcategories = item.subcategories.filter(sub => {
+                  if (sub.name === 'Crop Recommendation') {
+                    return hasCropRecommendationAccess;
+                  }
+                  if (sub.name === 'Price Forecast') {
+                    return hasForecastAccess;
+                  }
+                  return true;
+                });
+                // Only show AI Features if at least one subcategory is accessible
+                return filteredSubcategories.length > 0 ? { ...item, subcategories: filteredSubcategories } : null;
+              }
+              // If this is the Alerts item, check alert access
+              if (item.label === 'Alerts') {
+                return hasAlertAccess ? item : null;
+              }
+              // Show all other items
+              return item;
+            }).filter(Boolean); // Remove null items
           } else if (type === '2' || type === 2) {
             menu = buyerMenuItems;
           } else if (type === '3' || type === 3) {
-            menu = shopOwnerMenuItems;
+            // Filter shop menu items based on subscription access
+            menu = shopOwnerMenuItems.map(item => {
+              if (item.label === 'Price Forecast') {
+                return hasForecastAccess ? item : null;
+              }
+              // Show all other items including marketplace and cart
+              return item;
+            }).filter(Boolean); // Remove null items
           } else if (type === '4' || type === 4) {
             menu = transporterMenuItems;
           } else if (type === '5' || type === 5 || type === '5.1' || type === 5.1) {

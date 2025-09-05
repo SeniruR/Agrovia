@@ -91,7 +91,7 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
               className="px-4 py-3 rounded-xl border bg-slate-100 border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-colors"
             >
               <option value="all">All Priorities</option>
-              <option value="urgent">Urgent</option>
+            
               <option value="high">High</option>
               <option value="medium">Medium</option>
               <option value="low">Low</option>

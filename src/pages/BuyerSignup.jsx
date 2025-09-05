@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import LocationPicker from '../components/LocationPicker';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -189,13 +190,98 @@ const BuyerSignup = () => {
         companyName: '',
         companyType: '',
         companyAddress: '',
+        company_latitude: '',
+        company_longitude: '',
         phoneNumber: '',
         profileImage: null,
         nicNumber: '',
         password: '',
         confirmPassword: '',
         paymentOffer: '',
+        address: '',
+        latitude: '',
+        longitude: '',
     });
+    // Address/location modal state
+    const [showMapPicker, setShowMapPicker] = useState(false);
+    const [showCompanyMapPicker, setShowCompanyMapPicker] = useState(false);
+
+    // Helper: reverse geocode coordinates to address (OpenStreetMap Nominatim)
+    const reverseGeocode = async (lat, lon) => {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+            const data = await res.json();
+            return data.display_name || '';
+        } catch {
+            return '';
+        }
+    };
+
+    // Geolocation handler for personal address
+    const handleGetLocation = async () => {
+        if (!navigator.geolocation) {
+            setErrorMessage('Geolocation is not supported by your browser.');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const { latitude, longitude } = position.coords;
+            setFormData(prev => ({ ...prev, latitude, longitude }));
+            const addr = await reverseGeocode(latitude, longitude);
+            setFormData(prev => ({ ...prev, address: addr, latitude, longitude }));
+            setErrorMessage('');
+        }, (error) => {
+            setErrorMessage('Unable to retrieve your location.');
+        });
+    };
+
+    // Geolocation handler for company address
+    const handleGetCompanyLocation = async () => {
+        if (!navigator.geolocation) {
+            setErrorMessage('Geolocation is not supported by your browser.');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const { latitude, longitude } = position.coords;
+            setFormData(prev => ({ ...prev, company_latitude: latitude, company_longitude: longitude }));
+            const addr = await reverseGeocode(latitude, longitude);
+            setFormData(prev => ({ ...prev, companyAddress: addr, company_latitude: latitude, company_longitude: longitude }));
+            setErrorMessage('');
+        }, (error) => {
+            setErrorMessage('Unable to retrieve your location.');
+        });
+    };
+
+    // Map selection state for modal
+    const [pendingMapLocation, setPendingMapLocation] = useState(null);
+    const [pendingCompanyMapLocation, setPendingCompanyMapLocation] = useState(null);
+
+    // When user clicks 'Select' in modal, update formData (personal address)
+    const handleMapSelectConfirm = async () => {
+        if (pendingMapLocation) {
+            const { latitude, longitude } = pendingMapLocation;
+            setShowMapPicker(false);
+            setFormData(prev => ({ ...prev, latitude, longitude }));
+            const addr = await reverseGeocode(latitude, longitude);
+            setFormData(prev => ({ ...prev, address: addr, latitude, longitude }));
+            setPendingMapLocation(null);
+        } else {
+            setShowMapPicker(false);
+        }
+    };
+
+    // When user clicks 'Select' in modal, update formData (company address)
+    const handleCompanyMapSelectConfirm = async () => {
+        if (pendingCompanyMapLocation) {
+            const { latitude, longitude } = pendingCompanyMapLocation;
+            setShowCompanyMapPicker(false);
+            setFormData(prev => ({ ...prev, company_latitude: latitude, company_longitude: longitude }));
+            const addr = await reverseGeocode(latitude, longitude);
+            setFormData(prev => ({ ...prev, companyAddress: addr, company_latitude: latitude, company_longitude: longitude }));
+            setPendingCompanyMapLocation(null);
+        } else {
+            setShowCompanyMapPicker(false);
+        }
+    };
 
     // Organization committee form data
     const [orgFormData, setOrgFormData] = useState({
@@ -292,6 +378,11 @@ const BuyerSignup = () => {
         if (formData.password && formData.password.length < 8) {
             newErrors.password = 'Password must be at least 8 characters long';
         }
+        // Password complexity: at least one uppercase letter, one number, and one special character
+        const passwordComplexityRegex = /^(?=.*[0-9])(?=.*[A-Z])(?=.*[!@#$%^&*])/;
+        if (formData.password && !passwordComplexityRegex.test(formData.password)) {
+            newErrors.password = 'Password must include at least one uppercase letter, one number, and one special character';
+        }
         if (formData.password !== formData.confirmPassword) {
             newErrors.confirmPassword = 'Passwords do not match';
         }
@@ -347,11 +438,15 @@ const BuyerSignup = () => {
             contact_number: formData.phoneNumber?.trim() || '',
             district: formData.district?.trim() || '',
             nic_number: formData.nicNumber?.trim() || '',
+            address: formData.address?.trim() || '',
+            latitude: formData.latitude !== '' ? formData.latitude : null,
+            longitude: formData.longitude !== '' ? formData.longitude : null,
             // Buyer-specific fields (for separate buyer table)
-            // company_name, company_type, company_address are optional fields
             company_name: formData.companyName?.trim() || '',
             company_type: formData.companyType?.trim() || '',
             company_address: formData.companyAddress?.trim() || '',
+            company_latitude: formData.company_latitude !== '' ? formData.company_latitude : null,
+            company_longitude: formData.company_longitude !== '' ? formData.company_longitude : null,
             profile_image: formData.profileImage ?? null,
             payment_offer: formData.paymentOffer?.trim() || '',
         };
@@ -584,7 +679,114 @@ const BuyerSignup = () => {
                                 <InputField icon={Building2} label="Company Type" name="companyType" options={companyTypes} value={formData.companyType} error={errors.companyType} onChange={handleInputChange} inputRef={el => fieldRefs.current['companyType'] = el} />
                                 <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['phoneNumber'] = el} />
                             </div>
-                            <InputField icon={Home} label="Company Address" name="companyAddress" type="textarea" placeholder="Enter your complete company address" value={formData.companyAddress} error={errors.companyAddress} onChange={handleInputChange} inputRef={el => fieldRefs.current['companyAddress'] = el} />
+
+                            {/* Personal Address with Map/Location Picker (for users table) */}
+                            <div className="mb-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="flex items-center space-x-2 text-green-800 font-medium mb-0">
+                                        <Home className="w-5 h-5" />
+                                        <span>Personal Address</span>
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            className="bg-green-100 text-green-800 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-green-200 focus:outline-none"
+                                            onClick={handleGetLocation}
+                                        >
+                                            Use My Location
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-blue-200 focus:outline-none"
+                                            onClick={() => setShowMapPicker(true)}
+                                        >
+                                            Select on Map
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea
+                                    name="address"
+                                    value={formData.address}
+                                    onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                                    placeholder="Enter your complete address"
+                                    rows={3}
+                                    className="w-full px-4 py-4 border-2 rounded-2xl bg-[#f6f9fb] border-green-200 focus:outline-none focus:ring-2 focus:ring-green-400 transition-all duration-300 text-gray-800"
+                                    style={{ minHeight: '64px', resize: 'vertical' }}
+                                />
+                                {/* Map Picker Modal */}
+                                {showMapPicker && (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                                        <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
+                                            <h3 className="text-lg font-semibold mb-2 text-green-800">Select Your Location</h3>
+                                            <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
+                                                <LocationPicker
+                                                    latitude={pendingMapLocation ? pendingMapLocation.latitude : (formData.latitude ? parseFloat(formData.latitude) : null)}
+                                                    longitude={pendingMapLocation ? pendingMapLocation.longitude : (formData.longitude ? parseFloat(formData.longitude) : null)}
+                                                    onChange={({ latitude, longitude }) => setPendingMapLocation({ latitude, longitude })}
+                                                />
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => { setShowMapPicker(false); setPendingMapLocation(null); }} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-medium">Cancel</button>
+                                                <button onClick={handleMapSelectConfirm} className="px-4 py-2 rounded bg-green-600 text-white font-semibold">Select</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Company Address with Map/Location Picker (for buyer_details table) */}
+                            <div className="mb-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="flex items-center space-x-2 text-green-800 font-medium mb-0">
+                                        <Building2 className="w-5 h-5" />
+                                        <span>Company Address</span>
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            className="bg-green-100 text-green-800 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-green-200 focus:outline-none"
+                                            onClick={handleGetCompanyLocation}
+                                        >
+                                            Use Company Location
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-blue-200 focus:outline-none"
+                                            onClick={() => setShowCompanyMapPicker(true)}
+                                        >
+                                            Select on Map
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea
+                                    name="companyAddress"
+                                    value={formData.companyAddress}
+                                    onChange={e => setFormData(prev => ({ ...prev, companyAddress: e.target.value }))}
+                                    placeholder="Enter your complete company address"
+                                    rows={3}
+                                    className="w-full px-4 py-4 border-2 rounded-2xl bg-[#f6f9fb] border-green-200 focus:outline-none focus:ring-2 focus:ring-green-400 transition-all duration-300 text-gray-800"
+                                    style={{ minHeight: '64px', resize: 'vertical' }}
+                                />
+                                {/* Map Picker Modal for Company Address */}
+                                {showCompanyMapPicker && (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                                        <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
+                                            <h3 className="text-lg font-semibold mb-2 text-blue-800">Select Company Location</h3>
+                                            <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
+                                                <LocationPicker
+                                                    latitude={pendingCompanyMapLocation ? pendingCompanyMapLocation.latitude : (formData.company_latitude ? parseFloat(formData.company_latitude) : null)}
+                                                    longitude={pendingCompanyMapLocation ? pendingCompanyMapLocation.longitude : (formData.company_longitude ? parseFloat(formData.company_longitude) : null)}
+                                                    onChange={({ latitude, longitude }) => setPendingCompanyMapLocation({ latitude, longitude })}
+                                                />
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => { setShowCompanyMapPicker(false); setPendingCompanyMapLocation(null); }} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-medium">Cancel</button>
+                                                <button onClick={handleCompanyMapSelectConfirm} className="px-4 py-2 rounded bg-blue-600 text-white font-semibold">Select</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} inputRef={el => fieldRefs.current['profileImage'] = el} />
                                 <InputField icon={FileText} label="Payment Offer" name="paymentOffer" placeholder="Describe your payment terms" value={formData.paymentOffer} error={errors.paymentOffer} onChange={handleInputChange} inputRef={el => fieldRefs.current['paymentOffer'] = el} />

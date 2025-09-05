@@ -59,7 +59,12 @@ const PaymentSuccess = () => {
             deliveryAddress: delivery.address,
             deliveryDistrict: delivery.district,
             deliveryCountry: delivery.country,
-            items: orderDetails
+            // Ensure cartItemId is included so backend can copy transport allocations
+            items: orderDetails.map(it => ({
+              ...it,
+              cartItemId: it.cartItemId ?? it.id ?? null,
+              cart_item_id: it.cartItemId ?? it.cart_item_id ?? it.id ?? null
+            }))
           })
         });
         if (!res.ok) throw new Error('Order save failed');

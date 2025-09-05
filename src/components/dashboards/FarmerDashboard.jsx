@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Phone, 
@@ -13,19 +13,116 @@ import {
   Eye,
   Star,
   Calendar,
-  Navigation
+  Navigation,
+  Leaf,
+  Award,
+  Sprout,
+  Tractor,
+  Droplets,
+  Mountain,
+  BarChart3,
+  Activity
 } from 'lucide-react';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 
 const FarmerDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [farmerData, setFarmerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Sample data
-  const farmerInfo = {
-    name: "R. Fernando",
-    phone: "+94 77 123 4567",
-    email: "r.fernando@gmail.com",
-    location: "Galle, Southern Province"
-  };
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          setError('No authentication token found. Please log in again.');
+          setLoading(false);
+          return;
+        }
+        
+        let apiUrl = import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
+          : (import.meta.env.DEV
+              ? 'http://localhost:5000/api/v1/auth/profile-full'
+              : '/api/v1/auth/profile-full');
+
+        const res = await fetch(apiUrl, {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        const contentType = res.headers.get('content-type');
+        if (!res.ok) {
+          let msg = `Failed to fetch profile (status ${res.status})`;
+          if (contentType && contentType.includes('text/html')) {
+            msg = 'API endpoint not reachable. Check your Vite proxy or backend server.';
+          } else {
+            try {
+              const errJson = await res.json();
+              if (errJson && errJson.message) msg += `: ${errJson.message}`;
+            } catch {}
+          }
+          throw new Error(msg);
+        }
+        
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('API did not return JSON. Check your proxy and backend.');
+        }
+        
+        const data = await res.json();
+        const user = data.user || {};
+        const details = user.farmer_details || {};
+        
+        const profileImageUrl = user.profile_image ? 
+          `/api/v1/users/${user.id}/profile-image` : '';
+        
+        setFarmerData({
+          fullName: user.full_name || '-',
+          email: user.email || '-',
+          phoneNumber: user.phone_number || '-',
+          nic: user.nic || '-',
+          district: user.district || '-',
+          address: user.address || '-',
+          profileImage: profileImageUrl,
+          userId: user.id,
+          joinedDate: user.created_at || '-',
+          verified: user.is_active === 1,
+          // Farmer details
+          id: details.id || '-',
+          organizationId: details.organization_id || '-',
+          organizationName: details.organization_name || '-',
+          landSize: details.land_size ? `${details.land_size} acres` : '-',
+          description: details.description || '-',
+          divisionGramasewaNumber: details.division_gramasewa_number || '-',
+          farmingExperience: details.farming_experience || '-',
+          cultivatedCrops: details.cultivated_crops || '-',
+          irrigationSystem: details.irrigation_system || '-',
+          soilType: details.soil_type || '-',
+          farmingCertifications: details.farming_certifications || '-',
+          createdAt: details.created_at || '-',
+        });
+      } catch (err) {
+        setError(err.message || 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, []);
+
+  // Sample data for dashboard stats and orders
+  const stats = [
+    { title: 'Total Crops Posted', value: '12', icon: Package, color: 'green' },
+    { title: 'Monthly Revenue', value: 'Rs. 45,000', icon: DollarSign, color: 'green' },
+    { title: 'Success Rate', value: '96%', icon: TrendingUp, color: 'green' },
+    { title: 'Rating', value: '4.8', icon: Star, color: 'green' }
+  ];
 
   const recentOrders = [
     {
@@ -95,22 +192,6 @@ const FarmerDashboard = () => {
       deliveryLocation: "Colombo, Western",
       pickupTime: "08:00 AM",
       deliveryTime: "12:00 PM"
-    },
-    {
-      id: "DEL005",
-      product: "Ceylon Rice",
-      quantity: "100 kg",
-      price: "Rs. 12,000",
-      buyer: "Celon Export Ltd",
-      buyerPhone: "+94 11 456 7890",
-      status: "Pending",
-      date: "2025-07-06",
-      priority: "MEDIUM",
-      rating: 0,
-      pickupLocation: "Galle, Southern",
-      deliveryLocation: "Kandy, Central",
-      pickupTime: "06:00 AM",
-      deliveryTime: "10:30 AM"
     }
   ];
 
@@ -129,49 +210,14 @@ const FarmerDashboard = () => {
       deliveryTime: "11:30 AM",
       estimatedTime: "4.5 hours",
       actualTime: "4.5 hours"
-    },
-    {
-      id: "DEL004",
-      product: "Beans",
-      quantity: "20 kg",
-      status: "In Transit",
-      driver: "S. Silva",
-      vehicle: "LB-5678",
-      distance: "85 km",
-      pickupLocation: "Galle, Southern",
-      deliveryLocation: "Colombo, Western",
-      pickupTime: "08:00 AM",
-      deliveryTime: "12:00 PM",
-      estimatedTime: "4 hours",
-      actualTime: "3.2 hours"
-    },
-    {
-      id: "DEL005",
-      product: "Potato",
-      quantity: "100 kg",
-      status: "Scheduled",
-      driver: "M. Rajapakse",
-      vehicle: "LB-9012",
-      distance: "95 km",
-      pickupLocation: "Galle, Southern",
-      deliveryLocation: "Kandy, Central",
-      pickupTime: "06:00 AM",
-      deliveryTime: "10:30 AM",
-      estimatedTime: "4.5 hours",
-      actualTime: "-"
     }
   ];
 
-  // Add product images for orders and recentOrders
   const productImages = {
     'Rice': 'https://i.pinimg.com/736x/57/68/60/5768607b3115c7d9eccce0b39ea1c320.jpg',
     'Tomato': 'https://i.pinimg.com/736x/5d/8c/44/5d8c44920a45da876871fccbcd1a5e01.jpg',
-    'Ceylon Rice': 'https://i.pinimg.com/736x/aa/17/ff/aa17ff303c9e66cf42512319dab79248.jpg',
     'Carrot': 'https://i.pinimg.com/736x/b6/c7/5d/b6c75de307bcf0075896a0c03a7a20f4.jpg',
-    'Cabbage': 'https://i.pinimg.com/736x/c2/4f/f7/c24ff7271bd7257ea1484607a68bbfc4.jpg',
-    'Beans': 'https://i.pinimg.com/736x/c1/3b/fd/c13bfd0bc36fd1f6a985eff4fb83d490.jpg',
-    'Potato': 'https://i.pinimg.com/736x/8d/24/d1/8d24d142a578b3d88355a0d7e2554e71.jpg',
-    // Add more as needed
+    'Cabbage': 'https://i.pinimg.com/736x/c2/4f/f7/c24ff7271bd7257ea1484607a68bbfc4.jpg'
   };
 
   const getPriorityColor = (priority) => {
@@ -204,78 +250,99 @@ const FarmerDashboard = () => {
     ));
   };
 
+  const InfoCard = ({ label, value, icon: Icon, color = "green" }) => (
+    <div className={`flex flex-col items-start rounded-xl p-4 border
+      ${color === "green" ? "bg-green-50 border-green-100" : ""}
+      ${color === "blue" ? "bg-blue-50 border-blue-100" : ""}
+      ${color === "yellow" ? "bg-yellow-50 border-yellow-100" : ""}
+      ${color === "gray" ? "bg-gray-50 border-gray-100" : ""}
+    `}>
+      <label className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-2">
+        {Icon && <Icon className={`w-4 h-4 text-${color}-600`} />}
+        {label}
+      </label>
+      <p className="text-gray-800 font-medium">{value && value !== "" ? value : "-"}</p>
+    </div>
+  );
+
+  if (loading) {
+    return <FullScreenLoader />;
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
+  if (!farmerData) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        No profile data found.
+      </div>
+    );
+  }
+
   const OverviewSection = () => (
     <div className="space-y-8">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg border border-green-200 p-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-base font-semibold text-green-700">Total Orders</p>
-              <p className="text-3xl font-bold text-green-900">24</p>
-            </div>
-            <div className="p-4 bg-green-200 rounded-full">
-              <Package className="w-8 h-8 text-green-700" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg border border-green-200 p-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-base font-semibold text-green-700">Monthly Revenue</p>
-              <p className="text-3xl font-bold text-green-900">Rs. 45,000</p>
-            </div>
-            <div className="p-4 bg-green-200 rounded-full">
-              <DollarSign className="w-8 h-8 text-green-700" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {stats.map((stat, index) => (
+          <div key={index} className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg border border-green-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-base font-semibold text-green-700">{stat.title}</p>
+                <p className="text-2xl font-bold text-green-900">{stat.value}</p>
+              </div>
+              <div className="p-3 bg-green-200 rounded-full">
+                <stat.icon className="w-6 h-6 text-green-700" />
+              </div>
             </div>
           </div>
-        </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg border border-green-200 p-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-base font-semibold text-green-700">Success Rate</p>
-              <p className="text-3xl font-bold text-green-900">96%</p>
-            </div>
-            <div className="p-4 bg-green-200 rounded-full">
-              <TrendingUp className="w-8 h-8 text-green-700" />
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Farmer Info */}
-      <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg border border-green-200 p-8">
-        <div className="flex items-center space-x-6 mb-6">
-          <div className="w-20 h-20 bg-green-200 rounded-full flex items-center justify-center">
-            <User className="w-10 h-10 text-green-700" />
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold text-green-900">{farmerInfo.name}</h3>
-            <p className="text-base text-green-700">Farmer</p>
-          </div>
+      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+          <User className="w-6 h-6 text-green-600" />
+          Personal Information
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <InfoCard label="Full Name" value={farmerData.fullName} icon={User} color="green" />
+          <InfoCard label="NIC" value={farmerData.nic} icon={Award} color="blue" />
+          <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
+          <InfoCard label="Email" value={farmerData.email} icon={Mail} color="blue" />
+          <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
+          <InfoCard label="Address" value={farmerData.address} icon={MapPin} color="gray" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="flex items-center space-x-4">
-            <Phone className="w-6 h-6 text-green-700" />
-            <span className="text-lg text-green-800">{farmerInfo.phone}</span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Mail className="w-6 h-6 text-green-700" />
-            <span className="text-lg text-green-800">{farmerInfo.email}</span>
-          </div>
-          <div className="flex items-center space-x-4 md:col-span-2">
-            <MapPin className="w-6 h-6 text-green-700" />
-            <span className="text-lg text-green-800">{farmerInfo.location}</span>
-          </div>
+      </div>
+
+      {/* Farming Info */}
+      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+          <Tractor className="w-6 h-6 text-green-600" />
+          Farming Overview
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <InfoCard label="Land Size (acres)" value={farmerData.landSize} icon={BarChart3} color="green" />
+          <InfoCard label="Farming Experience" value={farmerData.farmingExperience} icon={Award} color="yellow" />
+          <InfoCard label="Cultivated Crops" value={farmerData.cultivatedCrops} icon={Sprout} color="green" />
+          <InfoCard label="Irrigation System" value={farmerData.irrigationSystem} icon={Droplets} color="blue" />
+          <InfoCard label="Soil Type" value={farmerData.soilType} icon={Mountain} color="yellow" />
+          <InfoCard label="Farming Certifications" value={farmerData.farmingCertifications} icon={CheckCircle} color="green" />
         </div>
       </div>
 
       {/* Recent Orders */}
-      <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg border border-green-200 p-8">
-        <h3 className="text-2xl font-bold text-green-900 mb-6">Recent Orders</h3>
+      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+          <Activity className="w-6 h-6 text-green-600" />
+          Recent Orders
+        </h3>
         <div className="space-y-6">
           {recentOrders.map((order) => (
-            <div key={order.id} className="flex items-center justify-between p-6 bg-white rounded-lg shadow-sm border border-green-100">
+            <div key={order.id} className="flex items-center justify-between p-6 bg-green-50 rounded-lg shadow-sm border border-green-100">
               <div className="flex items-center space-x-6">
                 <img
                   src={productImages[order.product] || 'https://via.placeholder.com/64x64?text=Product'}
@@ -283,8 +350,8 @@ const FarmerDashboard = () => {
                   className="w-16 h-16 object-cover rounded-full border border-green-100 shadow-md bg-white"
                 />
                 <div>
-                  <h4 className="text-lg font-semibold text-green-900">{order.product}</h4>
-                  <p className="text-base text-green-700">{order.quantity} • {order.buyer}</p>
+                  <h4 className="text-lg font-semibold text-gray-800">{order.product}</h4>
+                  <p className="text-base text-gray-600">{order.quantity} • {order.buyer}</p>
                 </div>
               </div>
               <div className="text-right">
@@ -304,13 +371,12 @@ const FarmerDashboard = () => {
   );
 
   const OrdersSection = () => (
-    <div className="space-y-6"> {/* Reduced vertical spacing */}
+    <div className="space-y-6">
       {orders.map((order) => (
-        <div key={order.id} className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow border border-green-200 overflow-hidden relative"> {/* Add relative for absolute button */}
-          {/* Header */}
-          <div className="bg-gradient-to-r from-green-200 to-green-300 px-4 py-3"> {/* Reduced padding */}
+        <div key={order.id} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden relative">
+          <div className="bg-gradient-to-r from-green-100 to-green-200 px-4 py-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2"> {/* Reduced spacing */}
+              <div className="flex items-center space-x-2">
                 <span className="bg-white px-3 py-1 rounded-full text-sm font-semibold text-green-800">
                   {order.id}
                 </span>
@@ -322,73 +388,57 @@ const FarmerDashboard = () => {
                 </span>
               </div>
             </div>
-            {/* Mark as Completed Button in top right */}
-            <button
-              className="absolute top-3 right-4 px-4 py-1 bg-green-700 hover:bg-green-800 text-white text-xs font-semibold rounded-full shadow transition-colors duration-200 z-10"
-              title="Mark as Completed"
-              onClick={() => {/* Implement mark as completed logic here */}}
-            >
-              Mark as Completed
-            </button>
           </div>
 
-          {/* Content */}
-          <div className="p-4"> {/* Reduced padding */}
-            <div className="flex items-center space-x-4 mb-4"> {/* Reduced spacing */}
-              <>
-                <img
-                  src={productImages[order.product] || 'https://via.placeholder.com/56x56?text=Product'}
-                  alt={order.product}
-                  className="w-14 h-14 object-cover rounded-lg border border-green-100 shadow bg-white"
-                />
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-green-900">{order.product}</h3>
-                  <p className="text-base text-green-700">Quantity: {order.quantity}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-green-700">{order.price}</p>
-                
-                </div>
-              </>
+          <div className="p-4">
+            <div className="flex items-center space-x-4 mb-4">
+              <img
+                src={productImages[order.product] || 'https://via.placeholder.com/56x56?text=Product'}
+                alt={order.product}
+                className="w-14 h-14 object-cover rounded-lg border border-green-100 shadow bg-white"
+              />
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-800">{order.product}</h3>
+                <p className="text-base text-gray-600">Quantity: {order.quantity}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xl font-bold text-green-700">{order.price}</p>
+              </div>
             </div>
 
-            {/* Locations */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"> {/* Reduced gap and margin */}
-              <React.Fragment>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-5 h-5 text-green-700" />
-                    <span className="text-base font-semibold text-green-800">Pickup Location</span>
-                  </div>
-                  <p className="text-base text-green-700 ml-7">{order.pickupLocation}</p>
-                  <div className="flex items-center space-x-2 ml-7">
-                    <Clock className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-600">{order.pickupTime}</span>
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-5 h-5 text-green-700" />
+                  <span className="text-base font-semibold text-gray-800">Pickup Location</span>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Navigation className="w-5 h-5 text-green-700" />
-                    <span className="text-base font-semibold text-green-800">Delivery Location</span>
-                  </div>
-                  <p className="text-base text-green-700 ml-7">{order.deliveryLocation}</p>
-                  <div className="flex items-center space-x-2 ml-7">
-                    <Clock className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-600">{order.deliveryTime}</span>
-                  </div>
+                <p className="text-base text-gray-600 ml-7">{order.pickupLocation}</p>
+                <div className="flex items-center space-x-2 ml-7">
+                  <Clock className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-gray-500">{order.pickupTime}</span>
                 </div>
-              </React.Fragment>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Navigation className="w-5 h-5 text-green-700" />
+                  <span className="text-base font-semibold text-gray-800">Delivery Location</span>
+                </div>
+                <p className="text-base text-gray-600 ml-7">{order.deliveryLocation}</p>
+                <div className="flex items-center space-x-2 ml-7">
+                  <Clock className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-gray-500">{order.deliveryTime}</span>
+                </div>
+              </div>
             </div>
 
-            {/* Buyer Info */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-green-200 rounded-full flex items-center justify-center">
                   <User className="w-5 h-5 text-green-700" />
                 </div>
                 <div>
-                  <p className="text-base font-semibold text-green-900">{order.buyer}</p>
-                  <p className="text-sm text-green-700">Buyer</p>
+                  <p className="text-base font-semibold text-gray-800">{order.buyer}</p>
+                  <p className="text-sm text-gray-500">Buyer</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -407,13 +457,12 @@ const FarmerDashboard = () => {
   );
 
   const LogisticsSection = () => (
-    <div className="space-y-6"> {/* Reduced vertical spacing */}
+    <div className="space-y-6">
       {logistics.map((item) => (
-        <div key={item.id} className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow border border-green-200 overflow-hidden"> {/* Smaller rounded, shadow, border */}
-          {/* Header */}
-          <div className="bg-gradient-to-r from-green-200 to-green-300 px-4 py-3"> {/* Reduced padding */}
+        <div key={item.id} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-green-100 to-green-200 px-4 py-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2"> {/* Reduced spacing */}
+              <div className="flex items-center space-x-2">
                 <span className="bg-white px-3 py-1 rounded-full text-sm font-semibold text-green-800">
                   {item.id}
                 </span>
@@ -427,74 +476,64 @@ const FarmerDashboard = () => {
             </div>
           </div>
 
-          {/* Content */}
-          <div className="p-4"> {/* Reduced padding */}
-            <div className="flex items-center space-x-4 mb-4"> {/* Reduced spacing */}
-              <React.Fragment>
-                <div className="w-14 h-14 bg-green-200 rounded-lg flex items-center justify-center"> {/* Smaller icon */}
-                  <Truck className="w-7 h-7 text-green-700" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-green-900">{item.product}</h3>
-                  <p className="text-base text-green-700">Quantity: {item.quantity}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-base font-bold text-green-900">{item.vehicle}</p>
-                  <p className="text-sm text-green-700">Driver: {item.driver}</p>
-                </div>
-              </React.Fragment>
+          <div className="p-4">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-14 h-14 bg-green-200 rounded-lg flex items-center justify-center">
+                <Truck className="w-7 h-7 text-green-700" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-800">{item.product}</h3>
+                <p className="text-base text-gray-600">Quantity: {item.quantity}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-base font-bold text-gray-800">{item.vehicle}</p>
+                <p className="text-sm text-gray-500">Driver: {item.driver}</p>
+              </div>
             </div>
 
-            {/* Route Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"> {/* Reduced gap and margin */}
-              <React.Fragment>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-5 h-5 text-green-700" />
-                    <span className="text-base font-semibold text-green-800">Pickup Location</span>
-                  </div>
-                  <p className="text-base text-green-700 ml-7">{item.pickupLocation}</p>
-                  <div className="flex items-center space-x-2 ml-7">
-                    <Clock className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-600">{item.pickupTime}</span>
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-5 h-5 text-green-700" />
+                  <span className="text-base font-semibold text-gray-800">Pickup Location</span>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Navigation className="w-5 h-5 text-green-700" />
-                    <span className="text-base font-semibold text-green-800">Delivery Location</span>
-                  </div>
-                  <p className="text-base text-green-700 ml-7">{item.deliveryLocation}</p>
-                  <div className="flex items-center space-x-2 ml-7">
-                    <Clock className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-600">{item.deliveryTime}</span>
-                  </div>
+                <p className="text-base text-gray-600 ml-7">{item.pickupLocation}</p>
+                <div className="flex items-center space-x-2 ml-7">
+                  <Clock className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-gray-500">{item.pickupTime}</span>
                 </div>
-              </React.Fragment>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Navigation className="w-5 h-5 text-green-700" />
+                  <span className="text-base font-semibold text-gray-800">Delivery Location</span>
+                </div>
+                <p className="text-base text-gray-600 ml-7">{item.deliveryLocation}</p>
+                <div className="flex items-center space-x-2 ml-7">
+                  <Clock className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-gray-500">{item.deliveryTime}</span>
+                </div>
+              </div>
             </div>
 
-            {/* Time Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Reduced gap */}
-              <React.Fragment>
-                <div className="bg-green-100 border border-green-200 p-4 rounded-lg"> {/* Reduced padding */}
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Clock className="w-4 h-4 text-green-700" />
-                    <span className="text-sm font-semibold text-green-800">Estimated Time</span>
-                  </div>
-                  <p className="text-lg font-bold text-green-900">{item.estimatedTime}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-green-50 border border-green-100 p-4 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Clock className="w-4 h-4 text-green-700" />
+                  <span className="text-sm font-semibold text-gray-800">Estimated Time</span>
                 </div>
-                <div className="bg-green-100 border border-green-200 p-4 rounded-lg"> {/* Reduced padding */}
-                  <div className="flex items-center space-x-2 mb-2">
-                    <CheckCircle className="w-4 h-4 text-green-700" />
-                    <span className="text-sm font-semibold text-green-800">Actual Time</span>
-                  </div>
-                  <p className="text-lg font-bold text-green-900">{item.actualTime}</p>
+                <p className="text-lg font-bold text-gray-800">{item.estimatedTime}</p>
+              </div>
+              <div className="bg-green-50 border border-green-100 p-4 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-green-700" />
+                  <span className="text-sm font-semibold text-gray-800">Actual Time</span>
                 </div>
-              </React.Fragment>
+                <p className="text-lg font-bold text-gray-800">{item.actualTime}</p>
+              </div>
             </div>
 
-            {/* Action Button */}
-            <div className="mt-6 flex justify-center"> {/* Reduced margin */}
+            <div className="mt-6 flex justify-center">
               <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center space-x-2">
                 <Navigation className="w-5 h-5" />
                 <span className="text-base">Open Maps</span>
@@ -514,11 +553,11 @@ const FarmerDashboard = () => {
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-6">
               <div className="w-12 h-12 bg-green-200 rounded-lg flex items-center justify-center">
-                <Package className="w-8 h-8 text-green-700" />
+                <Leaf className="w-8 h-8 text-green-700" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">Farmer Dashboard</h1>
-                <p className="text-base text-green-100">Welcome back, {farmerInfo.name}</p>
+                <p className="text-base text-green-100">Welcome back, {farmerData.fullName}</p>
               </div>
             </div>
           </div>

@@ -1,11 +1,78 @@
 import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { TrendingUp, TrendingDown, MapPin, AlertTriangle, Calendar, Filter, Search, Info } from 'lucide-react';
+import useForecastAccess from '../hooks/useForecastAccess';
+import { Link } from 'react-router-dom';
 
 const PriceForecastingInterface = () => {
+  const { hasAccess, loading } = useForecastAccess();
   const [selectedCrop, setSelectedCrop] = useState('redrice');
   const [selectedLocation, setSelectedLocation] = useState('colombo');
   const [timeRange, setTimeRange] = useState('6months');
+
+  // Show loading state while checking access
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
+
+  // Show premium access required if user doesn't have access
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full text-center">
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Price Forecasting</h1>
+            <p className="text-gray-600">AI-powered crop price predictions</p>
+          </div>
+          
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-3">Premium Feature</h2>
+            <p className="text-gray-600 mb-4">
+              Access advanced AI-powered price forecasting to make informed decisions about when to sell your crops for maximum profit.
+            </p>
+            <ul className="text-left text-gray-600 space-y-2 mb-4">
+              <li className="flex items-center">
+                <span className="w-2 h-2 bg-green-400 rounded-full mr-3"></span>
+                Real-time market price predictions
+              </li>
+              <li className="flex items-center">
+                <span className="w-2 h-2 bg-green-400 rounded-full mr-3"></span>
+                Historical trend analysis
+              </li>
+              <li className="flex items-center">
+                <span className="w-2 h-2 bg-green-400 rounded-full mr-3"></span>
+                Location-based price variations
+              </li>
+              <li className="flex items-center">
+                <span className="w-2 h-2 bg-green-400 rounded-full mr-3"></span>
+                Export and market insights
+              </li>
+            </ul>
+          </div>
+          
+          <div className="space-y-3">
+            <Link to="/subscriptionmanagement">
+              <button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-3 px-6 rounded-xl font-semibold hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-lg">
+                Upgrade to Premium
+              </button>
+            </Link>
+            <Link to="/dashboard/farmer">
+              <button className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-200 transition-all duration-200">
+                Back to Dashboard
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Sample data for different crops and locations
   const priceData = {

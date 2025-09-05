@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, CloudRain, Sun, Wind, Thermometer, Droplets, AlertTriangle, MapPin, Clock, Leaf, TrendingUp, Eye, Zap } from 'lucide-react';
+import { Bell, CloudRain, Sun, Wind, Thermometer, Droplets, AlertTriangle, MapPin, Clock, Leaf, TrendingUp, Eye, Zap, Lock, Crown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAlertAccess } from '../hooks/useAlertAccess';
 
 const WeatherNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState('Colombo');
   const [activeFilter, setActiveFilter] = useState('all');
+
+  // Check if user has access to weather alerts (option_id = 32)
+  const { hasAccess, loading: accessLoading, subscriptionData } = useAlertAccess();
 
   const sriLankanLocations = [
     'Colombo', 'Kandy', 'Galle', 'Jaffna', 'Anuradhapura', 'Kurunegala', 
@@ -253,6 +258,57 @@ const WeatherNotifications = () => {
           </div>
         </div>
 
+        {/* Access Control Check */}
+        {accessLoading ? (
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto mb-4"></div>
+            <h3 className="text-xl font-medium text-gray-900 mb-2">Checking access...</h3>
+            <p className="text-gray-500">Verifying your subscription permissions</p>
+          </div>
+        ) : !hasAccess ? (
+          <div className="text-center py-16">
+            <div className="bg-white rounded-3xl shadow-xl border border-blue-200 p-12 max-w-2xl mx-auto">
+              <div className="mb-8">
+                <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                  <Lock className="w-12 h-12 text-blue-600" />
+                </div>
+                <h3 className="text-3xl font-bold text-gray-900 mb-4">Premium Feature</h3>
+                <p className="text-lg text-gray-600 mb-6">
+                  Weather Alert System requires a premium subscription with alert access. 
+                  Upgrade your plan to get intelligent weather monitoring and farming recommendations.
+                </p>
+              </div>
+              
+              <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-2xl p-6 mb-8">
+                <h4 className="font-bold text-green-800 mb-3 flex items-center">
+                  <Crown className="w-5 h-5 mr-2" />
+                  Premium Weather Features:
+                </h4>
+                <ul className="text-sm text-green-700 space-y-2">
+                  <li>• Real-time weather alerts and warnings</li>
+                  <li>• Crop-specific weather recommendations</li>
+                  <li>• Advanced forecasting for optimal planting</li>
+                  <li>• Extreme weather protection strategies</li>
+                  <li>• Location-specific meteorological data</li>
+                </ul>
+              </div>
+              
+              <div className="space-y-4">
+                <Link 
+                  to="/subscriptionmanagement"
+                  className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  <Crown className="w-5 h-5 mr-2" />
+                  Upgrade Subscription
+                </Link>
+                <p className="text-sm text-gray-500">
+                  Access all premium farming tools with our enhanced plans
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Smart Filter Pills */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-3">
@@ -377,6 +433,8 @@ const WeatherNotifications = () => {
             );
           })}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

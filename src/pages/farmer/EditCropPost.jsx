@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { CheckCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle, Crop, RefreshCw } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const EditCropPost = () => {
@@ -10,7 +10,7 @@ const EditCropPost = () => {
     crop_name: '',
     crop_category: 'vegetables',
     variety: '',
-    quantity: '',
+    quantity:  '',
     unit: 'kg',
     price_per_unit: '',
     minimum_quantity_bulk: '',
@@ -32,6 +32,8 @@ const EditCropPost = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+  const [existingImages, setExistingImages] = useState([]); // {id, url}
+  const [removedImages, setRemovedImages] = useState([]);
 
   useEffect(() => {
     const fetchCropPost = async () => {
@@ -48,11 +50,21 @@ const EditCropPost = () => {
           return date.toISOString().split('T')[0];
         };
 
+        // Fetch images (assuming images is an array of URLs)
+        let images = [];
+        if (data.images && Array.isArray(data.images)) {
+          images = data.images.map((url, idx) => ({
+            id: url.split('/').pop(), // imageId from URL
+            url
+          }));
+        }
+        setExistingImages(images);
+
         setFormData({
           crop_name: data.crop_name || '',
           crop_category: data.crop_category || 'vegetables',
           variety: data.variety || '',
-          quantity: data.quantity ? String(data.quantity) : '',
+          quantity: data.quantity ? String(parseInt(data.quantity)) : '',
           unit: data.unit || 'kg',
           price_per_unit: data.price_per_unit ? String(data.price_per_unit) : '',
           minimum_quantity_bulk: data.minimum_quantity_bulk ? String(data.minimum_quantity_bulk) : '',
@@ -95,6 +107,29 @@ const EditCropPost = () => {
     }
   };
 
+  // Handle new image uploads
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, ...files]
+    }));
+  };
+
+  // Remove uploaded (new) image before submit
+  const handleRemoveNewImage = (idx) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== idx)
+    }));
+  };
+
+  // Remove existing image (from DB)
+  const handleRemoveExistingImage = (imgId) => {
+    setRemovedImages(prev => [...prev, imgId]);
+    setExistingImages(prev => prev.filter(img => img.id !== imgId));
+  };
+
   const validateField = (name, value) => {
     switch (name) {
       case 'crop_name':
@@ -131,103 +166,105 @@ const EditCropPost = () => {
     }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setFormError('');
-  setSubmitSuccess(false);
-  
-  // Validate all fields and collect errors
-  const errors = {};
-  const fieldsToValidate = [
-    'crop_name',
-    'quantity',
-    'price_per_unit',
-    'location',
-    'contact_number',
-    'minimum_quantity_bulk',
-    'harvest_date',
-    'expiry_date'
-  ];
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setSubmitSuccess(false);
+    
+    // Validate all fields and collect errors
+    const errors = {};
+    const fieldsToValidate = [
+      'crop_name',
+      'quantity',
+      'price_per_unit',
+      'location',
+      'contact_number',
+      'minimum_quantity_bulk',
+      'harvest_date',
+      'expiry_date'
+    ];
 
-  fieldsToValidate.forEach(field => {
-    const error = validateField(field, formData[field]);
-    if (error) {
-      errors[field] = error;
-    }
-  });
-
-  // Update field errors state
-  setFieldErrors(errors);
-
-  // If there are any errors, stop submission
-  if (Object.keys(errors).length > 0) {
-    setFormError('Please correct the errors in the form');
-    return;
-  }
-
-  setIsSubmitting(true);
-
-  try {
-    const submitData = new FormData();
-
-    // Convert form data to proper types before sending
-    const dataToSend = {
-      ...formData,
-      quantity: formData.quantity !== '' ? parseFloat(formData.quantity) : null,
-      price_per_unit: formData.price_per_unit !== '' ? parseFloat(formData.price_per_unit) : null,
-      minimum_quantity_bulk: formData.minimum_quantity_bulk !== '' ? parseInt(formData.minimum_quantity_bulk) : null,
-      organic_certified: formData.organic_certified ? 1 : 0,
-      pesticide_free: formData.pesticide_free ? 1 : 0,
-      freshly_harvested: formData.freshly_harvested ? 1 : 0,
-    };
-
-    Object.entries(dataToSend).forEach(([key, value]) => {
-      let v = value;
-      // Convert empty strings to null
-      if (typeof v === 'string' && v.trim() === '') v = null;
-      // Only append non-null/undefined values
-      if (key === 'images' && Array.isArray(v) && v.length > 0) {
-        v.forEach(img => submitData.append('images', img));
-      } else if (v !== null && v !== undefined) {
-        submitData.append(key, v);
+    fieldsToValidate.forEach(field => {
+      const error = validateField(field, formData[field]);
+      if (error) {
+        errors[field] = error;
       }
     });
 
-    const authToken = localStorage.getItem('authToken');
-    if (!authToken) {
-      alert('❌ You are not logged in. Please login first.');
+    // Update field errors state
+    setFieldErrors(errors);
+
+    // If there are any errors, stop submission
+    if (Object.keys(errors).length > 0) {
+      setFormError('Please correct the errors in the form');
       return;
     }
 
-    const headers = {
-      'Content-Type': 'multipart/form-data',
-      'Authorization': `Bearer ${authToken}`,
-    };
+    setIsSubmitting(true);
 
-    await axios.patch(
-      `http://localhost:5000/api/v1/crop-posts/${id}`,
-      submitData,
-      { headers }
-    );
+    try {
+      const submitData = new FormData();
 
-    setSubmitSuccess(true);
-    alert('Crop post updated successfully!');
-    navigate(`/crop/${id}`);
-  } catch (err) {
-    console.error('Error updating crop post:', err);
-    // Prefer backend error message if available
-    if (err.response && err.response.data && err.response.data.message) {
-      setFormError(err.response.data.message);
-    } else if (err.message) {
-      setFormError(err.message);
-    } else {
-      setFormError('Failed to update crop post. Please try again.');
+      // Convert form data to proper types before sending
+      const dataToSend = {
+        ...formData,
+        quantity: formData.quantity !== '' ? parseFloat(formData.quantity) : null,
+        price_per_unit: formData.price_per_unit !== '' ? parseFloat(formData.price_per_unit) : null,
+        minimum_quantity_bulk: formData.minimum_quantity_bulk !== '' ? parseInt(formData.minimum_quantity_bulk) : null,
+        organic_certified: formData.organic_certified ? 1 : 0,
+        pesticide_free: formData.pesticide_free ? 1 : 0,
+        freshly_harvested: formData.freshly_harvested ? 1 : 0,
+      };
+
+      Object.entries(dataToSend).forEach(([key, value]) => {
+        let v = value;
+        // Convert empty strings to null
+        if (typeof v === 'string' && v.trim() === '') v = null;
+        // Only append non-null/undefined values
+        if (key === 'images' && Array.isArray(v) && v.length > 0) {
+          v.forEach(img => submitData.append('images', img));
+        } else if (v !== null && v !== undefined) {
+          submitData.append(key, v);
+        }
+      });
+
+      // Add removed image IDs
+      removedImages.forEach(id => submitData.append('removedImages[]', id));
+
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('❌ You are not logged in. Please login first.');
+        return;
+      }
+
+      const headers = {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${authToken}`,
+      };
+
+      await axios.patch(
+        `http://localhost:5000/api/v1/crop-posts/${id}`,
+        submitData,
+        { headers }
+      );
+
+      setSubmitSuccess(true);
+      alert('Crop post updated successfully!');
+      navigate(`/crop/${id}`);
+    } catch (err) {
+      console.error('Error updating crop post:', err);
+      // Prefer backend error message if available
+      if (err.response && err.response.data && err.response.data.message) {
+        setFormError(err.response.data.message);
+      } else if (err.message) {
+        setFormError(err.message);
+      } else {
+        setFormError('Failed to update crop post. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-//
+  };
 
   if (isLoading) {
     return (
@@ -312,7 +349,7 @@ const handleSubmit = async (e) => {
                 <input 
                   type="number" 
                   name="quantity"
-                  step="0.01"
+                  step="1"
                   min="0"
                   className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.quantity ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.quantity} 
@@ -334,8 +371,7 @@ const handleSubmit = async (e) => {
                 >
                   <option value="kg">kg</option>
                   <option value="g">g</option>
-                  <option value="tons">tons</option>
-                  <option value="bags">bags</option>
+                  <option value="bags">bags(50kg)</option>
                   <option value="pieces">pieces</option>
                   <option value="bunches">bunches</option>
                 </select>
@@ -345,7 +381,7 @@ const handleSubmit = async (e) => {
                 <input 
                   type="number" 
                   name="price_per_unit"
-                  step="0.01"
+                  step="1"
                   min="0"
                   className={`w-full px-4 py-2 rounded-lg border ${fieldErrors.price_per_unit ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-green-500`}
                   value={formData.price_per_unit} 
@@ -435,6 +471,61 @@ const handleSubmit = async (e) => {
                   <option value="sold">Sold</option>
                   <option value="available">Available</option>
                 </select>
+              </div>
+              {/* Images */}
+              <div className="sm:col-span-2">
+                <label className="block text-gray-700 font-semibold mb-2">Crop Images</label>
+                <div className="flex flex-wrap gap-4 mb-4">
+                  {/* Existing images */}
+                  {existingImages.map(img => (
+                    <div key={img.id} className="relative w-24 h-24">
+                      <img
+                        src={img.url}
+                        alt="Crop"
+                        className="object-cover w-full h-full rounded border"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-0 right-0 bg-red-600 text-white rounded-full p-1 text-xs"
+                        onClick={() => handleRemoveExistingImage(img.id)}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {/* New images (not yet uploaded) */}
+                  {formData.images.map((img, idx) => (
+                    <div key={idx} className="relative w-24 h-24">
+                      <img
+                        src={URL.createObjectURL(img)}
+                        alt="New"
+                        className="object-cover w-full h-full rounded border"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-0 right-0 bg-red-600 text-white rounded-full p-1 text-xs"
+                        onClick={() => handleRemoveNewImage(idx)}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageChange}
+                  className="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-green-50 file:text-green-700
+                    hover:file:bg-green-100"
+                />
+                <p className="mt-1 text-sm text-gray-500">Upload additional images (JPEG, PNG)</p>
               </div>
               {/* Description & Contact */}
               <div className="sm:col-span-2">

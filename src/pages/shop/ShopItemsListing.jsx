@@ -40,22 +40,79 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showTransporters, setShowTransporters] = useState(false);
+  const [transporters, setTransporters] = useState([]);
+  const [loadingTransporters, setLoadingTransporters] = useState(false);
+  const [errorTransporters, setErrorTransporters] = useState(null);
+  // Fetch transporters when modal is opened
+  const handleShowTransporters = async () => {
+    setShowTransporters(true);
+    setLoadingTransporters(true);
+    setErrorTransporters(null);
+    try {
+      const res = await fetch('/api/v1/transporters');
+      if (!res.ok) throw new Error('Failed to fetch transporters');
+      const data = await res.json();
+      setTransporters(data.data || data); // support both {data:[]} and []
+    } catch (err) {
+      setErrorTransporters(err.message);
+    } finally {
+      setLoadingTransporters(false);
+    }
+  };
+
+  const handleCloseTransporters = () => {
+    setShowTransporters(false);
+    setTransporters([]);
+    setErrorTransporters(null);
+  };
   
   const { addToCart, getCartItemsCount } = useCart();
+
+  // Infer a normalized product type from available fields (product_type, category, name)
+  const inferProductType = (item) => {
+    const raw = (item.product_type || item.category || item.product_name || '').toString().toLowerCase();
+    if (!raw) return 'other';
+    // keyword mappings
+    if (raw.includes('seed') || /\b(sow|sprout|seedling|grain|bean)\b/.test(raw)) return 'seeds';
+    if (raw.includes('fertil') || raw.includes('manure') || raw.includes('compost') || /\b(npk|urea|nitrate)\b/.test(raw)) return 'fertilizer';
+    if (raw.includes('pesticide') || raw.includes('herbicide') || raw.includes('insecticide') || raw.includes('chemical') || raw.includes('fungicide')) return 'chemical';
+    // fallback: if it contains common product-type words
+    if (raw.includes('chem') ) return 'chemical';
+    return 'other';
+  };
 useEffect(() => {
   const fetchProducts = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/v1/shop-products');
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
+      // Treat 304 Not Modified and 204 No Content as non-error cases.
+      if (response.status === 304) {
+        console.debug('Products not modified (304) - keeping existing items');
+        setError(null);
+        setIsLoading(false);
+        return;
       }
-      const data = await response.json();
-      
-     setShopItems(data.map(item => ({
+      if (response.status === 204) {
+        console.debug('Products returned 204 No Content - clearing items');
+        setShopItems([]);
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+      if (!response.ok) {
+        throw new Error('Failed to fetch products: ' + response.status);
+      }
+      const payload = await response.json();
+  const data = payload?.data || payload || [];
+
+    // filter out products that belong to inactive shops
+    const activeData = (data || []).filter(item => Number(item.is_active) === 1);
+
+     setShopItems(activeData.map(item => ({
   ...item,
   organicCertified: Boolean(item.organic_certified),
   termsAccepted: Boolean(item.terms_accepted),
-  productType: item.product_type,
+  productType: inferProductType(item),
   productName: item.product_name,
   inStock: item.available_quantity > 0,
   rating: Number(item.rating) || 4.0,
@@ -68,7 +125,6 @@ useEffect(() => {
     item.images.filter(img => img) : // Remove empty/null images
     [item.images || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'],
   shopName: item.shop_name,
-  city: item.city
 })));
     } catch (err) {
       console.error('Error fetching products:', err);
@@ -246,10 +302,6 @@ useEffect(() => {
                 <span className="text-sm text-gray-500">({item.reviewCount})</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-gray-500 text-sm">
-              <MapPin className="w-4 h-4" />
-              {item.city}
-            </div>
           </div>
           <div className="bg-emerald-50 rounded-xl p-4 mb-4">
             <div className="flex items-baseline gap-2 mb-1">
@@ -339,10 +391,6 @@ useEffect(() => {
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
               <span className="text-sm font-bold text-gray-700">{item.rating}</span>
               <span className="text-sm text-gray-500">({item.reviewCount})</span>
-            </div>
-            <div className="flex items-center gap-1 text-gray-500 text-sm">
-              <MapPin className="w-4 h-4" />
-              {item.city}
             </div>
             <div className="flex justify-end items-end flex-1">
               <button 
@@ -651,16 +699,16 @@ useEffect(() => {
                 </div>
                 
                 {/* Add farming tips card to fill white space */}
-                <div className="mt-8 w-full bg-emerald-50/80 p-6 rounded-xl border border-emerald-200">
+                <div className="mt-8 w-full p-6 rounded-xl border border-emerald-200">
                   <h3 className="text-emerald-700 font-bold text-xl flex items-center gap-2">
                     <Leaf className="w-6 h-6" /> Farming Tips
                   </h3>
-                  <div className="mt-4 text-gray-700 text-base">
+                    <div className="mt-4 text-gray-700 text-base">
                     <div className="flex items-start gap-3 mb-3">
                       <div className="bg-emerald-100 rounded-full p-1.5 mt-1">
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
                       </div>
-                      <p>Use this {selectedProduct.product_type} during early morning or late evening for best results.</p>
+                      <p>Use this {selectedProduct.productType || selectedProduct.product_type || 'product'} during early morning or late evening for best results.</p>
                     </div>
                     <div className="flex items-start gap-3 mb-3">
                       <div className="bg-emerald-100 rounded-full p-1.5 mt-1">
@@ -675,23 +723,80 @@ useEffect(() => {
                       <p>Follow recommended dosage for optimal crop yield and health.</p>
                     </div>
                   </div>
-                  
-                  {/* Add to cart button */}
-                  <div className="mt-6 flex justify-center">
-                    <button
-                      className={`px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 ${
-                        selectedProduct.inStock 
-                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                      onClick={(e) => handleAddToCart(selectedProduct, e)}
-                      disabled={!selectedProduct.inStock}
-                    >
-                      <ShoppingCart className="w-6 h-6" />
-                      {selectedProduct.inStock ? 'Add to Cart' : 'Out of Stock'}
-                    </button>
-                  </div>
                 </div>
+                {/* Add to cart button */}
+                <div className="mt-6 flex justify-center">
+                  <button
+                    className={`px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 ${
+                      selectedProduct.inStock 
+                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                    onClick={(e) => handleAddToCart(selectedProduct, e)}
+                    disabled={!selectedProduct.inStock}
+                  >
+                    <ShoppingCart className="w-6 h-6" />
+                    {selectedProduct.inStock ? 'Add to Cart' : 'Out of Stock'}
+                  </button>
+                </div>
+                {/* Available Transporters Button below farming tips section */}
+                <div className="mt-4 flex justify-center">
+                  <button
+                    className="px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                    onClick={handleShowTransporters}
+                  >
+                    🚚 Available Transporters
+                  </button>
+                </div>
+      {/* Transporters Modal */}
+      {showTransporters && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-8 relative border-2 border-blue-100" style={{maxHeight:'90vh', minWidth:'340px'}}>
+            <button
+              className="absolute top-4 right-4 text-blue-500 hover:text-white bg-blue-100 hover:bg-blue-500 rounded-full w-11 h-11 flex items-center justify-center text-2xl font-bold shadow transition-colors duration-200"
+              onClick={handleCloseTransporters}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <div className="flex items-center gap-3 mb-7">
+              <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-200 text-3xl shadow">🚚</span>
+              <h2 className="text-2xl font-extrabold text-blue-700 tracking-tight">Available Transporters</h2>
+            </div>
+            {loadingTransporters ? (
+              <div className="flex flex-col items-center justify-center py-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-400 border-opacity-75 mb-4"></div>
+                <div className="text-base font-semibold text-blue-700">Loading transporters...</div>
+              </div>
+            ) : errorTransporters ? (
+              <div className="text-center text-red-600 py-8">{errorTransporters}</div>
+            ) : transporters.length === 0 ? (
+              <div className="text-center py-8 text-blue-700 font-semibold">No transporters found.</div>
+            ) : (
+              <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
+                {transporters
+                  .filter(t => t.district && selectedProduct && t.district.toLowerCase() === selectedProduct.city?.toLowerCase())
+                  .map((t, idx) => (
+                    <div key={t.id || idx} className="flex items-center gap-4 p-4 rounded-xl bg-white border border-blue-100 shadow hover:shadow-lg transition-all duration-200">
+                      <div className="flex-shrink-0 w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-2xl shadow-inner border-2 border-blue-200">🚚</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-lg text-blue-900 mb-1">{t.transporter_name}</div>
+                        <div className="flex flex-wrap gap-3 text-sm text-blue-700">
+                          <span className="inline-flex items-center gap-1 bg-blue-50 px-2 py-1 rounded"><MapPin className="w-4 h-4 text-blue-400" />{t.district}</span>
+                          <span className="inline-flex items-center gap-1 bg-gray-50 px-2 py-1 rounded"><Package className="w-4 h-4 text-emerald-400" />{t.vehicle_type} <span className="text-gray-500">({t.vehicle_number})</span></span>
+                          <span className="inline-flex items-center gap-1 bg-blue-50 px-2 py-1 rounded"><Beaker className="w-4 h-4 text-blue-300" />{t.vehicle_capacity} {t.capacity_unit}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                {transporters.filter(t => t.district && selectedProduct && t.district.toLowerCase() === selectedProduct.city?.toLowerCase()).length === 0 && (
+                  <div className="text-center py-8 text-blue-700 font-semibold">No transporters found for this city.</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
               </div>
               {/* Right: Details */}
               <div className="flex flex-col gap-6 p-8 bg-white rounded-2xl">
@@ -730,20 +835,11 @@ useEffect(() => {
                   </div>
                   {/* Column 2 */}
                   <div className="space-y-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <p className="text-base font-medium text-blue-600">City</p>
-                      <input
-                        type="text"
-                        value={selectedProduct.city}
-                        readOnly
-                        className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
-                      />
-                    </div>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <p className="text-base font-medium text-gray-600">Product Type</p>
                       <input
                         type="text"
-                        value={selectedProduct.product_type}
+                        value={selectedProduct.productType || selectedProduct.product_type || ''}
                         readOnly
                         className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-3 mt-2 border border-gray-300 focus:outline-none text-base"
                       />

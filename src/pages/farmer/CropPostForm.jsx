@@ -12,6 +12,7 @@ const CropPostForm = () => {
     cropType: '',
     cropCategory: 'vegetables',
     cropName: '',
+    customCropName: '', // For 'Other' option
     variety: '',
     quantity: '',
     unit: 'kg',
@@ -378,6 +379,10 @@ const CropPostForm = () => {
             if (isNaN(value)) value = '';
           }
         }
+        // For cropName, use customCropName if 'Other' is selected
+        if (frontendKey === 'cropName') {
+          value = (formData.cropName === 'Other') ? formData.customCropName : formData.cropName;
+        }
         // For farmerName, use user full name or fallback
         if (frontendKey === 'farmerName') {
           value = (user && (user.full_name || user.name)) ? (user.full_name || user.name) : '';
@@ -440,6 +445,7 @@ const CropPostForm = () => {
         cropType: '',
         cropCategory: 'vegetables',
         cropName: '',
+        customCropName: '',
         variety: '',
         quantity: '',
         unit: 'kg',
@@ -528,11 +534,32 @@ const CropPostForm = () => {
             {(formData.cropCategory === 'vegetables' ? vegetables : grains).map((crop) => (
               <option key={crop} value={crop}>{crop}</option>
             ))}
+            <option value="Other">Other</option>
           </select>
+          {formData.cropName === 'Other' && (
+            <input
+              type="text"
+              name="customCropName"
+              value={formData.customCropName}
+              onChange={handleInputChange}
+              onBlur={handleBlur}
+              placeholder="Enter crop name"
+              className={`mt-3 w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
+                errors.customCropName && touched.customCropName ? 'border-red-500 ring-2 ring-red-200' : 'border-green-300 hover:border-gray-400'
+              }`}
+              required
+            />
+          )}
           {errors.cropName && touched.cropName && (
             <div className="flex items-center mt-2 text-red-600 text-sm">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               <span>{errors.cropName}</span>
+            </div>
+          )}
+          {formData.cropName === 'Other' && errors.customCropName && touched.customCropName && (
+            <div className="flex items-center mt-2 text-red-600 text-sm">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span>{errors.customCropName}</span>
             </div>
           )}
         </div>
@@ -878,6 +905,7 @@ const CropPostForm = () => {
             className={`w-full p-3 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-black ${
               errors.email && touched.email ? 'border-red-500' : 'border-green-300'
             }`}
+            readOnly
           />
           {errors.email && touched.email && (
             <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -899,6 +927,7 @@ const CropPostForm = () => {
                 errors.district && touched.district ? 'border-red-500' : 'border-green-300'
               }`}
               required
+              readOnly
             >
               <option value="">Select District</option>
               {sriLankanDistricts.map((district) => (

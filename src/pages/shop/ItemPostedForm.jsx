@@ -1,21 +1,34 @@
 import { useState ,useEffect} from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Upload, MapPin, Phone, Mail, Package, Leaf, Droplets, AlertTriangle, AlertCircle } from 'lucide-react';
 import { ChevronDown } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useShopSubscriptionAccess } from '../../hooks/useShopSubscriptionAccess';
 
 export default function SeedsFertilizerForm() {
   const sriLankanCities = [
   "Colombo", "Dehiwala-Mount Lavinia", "Moratuwa", "Sri Jayawardenepura Kotte", "Negombo", "Kandy", "Kalmunai", "Vavuniya", "Galle", "Trincomalee", "Batticaloa", "Jaffna", "Matara", "Kurunegala", "Ratnapura", "Badulla", "Anuradhapura", "Polonnaruwa", "Puttalam", "Chilaw", "Matale", "Nuwara Eliya", "Gampaha", "Hambantota", "Monaragala", "Kilinochchi", "Mannar", "Mullaitivu", "Ampara", "Kegalle", "Hatton", "Wattala", "Panadura", "Beruwala", "Kotikawatta", "Katunayake", "Kolonnawa", "Kotikawatta", "Eravur", "Valvettithurai", "Point Pedro", "Kalutara", "Horana", "Ja-Ela", "Kadawatha", "Homagama", "Avissawella", "Gampola", "Weligama", "Ambalangoda", "Balangoda", "Dambulla", "Embilipitiya", "Kegalle", "Kuliyapitiya", "Maharagama", "Minuwangoda", "Nawalapitiya", "Peliyagoda", "Seethawakapura", "Talawakele", "Tangalle", "Wennappuwa", "Chavakachcheri", "Kilinochchi", "Kinniya", "Mannar", "Vavuniya", "Kilinochchi", "Mullaitivu"
 ];
   const { user, isAuthenticated, getAuthHeaders } = useAuth();
+  const navigate = useNavigate();
+  
+  // Shop subscription access hook
+  const {
+    productLimit,
+    canAddProduct,
+    getProductLimitMessage,
+    loading: subscriptionLoading
+  } = useShopSubscriptionAccess();
+  
+  // Toggle verbose debug logs during development
+  const DEBUG = false;
   const [formData, setFormData] = useState({
     shop_name: '',
     owner_name: '',
     email: '',
     phone_no: '',
-    shop_address: '',
-    city: '',
+  shop_address: '',
     product_type: '',
     product_name: '',
     brand: '',
@@ -25,67 +38,130 @@ export default function SeedsFertilizerForm() {
     available_quantity: '',
     product_description: '',
    
-    usage_history: '',
-    season: '',
     organic_certified: false,
     images: [],
     imagePreviews: [],
     terms_accepted: false
   });
+  
+  // Track current product count for limit checking
+  const [currentProductCount, setCurrentProductCount] = useState(0);
    useEffect(() => {
-  const fetchShopDetails = async () => {
-    console.log('⏳ [1] Starting fetch for user ID:', user?.id);
-    console.log('🔑 [2] Auth headers:', getAuthHeaders());
+    const controller = new AbortController();
+    let cancelled = false;
 
-    try {
-      console.log('🌐 [3] Making request to endpoint...');
-      const response = await fetch('http://localhost:5000/api/v1/shop-products/my-shop-view', {
-        headers: getAuthHeaders(),
-      });
+    const fetchShopDetails = async () => {
+      // Only log when debugging
+      if (DEBUG) console.log('⏳ [1] Starting fetch for user ID:', user?.id);
 
-      console.log('✅ [4] Response received:', { status: response.status });
+      try {
+        const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
+        if (DEBUG) console.log(' 🔑 [2] Auth headers:', headers);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.statusText}`);
+        const response = await fetch('http://localhost:5000/api/v1/shop-products/my-shop-view', {
+          headers,
+          signal: controller.signal
+        });
+
+        if (cancelled) return;
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (DEBUG) console.log('✅ [5] Parsed response data:', data);
+
+        if (data && data.success) {
+          const updatedData = {
+            shop_name: data.data.shop_name || '',
+            email: data.data.email || user?.email || '',
+            phone_no: data.data.phone_no || user?.phone_no || '',
+            shop_address: data.data.shop_address || '',
+            owner_name: data.data.owner_name || user?.full_name || '',
+          };
+          if (!cancelled) setFormData(prev => ({ ...prev, ...updatedData }));
+          
+          // Also fetch current product count for subscription limit checking
+          try {
+            const productCountResponse = await fetch('http://localhost:5000/api/v1/shop-products/count', {
+              headers,
+              signal: controller.signal
+            });
+            
+            if (productCountResponse.ok) {
+              const countData = await productCountResponse.json();
+              if (countData && countData.count !== undefined && !cancelled) {
+                setCurrentProductCount(countData.count);
+              }
+            }
+          } catch (countError) {
+            console.log('Error fetching product count:', countError);
+            // Use fallback of 0 if count fetch fails
+            if (!cancelled) setCurrentProductCount(0);
+          }
+        } else if (!cancelled) {
+          // fallback to user info if API reports not-success
+          const fallbackData = {
+            email: user?.email || '',
+            phone_no: user?.phone_no || '',
+            owner_name: user?.full_name || '',
+          };
+          if (!cancelled) setFormData(prev => ({ ...prev, ...fallbackData }));
+        }
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          if (DEBUG) console.debug('Shop details fetch aborted');
+          return;
+        }
+        if (DEBUG) console.error('❌ [4] Fetch failed:', { message: error.message });
+        // Fallback to user data if API fails
+        if (!cancelled) {
+          const errorFallbackData = {
+            email: user?.email || '',
+            phone_no: user?.phone_no || '',
+            owner_name: user?.full_name || '',
+          };
+          setFormData(prev => ({ ...prev, ...errorFallbackData }));
+        }
       }
+    };
 
-      const data = await response.json();
-      console.log('✅ [5] Parsed response data:', data);
-
-      if (data.success) {
-        setFormData((prev) => ({
-          ...prev,
-          shop_name: data.data.shop_name || '',
-          email: data.data.email || user.email || '',
-          phone_no: data.data.phone_no ||user.phone_no ||'',
-          shop_address: data.data.shop_address || '',
-          city: data.data.city || '',
-          owner_name: data.data.owner_name || '',
-        }));
-        // Log the value after setting state
-        console.log('shop_name:', data.data.shop_name);
-        // If you want to see the updated formData, use a useEffect on formData
-      } else {
-        console.warn('⚠ [6] Response not successful:', data);
-      }
-    } catch (error) {
-      console.error('❌ [4] Fetch failed:', { message: error.message });
-    } finally {
-      console.log('🏁 [7] Fetch completed');
+    if (user?.id) {
+      fetchShopDetails();
+    } else if (user) {
+      if (DEBUG) console.log('⛔ [0] No user ID - using basic user data');
+      const basicUserData = {
+        email: user.email || '',
+        phone_no: user.phone_no || '',
+        owner_name: user.full_name || '',
+      };
+      setFormData(prev => ({ ...prev, ...basicUserData }));
     }
-  };
 
-  if (user?.id) {
-    fetchShopDetails();
-  } else {
-    console.log('⛔ [0] No user ID - skipping fetch');
-  }
-}, [user, getAuthHeaders]);
+    return () => {
+      cancelled = true;
+      try { controller.abort(); } catch (e) { /* ignore */ }
+    };
+  }, [user]);
+
+// Debug useEffect to monitor formData changes
+useEffect(() => {
+  console.log('📊 FormData Updated:', {
+    phone_no: formData.phone_no,
+    email: formData.email,
+    owner_name: formData.owner_name,
+    shop_address: formData.shop_address
+  });
+}, [formData.phone_no, formData.email, formData.owner_name, formData.shop_address]);
 
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  // Derived flag: whether required shop profile fields are missing
+  const requiredShopFields = ['shop_name', 'owner_name', 'email', 'phone_no', 'shop_address'];
+  const isShopProfileIncomplete = requiredShopFields.some(field => !formData[field] || !formData[field].toString().trim());
 
   const validateStep1 = () => {
     const stepErrors = {};
@@ -114,14 +190,10 @@ export default function SeedsFertilizerForm() {
       stepErrors.phone_no = 'Please enter a valid Sri Lankan phone number';
     }
 
-    if (!formData.shop_address.trim()) {
+  if (!formData.shop_address.trim()) {
       stepErrors.shop_address = 'Address is required';
     } else if (formData.shop_address.length < 10) {
       stepErrors.shop_address = 'Please provide a complete address';
-    }
-
-    if (!formData.city.trim()) {
-      stepErrors.city = 'City is required';
     }
 
     return stepErrors;
@@ -140,10 +212,24 @@ export default function SeedsFertilizerForm() {
       stepErrors.product_name = 'Product name must be at least 2 characters';
     }
 
+    if (!formData.category) {
+      stepErrors.category = 'Please select a category';
+    } else if (formData.category === 'Other' && !formData.category_other?.trim()) {
+      stepErrors.category = 'Please specify the category when selecting "Other"';
+    }
+
     if (!formData.price) {
       stepErrors.price = 'Price is required';
     } else if (isNaN(formData.price) || parseFloat(formData.price) <= 0) {
       stepErrors.price = 'Please enter a valid price';
+    }
+
+    if (!formData.unit) {
+      stepErrors.unit = 'Please select a unit';
+    }
+
+    if (!formData.available_quantity.trim()) {
+      stepErrors.available_quantity = 'Available quantity is required';
     }
 
     if (!formData.product_description.trim()) {
@@ -177,6 +263,14 @@ export default function SeedsFertilizerForm() {
       setErrors(prevErrors => ({
         ...prevErrors,
         [name]: ''
+      }));
+    }
+
+    // Also clear category_other error when category changes
+    if (name === 'category' && errors.category) {
+      setErrors(prevErrors => ({
+        ...prevErrors,
+        category: ''
       }));
     }
   };
@@ -227,6 +321,16 @@ const removeImage = (index) => {
 };
 
   const nextStep = () => {
+    // Prevent advancing from Step 1 if shop profile is incomplete
+    if (currentStep === 1 && isShopProfileIncomplete) {
+      setErrors(prev => ({
+        ...prev,
+        shop_profile_incomplete: 'Please complete your shop details in Edit Shop Details (My Shop) before posting.'
+      }));
+      const el = document.querySelector('.shop-profile-incomplete');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     let stepErrors = {};
     
     if (currentStep === 1) {
@@ -258,23 +362,18 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   setIsSubmitting(true);
   setSubmitError('');
- let categoryToSend = formData.category;
-  if (formData.category === "Other" && formData.category_other) {
-    categoryToSend = formData.category_other;
+  
+  // Check product limit before submission
+  if (!canAddProduct(currentProductCount)) {
+    setSubmitError(`You've reached your product limit of ${productLimit}. Please upgrade your subscription plan to add more products.`);
+    setIsSubmitting(false);
+    return;
   }
-
-  // Create FormData and ensure correct category is sent
-  const formDataToSend = new FormData();
-  Object.keys(formData).forEach(key => {
-    if (key === 'category') {
-      formDataToSend.append('category', categoryToSend);
-    } else if (key !== 'images' && key !== 'imagePreviews' && key !== 'category_other') {
-      const value = typeof formData[key] === 'boolean' 
-        ? formData[key].toString() 
-        : formData[key];
-      formDataToSend.append(key, value);
-    }
-  });
+  
+  // Prepare category value, handling "Other"
+  const categoryToSend = formData.category === 'Other' && formData.category_other
+    ? formData.category_other
+    : formData.category;
   try {
     // Validate all steps
     const allErrors = {
@@ -289,19 +388,16 @@ const handleSubmit = async (e) => {
       throw new Error('Please fix all validation errors');
     }
 
-    // Create FormData
+    // Create FormData and append fields
     const formDataToSend = new FormData();
-
-    // Append all regular fields
     Object.keys(formData).forEach(key => {
-      if (key !== 'images' && key !== 'imagePreviews') {
-        // Convert boolean values to strings
-        const value = typeof formData[key] === 'boolean' 
-          ? formData[key].toString() 
-          : formData[key];
-        formDataToSend.append(key, value);
-      }
+      if (key === 'images' || key === 'imagePreviews' || key === 'category_other') return;
+      let value = key === 'category' ? categoryToSend : formData[key];
+      if (typeof value === 'boolean') value = value.toString();
+      formDataToSend.append(key, value);
     });
+
+  // 'city' removed from system; do not include it in submission
 
     // Append each image file
     formData.images.forEach((image, index) => {
@@ -336,8 +432,15 @@ const handleSubmit = async (e) => {
 
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Submission failed');
+      // Attempt to parse error message from response
+      let errorMessage = '';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || JSON.stringify(errorData);
+      } catch {
+        errorMessage = await response.text() || response.statusText;
+      }
+      throw new Error(errorMessage || `Submission failed (${response.status})`);
     }
 
     const responseData = await response.json();
@@ -350,7 +453,6 @@ const handleSubmit = async (e) => {
       email: '',
       phone_no: '',
       shop_address: '',
-      city: '',
       product_type: '',
       product_name: '',
       brand: '',
@@ -359,8 +461,7 @@ const handleSubmit = async (e) => {
       unit: '',
       available_quantity: '',
       product_description: '',
-      usage_history: '',
-      season: '',
+      
       organic_certified: false,
       images: [],
       imagePreviews: [],
@@ -374,8 +475,13 @@ const handleSubmit = async (e) => {
 
     setCurrentStep(1);
     setErrors({});
-    
-    alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
+  alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
+  
+  // Update current product count to reflect the newly added item
+  setCurrentProductCount(prev => prev + 1);
+  
+  // Redirect user to My Shop Items after successful post
+  navigate('/myshopitem');
 
   } catch (error) {
     console.error('Error:', error);
@@ -384,18 +490,22 @@ const handleSubmit = async (e) => {
     setIsSubmitting(false);
   }
 };
-  console.log("Validation results:", {
-  step1: validateStep1(),
-  step2: validateStep2(),
-  step3: validateStep3()
-});
+  if (DEBUG || isSubmitting) {
+    console.log("Validation results:", {
+      step1: validateStep1(),
+      step2: validateStep2(),
+      step3: validateStep3()
+    });
 
-  console.log("Form Data:", formData);
+    console.log("Form Data:", formData);
 
-console.log("Submitting form data:", formData);
-Object.entries(formData).forEach(([key, val]) => {
-  if (!val) console.warn(`${key} is missing or empty`);
-});
+    if (DEBUG || isSubmitting) {
+      console.log("Submitting form data:", formData);
+      Object.entries(formData).forEach(([key, val]) => {
+        if (!val) console.warn(`${key} is missing or empty`);
+      });
+    }
+  }
 // const sanitizedData = Object.fromEntries(
 //   Object.entries(formData).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
 // );
@@ -425,6 +535,53 @@ Object.entries(formData).forEach(([key, val]) => {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
+        {/* Product Limit Check */}
+        {!subscriptionLoading && !canAddProduct(currentProductCount) && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-800">Product Limit Reached</h3>
+                <p className="text-red-700 text-sm mt-1">
+                  You've reached your limit of {productLimit} products. 
+                  Please upgrade your subscription plan to add more products.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => navigate('/subscriptionmanagement')}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Upgrade Plan
+                </button>
+                <button
+                  onClick={() => navigate('/myshopitem')}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Back to My Items
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Product Limit Indicator */}
+        {!subscriptionLoading && (
+          <div className="mb-4 flex justify-between items-center p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-green-600" />
+              <span className="text-green-800 font-medium">
+                Product Listings: {currentProductCount} / {productLimit === 'unlimited' ? '∞' : productLimit}
+              </span>
+            </div>
+            {currentProductCount >= productLimit * 0.8 && productLimit !== 'unlimited' && (
+              <span className="text-orange-600 text-sm">
+                {currentProductCount >= productLimit ? 'Limit reached' : 'Approaching limit'}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Progress Bar */}
         <div className="mb-8 sm:mb-12">
           <div className="flex items-center justify-center space-x-4 sm:space-x-8">
@@ -484,9 +641,9 @@ Object.entries(formData).forEach(([key, val]) => {
                 type="text"
                 name="shop_name"
                 value={formData.shop_name}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                  errors.shop_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                readOnly
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed transition-all text-base sm:text-lg ${
+                  errors.shop_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                 }`}
                 placeholder={
                   formData.shop_name
@@ -512,9 +669,9 @@ Object.entries(formData).forEach(([key, val]) => {
                 type="text"
                 name="owner_name"
                 value={formData.owner_name}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                  errors.owner_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                readOnly
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed transition-all text-base sm:text-lg ${
+                  errors.owner_name ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                 }`}
                 placeholder={
                   formData.owner_name
@@ -541,8 +698,9 @@ Object.entries(formData).forEach(([key, val]) => {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                  errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                readOnly
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed transition-all text-base sm:text-lg ${
+                  errors.email ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                 }`}
                 placeholder={formData.email ? formData.email : "shop@example.com"}
               />
@@ -562,14 +720,15 @@ Object.entries(formData).forEach(([key, val]) => {
                 type="tel"
                 name="phone_no"
                 value={formData.phone_no}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-                  errors.phone_no ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                readOnly
+                className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed transition-all text-base sm:text-lg ${
+                  errors.phone_no ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
                 }`}
                 placeholder={
                   formData.phone_no
                     ? formData.phone_no
-                    
+                    : user?.phone_no
+                      ? user.phone_no
                       : "+94 XX XXX XXXX"
                 }
               />
@@ -589,10 +748,10 @@ Object.entries(formData).forEach(([key, val]) => {
             <textarea
               name="shop_address"
               value={formData.shop_address}
-              onChange={handleInputChange}
+              readOnly
               rows={4}
-              className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none text-base sm:text-lg ${
-                errors.shop_address ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+              className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed transition-all resize-none text-base sm:text-lg ${
+                errors.shop_address ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'
               }`}
               placeholder="Enter complete shop address with landmarks"
             />
@@ -604,33 +763,7 @@ Object.entries(formData).forEach(([key, val]) => {
             )}
           </div>
 
-             <div className="w-full">
-  <label className="block text-sm font-semibold text-gray-700 mb-3">
-    City <span className="text-red-500">*</span>
-  </label>
-  <div className="relative">
-    <select
-      name="city"
-      value={formData.city}
-      onChange={handleInputChange}
-      className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg ${
-        errors.city ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
-      }`}
-    >
-      <option value="">Select city</option>
-      {sriLankanCities.map(city => (
-        <option key={city} value={city}>{city}</option>
-      ))}
-    </select>
-    <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-  </div>
-  {errors.city && (
-    <div className="flex items-center mt-2 text-red-600 text-sm">
-      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-      <span>{errors.city}</span>
-    </div>
-  )}
-</div>
+        
         </div>
       )}
 
@@ -724,9 +857,10 @@ Object.entries(formData).forEach(([key, val]) => {
 
             <div className="w-full">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Category
+                Category <span className="text-red-500">*</span>
               </label>
-              <select
+              <div className="relative">
+                <select
                 name="category"
                 value={
     formData.category === "Other" && formData.category_other
@@ -759,7 +893,9 @@ Object.entries(formData).forEach(([key, val]) => {
       }));
     }
   }}
-                    className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg ${
+                      errors.category ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    }`}
                   >
                     <option value="">Select category</option>
                     {formData.product_type === 'seeds' && (
@@ -795,40 +931,32 @@ Object.entries(formData).forEach(([key, val]) => {
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
-  {/* Show input if "Other" is selected */}
-  {formData.category === "Other" && (
-    <input
-      type="text"
-      name="category"
-      value={formData.category_other || ""}
-      onChange={e =>
-        setFormData(prev => ({
-          ...prev,
-          category: "Other",
-          category_other: e.target.value
-        }))
-      }
-      className="mt-3 w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg"
-      placeholder="Please specify category"
-      autoFocus
-    />
-  )}
-                <div className="w-full">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Season
-                  </label>
-                  <select
-                    name="season"
-                    value={formData.season}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
-                  >
-                    <option value="">Select season</option>
-                    <option value="yala">Yala Season</option>
-                    <option value="maha">Maha Season</option>
-                    <option value="all-year">All Year Round</option>
-                  </select>
-                </div>
+                {errors.category && (
+                  <div className="flex items-center mt-2 text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                    <span>{errors.category}</span>
+                  </div>
+                )}
+                {/* Show input if "Other" is selected */}
+                {formData.category === "Other" && (
+                  <input
+                    type="text"
+                    name="category"
+                    value={formData.category_other || ""}
+                    onChange={e =>
+                      setFormData(prev => ({
+                        ...prev,
+                        category: "Other",
+                        category_other: e.target.value
+                      }))
+                    }
+                    className="mt-3 w-full px-4 py-3 sm:px-6 sm:py-4 border border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-base sm:text-lg"
+                    placeholder="Please specify category"
+                    autoFocus
+                  />
+                )}
+              </div>
+                {/* season removed */}
 
                 <div className="w-full">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -856,13 +984,15 @@ Object.entries(formData).forEach(([key, val]) => {
 
                 <div className="w-full">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Unit
+                    Unit <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="unit"
                     value={formData.unit}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                    className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg ${
+                      errors.unit ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                    }`}
                   >
                     <option value="">Select unit</option>
                     <option value="kg">Per Kg</option>
@@ -871,22 +1001,36 @@ Object.entries(formData).forEach(([key, val]) => {
                     <option value="bottle">Per Bottle</option>
                     <option value="liter">Per Liter</option>
                   </select>
+                  {errors.unit && (
+                    <div className="flex items-center mt-2 text-red-600 text-sm">
+                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span>{errors.unit}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Full Width Fields */}
               <div className="w-full">
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Available Quantity
+                  Available Quantity <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="available_quantity"
                   value={formData.available_quantity}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg"
+                  className={`w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all hover:border-gray-400 text-base sm:text-lg ${
+                    errors.available_quantity ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300 hover:border-gray-400'
+                  }`}
                   placeholder="e.g., 100 packets, 50 kg"
                 />
+                {errors.available_quantity && (
+                  <div className="flex items-center mt-2 text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                    <span>{errors.available_quantity}</span>
+                  </div>
+                )}
               </div>
 
               <div className="w-full">
@@ -954,19 +1098,7 @@ accept="image/*"// Explicitly specify allowed types
 </p>
               </div>
               
-              <div className="w-full">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Usage Instructions
-                </label>
-                <textarea
-                  name="usage_history"
-                  value={formData.usage_history}
-                  onChange={handleInputChange}
-                  rows={5}
-                  className="w-full px-4 py-3 sm:px-6 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none hover:border-gray-400 text-base sm:text-lg"
-                  placeholder="How to use this product effectively"
-                />
-              </div>
+              {/* usage_history removed */}
 
               {/* Organic Certification */}
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border-2 border-green-200">
@@ -1018,7 +1150,7 @@ accept="image/*"// Explicitly specify allowed types
           <p><span className="font-bold text-gray-700">Phone:</span> {formData.phone_no}</p>
           <p><span className="font-bold text-gray-700">Email:</span> {formData.email}</p>
           <p className="md:col-span-2">
-            <span className="font-bold text-gray-700">Address:</span> {formData.shop_address}, {formData.city}
+            <span className="font-bold text-gray-700">Address:</span> {formData.shop_address}
           </p>
         </div>
       </div>
@@ -1050,9 +1182,7 @@ accept="image/*"// Explicitly specify allowed types
             {formData.available_quantity && (
               <p><span className="font-bold text-gray-700">Available:</span> {formData.available_quantity}</p>
             )}
-            {formData.season && (
-              <p><span className="font-bold text-gray-700">Season:</span> {formData.season}</p>
-            )}
+            {/* season removed from preview */}
           </div>
           {formData.organic_certified && (
             <div className="bg-green-100 text-green-800 p-3 sm:p-4 rounded-xl flex items-center border border-green-200">
@@ -1068,14 +1198,7 @@ accept="image/*"// Explicitly specify allowed types
               </p>
             </div>
           )}
-          {formData.usage_history && (
-            <div className="mt-6">
-              <span className="font-bold text-gray-700 text-lg">Usage Instructions:</span>
-              <p className="text-gray-600 mt-3 bg-white p-4 rounded-xl border-2 border-gray-200 text-base">
-                {formData.usage_history}
-              </p>
-            </div>
-          )}
+          {/* usage_history preview removed */}
         </div>
       </div>
     </div>
@@ -1133,6 +1256,14 @@ accept="image/*"// Explicitly specify allowed types
 )}
 
 {/* Navigation Buttons */}
+{submitError && (
+  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+    <div className="flex items-center text-red-600">
+      <AlertCircle className="w-5 h-5 mr-3 flex-shrink-0" />
+      <span className="font-medium">{submitError}</span>
+    </div>
+  </div>
+)}
 <div className="flex flex-col sm:flex-row justify-between mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 gap-4 sm:gap-0">
   <button
     type="button"
@@ -1148,22 +1279,46 @@ accept="image/*"// Explicitly specify allowed types
   </button>
 
   {currentStep < 3 ? (
-    <button
-      type="button"
-      onClick={nextStep}
-      className="px-6 sm:px-8 lg:px-12 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-    >
-      Next Step →
-    </button>
+    <div className="flex flex-col items-end w-full">
+      {isShopProfileIncomplete && (
+        <div className="shop-profile-incomplete mb-3 text-sm text-yellow-700 bg-yellow-100 px-3 py-2 rounded flex items-center justify-between">
+          <div>
+            Some required shop profile fields are missing. Please update your shop details in "My Shop → Edit Shop Details" before proceeding.
+          </div>
+          <div className="ml-4">
+            <button
+              type="button"
+              onClick={() => navigate('/myshopitem')}
+              className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+            >
+              Edit My Shop
+            </button>
+          </div>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={nextStep}
+        disabled={isShopProfileIncomplete}
+        className={`px-6 sm:px-8 lg:px-12 py-3 sm:py-4 rounded-lg font-semibold text-base sm:text-lg transition-all duration-300 ${isShopProfileIncomplete ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl'}`}
+      >
+        Next Step →
+      </button>
+    </div>
   ) : (
 
     <button
       type="button"
       onClick={handleSubmit}
-      disabled={isSubmitting}
-      className={`px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+      disabled={isSubmitting || !canAddProduct(currentProductCount)}
+      className={`px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl ${(isSubmitting || !canAddProduct(currentProductCount)) ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
-      {isSubmitting ? 'Posting...' : '🚀 Post Advertisement'}
+      {!canAddProduct(currentProductCount) 
+        ? `Product Limit Reached (${currentProductCount}/${productLimit})`
+        : isSubmitting 
+        ? 'Posting...' 
+        : '🚀 Post Advertisement'
+      }
     </button>
   )}
 </div>

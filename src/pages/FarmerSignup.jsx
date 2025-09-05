@@ -1,4 +1,48 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+// Fix default marker icon for leaflet in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+// Map picker component for selecting location
+const LocationPicker = ({ show, onClose, onSelect, initialPosition }) => {
+  const [position, setPosition] = useState(initialPosition || [7.8731, 80.7718]); // Default: Sri Lanka
+
+  function LocationMarker() {
+    useMapEvents({
+      click(e) {
+        setPosition([e.latlng.lat, e.latlng.lng]);
+      },
+    });
+    return <Marker position={position} />;
+  }
+
+  return show ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
+        <h3 className="text-lg font-semibold mb-2 text-green-800">Select Your Location</h3>
+        <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
+          <MapContainer center={position} zoom={8} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <LocationMarker />
+          </MapContainer>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-medium">Cancel</button>
+          <button onClick={() => onSelect(position)} className="px-4 py-2 rounded bg-green-600 text-white font-semibold">Select</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+};
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import axios from 'axios';
@@ -242,6 +286,7 @@ const FarmerSignup = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [showOrgForm, setShowOrgForm] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [showMapPicker, setShowMapPicker] = useState(false);
 
     // Refs for each field for error scrolling
     const fieldRefs = React.useRef({});
@@ -266,7 +311,9 @@ const FarmerSignup = () => {
         cultivatedCrops: '',
         irrigationSystem: '',
         soilType: '',
-        farmingCertifications: ''
+        farmingCertifications: '',
+        latitude: '',
+        longitude: ''
     });
 
     // For organization search
@@ -446,6 +493,9 @@ const FarmerSignup = () => {
         const phoneRegex = /^0[0-9]{9}$/;
         if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = 'Phone number must start with 0 and have 10 digits';
         if (formData.password && formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
+        // Password complexity: at least one number, one uppercase letter, and one special character
+        const passwordComplexityRegex = /^(?=.*[0-9])(?=.*[A-Z])(?=.*[!@#$%^&*])/;
+        if (formData.password && !passwordComplexityRegex.test(formData.password)) newErrors.password = 'Password must include at least one uppercase letter, one number, and one special character';
         if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
         if (formData.landSize && (isNaN(formData.landSize) || parseFloat(formData.landSize) <= 0)) newErrors.landSize = 'Please enter a valid land size';
         setErrors(newErrors);
@@ -484,6 +534,7 @@ const FarmerSignup = () => {
             let newUserId = null;
             let organizationIdToUse = formData.organizationId;
             // 1. Register the farmer user first (without organization_id if orgRegistered)
+            // Now include latitude/longitude in mappedData sent to backend
             const mappedData = {
                 name: formData.name?.trim() || '',
                 email: formData.email?.trim() || '',
@@ -493,6 +544,8 @@ const FarmerSignup = () => {
                 land_size: formData.landSize !== '' && formData.landSize !== null && formData.landSize !== undefined ? Number(formData.landSize) : null,
                 nic_number: formData.nic?.trim() || '',
                 address: formData.address ?? null,
+                latitude: formData.latitude !== '' ? formData.latitude : null,
+                longitude: formData.longitude !== '' ? formData.longitude : null,
                 profile_image: formData.profileImage ?? null,
                 birth_date: formData.birthDate ?? null,
                 description: formData.description ?? null,
@@ -645,6 +698,25 @@ const FarmerSignup = () => {
     // Ref for error message scroll
     const errorMessageRef = React.useRef(null);
 
+    // Handler for selecting location from map
+    const handleSelectLocationFromMap = async (latlng) => {
+        setShowMapPicker(false);
+        setFormData(prev => ({ ...prev, latitude: latlng[0], longitude: latlng[1] }));
+        setErrorMessage('');
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latlng[0]}&lon=${latlng[1]}`);
+            const data = await res.json();
+            if (data && data.display_name) {
+                setFormData(prev => ({ ...prev, address: data.display_name }));
+                setErrors(prev => ({ ...prev, address: '' }));
+            } else {
+                setErrorMessage('Could not fetch address from OpenStreetMap.');
+            }
+        } catch (err) {
+            setErrorMessage('Failed to fetch address from OpenStreetMap.');
+        }
+    };
+
     // Scroll to error message when errorMessage is set
     React.useEffect(() => {
         if (errorMessage && errorMessageRef.current) {
@@ -752,8 +824,43 @@ const FarmerSignup = () => {
         );
     }
 
+    // Get current location and fetch address from OpenStreetMap Nominatim
+    const handleGetAddressFromLocation = async () => {
+        if (!navigator.geolocation) {
+            setErrorMessage('Geolocation is not supported by your browser.');
+            return;
+        }
+        setErrorMessage('');
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                if (data && data.display_name) {
+                    setFormData(prev => ({ ...prev, address: data.display_name }));
+                    setErrors(prev => ({ ...prev, address: '' }));
+                } else {
+                    setErrorMessage('Could not fetch address from OpenStreetMap.');
+                }
+            } catch (err) {
+                setErrorMessage('Failed to fetch address from OpenStreetMap.');
+            }
+        }, (err) => {
+            setErrorMessage('Failed to get your location. Please allow location access.');
+        });
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-12 px-4">
+        <>
+            <LocationPicker
+                show={showMapPicker}
+                onClose={() => setShowMapPicker(false)}
+                onSelect={handleSelectLocationFromMap}
+                initialPosition={formData.latitude && formData.longitude ? [formData.latitude, formData.longitude] : undefined}
+            />
+            <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-12 px-4">
             <div className="max-w-6xl mx-auto">
                 <div className="text-center mb-8">
                     <button onClick={() => navigate('/signup')} className="inline-flex bg-green-100 items-center space-x-2 text-green-600 px-4 py-2 rounded-full text-sm hover:text-green-800 mb-4 transition-colors duration-300">
@@ -812,7 +919,47 @@ const FarmerSignup = () => {
                             <div className="grid md:grid-cols-2 gap-6">
                                 <InputField icon={Phone} label="Phone Number" name="phoneNumber" required placeholder="Enter 10-digit phone number" value={formData.phoneNumber} error={errors.phoneNumber} onChange={handleInputChange} inputRef={el => fieldRefs.current['phoneNumber'] = el} />
                             </div>
-                            <InputField icon={Home} label="Address" name="address" type="textarea" placeholder="Enter your complete address" value={formData.address} error={errors.address} onChange={handleInputChange} inputRef={el => fieldRefs.current['address'] = el} />
+                        <div className="relative">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="flex items-center space-x-2 text-green-800 font-medium mb-0">
+                                    <Home className="w-5 h-5" />
+                                    <span>Address</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        className="bg-green-100 text-green-800 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-green-200 focus:outline-none"
+                                        onClick={handleGetAddressFromLocation}
+                                    >
+                                        Use My Location
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-sm font-semibold shadow-sm hover:bg-blue-200 focus:outline-none"
+                                        onClick={() => setShowMapPicker(true)}
+                                    >
+                                        Select on Map
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea
+                                name="address"
+                                value={formData.address || ''}
+                                onChange={handleInputChange}
+                                rows={4}
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-300 resize-none bg-slate-100 ${
+                                    errors.address ? 'border-red-500 bg-red-50' : 'border-green-200 focus:border-green-400'
+                                }`}
+                                placeholder="Enter your complete address"
+                                ref={el => fieldRefs.current['address'] = el}
+                            />
+                            {errors.address && (
+                                <div className="flex items-center space-x-1 text-red-500 text-sm">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span>{errors.address}</span>
+                                </div>
+                            )}
+                        </div>
                             <div className="grid md:grid-cols-2 gap-6">
                             <InputField icon={Camera} label="Profile Image" name="profileImage" type="file" value={formData.profileImage} error={errors.profileImage} onChange={handleInputChange} inputRef={el => fieldRefs.current['profileImage'] = el} />
                             </div>
@@ -962,6 +1109,7 @@ const FarmerSignup = () => {
                 </div>
             </div>
         </div>
+        </>
     );
 };
 
