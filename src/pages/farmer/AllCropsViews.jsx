@@ -4,6 +4,7 @@ import StatsCards from "../../components/pages/Farmer/FarmStatsCard";
 import FilterBar from "../../components/pages/Farmer/FarmFilterBar";
 import CropCard from "../../components/pages/Farmer/FarmCropCard";
 import { cropService } from "../../services/cropService";
+import { useMonthlyCropLimit } from "../../hooks/useMonthlyCropLimit";
 
 import { Package } from 'lucide-react';
 
@@ -17,6 +18,16 @@ function AllCropsView() {
   const [crops, setCrops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Check monthly crop limit (default 5, but will be overridden by subscription)
+  const {
+    monthlyCount,
+    loading: limitLoading,
+    error: limitError,
+    limitExceeded,
+    remainingCrops,
+    monthlyLimit
+  } = useMonthlyCropLimit(5); // Default of 5, but subscription will override this
 
   // Fetch crops from API
   useEffect(() => {
@@ -133,6 +144,14 @@ function AllCropsView() {
           onSortChange={setSortBy}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
+          monthlyLimit={{
+            monthlyCount,
+            limitLoading,
+            limitError,
+            limitExceeded,
+            remainingCrops,
+            monthlyLimit
+          }}
         />
 
         {loading ? (

@@ -77,6 +77,8 @@ import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import ItemPostedForm from './ItemPostedForm';
 import { useAuth } from '../../contexts/AuthContext';
+import { useShopSubscriptionAccess } from '../../hooks/useShopSubscriptionAccess';
+import ProductLimitNotification from '../../components/ProductLimitNotification';
 
 const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
   // Helper to safely parse images (array or CSV string)
@@ -725,6 +727,15 @@ const MyShopItem = () => {
     const [shopDetails, setShopDetails] = useState(null);
     const [showEditShopModal, setShowEditShopModal] = useState(false);
 
+    // Shop subscription access hook
+    const {
+      productLimit,
+      canAddProduct,
+      getProductLimitMessage,
+      getUpgradeSuggestions,
+      loading: subscriptionLoading
+    } = useShopSubscriptionAccess();
+
     // Normalize shop payloads from API into a consistent shape
     const normalizeShop = (raw) => {
       if (!raw) return null;
@@ -1308,16 +1319,52 @@ const MyShopItem = () => {
                     <div className="mt-4 text-sm text-green-600">
                         Showing {filteredItems.length} of {shopItems.length} products
                     </div>
+
+                    {/* Product Limit Notification */}
+                    {!subscriptionLoading && (
+                      <ProductLimitNotification 
+                        notification={getProductLimitMessage(shopItems.length)}
+                        upgradeSuggestion={getUpgradeSuggestions()}
+                      />
+                    )}
+
                       {/* Add Item Button or Disabled notice */}
                       {shopDetails && (
                         Number(shopDetails.is_active) === 1 ? (
-                          <div className="mt-6 flex justify-end">
-                            <button
-                              onClick={() => navigate('/itempostedForm')}
-                              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow transition-colors flex items-center"
-                            >
-                              + Add Item
-                            </button>
+                          <div className="mt-6 flex flex-col gap-4">
+                            {/* Product limit info */}
+                            <div className="text-sm text-gray-600 flex justify-between items-center">
+                              <span>Product Listings: {shopItems.length} / {productLimit === 'unlimited' ? '∞' : productLimit}</span>
+                              {!canAddProduct(shopItems.length) && (
+                                <span className="text-red-600 font-medium">Limit reached</span>
+                              )}
+                            </div>
+                            
+                            <div className="flex justify-end">
+                              {canAddProduct(shopItems.length) ? (
+                                <button
+                                  onClick={() => navigate('/itempostedForm')}
+                                  className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow transition-colors flex items-center"
+                                >
+                                  + Add Item
+                                </button>
+                              ) : (
+                                <div className="flex flex-col items-end gap-2">
+                                  <button
+                                    disabled
+                                    className="bg-gray-400 text-gray-600 font-semibold px-6 py-3 rounded-lg shadow cursor-not-allowed flex items-center"
+                                  >
+                                    + Add Item (Limit Reached)
+                                  </button>
+                                  <button
+                                    onClick={() => navigate('/subscriptionmanagement')}
+                                    className="text-green-600 hover:text-green-700 text-sm font-medium underline"
+                                  >
+                                    Upgrade Plan
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <div className="mt-6">

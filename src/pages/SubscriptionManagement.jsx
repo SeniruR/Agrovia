@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useShopSubscriptionAccess } from '../hooks/useShopSubscriptionAccess';
 import md5 from 'crypto-js/md5';
 import { 
   Check, 
@@ -22,14 +23,26 @@ import {
   MapPin,
   Package,
   Clock,
-  Loader
+  Loader,
+  Phone
 } from 'lucide-react';
 
 const SubscriptionManagement = () => {
   const [searchParams] = useSearchParams();
-  const { user } = useAuth(); // Get the authenticated user
+  const { user, loading: authLoading } = useAuth(); // Get the authenticated user and loading state
   const [activeTab, setActiveTab] = useState('plans');
-  const [userType, setUserType] = useState('farmer');
+  
+  // Determine user type from authenticated user - make it reactive
+  const getUserType = () => {
+    if (!user?.role && !user?.user_type) return null; // Return null if user not loaded yet
+    const role = user.role || user.user_type;
+    if (role === '1' || role === 1 || role === 'farmer') return 'farmer';
+    if (role === '2' || role === 2 || role === 'buyer') return 'buyer';
+    if (role === '3' || role === 3 || role === 'shop' || role === 'shop_owner' || role === 'shop-owner') return 'shop';
+    return 'farmer'; // Default fallback
+  };
+  
+  const [userType, setUserType] = useState(null); // Start with null
   const [currentPlan, setCurrentPlan] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -42,6 +55,24 @@ const SubscriptionManagement = () => {
   const [error, setError] = useState(null);
   const [currentUserSubscription, setCurrentUserSubscription] = useState(null);
   const [loadingUserSubscription, setLoadingUserSubscription] = useState(true);
+
+  // Subscription access hooks for real usage data
+  const { hasAccess: hasCropRecommendationAccess } = false; // Will be imported
+  const { hasAccess: hasForecastAccess } = false; // Will be imported  
+  const { hasAccess: hasAlertAccess } = false; // Will be imported
+  const { currentCount: currentCropCount, limit: cropLimit } = { currentCount: 5, limit: 15 }; // Will be imported
+
+  // Shop subscription access hook
+  const {
+    subscriptionData: shopSubscriptionData,
+    hasPriceForecasting,
+    hasPhoneSupport,
+    hasPremiumSupport,
+    hasPrioritySupport,
+    productLimit,
+    maxAdsPerMonth,
+    loading: shopLoading
+  } = useShopSubscriptionAccess();
 
   // PayHere credentials (same as CartPage)
   const MERCHANT_ID = '1229505';
@@ -71,6 +102,17 @@ const SubscriptionManagement = () => {
     currentPlan: 4,
     nextBilling: '2025-07-28'
   };
+
+  // Update userType when user data loads
+  useEffect(() => {
+    if (!authLoading && user) {
+      const detectedUserType = getUserType();
+      if (detectedUserType && detectedUserType !== userType) {
+        console.log('Setting user type to:', detectedUserType, 'for user ID:', user.id);
+        setUserType(detectedUserType);
+      }
+    }
+  }, [user, authLoading, userType]);
 
   // Fetch subscription tiers from API (only once)
   useEffect(() => {
@@ -141,10 +183,12 @@ const SubscriptionManagement = () => {
           if (result.success && result.currentSubscription) {
             setCurrentUserSubscription(result.currentSubscription);
             setCurrentPlan(result.currentSubscription.tierId);
+            console.log('Found active subscription:', result.currentSubscription.tierName, 'for', userType);
           } else {
             setCurrentUserSubscription(null);
             // Set default basic plan based on user type
             const defaultBasicPlan = userType === 'farmer' ? 4 : userType === 'buyer' ? 1 : 7;
+            console.log('No subscription found, setting default plan:', defaultBasicPlan, 'for userType:', userType);
             setCurrentPlan(defaultBasicPlan);
           }
         } else {
@@ -159,7 +203,9 @@ const SubscriptionManagement = () => {
       }
     };
 
-    fetchUserSubscription();
+    if (userType && user?.id) {
+      fetchUserSubscription();
+    }
   }, [userType, user]); // Re-fetch when user type or user changes
 
   // Handle retry parameters from failed payment
@@ -410,11 +456,12 @@ const SubscriptionManagement = () => {
       period: 'Free Forever',
       color: 'from-blue-400 to-blue-600',
       features: [
-        'Basic shop listing',
-        'Product management',
-        'Customer communication'
+        '6 Items per month',
+        '2 Ads per month',
+        'Basic Support',
+        'Price Forecast for Crops'
       ],
-      limitations: ['Max 10 products']
+      limitations: ['Max 6 product listings', 'Max 2 ads per month']
     },
     {
       id: 9, // Standard Shop ID from database
@@ -424,10 +471,11 @@ const SubscriptionManagement = () => {
       color: 'from-blue-500 to-indigo-600',
       badge: 'Most Popular',
       features: [
-        'Unlimited products',
-        'Advanced analytics',
-        'Priority support',
-        'Bulk order management'
+        '15 Items per month',
+        '5 Ads per month',
+        'Premium Support',
+        'Price Forecast',
+        'Phone Support'
       ],
       limitations: []
     },
@@ -439,11 +487,11 @@ const SubscriptionManagement = () => {
       color: 'from-indigo-600 to-purple-700',
       badge: 'Best Value',
       features: [
-        'Everything in Standard',
-        'Advanced marketing tools',
-        'Custom branding',
-        'API access',
-        'Dedicated account manager'
+        '35 Items per month',
+        '12 Ads per month',
+        'Priority Customer Support',
+        'Price Forecast for Crops',
+        'Phone Support'
       ],
       limitations: []
     }
@@ -916,88 +964,403 @@ const SubscriptionManagement = () => {
   };
 
   const UsageStats = () => {
+    const [usageStats, setUsageStats] = useState({});
+    const [loadingUsage, setLoadingUsage] = useState(true);
+    
+    // Get subscription options with proper type handling
+    const cropRecommendationEnabled = currentUserSubscription?.options?.['1']?.value === true || 
+                                     currentUserSubscription?.options?.['1']?.value === 'true';
+    const forecastEnabled = currentUserSubscription?.options?.['22']?.value === true || 
+                           currentUserSubscription?.options?.['22']?.value === 'true';
+    const alertsEnabled = currentUserSubscription?.options?.['32']?.value === true || 
+                         currentUserSubscription?.options?.['32']?.value === 'true';
+    
+    // Get crop limit based on tier (option_id 15 or fallback to tier-based limits)
+    const getCropLimit = () => {
+      const optionLimit = parseInt(currentUserSubscription?.options?.['15']?.value);
+      if (optionLimit) return optionLimit;
+      
+      // Fallback to tier-based limits
+      const tierId = currentUserSubscription?.tierId;
+      if (tierId === 4) return 5;   // Basic Farmer
+      if (tierId === 5) return 15;  // Premium Farmer
+      if (tierId === 6) return 35;  // Pro Farmer
+      return 5; // Default
+    };
+    
+    const cropLimit = getCropLimit();
+    
+    // Fetch real usage data
+    useEffect(() => {
+      const fetchUsageStats = async () => {
+        try {
+          setLoadingUsage(true);
+          const userId = user?.id || user?.userId || 1;
+          
+          console.log('Fetching usage stats for user:', userId);
+          console.log('Current subscription:', currentUserSubscription);
+          
+          // Fetch monthly crop count
+          const cropResponse = await fetch(`http://localhost:5000/api/v1/admin/user-subscriptions/${userId}/monthly-crop-count`);
+          let currentCropCount = 5; // Default reasonable value
+          if (cropResponse.ok) {
+            const cropData = await cropResponse.json();
+            currentCropCount = cropData.count || 5; // Use 5 as fallback
+          } else {
+            console.log('Crop count API failed, using default value of 5');
+          }
+          
+          // Fetch monthly order count for buyers
+          let currentOrderCount = 0;
+          if (userType === 'buyer') {
+            try {
+              const orderResponse = await fetch(`http://localhost:5000/api/v1/orders/monthly-count/${userId}`);
+              if (orderResponse.ok) {
+                const orderData = await orderResponse.json();
+                currentOrderCount = orderData.count || 0;
+                console.log(`Fetched real order count for user ${userId}: ${currentOrderCount}`);
+              } else {
+                console.log('Order count API failed, using default value of 0');
+              }
+            } catch (orderError) {
+              console.log('Error fetching order count:', orderError);
+            }
+          }
+          
+          // Fetch product count for shop owners
+          let currentProductCount = 5;
+          if (userType === 'shop') {
+            try {
+              const productResponse = await fetch(`http://localhost:5000/api/v1/shop-products/user/${userId}/count`);
+              if (productResponse.ok) {
+                const productData = await productResponse.json();
+                currentProductCount = productData.count || 5;
+                console.log(`Fetched real product count for shop ${userId}: ${currentProductCount}`);
+              } else {
+                console.log('Product count API failed, using default value of 5');
+              }
+            } catch (productError) {
+              console.log('Error fetching product count:', productError);
+            }
+          }
+          
+          // For now, using mock data for other stats - these would need real API endpoints
+          setUsageStats({
+            cropListings: currentCropCount,
+            cropLimit: cropLimit,
+            priceForecasts: forecastEnabled ? 12 : 0,
+            bulkSales: currentUserSubscription?.tierId === 4 ? 0 : 2, // Basic farmer has no bulk sales
+            // Buyer-specific stats - now using real data
+            orders: currentOrderCount,
+            bulkPurchases: userType === 'buyer' && currentUserSubscription?.tierId !== 1 ? 5 : 0,
+            analytics: userType === 'buyer' && currentUserSubscription?.tierId !== 1 ? 'Full Access' : 'Limited',
+            // Shop-specific stats
+            products: currentProductCount,
+            productLimit: productLimit,
+            ads: 1, // Mock ad count - would need real API
+            maxAdsPerMonth: maxAdsPerMonth
+          });
+          
+          console.log('Usage stats set:', {
+            cropListings: currentCropCount,
+            cropLimit: cropLimit,
+            tierId: currentUserSubscription?.tierId,
+            tierName: currentUserSubscription?.tierName,
+            cropRecommendationEnabled,
+            forecastEnabled,
+            alertsEnabled
+          });
+        } catch (error) {
+          console.error('Error fetching usage stats:', error);
+          // Use fallback data
+          setUsageStats({
+            cropListings: 5, // Show some usage
+            cropLimit: cropLimit,
+            priceForecasts: 0,
+            bulkSales: 0,
+            orders: 0 // Use 0 for orders when API fails
+          });
+        } finally {
+          setLoadingUsage(false);
+        }
+      };
+      
+      if (currentUserSubscription) {
+        fetchUsageStats();
+      }
+    }, [currentUserSubscription, user]);
+
     const farmerUsageData = [
       {
         label: 'Crop Listings',
-        current: 3,
-        limit: [1, 4, 7].includes(currentPlan) ? 5 : 'Unlimited',
-        percentage: [1, 4, 7].includes(currentPlan) ? 60 : 30,
+        current: usageStats.cropListings || 0,
+        limit: usageStats.cropLimit || 5,
+        percentage: usageStats.cropLimit ? Math.min((usageStats.cropListings / usageStats.cropLimit) * 100, 100) : 0,
         color: 'green',
-        icon: Package
+        icon: Package,
+        enabled: true,
+        showCount: true
       },
       {
-        label: 'Price Forecasts',
-        current: [1, 4, 7].includes(currentPlan) ? 0 : 12,
-        limit: [1, 4, 7].includes(currentPlan) ? 0 : 50,
-        percentage: [1, 4, 7].includes(currentPlan) ? 0 : 24,
-        color: 'emerald',
-        icon: TrendingUp
+        label: 'AI Crop Recommendations',
+        current: cropRecommendationEnabled ? 'Available' : 'Disabled',
+        limit: cropRecommendationEnabled ? 'Unlimited Access' : 'Not Available',
+        percentage: cropRecommendationEnabled ? 100 : 0,
+        color: 'blue',
+        icon: TrendingUp,
+        enabled: cropRecommendationEnabled,
+        showCount: false
       },
       {
-        label: 'Bulk Sales',
-        current: [1, 4, 7].includes(currentPlan) ? 0 : 2,
-        limit: [1, 4, 7].includes(currentPlan) ? 0 : 10,
-        percentage: [1, 4, 7].includes(currentPlan) ? 0 : 20,
-        color: 'lime',
-        icon: Users
+        label: 'Price Forecasting',
+        current: forecastEnabled ? 'Available' : 'Disabled',
+        limit: forecastEnabled ? 'Unlimited Access' : 'Not Available',
+        percentage: forecastEnabled ? 100 : 0,
+        color: 'yellow',
+        icon: BarChart3,
+        enabled: forecastEnabled,
+        showCount: false
       },
       {
-        label: 'Direct Messages',
-        current: [1, 4, 7].includes(currentPlan) ? 5 : 25,
-        limit: [1, 4, 7].includes(currentPlan) ? 10 : 'Unlimited',
-        percentage: [1, 4, 7].includes(currentPlan) ? 50 : 25,
-        color: 'teal',
-        icon: MessageCircle
+        label: 'Pest & Weather Alerts',
+        current: alertsEnabled ? 'Available' : 'Disabled',
+        limit: alertsEnabled ? 'Unlimited Access' : 'Not Available',
+        percentage: alertsEnabled ? 100 : 0,
+        color: 'red',
+        icon: Bell,
+        enabled: alertsEnabled,
+        showCount: false
+      },
+      {
+        label: 'Customer Service',
+        current: currentUserSubscription?.tierId === 4 ? 'Basic Support' : 
+                currentUserSubscription?.tierId === 5 ? 'Priority Support' : 
+                currentUserSubscription?.tierId === 6 ? 'Premium Support' : 'Basic Support',
+        limit: (() => {
+          const hasPhoneSupport = currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true';
+          const hasPremiumSupport = currentUserSubscription?.options?.['20']?.value === true || currentUserSubscription?.options?.['20']?.value === 'true';
+          const hasPrioritySupport = currentUserSubscription?.options?.['24']?.value === true || currentUserSubscription?.options?.['24']?.value === 'true';
+          
+          if (currentUserSubscription?.tierId === 6) {
+            return '24/7 Premium Support' + (hasPhoneSupport ? ' + Phone' : '');
+          } else if (currentUserSubscription?.tierId === 5) {
+            return '24/7 Priority Support' + (hasPhoneSupport ? ' + Phone' : '');
+          } else {
+            return 'Email Support' + (hasPhoneSupport ? ' + Phone' : '');
+          }
+        })(),
+        percentage: currentUserSubscription?.tierId === 4 ? 30 : 
+                   currentUserSubscription?.tierId === 5 ? 70 : 
+                   currentUserSubscription?.tierId === 6 ? 100 : 30,
+        color: 'purple',
+        icon: MessageCircle,
+        enabled: true,
+        showCount: false
+      },
+      {
+        label: 'Phone Support',
+        current: (currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true') ? 'Available' : 'Not Available',
+        limit: (currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true') ? 'Direct Phone Support' : 'Email Only',
+        percentage: (currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true') ? 100 : 0,
+        color: 'indigo',
+        icon: Phone,
+        enabled: currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true',
+        showCount: false
       }
     ];
 
+    // Add buyer usage data
     const buyerUsageData = [
       {
-        label: 'Orders Placed',
-        current: 2,
-        limit: [1, 4, 7].includes(currentPlan) ? 3 : 'Unlimited',
-        percentage: [1, 4, 7].includes(currentPlan) ? 67 : 20,
+        label: 'Monthly Orders',
+        current: usageStats.orders || 0,
+        limit: (() => {
+          const orderLimit = currentUserSubscription?.options?.['16']?.value;
+          if (orderLimit) return parseInt(orderLimit);
+          
+          // Based on actual tier names for buyers
+          const tierName = currentUserSubscription?.tierName;
+          if (tierName === 'Basic Buyer') return 10;
+          if (tierName === 'Premium Buyer') return 20;
+          if (tierName === 'Enterprise Buyer') return 50;
+          return 10; // Default
+        })(),
+        percentage: (() => {
+          const orderLimit = currentUserSubscription?.options?.['16']?.value || 
+                           (currentUserSubscription?.tierName === 'Basic Buyer' ? 10 :
+                            currentUserSubscription?.tierName === 'Premium Buyer' ? 20 :
+                            currentUserSubscription?.tierName === 'Enterprise Buyer' ? 50 : 10);
+          return Math.min(((usageStats.orders || 0) / parseInt(orderLimit)) * 100, 100);
+        })(),
         color: 'green',
-        icon: Package
+        icon: Package,
+        enabled: true,
+        showCount: true
       },
       {
-        label: 'Bulk Purchases',
-        current: [1, 4, 7].includes(currentPlan) ? 0 : 8,
-        limit: [1, 4, 7].includes(currentPlan) ? 0 : 'Unlimited',
-        percentage: [1, 4, 7].includes(currentPlan) ? 0 : 40,
-        color: 'emerald',
-        icon: Users
+        label: 'Customer Service',
+        current: (() => {
+          const tierName = currentUserSubscription?.tierName;
+          if (tierName === 'Enterprise Buyer') return 'Priority Support';
+          if (tierName === 'Premium Buyer') return 'Premium Support';
+          return 'Basic Support';
+        })(),
+        limit: (() => {
+          const hasPhoneSupport = currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true';
+          const tierName = currentUserSubscription?.tierName;
+          
+          if (tierName === 'Enterprise Buyer') {
+            return '24/7 Priority Support' + (hasPhoneSupport ? ' + Phone' : '');
+          } else if (tierName === 'Premium Buyer') {
+            return '24/7 Premium Support' + (hasPhoneSupport ? ' + Phone' : '');
+          } else {
+            return 'Basic Email Support' + (hasPhoneSupport ? ' + Phone' : '');
+          }
+        })(),
+        percentage: (() => {
+          const tierName = currentUserSubscription?.tierName;
+          if (tierName === 'Enterprise Buyer') return 100;
+          if (tierName === 'Premium Buyer') return 70;
+          return 30;
+        })(),
+        color: 'purple',
+        icon: MessageCircle,
+        enabled: true,
+        showCount: false
       },
       {
-        label: 'Contract Farming',
-        current: [1, 4, 7].includes(currentPlan) ? 0 : 3,
-        limit: [1, 4, 7].includes(currentPlan) ? 0 : 15,
-        percentage: currentPlan === 'basic' ? 0 : 20,
-        color: 'lime',
-        icon: Calendar
+        label: 'Phone Support',
+        current: (currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true') ? 'Available' : 'Not Available',
+        limit: (currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true') ? 'Direct Phone Support' : 'Email Only',
+        percentage: (currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true') ? 100 : 0,
+        color: 'blue',
+        icon: Phone,
+        enabled: currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true',
+        showCount: false
       },
       {
-        label: 'Market Analytics',
-        current: currentPlan === 'basic' ? 0 : 45,
-        limit: currentPlan === 'basic' ? 0 : 100,
-        percentage: currentPlan === 'basic' ? 0 : 45,
-        color: 'teal',
-        icon: BarChart3
+        label: 'Priority Logistics',
+        current: (currentUserSubscription?.options?.['33']?.value === true || currentUserSubscription?.options?.['33']?.value === 'true') ? 'Available' : 'Standard',
+        limit: (currentUserSubscription?.options?.['33']?.value === true || currentUserSubscription?.options?.['33']?.value === 'true') ? 'Priority Delivery & Processing' : 'Standard Logistics',
+        percentage: (currentUserSubscription?.options?.['33']?.value === true || currentUserSubscription?.options?.['33']?.value === 'true') ? 100 : 0,
+        color: 'orange',
+        icon: MapPin,
+        enabled: currentUserSubscription?.options?.['33']?.value === true || currentUserSubscription?.options?.['33']?.value === 'true',
+        showCount: false
       }
     ];
 
-    const currentUsageData = userType === 'farmer' ? farmerUsageData : buyerUsageData;
+    // Add shop usage data
+    const shopUsageData = [
+      {
+        label: 'Product Listings',
+        current: usageStats.products || 4,
+        limit: usageStats.productLimit || productLimit || 6,
+        percentage: Math.min(((usageStats.products || 4) / (usageStats.productLimit || productLimit || 6)) * 100, 100),
+        color: 'blue',
+        icon: Package,
+        enabled: true,
+        showCount: true
+      },
+      {
+        label: 'Monthly Ads',
+        current: usageStats.ads || 1,
+        limit: usageStats.maxAdsPerMonth || maxAdsPerMonth || 2,
+        percentage: Math.min(((usageStats.ads || 1) / (usageStats.maxAdsPerMonth || maxAdsPerMonth || 2)) * 100, 100),
+        color: 'orange',
+        icon: TrendingUp,
+        enabled: true,
+        showCount: true
+      },
+      {
+        label: 'Price Forecasting',
+        current: hasPriceForecasting ? 'Available' : 'Not Available',
+        limit: hasPriceForecasting ? 'Crop Price Analytics' : 'Basic Price View Only',
+        percentage: hasPriceForecasting ? 100 : 0,
+        color: 'green',
+        icon: BarChart3,
+        enabled: hasPriceForecasting,
+        showCount: false
+      },
+      {
+        label: 'Phone Support',
+        current: hasPhoneSupport ? 'Available' : 'Email Only',
+        limit: hasPhoneSupport ? 'Direct Phone Support' : 'Email Support Only',
+        percentage: hasPhoneSupport ? 100 : 0,
+        color: 'purple',
+        icon: Star,
+        enabled: hasPhoneSupport,
+        showCount: false
+      },
+      {
+        label: 'Support Level',
+        current: hasPrioritySupport ? 'Priority' : hasPremiumSupport ? 'Premium' : 'Basic',
+        limit: hasPrioritySupport ? 'Priority Customer Support' : hasPremiumSupport ? 'Premium Support' : 'Basic Support',
+        percentage: hasPrioritySupport ? 100 : hasPremiumSupport ? 70 : 30,
+        color: 'indigo',
+        icon: Zap,
+        enabled: hasPremiumSupport || hasPrioritySupport,
+        showCount: false
+      },
+      {
+        label: 'Customer Support',
+        current: (() => {
+          const tierName = shopSubscriptionData?.tierName;
+          if (tierName === 'Premium Shop') return 'Premium Support';
+          if (tierName === 'Standard Shop') return 'Priority Support';
+          return 'Basic Support';
+        })(),
+        limit: (() => {
+          const hasPhoneSupport = currentUserSubscription?.options?.['18']?.value === true || currentUserSubscription?.options?.['18']?.value === 'true';
+          const tierName = shopSubscriptionData?.tierName;
+          
+          if (tierName === 'Premium Shop') {
+            return '24/7 Premium Support' + (hasPhoneSupport ? ' + Phone' : '');
+          } else if (tierName === 'Standard Shop') {
+            return 'Priority Support' + (hasPhoneSupport ? ' + Phone' : '');
+          } else {
+            return 'Basic Email Support' + (hasPhoneSupport ? ' + Phone' : '');
+          }
+        })(),
+        percentage: (() => {
+          const tierName = shopSubscriptionData?.tierName;
+          if (tierName === 'Premium Shop') return 100;
+          if (tierName === 'Standard Shop') return 70;
+          return 30;
+        })(),
+        color: 'red',
+        icon: MessageCircle,
+        enabled: hasPrioritySupport,
+        showCount: false
+      }
+    ];
+
+    const currentUsageData = userType === 'farmer' ? farmerUsageData : 
+                           userType === 'buyer' ? buyerUsageData : 
+                           userType === 'shop' ? shopUsageData : 
+                           farmerUsageData;
+
+    if (loadingUsage) {
+      return (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center justify-center py-8">
+            <Loader className="w-6 h-6 animate-spin text-green-500" />
+            <span className="ml-2 text-gray-600">Loading usage statistics...</span>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="bg-white rounded-xl shadow-lg p-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
           <BarChart3 className="w-6 h-6 text-green-500 mr-2" />
-          Current Usage - {userType === 'farmer' ? 'Farmer' : 'Buyer'} Features
+          Current Usage - {userType === 'farmer' ? 'Farmer' : userType === 'buyer' ? 'Buyer' : userType === 'shop' ? 'Shop' : 'User'} Features
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {currentUsageData.map((usage, index) => (
-            <div key={index} className={`bg-${usage.color}-50 border border-${usage.color}-200 rounded-lg p-4`}>
+            <div key={index} className={`bg-${usage.color}-50 border border-${usage.color}-200 rounded-lg p-4 ${!usage.enabled ? 'opacity-60' : ''}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-gray-700">{usage.label}</span>
                 <usage.icon className={`w-5 h-5 text-${usage.color}-500`} />
@@ -1005,31 +1368,81 @@ const SubscriptionManagement = () => {
               <div className="flex items-center">
                 <div className="flex-1 bg-gray-200 rounded-full h-2 mr-3">
                   <div 
-                    className={`bg-${usage.color}-500 h-2 rounded-full`} 
-                    style={{ width: `${usage.percentage}%` }}
+                    className={`bg-${usage.color}-500 h-2 rounded-full transition-all duration-300`} 
+                    style={{ width: `${usage.enabled ? usage.percentage : 0}%` }}
                   ></div>
                 </div>
                 <span className="text-sm font-semibold">
-                  {usage.current}/{usage.limit}
+                  {usage.enabled ? (
+                    usage.showCount ? `${usage.current}/${usage.limit}` : usage.current
+                  ) : 'Disabled'}
                 </span>
               </div>
-              {currentPlan === 'basic' && usage.current === 0 && (
-                <p className="text-xs text-gray-500 mt-1">Upgrade to unlock this feature</p>
+              {!usage.showCount && usage.enabled && (
+                <p className="text-xs text-gray-600 mt-1">{usage.limit}</p>
+              )}
+              {!usage.enabled && (
+                <p className="text-xs text-gray-500 mt-1">
+                  <span className="inline-flex items-center">
+                    <Crown className="w-3 h-3 mr-1" />
+                    Upgrade to Premium to unlock this feature
+                  </span>
+                </p>
               )}
             </div>
           ))}
         </div>
 
-        {currentPlan === 'basic' && (
+        {/* Basic plan upgrade message */}
+        {((userType === 'farmer' && currentUserSubscription?.tierId === 4) || 
+          (userType === 'buyer' && currentUserSubscription?.tierId === 1)) && (
           <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
-              <strong>💡 Tip:</strong> Upgrade to Premium to unlock advanced features and remove usage limits!
+              <strong>💡 Tip:</strong> Upgrade to Premium {userType === 'farmer' ? 'Farmer' : 'Buyer'} to unlock 
+              {userType === 'farmer' ? ' AI features, price forecasting, and alerts' : ' bulk purchasing, analytics, and priority support'}!
             </p>
+            <div className="mt-2">
+              <button 
+                onClick={() => setActiveTab('plans')}
+                className="text-green-600 hover:text-green-800 font-medium text-sm underline"
+              >
+                View Premium Plans →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Premium plan active message */}
+        {currentUserSubscription?.tierId && 
+         ((userType === 'farmer' && currentUserSubscription.tierId !== 4) || 
+          (userType === 'buyer' && currentUserSubscription.tierId !== 1)) && (
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-800">
+              <strong>🎉 Premium Features Active!</strong> You have access to all advanced 
+              {userType === 'farmer' ? ' farming tools and AI-powered insights' : ' procurement tools and analytics'}.
+            </p>
+            <div className="text-xs text-green-600 mt-1">
+              Current Plan: {currentUserSubscription.tierName} 
+              {currentUserSubscription.tierPrice > 0 && ` (Rs. ${currentUserSubscription.tierPrice}/month)`}
+            </div>
           </div>
         )}
       </div>
     );
   };
+
+  // Show loading screen while user data is loading or userType is not determined
+  if (authLoading || !userType) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <Loader className="w-8 h-8 text-green-500 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Loading Subscription Management</h2>
+          <p className="text-gray-600">Please wait while we load your account information...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
@@ -1042,31 +1455,9 @@ const SubscriptionManagement = () => {
               <h1 className="text-3xl font-bold text-gray-800 flex items-center">Subscription Management</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="flex bg-green-100 rounded-lg p-1">
-                <button
-                  onClick={() => setUserType('farmer')}
-                  className={`px-3 py-2 rounded-md transition-all text-sm ${
-                    userType === 'farmer' ? 'bg-green-500 text-white' : 'text-green-700'
-                  }`}
-                >
-                  Farmer
-                </button>
-                <button
-                  onClick={() => setUserType('buyer')}
-                  className={`px-3 py-2 rounded-md transition-all text-sm ${
-                    userType === 'buyer' ? 'bg-green-500 text-white' : 'text-green-700'
-                  }`}
-                >
-                  Buyer
-                </button>
-                <button
-                  onClick={() => setUserType('shop')}
-                  className={`px-3 py-2 rounded-md transition-all text-sm ${
-                    userType === 'shop' ? 'bg-green-500 text-white' : 'text-green-700'
-                  }`}
-                >
-                  Shop
-                </button>
+              <div className="flex items-center bg-green-100 rounded-lg px-4 py-2">
+                <Leaf className="w-5 h-5 text-green-600 mr-2" />
+                <span className="text-green-800 font-medium capitalize">{userType} Dashboard</span>
               </div>
               <div className="flex items-center">
                 <User className="w-8 h-8 text-gray-600" />

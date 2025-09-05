@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useCart } from '../hooks/useCart';
-import { Trash2, Plus, Minus, ShoppingCart, ArrowLeft, Truck, X } from 'lucide-react';
+import { useBuyerOrderLimits } from '../hooks/useBuyerOrderLimits';
+import { Trash2, Plus, Minus, ShoppingCart, ArrowLeft, Truck, X, CheckCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cropService } from '../services/cropService';
 import { useAuth } from '../contexts/AuthContext';
+import OrderLimitNotification from '../components/OrderLimitNotification';
 import md5 from 'crypto-js/md5';
 
 const CartPage = () => {
@@ -484,8 +486,21 @@ const CartPage = () => {
     calculateDistance
   } = useCart();
   const { getAuthHeaders } = useAuth();
+  
+  // Order limits for buyers
+  const {
+    orderLimits,
+    currentUsage,
+    loading: orderLimitsLoading,
+    canPlaceOrder,
+    getNotificationMessage,
+    getUpgradeSuggestions
+  } = useBuyerOrderLimits();
+  
   const [cropDetails, setCropDetails] = useState({});
   const [loading, setLoading] = useState(true);
+  const [showOrderLimitNotification, setShowOrderLimitNotification] = useState(true);
+  const [showOrderLimitPopup, setShowOrderLimitPopup] = useState(false);
   
   // PayHere credentials and endpoints
   const MERCHANT_ID = '1229505';
@@ -659,6 +674,12 @@ const CartPage = () => {
   };
   
   const handleCheckout = () => {
+    // Check order limits for buyers
+    if (!canPlaceOrder()) {
+      setShowOrderLimitPopup(true);
+      return;
+    }
+    
     // Prepare order details
     const orderId = 'ORDER' + Date.now();
     const totalAmount = getTotalTransportCost() > 0 ? getCartTotalWithTransport() : getCartTotal();
@@ -788,6 +809,16 @@ const CartPage = () => {
             {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in your cart
           </p>
         </div>
+
+        {/* Order Limit Notification */}
+        {showOrderLimitNotification && !orderLimitsLoading && getNotificationMessage() && (
+          <OrderLimitNotification
+            notification={getNotificationMessage()}
+            upgradeSuggestion={getUpgradeSuggestions()}
+            onDismiss={() => setShowOrderLimitNotification(false)}
+            className="mb-6"
+          />
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
@@ -1350,14 +1381,47 @@ const CartPage = () => {
                 )}
               </div>
               
-              {/* Proceed to Checkout only if all Hire Transport items have transporter selected */}
-              {allHireTransportSelected && (
+              {/* Proceed to Checkout only if all Hire Transport items have transporter selected and order limits allow */}
+              {allHireTransportSelected && canPlaceOrder() && (
                 <button
                   onClick={handleCheckout}
                   className="w-full bg-gradient-to-r from-agrovia-500 to-agrovia-600 text-white py-4 rounded-xl hover:from-agrovia-600 hover:to-agrovia-700 transition-all duration-300 font-semibold text-lg shadow-lg transform hover:scale-105"
                 >
                   Proceed to Checkout
                 </button>
+              )}
+              
+              {/* Show disabled checkout button with order limit message */}
+              {allHireTransportSelected && !canPlaceOrder() && (
+                <div className="space-y-3">
+                  <button
+                    disabled
+                    className="w-full bg-gray-400 text-white py-4 rounded-xl font-semibold text-lg cursor-not-allowed"
+                  >
+                    Order Limit Reached
+                  </button>
+                  <p className="text-sm text-red-600 text-center">
+                    You've reached your monthly order limit. 
+                    <Link to="/subscription-management" className="underline ml-1">
+                      Upgrade your plan
+                    </Link> to place more orders.
+                  </p>
+                </div>
+              )}
+              
+              {/* Show message for transport selection */}
+              {!allHireTransportSelected && (
+                <div className="space-y-3">
+                  <button
+                    disabled
+                    className="w-full bg-gray-400 text-white py-4 rounded-xl font-semibold text-lg cursor-not-allowed"
+                  >
+                    Select Transport for All Items
+                  </button>
+                  <p className="text-sm text-gray-600 text-center">
+                    Please select transport method for all items with "Hire Transport" option.
+                  </p>
+                </div>
               )}
               
               <Link
@@ -1370,6 +1434,61 @@ const CartPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Order Limit Reached Popup */}
+      {showOrderLimitPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ShoppingCart className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                Order Limit Reached
+              </h3>
+              <p className="text-gray-600 mb-6">
+                You've reached your monthly order limit of {orderLimits?.monthlyLimit} orders. 
+                Upgrade your subscription to place more orders.
+              </p>
+              
+              {getUpgradeSuggestions() && (
+                <div className="bg-green-50 rounded-lg p-4 mb-6 text-left">
+                  <h4 className="font-semibold text-green-800 mb-2">
+                    Upgrade to {getUpgradeSuggestions().suggested}
+                  </h4>
+                  <ul className="text-sm text-green-700 space-y-1">
+                    {getUpgradeSuggestions().benefits.map((benefit, index) => (
+                      <li key={index} className="flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                        {benefit}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-green-800 font-semibold mt-2">
+                    {getUpgradeSuggestions().price}
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowOrderLimitPopup(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                <Link
+                  to="/subscription-management"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center"
+                  onClick={() => setShowOrderLimitPopup(false)}
+                >
+                  Upgrade Now
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

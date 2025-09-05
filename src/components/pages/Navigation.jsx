@@ -18,6 +18,7 @@ import {
 import logo from '../../assets/images/agrovia.png';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
+import useForecastAccess from '../../hooks/useForecastAccess';
 import CartPopup from '../CartPopup';
 
 const Navigation = ({ onSidebarToggle }) => {
@@ -64,6 +65,7 @@ const Navigation = ({ onSidebarToggle }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showCartPopup, setShowCartPopup] = useState(false);
   const { getCartItemCount } = useCart();
+  const { hasAccess: hasForecastAccess } = useForecastAccess();
 
   // Handle scroll effect for navbar
   useEffect(() => {
@@ -264,19 +266,21 @@ const Navigation = ({ onSidebarToggle }) => {
               </button>
             </Link>
 
-            <Link to="/priceforcast">
-              <button 
-                className="group relative p-3 text-green-700 hover:text-emerald-800 rounded-2xl transition-all duration-400 backdrop-blur-sm transform hover:scale-105 active:scale-95"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%)',
-                  boxShadow: 'inset 0 0 0 2px rgba(251, 191, 36, 0.2), 0 4px 12px rgba(251, 191, 36, 0.15)'
-                }}
-                title="Price Forecast"
-              >
-                <CurrencyDollarIcon className="w-5 h-5 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" />
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-yellow-400/20 to-amber-500/20 opacity-0 group-hover:opacity-100 transition-all duration-400"></div>
-              </button>
-            </Link>
+            {hasForecastAccess && (
+              <Link to="/priceforcast">
+                <button 
+                  className="group relative p-3 text-green-700 hover:text-emerald-800 rounded-2xl transition-all duration-400 backdrop-blur-sm transform hover:scale-105 active:scale-95"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%)',
+                    boxShadow: 'inset 0 0 0 2px rgba(251, 191, 36, 0.2), 0 4px 12px rgba(251, 191, 36, 0.15)'
+                  }}
+                  title="Price Forecast"
+                >
+                  <CurrencyDollarIcon className="w-5 h-5 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300" />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-yellow-400/20 to-amber-500/20 opacity-0 group-hover:opacity-100 transition-all duration-400"></div>
+                </button>
+              </Link>
+            )}
 
             <Link to="/complaintHandling">
               <button 
