@@ -12,6 +12,7 @@ const FarmFilterBar = ({
   onSortChange, 
   searchTerm,
   onSearchChange,
+  monthlyLimit, // New prop for monthly limit data
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -93,9 +94,38 @@ const FarmFilterBar = ({
             </button>
           </div>
 
-          <AddCropPostButton variant="primary" size="md" className="text-white">
-            Add New Crop
-          </AddCropPostButton>
+          {/* Add New Crop Button with Subscription-Based Monthly Limit Check */}
+          <div className="flex flex-col items-end space-y-2">
+            {monthlyLimit && !monthlyLimit.limitLoading && (
+              <div className="text-xs text-gray-500">
+                {monthlyLimit.limitExceeded ? (
+                  <span className="text-red-600 font-medium">
+                    Monthly limit reached ({monthlyLimit.monthlyCount}/{monthlyLimit.monthlyLimit} crops)
+                  </span>
+                ) : (
+                  <span>
+                    {monthlyLimit.remainingCrops} of {monthlyLimit.monthlyLimit} crops remaining this month
+                  </span>
+                )}
+              </div>
+            )}
+            
+            {monthlyLimit?.limitExceeded ? (
+              <div className="relative">
+                <button
+                  disabled
+                  className="px-4 py-2 bg-gray-300 text-gray-500 rounded-md font-medium cursor-not-allowed opacity-60"
+                  title={`You have reached your subscription's monthly limit of ${monthlyLimit.monthlyLimit} crop listings. Please wait until next month or upgrade your subscription for more listings.`}
+                >
+                  Add New Crop (Limit Reached)
+                </button>
+              </div>
+            ) : (
+              <AddCropPostButton variant="primary" size="md" className="text-white">
+                Add New Crop
+              </AddCropPostButton>
+            )}
+          </div>
         </div>
       </div>
     </div>

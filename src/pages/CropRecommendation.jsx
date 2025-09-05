@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-import { Leaf, Droplets, MapPin, Package, Lightbulb, CheckCircle, AlertCircle } from 'lucide-react';
+import { Leaf, Droplets, MapPin, Package, Lightbulb, CheckCircle, AlertCircle, Lock, Crown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
 
 const CropRecommendationSystem = () => {
+  // Check if user has access to crop recommendation (option_id = 1)
+  const { hasAccess, loading: accessLoading, subscriptionData } = useSubscriptionAccess('1');
+  
   const [formData, setFormData] = useState({
     region: '',
     soilType: '',
@@ -83,20 +88,92 @@ const CropRecommendationSystem = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
-      {/* Header */}
-      <div className="bg-green-600 text-white py-6 px-4 shadow-lg">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-center space-x-3">
-            <Leaf className="w-8 h-8" />
-            <h1 className="text-2xl md:text-3xl font-bold text-center">
-              Agrovia Crop Recommendation System
-            </h1>
+      {/* Access Loading State */}
+      {accessLoading && (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Checking subscription access...</p>
           </div>
-          <p className="text-center text-green-100 mt-2">
-            Intelligent farming solutions for Sri Lankan agriculture
-          </p>
         </div>
-      </div>
+      )}
+
+      {/* No Access - Subscription Required */}
+      {!accessLoading && !hasAccess && (
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Lock className="w-10 h-10 text-amber-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-4">
+              Premium Feature
+            </h1>
+            <p className="text-gray-600 mb-6">
+              Crop Recommendation System is available for farmers with premium subscriptions that include AI-powered crop recommendations.
+            </p>
+            
+            {subscriptionData ? (
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h3 className="font-semibold text-blue-800 mb-2">Your Current Plan</h3>
+                <p className="text-blue-700">You have an active subscription, but it doesn't include crop recommendations.</p>
+                <p className="text-sm text-blue-600 mt-1">Consider upgrading to a plan that includes AI-powered features.</p>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-semibold text-gray-800 mb-2">No Active Subscription</h3>
+                <p className="text-gray-700">You need an active subscription to access this feature.</p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <Link
+                to="/subscriptionmanagement"
+                className="w-full bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+              >
+                <Crown className="w-5 h-5" />
+                <span>View Subscription Plans</span>
+              </Link>
+              
+              <Link
+                to="/dashboard/farmer"
+                className="w-full bg-gray-200 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+              >
+                Back to Dashboard
+              </Link>
+            </div>
+
+            <div className="mt-6 text-sm text-gray-500">
+              <p>🌱 Get AI-powered crop recommendations</p>
+              <p>📊 Access detailed farming insights</p>
+              <p>🎯 Maximize your crop yield potential</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - Only shown if user has access */}
+      {!accessLoading && hasAccess && (
+        <>
+          {/* Header */}
+          <div className="bg-green-600 text-white py-6 px-4 shadow-lg">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex items-center justify-center space-x-3">
+                <Leaf className="w-8 h-8" />
+                <h1 className="text-2xl md:text-3xl font-bold text-center">
+                  Agrovia Crop Recommendation System
+                </h1>
+                <Crown className="w-6 h-6 text-yellow-300" />
+              </div>
+              <p className="text-center text-green-100 mt-2">
+                Intelligent farming solutions for Sri Lankan agriculture
+              </p>
+              <div className="text-center mt-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-500 text-white">
+                  Premium Feature Unlocked
+                </span>
+              </div>
+            </div>
+          </div>
 
       <div className="max-w-6xl mx-auto p-4 md:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -468,6 +545,8 @@ const CropRecommendationSystem = () => {
           </p>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

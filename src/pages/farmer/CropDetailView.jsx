@@ -16,14 +16,17 @@ import {
   ShoppingCart,
   Camera,
   CheckCircle,
-  Truck
+  Truck,
+  X
 } from 'lucide-react';
 import { cropService } from '../../services/cropService';
 import { useCart } from '../../hooks/useCart';
+import { useBuyerOrderLimits } from '../../hooks/useBuyerOrderLimits';
 
 import EditCropPost from './EditCropPost'; // Add this import at the top if not present
 import { Star } from 'lucide-react';
 import CartNotification from '../../components/CartNotification';
+import OrderLimitNotification from '../../components/OrderLimitNotification';
 import { useAuth } from '../../contexts/AuthContext';
 
 const CropDetailView = () => {
@@ -35,7 +38,17 @@ const CropDetailView = () => {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
+  
+  // Order limits for buyers
+  const {
+    canPlaceOrder,
+    getNotificationMessage,
+    getUpgradeSuggestions
+  } = useBuyerOrderLimits();
+  
   const [notification, setNotification] = useState({ show: false, product: null, quantity: 0 });
+  const [showOrderLimitNotification, setShowOrderLimitNotification] = useState(true);
+  const [showOrderLimitPopup, setShowOrderLimitPopup] = useState(false);
   // For image modal
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageIdx, setModalImageIdx] = useState(0);
@@ -223,6 +236,13 @@ const CropDetailView = () => {
 
   const handleAddToCart = () => {
     if (!crop) return;
+    
+    // Check order limits before adding to cart
+    if (!canPlaceOrder()) {
+      setShowOrderLimitPopup(true);
+      return;
+    }
+    
     // Use the global cart context to add to cart
     addToCart({
       id: crop.id,
@@ -1394,6 +1414,62 @@ const CropDetailView = () => {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Order Limit Popup Modal */}
+      {showOrderLimitPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Order Limit Reached</h3>
+              <button
+                onClick={() => setShowOrderLimitPopup(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-gray-700 mb-3">{getNotificationMessage()?.message || 'You have reached your monthly order limit. Please upgrade your subscription to place more orders.'}</p>
+              
+              {getUpgradeSuggestions() && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">
+                    Upgrade to {getUpgradeSuggestions().suggested}:
+                  </h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    {getUpgradeSuggestions().benefits.map((benefit, index) => (
+                      <li key={index} className="flex items-center">
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        {benefit}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-blue-900 font-medium mt-2">{getUpgradeSuggestions().price}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowOrderLimitPopup(false)}
+                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setShowOrderLimitPopup(false);
+                  navigate('/subscription-management');
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Upgrade Now
+              </button>
+            </div>
           </div>
         </div>
       )}

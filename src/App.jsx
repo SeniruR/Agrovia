@@ -66,6 +66,7 @@ import AdminShopSubscriptions from "./pages/admin/AdminShopSubscriptions";
 import AdminAccountApproval  from "./pages/admin/AdminAccountApproval";
 
 import SubscriptionManagement from "./pages/SubscriptionManagement";
+import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 
 
 import OrganizationDashBoard from "./pages/organization/Oraganization";
@@ -140,6 +141,16 @@ const App = () => {
       <Route path="/payment-success" element={
         <Layout>
           <PaymentSuccess />
+        </Layout>
+      } />
+      <Route path="/subscription-management" element={
+        <Layout>
+          <SubscriptionManagement />
+        </Layout>
+      } />
+      <Route path="/subscription-success" element={
+        <Layout>
+          <SubscriptionSuccess />
         </Layout>
       } />
       <Route path="/" element={

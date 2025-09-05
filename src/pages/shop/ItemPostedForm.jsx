@@ -4,6 +4,7 @@ import { Upload, MapPin, Phone, Mail, Package, Leaf, Droplets, AlertTriangle, Al
 import { ChevronDown } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useShopSubscriptionAccess } from '../../hooks/useShopSubscriptionAccess';
 
 export default function SeedsFertilizerForm() {
   const sriLankanCities = [
@@ -11,6 +12,15 @@ export default function SeedsFertilizerForm() {
 ];
   const { user, isAuthenticated, getAuthHeaders } = useAuth();
   const navigate = useNavigate();
+  
+  // Shop subscription access hook
+  const {
+    productLimit,
+    canAddProduct,
+    getProductLimitMessage,
+    loading: subscriptionLoading
+  } = useShopSubscriptionAccess();
+  
   // Toggle verbose debug logs during development
   const DEBUG = false;
   const [formData, setFormData] = useState({
@@ -33,6 +43,9 @@ export default function SeedsFertilizerForm() {
     imagePreviews: [],
     terms_accepted: false
   });
+  
+  // Track current product count for limit checking
+  const [currentProductCount, setCurrentProductCount] = useState(0);
    useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
@@ -68,6 +81,25 @@ export default function SeedsFertilizerForm() {
             owner_name: data.data.owner_name || user?.full_name || '',
           };
           if (!cancelled) setFormData(prev => ({ ...prev, ...updatedData }));
+          
+          // Also fetch current product count for subscription limit checking
+          try {
+            const productCountResponse = await fetch('http://localhost:5000/api/v1/shop-products/count', {
+              headers,
+              signal: controller.signal
+            });
+            
+            if (productCountResponse.ok) {
+              const countData = await productCountResponse.json();
+              if (countData && countData.count !== undefined && !cancelled) {
+                setCurrentProductCount(countData.count);
+              }
+            }
+          } catch (countError) {
+            console.log('Error fetching product count:', countError);
+            // Use fallback of 0 if count fetch fails
+            if (!cancelled) setCurrentProductCount(0);
+          }
         } else if (!cancelled) {
           // fallback to user info if API reports not-success
           const fallbackData = {
@@ -330,6 +362,14 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   setIsSubmitting(true);
   setSubmitError('');
+  
+  // Check product limit before submission
+  if (!canAddProduct(currentProductCount)) {
+    setSubmitError(`You've reached your product limit of ${productLimit}. Please upgrade your subscription plan to add more products.`);
+    setIsSubmitting(false);
+    return;
+  }
+  
   // Prepare category value, handling "Other"
   const categoryToSend = formData.category === 'Other' && formData.category_other
     ? formData.category_other
@@ -436,6 +476,10 @@ const handleSubmit = async (e) => {
     setCurrentStep(1);
     setErrors({});
   alert('Advertisement posted successfully! Your listing will be reviewed and published soon.');
+  
+  // Update current product count to reflect the newly added item
+  setCurrentProductCount(prev => prev + 1);
+  
   // Redirect user to My Shop Items after successful post
   navigate('/myshopitem');
 
@@ -491,6 +535,53 @@ const handleSubmit = async (e) => {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4">
+        {/* Product Limit Check */}
+        {!subscriptionLoading && !canAddProduct(currentProductCount) && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-800">Product Limit Reached</h3>
+                <p className="text-red-700 text-sm mt-1">
+                  You've reached your limit of {productLimit} products. 
+                  Please upgrade your subscription plan to add more products.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => navigate('/subscriptionmanagement')}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Upgrade Plan
+                </button>
+                <button
+                  onClick={() => navigate('/myshopitem')}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Back to My Items
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Product Limit Indicator */}
+        {!subscriptionLoading && (
+          <div className="mb-4 flex justify-between items-center p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-green-600" />
+              <span className="text-green-800 font-medium">
+                Product Listings: {currentProductCount} / {productLimit === 'unlimited' ? '∞' : productLimit}
+              </span>
+            </div>
+            {currentProductCount >= productLimit * 0.8 && productLimit !== 'unlimited' && (
+              <span className="text-orange-600 text-sm">
+                {currentProductCount >= productLimit ? 'Limit reached' : 'Approaching limit'}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Progress Bar */}
         <div className="mb-8 sm:mb-12">
           <div className="flex items-center justify-center space-x-4 sm:space-x-8">
@@ -1219,10 +1310,15 @@ accept="image/*"// Explicitly specify allowed types
     <button
       type="button"
       onClick={handleSubmit}
-      disabled={isSubmitting}
-      className={`px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+      disabled={isSubmitting || !canAddProduct(currentProductCount)}
+      className={`px-8 sm:px-12 lg:px-16 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl ${(isSubmitting || !canAddProduct(currentProductCount)) ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
-      {isSubmitting ? 'Posting...' : '🚀 Post Advertisement'}
+      {!canAddProduct(currentProductCount) 
+        ? `Product Limit Reached (${currentProductCount}/${productLimit})`
+        : isSubmitting 
+        ? 'Posting...' 
+        : '🚀 Post Advertisement'
+      }
     </button>
   )}
 </div>
