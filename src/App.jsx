@@ -32,7 +32,9 @@ import CropListings from "./pages/CropListing";
 import FarmerProfileEdit from "./pages/Profile";
 import FarmerProfile from "./pages/profiles/FarmerProfile";
 import BuyerProfile from "./pages/profiles/BuyerProfile";
+import BuyerEditProfile from "./pages/profiles/BuyerEditProfile";
 import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
+import ShopOwnerEditProfile from "./pages/profiles/ShopOwnerEditProfile";
 import TransporterProfile from "./pages/profiles/TransporterProfile";
 import ProfileRouter from "./components/ProfileRouter";
 import Footer from "./components/pages/Footer";
@@ -271,6 +273,12 @@ const App = () => {
          </Layout>
         }
       />
+      <Route path="/profile/buyer/edit" element={
+          <Layout>
+            <BuyerEditProfile />
+         </Layout>
+        }
+      />
       <Route path="/profile/buyer" element={
           <Layout>
             <BuyerProfile />
@@ -280,6 +288,12 @@ const App = () => {
       <Route path="/profile/shop-owner" element={
           <Layout>
             <ShopOwnerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/shop-owner/edit" element={
+          <Layout>
+            <ShopOwnerEditProfile />
          </Layout>
         }
       />
