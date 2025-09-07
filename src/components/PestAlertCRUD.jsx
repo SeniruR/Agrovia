@@ -37,70 +37,71 @@ function PestAlertList({ onEdit, onView }) {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: '40px auto' }}>
-      <h2 style={{color:'#2e7d32',fontWeight:800,marginBottom:32,letterSpacing:'-1px'}}>Pest Alerts</h2>
+    <div style={{ maxWidth: 1000, margin: '40px auto', padding: '0 16px' }}>
+      <h2 style={{color:'#2e7d32',fontWeight:900,marginBottom:32,letterSpacing:'-1px',fontSize:36,background:'linear-gradient(90deg,#43e97b 0%,#38f9d7 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>🌾 Pest Alerts Dashboard</h2>
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {alerts.map(alert => (
           <li key={alert.id} style={{
             border: `2px solid ${alert.severity==='high'?'#ffcdd2':alert.severity==='medium'?'#fff9c4':'#c8e6c9'}`,
-            borderRadius: 28,
-            marginBottom: 36,
-            padding: '32px 36px',
-            background: '#fff',
-            boxShadow: '0 8px 32px 0 rgba(76, 175, 80, 0.08)',
+            borderRadius: 32,
+            marginBottom: 40,
+            padding: '36px 40px',
+            background: 'linear-gradient(135deg,#f9fff8 0%,#e8f5e8 100%)',
+            boxShadow: '0 12px 40px 0 rgba(76,175,80,0.12)',
             position: 'relative',
             display: 'flex',
             flexDirection: 'column',
-            gap: 12,
+            gap: 16,
+            transition: 'box-shadow 0.2s',
           }}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-              <div style={{display:'flex',alignItems:'center'}}>
+              <div style={{display:'flex',alignItems:'center',gap:18}}>
                 {severityIcon(alert.severity)}
-                <span style={{fontWeight:800,fontSize:26,color:'#222'}}>{alert.title}</span>
+                <span style={{fontWeight:900,fontSize:28,color:'#222',letterSpacing:'-1px'}}>{alert.title}</span>
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:16}}>
-                <span style={{color:'#607d8b',fontSize:16,display:'flex',alignItems:'center',gap:6}}>
+              <div style={{display:'flex',alignItems:'center',gap:18}}>
+                <span style={{color:'#607d8b',fontSize:17,display:'flex',alignItems:'center',gap:6}}>
                   <span role="img" aria-label="location">📍</span> {alert.location || 'N/A'}
                 </span>
-                <span style={{color:'#607d8b',fontSize:16,display:'flex',alignItems:'center',gap:6}}>
+                <span style={{color:'#607d8b',fontSize:17,display:'flex',alignItems:'center',gap:6}}>
                   <span role="img" aria-label="calendar">📅</span> {alert.created_at ? new Date(alert.created_at).toLocaleDateString() : ''}
                 </span>
-                <span style={{fontSize:14}}>{severityBadge(alert.severity)}</span>
+                <span style={{fontSize:16}}>{severityBadge(alert.severity)}</span>
               </div>
             </div>
-            <div style={{fontSize:18,color:'#37474f',marginBottom:12}}>{alert.description}</div>
-            <div style={{display:'flex',gap:24,marginTop:8}}>
-              <div style={{flex:1,background:'#f8fafc',borderRadius:18,padding:'18px 20px',minWidth:220}}>
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-                  <span style={{fontSize:22,background:'#e8f5e9',borderRadius:'50%',padding:6}}>🌱</span>
-                  <span style={{fontWeight:700}}>Crop:</span> <span>{alert.crop || 'N/A'}</span>
+            <div style={{fontSize:20,color:'#37474f',marginBottom:14,lineHeight:1.6}}>{alert.description}</div>
+            <div style={{display:'flex',gap:32,marginTop:8}}>
+              <div style={{flex:1,background:'#f8fafc',borderRadius:20,padding:'22px 24px',minWidth:220,boxShadow:'0 2px 12px #e8f5e9'}}>
+                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                  <span style={{fontSize:26,background:'#e8f5e9',borderRadius:'50%',padding:8}}>🌱</span>
+                  <span style={{fontWeight:700,fontSize:17}}>Crop:</span> <span style={{fontWeight:500,fontSize:17}}>{alert.crop || 'N/A'}</span>
                 </div>
-                <div style={{marginLeft:32}}>
-                  <span style={{fontWeight:700}}>Symptoms:</span> <span>{alert.symptoms || 'N/A'}</span>
+                <div style={{marginLeft:36}}>
+                  <span style={{fontWeight:700,fontSize:17}}>Symptoms:</span> <span style={{fontWeight:500,fontSize:17}}>{alert.symptoms || 'N/A'}</span>
                 </div>
               </div>
-              <div style={{flex:2,background:'#f8fafc',borderRadius:18,padding:'18px 20px',minWidth:220}}>
-                <div style={{fontWeight:700,marginBottom:8}}>Recommendations:</div>
-                <ul style={{margin:0,paddingLeft:24}}>
+              <div style={{flex:2,background:'#f8fafc',borderRadius:20,padding:'22px 24px',minWidth:220,boxShadow:'0 2px 12px #e8f5e9'}}>
+                <div style={{fontWeight:700,marginBottom:10,fontSize:17}}>Recommendations:</div>
+                <ul style={{margin:0,paddingLeft:28}}>
                   {alert.recommendations ? alert.recommendations.split('\n').map((rec,i)=>(
-                      <li key={i} style={{marginBottom:4,display:'flex',alignItems:'center',gap:8}}>
-                        <span style={{background:'#c8e6c9',color:'#2e7d32',borderRadius:'50%',width:26,height:26,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{i+1}</span>
-                      <span>{rec}</span>
+                      <li key={i} style={{marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
+                        <span style={{background:'#c8e6c9',color:'#2e7d32',borderRadius:'50%',width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:16}}>{i+1}</span>
+                      <span style={{fontSize:16}}>{rec}</span>
                     </li>
-                  )): <li>No recommendations</li>}
+                  )): <li style={{fontSize:16}}>No recommendations</li>}
                 </ul>
-                <div style={{marginTop:12,display:'flex',gap:12,flexWrap:'wrap'}}>
-                  {alert.estimated_loss && <span style={{background:'#fffde7',color:'#fbc02d',padding:'6px 14px',borderRadius:12,fontWeight:600,fontSize:15}}>Estimated Loss: {alert.estimated_loss}</span>}
-                  {alert.affected_area && <span style={{background:'#e8f5e9',color:'#388e3c',padding:'6px 14px',borderRadius:12,fontWeight:600,fontSize:15}}>Affected Area: {alert.affected_area}</span>}
+                <div style={{marginTop:14,display:'flex',gap:14,flexWrap:'wrap'}}>
+                  {alert.estimated_loss && <span style={{background:'#fffde7',color:'#fbc02d',padding:'7px 16px',borderRadius:14,fontWeight:600,fontSize:16}}>Estimated Loss: {alert.estimated_loss}</span>}
+                  {alert.affected_area && <span style={{background:'#e8f5e9',color:'#388e3c',padding:'7px 16px',borderRadius:14,fontWeight:600,fontSize:16}}>Affected Area: {alert.affected_area}</span>}
                 </div>
               </div>
             </div>
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:18,gap:8}}>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:22,gap:12}}>
               <button onClick={() => onView(alert)} style={{
-                background:'#1976d2',color:'#fff',fontWeight:700,padding:'10px 28px',border:'none',borderRadius:12,fontSize:16,boxShadow:'0 2px 8px #1976d222',cursor:'pointer',transition:'all 0.2s'
+                background:'linear-gradient(90deg,#1976d2 0%,#43e97b 100%)',color:'#fff',fontWeight:800,padding:'12px 32px',border:'none',borderRadius:16,fontSize:18,boxShadow:'0 2px 12px #1976d222',cursor:'pointer',transition:'all 0.2s'
               }}>View Details</button>
               <button onClick={() => onEdit(alert)} style={{
-                background:'#43a047',color:'#fff',fontWeight:700,padding:'10px 28px',border:'none',borderRadius:12,fontSize:16,boxShadow:'0 2px 8px #43a04722',cursor:'pointer',transition:'all 0.2s',marginLeft:8
+                background:'linear-gradient(90deg,#43e97b 0%,#38f9d7 100%)',color:'#fff',fontWeight:800,padding:'12px 32px',border:'none',borderRadius:16,fontSize:18,boxShadow:'0 2px 12px #43a04722',cursor:'pointer',transition:'all 0.2s',marginLeft:12
               }}>Edit</button>
             </div>
           </li>
