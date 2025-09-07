@@ -51,6 +51,10 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [reviewImages, setReviewImages] = useState([]);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [currentUserData, setCurrentUserData] = useState(null);
+  const [shopReviews, setShopReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [editingReview, setEditingReview] = useState(null);
+  const [deletingReview, setDeletingReview] = useState(false);
   const fileInputRef = useRef(null);
   const { user, getAuthHeaders } = useAuth();
   
@@ -61,6 +65,42 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       setCurrentUserData(user);
     }
   }, [user]);
+  
+  // Function to fetch reviews for a specific shop product
+  const fetchShopReviews = async (shopItem) => {
+    if (!shopItem) return;
+    
+    // Use product_id or id depending on what's available
+    const productId = shopItem.id || shopItem.productId || shopItem.shop_id;
+    if (!productId) return;
+    
+    setLoadingReviews(true);
+    try {
+      // Get reviews for the specific product
+      console.log('Fetching reviews for product ID:', productId);
+      
+      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews?shop_id=${productId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch reviews');
+      }
+      
+      const data = await response.json();
+      console.log('Fetched reviews:', data);
+      setShopReviews(Array.isArray(data) ? data : data.data || []);
+    } catch (error) {
+      console.error('Error fetching shop reviews:', error);
+      // Set empty array on error to avoid showing loading state indefinitely
+      setShopReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
   // Fetch transporters when modal is opened
   const handleShowTransporters = async () => {
     setShowTransporters(true);
@@ -120,6 +160,64 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     setRating(0);
     setReviewComment('');
     setReviewImages([]);
+    setEditingReview(null); // Clear any editing state
+  };
+  
+  const handleEditReview = (review) => {
+    setEditingReview(review);
+    setRating(review.rating);
+    setReviewComment(review.comment || '');
+    setReviewImages([]);
+    setShowReviewModal(true);
+  };
+  
+  const handleDeleteReview = async (reviewId) => {
+    if (!confirm('Are you sure you want to delete this review?')) {
+      return;
+    }
+    
+    setDeletingReview(true);
+    try {
+      // Using query parameter approach for consistency with the fetch method
+      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews?id=${reviewId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete review');
+      }
+      
+      // Show success message
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+      toast.innerHTML = `
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+          </svg>
+          Review deleted successfully!
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => document.body.removeChild(toast), 300);
+      }, 2000);
+      
+      // Refresh the reviews
+      if (selectedProduct) {
+        fetchShopReviews(selectedProduct);
+      }
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      alert(`Failed to delete review: ${error.message}`);
+    } finally {
+      setDeletingReview(false);
+    }
   };
   
   const handleRatingChange = (value) => {
@@ -170,13 +268,14 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     }
     
     if (!selectedProduct) {
-      alert('No shop selected');
+      alert('No product selected');
       return;
     }
     
-    // Ensure we have a shop_id
-    if (!selectedProduct.shop_id) {
-      alert('Invalid shop information. Missing shop ID.');
+    // Ensure we have a product ID
+    const productId = selectedProduct.id || selectedProduct.productId;
+    if (!productId) {
+      alert('Invalid product information. Missing product ID.');
       return;
     }
     
@@ -186,6 +285,9 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       setSubmittingReview(false);
       return;
     }
+    
+    // Check if we're editing an existing review or creating a new one
+    const isEditing = editingReview !== null;
     
     // Validate image count
     if (reviewImages.length > 5) {
@@ -218,7 +320,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       const reviewData = {
         rating: Number(rating), // Ensure this is a number
         comment: reviewComment || "", // Make sure it's not undefined
-        shop_id: Number(selectedProduct.shop_id), // Ensure this is a number
+        shop_id: Number(selectedProduct.id || selectedProduct.productId), // Use product ID 
         farmer_id: Number(userId), // Use the user ID
         farmer_name: farmerName.trim() // Use the determined farmer name, ensuring no extra spaces
       };
@@ -250,13 +352,22 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       
       // Log the exact data we're sending to help with debugging
       console.log('Sending review data to server:', JSON.stringify(reviewData, null, 2));
+      console.log('Operation:', isEditing ? 'Update review' : 'Create new review');
       
       // Send the request with JSON data instead of FormData
       const authToken = localStorage.getItem('authToken');
       console.log('Using auth token:', authToken ? 'Present' : 'Missing');
       
-      const response = await fetch('http://localhost:5000/api/v1/shop-reviews', {
-        method: 'POST',
+      // Determine the API endpoint and method based on whether we're creating or updating
+      // Using query parameter approach for consistency with other endpoints
+      const apiUrl = isEditing
+        ? `http://localhost:5000/api/v1/shop-reviews?id=${editingReview.id}`
+        : 'http://localhost:5000/api/v1/shop-reviews';
+        
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(apiUrl, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': authToken ? `Bearer ${authToken}` : '', // Add auth token from local storage if available
@@ -296,7 +407,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       
       // Review was submitted successfully, parse the response
       const result = await response.json();
-      console.log('Review submission successful:', result);
+      console.log('Review operation successful:', result);
       
       // Upload files separately if needed
       // Note: In a production app, you'd want to handle this file upload on the server side
@@ -310,7 +421,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
           </svg>
-          Review submitted successfully!
+          ${isEditing ? 'Review updated successfully!' : 'Review submitted successfully!'}
         </div>
       `;
       document.body.appendChild(toast);
@@ -318,6 +429,11 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         toast.style.transform = 'translateX(100%)';
         setTimeout(() => document.body.removeChild(toast), 300);
       }, 2000);
+      
+      // Refresh the reviews after submitting a new one
+      if (selectedProduct) {
+        fetchShopReviews(selectedProduct);
+      }
       
       // Close the modal and reset form
       handleCloseReviewModal();
@@ -460,11 +576,21 @@ useEffect(() => {
   const handleViewMore = (item, e) => {
     e.stopPropagation();
     setSelectedProduct(item);
+    
+    // Fetch reviews for this shop item
+    if (item) {
+      fetchShopReviews(item);
+    }
   };
 
   const handleItemClick = (item) => {
     setSelectedProduct(item);
     setCurrentImageIndex(0); // Reset to first image when opening popup
+    
+    // Fetch reviews for this shop item
+    if (item) {
+      fetchShopReviews(item);
+    }
   };
 
   const closePopup = () => {
@@ -1155,6 +1281,125 @@ useEffect(() => {
                     className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-4 mt-2 border border-gray-300 focus:outline-none resize-none text-base leading-relaxed"
                     rows="6"
                   />
+                </div>
+                
+                {/* Reviews Section */}
+                <div className="bg-gray-50 p-6 rounded-lg mt-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-emerald-700">Customer Reviews</h3>
+                    <p className="text-gray-600">
+                      {shopReviews.length} {shopReviews.length === 1 ? 'review' : 'reviews'}
+                    </p>
+                  </div>
+                  
+                  {loadingReviews ? (
+                    <div className="flex justify-center py-8">
+                      <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : shopReviews.length === 0 ? (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <p className="text-gray-500">No reviews yet. Be the first to review this shop!</p>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenReviewModal();
+                        }}
+                        className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors"
+                      >
+                        Write a Review
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {shopReviews.map(review => (
+                        <div key={review.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-semibold text-gray-800">{review.farmer_name}</p>
+                              <div className="flex items-center mt-1">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star 
+                                    key={i}
+                                    size={16}
+                                    className={i < review.rating ? "text-amber-400 fill-amber-400" : "text-gray-300"}
+                                  />
+                                ))}
+                                <span className="ml-2 text-sm text-gray-600">
+                                  {new Date(review.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Show edit/delete buttons only for the user's own reviews */}
+                            {user && review.farmer_id === user.id && (
+                              <div className="flex space-x-2">
+                                <button 
+                                  onClick={() => handleEditReview(review)} 
+                                  className="text-emerald-600 hover:text-emerald-700"
+                                  title="Edit review"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                  </svg>
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteReview(review.id)}
+                                  className="text-red-500 hover:text-red-600"
+                                  title="Delete review"
+                                  disabled={deletingReview}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {review.comment && (
+                            <p className="mt-3 text-gray-700">{review.comment}</p>
+                          )}
+                          
+                          {/* Display attachments if any */}
+                          {review.attachments && (
+                            <div className="mt-3">
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {(() => {
+                                  try {
+                                    // Handle different possible attachment formats
+                                    const attachments = typeof review.attachments === 'string' 
+                                      ? (review.attachments.startsWith('[') 
+                                          ? JSON.parse(review.attachments) 
+                                          : [review.attachments]) 
+                                      : Array.isArray(review.attachments)
+                                        ? review.attachments
+                                        : [];
+                                    
+                                    return attachments.map((attachment, index) => (
+                                      <div key={index} className="relative w-16 h-16 bg-gray-100 rounded-md overflow-hidden">
+                                        <img 
+                                          src={`http://localhost:5000/uploads/${attachment}`} 
+                                          alt={`Attachment ${index + 1}`}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = 'https://via.placeholder.com/64?text=Error';
+                                          }}
+                                        />
+                                      </div>
+                                    ));
+                                  } catch (e) {
+                                    console.error("Error parsing attachments:", e);
+                                    return null;
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
