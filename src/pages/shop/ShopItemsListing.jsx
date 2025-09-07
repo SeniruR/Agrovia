@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { useCart } from './CartContext';
+import { useAuth } from '../../contexts/AuthContext';
 // Add this component at the top of your file
 const ImageWithFallback = ({ src, alt, className }) => {
   const [imgSrc, setImgSrc] = useState(src);
@@ -44,6 +45,108 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [transporters, setTransporters] = useState([]);
   const [loadingTransporters, setLoadingTransporters] = useState(false);
   const [errorTransporters, setErrorTransporters] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewImages, setReviewImages] = useState([]);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [currentUserData, setCurrentUserData] = useState(null);
+  const [shopReviews, setShopReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [editingReview, setEditingReview] = useState(null);
+  const [deletingReview, setDeletingReview] = useState(false);
+  const fileInputRef = useRef(null);
+  const { user, getAuthHeaders } = useAuth();
+  
+  // Log the user data when it changes to help with debugging
+  useEffect(() => {
+    if (user) {
+      setCurrentUserData(user);
+    }
+  }, [user]);
+  
+  // Fetch reviews whenever the selected product changes
+  useEffect(() => {
+    if (selectedProduct) {
+      fetchShopReviews(selectedProduct);
+    }
+  }, [selectedProduct]);
+  
+  // Function to fetch reviews for a specific shop product
+  const fetchShopReviews = async (shopItem) => {
+    if (!shopItem) return;
+    
+    // Use product_id or id depending on what's available
+    const productId = shopItem.id || shopItem.productId || shopItem.shop_id;
+    if (!productId) return;
+    
+    setLoadingReviews(true);
+    try {
+      // Get reviews for the specific product
+      
+      // Use URL parameter instead of query parameter
+      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews/${productId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch reviews');
+      }
+      
+      const data = await response.json();
+      
+      // Process reviews to handle attachments properly
+      const processedReviews = (Array.isArray(data) ? data : data.data || []).map(review => {
+        // Parse attachments if they exist
+        let parsedAttachments = [];
+        
+        if (review.attachments) {
+          try {
+            // Handle different cases of attachment format
+            if (typeof review.attachments === 'string') {
+              // Check if it's an empty string
+              if (review.attachments.trim() === '') {
+                parsedAttachments = [];
+              } else if (review.attachments.includes('[') && review.attachments.includes(']')) {
+                // Try to parse as JSON array
+                parsedAttachments = JSON.parse(review.attachments);
+              } else if (review.attachments.includes(',')) {
+                // Handle comma-separated string
+                parsedAttachments = review.attachments.split(',').map(item => item.trim());
+              } else {
+                // Single filename
+                parsedAttachments = [review.attachments.trim()];
+              }
+            } else if (Array.isArray(review.attachments)) {
+              // Already an array
+              parsedAttachments = review.attachments;
+            }
+            
+            // Filter out any empty strings or null values
+            parsedAttachments = parsedAttachments.filter(item => item && item.trim() !== '');
+            
+          } catch (err) {
+            console.error("Error parsing attachments:", err);
+            parsedAttachments = [];
+          }
+        }
+        
+        return {
+          ...review,
+          attachments: parsedAttachments
+        };
+      });
+      
+      setShopReviews(processedReviews);
+    } catch (error) {
+      setShopReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
   // Fetch transporters when modal is opened
   const handleShowTransporters = async () => {
     setShowTransporters(true);
@@ -68,6 +171,341 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   };
   
   const { addToCart, getCartItemsCount } = useCart();
+  
+  const handleOpenReviewModal = async () => {
+    // Ensure we have the latest user data
+    if (user && user.id) {
+      try {
+        // Attempt to fetch fresh user data to ensure we have the correct name
+        const response = await fetch(`http://localhost:5000/api/v1/users/${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUserData(userData);
+        }
+      } catch (err) {
+        // Continue with the modal even if we couldn't refresh user data
+      }
+    }
+    
+    setShowReviewModal(true);
+    setRating(0);
+    setReviewComment('');
+    setReviewImages([]);
+  };
+  
+  const handleCloseReviewModal = () => {
+    setShowReviewModal(false);
+    setRating(0);
+    setReviewComment('');
+    setReviewImages([]);
+    setEditingReview(null); // Clear any editing state
+  };
+  
+  const handleEditReview = (review) => {
+    // Make sure we have the correct data format for editing
+    const reviewToEdit = {
+      ...review,
+      // Ensure attachments is an array
+      attachments: Array.isArray(review.attachments) ? review.attachments : []
+    };
+    
+    setEditingReview(reviewToEdit);
+    setRating(reviewToEdit.rating);
+    setReviewComment(reviewToEdit.comment || '');
+    setReviewImages([]); // Reset images for upload
+    setShowReviewModal(true);
+  };
+  
+  const handleDeleteReview = async (reviewId) => {
+    if (!confirm('Are you sure you want to delete this review?')) {
+      return;
+    }
+    
+    setDeletingReview(true);
+    try {
+      // Use URL parameter instead of query parameter
+      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews/${reviewId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete review');
+      }
+      
+      // Show success message
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+      toast.innerHTML = `
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+          </svg>
+          Review deleted successfully!
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => document.body.removeChild(toast), 300);
+      }, 2000);
+      
+      // Refresh the reviews
+      if (selectedProduct) {
+        fetchShopReviews(selectedProduct);
+      }
+    } catch (error) {
+      alert(`Failed to delete review: ${error.message}`);
+    } finally {
+      setDeletingReview(false);
+    }
+  };
+  
+  const handleRatingChange = (value) => {
+    setRating(value);
+  };
+  
+  const validateFileSize = (file) => {
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    return file.size <= maxSize;
+  };
+  
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // Filter out files that exceed the size limit
+    let validSizeFiles = files.filter(file => {
+      const isValid = validateFileSize(file);
+      if (!isValid) {
+        alert(`File "${file.name}" exceeds the 5MB size limit and will be skipped.`);
+      }
+      return isValid;
+    });
+    
+    // Calculate how many more files we can add based on current selection
+    const remainingSlots = 5 - reviewImages.length;
+    
+    if (validSizeFiles.length > remainingSlots) {
+      alert(`You can only upload a maximum of 5 images. Only the first ${remainingSlots} will be added.`);
+      // Take only what we can add
+      validSizeFiles = validSizeFiles.slice(0, remainingSlots);
+    }
+    
+    if (validSizeFiles.length > 0) {
+      // Add new files to existing ones up to 5 total
+      setReviewImages(prev => {
+        const combined = [...prev, ...validSizeFiles];
+        return combined.slice(0, 5);
+      });
+    }
+  };
+  
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    
+    if (!rating) {
+      alert('Please select a rating');
+      return;
+    }
+    
+    if (!selectedProduct) {
+      alert('No product selected');
+      return;
+    }
+    
+    // Ensure we have a product ID
+    const productId = selectedProduct.id || selectedProduct.productId;
+    if (!productId) {
+      alert('Invalid product information. Missing product ID.');
+      return;
+    }
+    
+    // Ensure we have user information - the farmer_id needs to be a valid user ID
+    if (!user || !user.id) {
+      alert('You must be logged in to submit a review');
+      setSubmittingReview(false);
+      return;
+    }
+    
+    // Check if we're editing an existing review or creating a new one
+    const isEditing = editingReview !== null;
+    
+    // Validate image count
+    if (reviewImages.length > 5) {
+      alert('You can only upload a maximum of 5 images');
+      setReviewImages(reviewImages.slice(0, 5));
+      return;
+    }
+    
+    setSubmittingReview(true);
+    
+    try {
+      // Use currentUserData if available, otherwise fall back to user
+      const userData = currentUserData || user;
+      const userId = userData.id;
+      
+      // Make sure we have a valid farmer name from the user object
+      // Check all possible fields where the name might be stored
+      let farmerName = '';
+      if (userData.name) farmerName = userData.name;
+      else if (userData.fullName) farmerName = userData.fullName;
+      else if (userData.first_name && userData.last_name) farmerName = `${userData.first_name} ${userData.last_name}`;
+      else if (userData.firstName && userData.lastName) farmerName = `${userData.firstName} ${userData.lastName}`;
+      else if (userData.username) farmerName = userData.username;
+      else if (userData.email) farmerName = userData.email.split('@')[0]; // Use part of email as last resort
+      else farmerName = 'Anonymous Farmer';
+      
+      // Create regular JSON data first (not FormData) to match what the API expects
+      const reviewData = {
+        rating: Number(rating), // Ensure this is a number
+        comment: reviewComment || "", // Make sure it's not undefined
+        shop_id: Number(selectedProduct.id || selectedProduct.productId), // Use product ID 
+        farmer_id: Number(userId), // Use the user ID
+        farmer_name: farmerName.trim() // Use the determined farmer name, ensuring no extra spaces
+      };
+      
+      // Handle attachments as an array of filenames
+      if (reviewImages && reviewImages.length > 0) {
+        const validImages = reviewImages.slice(0, 5); // Ensure max 5 images
+        
+        // Create an array of file names to send as attachments
+        const fileNames = validImages.map(image => image.name);
+        
+        // Add attachments field to the reviewData
+        reviewData.attachments = JSON.stringify(fileNames);
+        
+        // Now upload the actual image files
+        for (const image of validImages) {
+          const formData = new FormData();
+          formData.append('file', image);
+          
+          try {
+            // Upload each image file
+            const uploadResponse = await fetch('http://localhost:5000/api/v1/upload', {
+              method: 'POST',
+              headers: {
+                'Authorization': authToken ? `Bearer ${authToken}` : '',
+              },
+              body: formData,
+            });
+            
+            if (!uploadResponse.ok) {
+              console.error(`Failed to upload image: ${image.name}`);
+            }
+          } catch (uploadError) {
+            console.error(`Error uploading image: ${image.name}`, uploadError);
+          }
+        }
+      } else if (editingReview && editingReview.attachments && editingReview.attachments.length > 0) {
+        // If editing and no new images were added, keep the existing attachments
+        reviewData.attachments = JSON.stringify(editingReview.attachments);
+      } else {
+        // Use empty array if no attachments
+        reviewData.attachments = JSON.stringify([]);
+      }
+      
+      // Since we're using the current user's ID, we should already be authenticated
+      // We don't need to verify if the user exists, as they are currently logged in
+      // Just double check that we have all required fields
+      if (!reviewData.farmer_id || !reviewData.shop_id || !reviewData.rating) {
+        alert('Missing required review information. Please try again.');
+        setSubmittingReview(false);
+        return;
+      }
+      
+      // Send the request with JSON data instead of FormData
+      const authToken = localStorage.getItem('authToken');
+      
+      // Determine the API endpoint and method based on whether we're creating or updating
+      // Use URL parameter for edit, direct path for create
+      const apiUrl = isEditing
+        ? `http://localhost:5000/api/v1/shop-reviews/${editingReview.id}`
+        : 'http://localhost:5000/api/v1/shop-reviews';
+        
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(apiUrl, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : '', // Add auth token from local storage if available
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(reviewData),
+        credentials: 'include' // Include cookies if needed for authentication
+      });
+      
+      if (!response.ok) {
+      // Try to get detailed error message from the response
+      let errorMessage = 'Failed to submit review';
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+        
+        // Handle specific error cases
+        if (errorData.error && errorData.error.includes('foreign key constraint fails')) {
+          // This is a foreign key error - likely user ID not found
+          errorMessage = 'Your user account is not properly linked in the system. Please contact support.';
+        }          if (response.status === 401 || response.status === 403) {
+            // Authentication or authorization issue
+            errorMessage = 'Your session may have expired. Please log out and log in again.';
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use the default error message
+        }
+        throw new Error(errorMessage);
+      }
+      
+      // Review was submitted successfully, parse the response
+      const result = await response.json();
+      
+      // Upload files separately if needed
+      // Note: In a production app, you'd want to handle this file upload on the server side
+      // For now, we'll just show a success message since the image names are saved in the database
+      
+      // Show success message
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+      toast.innerHTML = `
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+          </svg>
+          ${isEditing ? 'Review updated successfully!' : 'Review submitted successfully!'}
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => document.body.removeChild(toast), 300);
+      }, 2000);
+      
+      // Refresh the reviews after submitting a new one
+      if (selectedProduct) {
+        fetchShopReviews(selectedProduct);
+      }
+      
+      // Close the modal and reset form
+      handleCloseReviewModal();
+    } catch (err) {
+      alert('Failed to submit review: ' + err.message);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   // Infer a normalized product type from available fields (product_type, category, name)
   const inferProductType = (item) => {
@@ -127,7 +565,6 @@ useEffect(() => {
   shopName: item.shop_name,
 })));
     } catch (err) {
-      console.error('Error fetching products:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -875,6 +1312,16 @@ useEffect(() => {
                   <p className="text-xl font-bold text-gray-800">
                     {selectedProduct.available_quantity} {selectedProduct.unit}s
                   </p>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenReviewModal();
+                    }}
+                    className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2 w-full"
+                  >
+                    <Star className="w-5 h-5" />
+                    Write a Review
+                  </button>
                 </div>
                 {/* Description Section */}
                 <div className="bg-gray-50 p-6 rounded-lg">
@@ -885,6 +1332,202 @@ useEffect(() => {
                     className="w-full bg-gray-100 text-gray-800 font-medium rounded-lg p-4 mt-2 border border-gray-300 focus:outline-none resize-none text-base leading-relaxed"
                     rows="6"
                   />
+                </div>
+                
+                {/* Reviews Section */}
+                <div className="bg-gray-50 p-6 rounded-lg mt-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-bold text-emerald-700">Product Reviews</h3>
+                      {shopReviews && shopReviews.length > 0 && (
+                        <div className="flex items-center mt-2">
+                          {(() => {
+                            // Calculate average rating
+                            const avgRating = shopReviews.reduce((sum, review) => sum + review.rating, 0) / shopReviews.length;
+                            const roundedRating = Math.round(avgRating * 10) / 10; // Round to 1 decimal place
+                            
+                            return (
+                              <>
+                                <div className="flex">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star 
+                                      key={i}
+                                      size={18}
+                                      className={i < Math.round(avgRating) ? "text-amber-400 fill-amber-400" : "text-gray-300"}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="ml-2 font-medium text-amber-700">{roundedRating.toFixed(1)}</span>
+                                <span className="mx-2 text-gray-400">•</span>
+                                <span className="text-gray-600">{shopReviews.length} {shopReviews.length === 1 ? 'review' : 'reviews'}</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenReviewModal();
+                      }}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      Write a Review
+                    </button>
+                  </div>
+                  
+                  {loadingReviews ? (
+                    <div className="flex flex-col items-center justify-center py-10">
+                      <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-500">Loading reviews...</p>
+                    </div>
+                  ) : shopReviews.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-gray-300 rounded-lg bg-white">
+                      <div className="w-16 h-16 text-gray-300 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500 mb-3 text-lg font-medium">No reviews yet</p>
+                      <p className="text-gray-400 mb-5 text-center max-w-sm">Be the first to share your experience with this product!</p>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenReviewModal();
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        Write the First Review
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {shopReviews.map(review => {
+                        // Check if this review was posted by the current user - ensure numeric comparison
+                        const isUserReview = user && (Number(review.farmer_id) === Number(user.id));
+                        
+                        // Format the date more nicely
+                        const reviewDate = new Date(review.created_at);
+                        const formattedDate = reviewDate.toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        });
+                        
+                        // Parse attachments - use the already processed attachments array from the review
+                        const attachments = Array.isArray(review.attachments) ? review.attachments : [];
+                        
+                        return (
+                          <div 
+                            key={review.id} 
+                            className={`border rounded-lg p-5 bg-white shadow-sm ${isUserReview ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200'}`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-start gap-3">
+                                {/* User avatar - first letter of their name */}
+                                <div className="w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-lg">
+                                  {review.farmer_name.charAt(0).toUpperCase()}
+                                </div>
+                                
+                                <div>
+                                  <p className="font-semibold text-gray-800">
+                                    {review.farmer_name}
+                                    {isUserReview && <span className="ml-2 text-xs px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">You</span>}
+                                  </p>
+                                  <div className="flex items-center mt-1">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star 
+                                        key={i}
+                                        size={16}
+                                        className={i < review.rating ? "text-amber-400 fill-amber-400" : "text-gray-300"}
+                                      />
+                                    ))}
+                                    <span className="ml-2 text-sm text-gray-600">
+                                      {formattedDate}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Show edit/delete buttons only for the user's own reviews */}
+                              {isUserReview && (
+                                <div className="flex space-x-2">
+                                  <button 
+                                    onClick={() => handleEditReview(review)} 
+                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors"
+                                    title="Edit review"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                    </svg>
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteReview(review.id)}
+                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                                    title="Delete review"
+                                    disabled={deletingReview}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {review.comment && (
+                              <p className="mt-4 text-gray-700 px-2">{review.comment}</p>
+                            )}
+                            
+                            {/* Display attachments if any */}
+                            {attachments && attachments.length > 0 && (
+                              <div className="mt-4">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Attachments ({attachments.length})</h4>
+                                <div className="flex flex-wrap gap-3 mt-2">
+                                  {attachments.map((attachment, index) => (
+                                    <div key={index} className="relative group">
+                                      <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                                        <img 
+                                          src={`http://localhost:5000/uploads/${attachment}`} 
+                                          alt={`Attachment ${index + 1}`}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = 'https://via.placeholder.com/80?text=Image';
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="opacity-0 group-hover:opacity-100 absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg transition-opacity">
+                                        <a 
+                                          href={`http://localhost:5000/uploads/${attachment}`} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-white bg-black bg-opacity-50 p-2 rounded-full"
+                                          title="View full size"
+                                        >
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                          </svg>
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -905,6 +1548,134 @@ useEffect(() => {
               <Phone className="w-5 h-5" /> Seller Phone Number
             </h2>
             <p className="text-2xl font-bold text-gray-800 text-center">{phoneNumber}</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+            <button
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              onClick={handleCloseReviewModal}
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-bold text-amber-700 mb-6">Add Review & Rating</h2>
+            
+            <form onSubmit={handleSubmitReview}>
+              <div className="mb-4">
+                <label className="block text-gray-700 font-medium mb-2">Rating:</label>
+                <div className="relative">
+                  <select 
+                    className="w-full border border-gray-300 rounded-lg py-3 px-4 appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    value={rating}
+                    onChange={(e) => handleRatingChange(Number(e.target.value))}
+                    required
+                  >
+                    <option value="">Select rating</option>
+                    <option value="1">1 - Poor</option>
+                    <option value="2">2 - Fair</option>
+                    <option value="3">3 - Good</option>
+                    <option value="4">4 - Very Good</option>
+                    <option value="5">5 - Excellent</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-gray-700 font-medium mb-2">Comment:</label>
+                <textarea 
+                  className="w-full border border-gray-300 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 h-28 resize-none"
+                  placeholder="Write your review here..."
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                ></textarea>
+              </div>
+              
+              <div className="mb-6">
+                <label className="block text-gray-700 font-medium mb-2">
+                  Upload Images: <span className="text-amber-600 text-sm">(Maximum 5 images)</span>
+                </label>
+                <div 
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="mb-2 text-gray-400">
+                      <Upload size={40} />
+                    </div>
+                    <p className="text-gray-600">Click to upload photos of the crop</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF up to 5MB</p>
+                    
+                    {reviewImages.length > 0 && (
+                      <div className="mt-3 text-sm text-emerald-600 font-medium">
+                        {reviewImages.length} {reviewImages.length === 1 ? 'file' : 'files'} selected 
+                        {reviewImages.length >= 5 && (
+                          <span className="text-amber-600"> (Maximum limit reached)</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    className="hidden" 
+                    accept="image/jpeg,image/png,image/gif"
+                    multiple
+                    onChange={handleFileUpload}
+                    disabled={reviewImages.length >= 5}
+                  />
+                </div>
+                {reviewImages.length > 0 && (
+                  <div className="mt-2 grid grid-cols-5 gap-2">
+                    {reviewImages.slice(0, 5).map((image, index) => (
+                      <div key={index} className="relative bg-gray-100 p-1 rounded-md">
+                        <img 
+                          src={URL.createObjectURL(image)} 
+                          alt={`Preview ${index + 1}`} 
+                          className="h-16 w-16 object-cover rounded-md"
+                        />
+                        <button 
+                          type="button"
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newImages = [...reviewImages];
+                            newImages.splice(index, 1);
+                            setReviewImages(newImages);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex gap-4">
+                <button 
+                  type="button" 
+                  className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors focus:outline-none"
+                  onClick={handleCloseReviewModal}
+                  disabled={submittingReview}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className={`flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors focus:outline-none ${submittingReview ? 'opacity-75 cursor-not-allowed' : ''}`}
+                  disabled={submittingReview}
+                >
+                  {submittingReview ? 'Submitting...' : 'Submit'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
