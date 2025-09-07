@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { useCart } from './CartContext';
+import { useAuth } from '../../contexts/AuthContext';
 // Add this component at the top of your file
 const ImageWithFallback = ({ src, alt, className }) => {
   const [imgSrc, setImgSrc] = useState(src);
@@ -44,6 +45,22 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [transporters, setTransporters] = useState([]);
   const [loadingTransporters, setLoadingTransporters] = useState(false);
   const [errorTransporters, setErrorTransporters] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewImages, setReviewImages] = useState([]);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [currentUserData, setCurrentUserData] = useState(null);
+  const fileInputRef = useRef(null);
+  const { user, getAuthHeaders } = useAuth();
+  
+  // Log the user data when it changes to help with debugging
+  useEffect(() => {
+    if (user) {
+      console.log('Current user data:', user);
+      setCurrentUserData(user);
+    }
+  }, [user]);
   // Fetch transporters when modal is opened
   const handleShowTransporters = async () => {
     setShowTransporters(true);
@@ -68,6 +85,249 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   };
   
   const { addToCart, getCartItemsCount } = useCart();
+  
+  const handleOpenReviewModal = async () => {
+    // Ensure we have the latest user data
+    if (user && user.id) {
+      try {
+        // Attempt to fetch fresh user data to ensure we have the correct name
+        const response = await fetch(`http://localhost:5000/api/v1/users/${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('Fresh user data for review:', userData);
+          setCurrentUserData(userData);
+        }
+      } catch (err) {
+        console.error('Failed to fetch fresh user data:', err);
+        // Continue with the modal even if we couldn't refresh user data
+      }
+    }
+    
+    setShowReviewModal(true);
+    setRating(0);
+    setReviewComment('');
+    setReviewImages([]);
+  };
+  
+  const handleCloseReviewModal = () => {
+    setShowReviewModal(false);
+    setRating(0);
+    setReviewComment('');
+    setReviewImages([]);
+  };
+  
+  const handleRatingChange = (value) => {
+    setRating(value);
+  };
+  
+  const validateFileSize = (file) => {
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    return file.size <= maxSize;
+  };
+  
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // Filter out files that exceed the size limit
+    let validSizeFiles = files.filter(file => {
+      const isValid = validateFileSize(file);
+      if (!isValid) {
+        alert(`File "${file.name}" exceeds the 5MB size limit and will be skipped.`);
+      }
+      return isValid;
+    });
+    
+    // Calculate how many more files we can add based on current selection
+    const remainingSlots = 5 - reviewImages.length;
+    
+    if (validSizeFiles.length > remainingSlots) {
+      alert(`You can only upload a maximum of 5 images. Only the first ${remainingSlots} will be added.`);
+      // Take only what we can add
+      validSizeFiles = validSizeFiles.slice(0, remainingSlots);
+    }
+    
+    if (validSizeFiles.length > 0) {
+      // Add new files to existing ones up to 5 total
+      setReviewImages(prev => {
+        const combined = [...prev, ...validSizeFiles];
+        return combined.slice(0, 5);
+      });
+    }
+  };
+  
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    
+    if (!rating) {
+      alert('Please select a rating');
+      return;
+    }
+    
+    if (!selectedProduct) {
+      alert('No shop selected');
+      return;
+    }
+    
+    // Ensure we have a shop_id
+    if (!selectedProduct.shop_id) {
+      alert('Invalid shop information. Missing shop ID.');
+      return;
+    }
+    
+    // Ensure we have user information - the farmer_id needs to be a valid user ID
+    if (!user || !user.id) {
+      alert('You must be logged in to submit a review');
+      setSubmittingReview(false);
+      return;
+    }
+    
+    // Validate image count
+    if (reviewImages.length > 5) {
+      alert('You can only upload a maximum of 5 images');
+      setReviewImages(reviewImages.slice(0, 5));
+      return;
+    }
+    
+    setSubmittingReview(true);
+    
+    try {
+      // Use currentUserData if available, otherwise fall back to user
+      const userData = currentUserData || user;
+      const userId = userData.id;
+      
+      // Make sure we have a valid farmer name from the user object
+      // Check all possible fields where the name might be stored
+      let farmerName = '';
+      if (userData.name) farmerName = userData.name;
+      else if (userData.fullName) farmerName = userData.fullName;
+      else if (userData.first_name && userData.last_name) farmerName = `${userData.first_name} ${userData.last_name}`;
+      else if (userData.firstName && userData.lastName) farmerName = `${userData.firstName} ${userData.lastName}`;
+      else if (userData.username) farmerName = userData.username;
+      else if (userData.email) farmerName = userData.email.split('@')[0]; // Use part of email as last resort
+      else farmerName = 'Anonymous Farmer';
+      
+      console.log('Using farmer name:', farmerName, 'from user data:', userData);
+      
+      // Create regular JSON data first (not FormData) to match what the API expects
+      const reviewData = {
+        rating: Number(rating), // Ensure this is a number
+        comment: reviewComment || "", // Make sure it's not undefined
+        shop_id: Number(selectedProduct.shop_id), // Ensure this is a number
+        farmer_id: Number(userId), // Use the user ID
+        farmer_name: farmerName.trim() // Use the determined farmer name, ensuring no extra spaces
+      };
+      
+      // Handle attachments as an array of filenames
+      if (reviewImages.length > 0) {
+        const validImages = reviewImages.slice(0, 5); // Ensure max 5 images
+        
+        // Create an array of file names to send as attachments
+        const fileNames = validImages.map(image => image.name);
+        
+        // Add attachments field to the reviewData
+        reviewData.attachments = JSON.stringify(fileNames);
+      } else {
+        // Use null if no attachments
+        reviewData.attachments = null;
+      }
+      
+      console.log('Submitting review data:', reviewData);
+      
+      // Since we're using the current user's ID, we should already be authenticated
+      // We don't need to verify if the user exists, as they are currently logged in
+      // Just double check that we have all required fields
+      if (!reviewData.farmer_id || !reviewData.shop_id || !reviewData.rating) {
+        alert('Missing required review information. Please try again.');
+        setSubmittingReview(false);
+        return;
+      }
+      
+      // Log the exact data we're sending to help with debugging
+      console.log('Sending review data to server:', JSON.stringify(reviewData, null, 2));
+      
+      // Send the request with JSON data instead of FormData
+      const authToken = localStorage.getItem('authToken');
+      console.log('Using auth token:', authToken ? 'Present' : 'Missing');
+      
+      const response = await fetch('http://localhost:5000/api/v1/shop-reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : '', // Add auth token from local storage if available
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(reviewData),
+        credentials: 'include' // Include cookies if needed for authentication
+      });
+      
+      if (!response.ok) {
+        // Try to get detailed error message from the response
+        let errorMessage = 'Failed to submit review';
+        try {
+          const errorData = await response.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+          console.error('Error response:', errorData);
+          
+          // Handle specific error cases
+          if (errorData.error && errorData.error.includes('foreign key constraint fails')) {
+            // This is a foreign key error - likely user ID not found
+            errorMessage = 'Your user account is not properly linked in the system. Please contact support.';
+          }
+          
+          if (response.status === 401 || response.status === 403) {
+            // Authentication or authorization issue
+            errorMessage = 'Your session may have expired. Please log out and log in again.';
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+        }
+        throw new Error(errorMessage);
+      }
+      
+      // Review was submitted successfully, parse the response
+      const result = await response.json();
+      console.log('Review submission successful:', result);
+      
+      // Upload files separately if needed
+      // Note: In a production app, you'd want to handle this file upload on the server side
+      // For now, we'll just show a success message since the image names are saved in the database
+      
+      // Show success message
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+      toast.innerHTML = `
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+          </svg>
+          Review submitted successfully!
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => document.body.removeChild(toast), 300);
+      }, 2000);
+      
+      // Close the modal and reset form
+      handleCloseReviewModal();
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      alert('Failed to submit review: ' + err.message);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   // Infer a normalized product type from available fields (product_type, category, name)
   const inferProductType = (item) => {
@@ -875,6 +1135,16 @@ useEffect(() => {
                   <p className="text-xl font-bold text-gray-800">
                     {selectedProduct.available_quantity} {selectedProduct.unit}s
                   </p>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenReviewModal();
+                    }}
+                    className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2 w-full"
+                  >
+                    <Star className="w-5 h-5" />
+                    Write a Review
+                  </button>
                 </div>
                 {/* Description Section */}
                 <div className="bg-gray-50 p-6 rounded-lg">
@@ -905,6 +1175,134 @@ useEffect(() => {
               <Phone className="w-5 h-5" /> Seller Phone Number
             </h2>
             <p className="text-2xl font-bold text-gray-800 text-center">{phoneNumber}</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+            <button
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              onClick={handleCloseReviewModal}
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-bold text-amber-700 mb-6">Add Review & Rating</h2>
+            
+            <form onSubmit={handleSubmitReview}>
+              <div className="mb-4">
+                <label className="block text-gray-700 font-medium mb-2">Rating:</label>
+                <div className="relative">
+                  <select 
+                    className="w-full border border-gray-300 rounded-lg py-3 px-4 appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    value={rating}
+                    onChange={(e) => handleRatingChange(Number(e.target.value))}
+                    required
+                  >
+                    <option value="">Select rating</option>
+                    <option value="1">1 - Poor</option>
+                    <option value="2">2 - Fair</option>
+                    <option value="3">3 - Good</option>
+                    <option value="4">4 - Very Good</option>
+                    <option value="5">5 - Excellent</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-gray-700 font-medium mb-2">Comment:</label>
+                <textarea 
+                  className="w-full border border-gray-300 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 h-28 resize-none"
+                  placeholder="Write your review here..."
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                ></textarea>
+              </div>
+              
+              <div className="mb-6">
+                <label className="block text-gray-700 font-medium mb-2">
+                  Upload Images: <span className="text-amber-600 text-sm">(Maximum 5 images)</span>
+                </label>
+                <div 
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="mb-2 text-gray-400">
+                      <Upload size={40} />
+                    </div>
+                    <p className="text-gray-600">Click to upload photos of the crop</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF up to 5MB</p>
+                    
+                    {reviewImages.length > 0 && (
+                      <div className="mt-3 text-sm text-emerald-600 font-medium">
+                        {reviewImages.length} {reviewImages.length === 1 ? 'file' : 'files'} selected 
+                        {reviewImages.length >= 5 && (
+                          <span className="text-amber-600"> (Maximum limit reached)</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    className="hidden" 
+                    accept="image/jpeg,image/png,image/gif"
+                    multiple
+                    onChange={handleFileUpload}
+                    disabled={reviewImages.length >= 5}
+                  />
+                </div>
+                {reviewImages.length > 0 && (
+                  <div className="mt-2 grid grid-cols-5 gap-2">
+                    {reviewImages.slice(0, 5).map((image, index) => (
+                      <div key={index} className="relative bg-gray-100 p-1 rounded-md">
+                        <img 
+                          src={URL.createObjectURL(image)} 
+                          alt={`Preview ${index + 1}`} 
+                          className="h-16 w-16 object-cover rounded-md"
+                        />
+                        <button 
+                          type="button"
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newImages = [...reviewImages];
+                            newImages.splice(index, 1);
+                            setReviewImages(newImages);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex gap-4">
+                <button 
+                  type="button" 
+                  className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors focus:outline-none"
+                  onClick={handleCloseReviewModal}
+                  disabled={submittingReview}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className={`flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors focus:outline-none ${submittingReview ? 'opacity-75 cursor-not-allowed' : ''}`}
+                  disabled={submittingReview}
+                >
+                  {submittingReview ? 'Submitting...' : 'Submit'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
