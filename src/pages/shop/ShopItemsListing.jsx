@@ -61,10 +61,16 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   // Log the user data when it changes to help with debugging
   useEffect(() => {
     if (user) {
-      console.log('Current user data:', user);
       setCurrentUserData(user);
     }
   }, [user]);
+  
+  // Fetch reviews whenever the selected product changes
+  useEffect(() => {
+    if (selectedProduct) {
+      fetchShopReviews(selectedProduct);
+    }
+  }, [selectedProduct]);
   
   // Function to fetch reviews for a specific shop product
   const fetchShopReviews = async (shopItem) => {
@@ -77,9 +83,9 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     setLoadingReviews(true);
     try {
       // Get reviews for the specific product
-      console.log('Fetching reviews for product ID:', productId);
       
-      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews?shop_id=${productId}`, {
+      // Use URL parameter instead of query parameter
+      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews/${productId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
@@ -91,11 +97,51 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       }
       
       const data = await response.json();
-      console.log('Fetched reviews:', data);
-      setShopReviews(Array.isArray(data) ? data : data.data || []);
+      
+      // Process reviews to handle attachments properly
+      const processedReviews = (Array.isArray(data) ? data : data.data || []).map(review => {
+        // Parse attachments if they exist
+        let parsedAttachments = [];
+        
+        if (review.attachments) {
+          try {
+            // Handle different cases of attachment format
+            if (typeof review.attachments === 'string') {
+              // Check if it's an empty string
+              if (review.attachments.trim() === '') {
+                parsedAttachments = [];
+              } else if (review.attachments.includes('[') && review.attachments.includes(']')) {
+                // Try to parse as JSON array
+                parsedAttachments = JSON.parse(review.attachments);
+              } else if (review.attachments.includes(',')) {
+                // Handle comma-separated string
+                parsedAttachments = review.attachments.split(',').map(item => item.trim());
+              } else {
+                // Single filename
+                parsedAttachments = [review.attachments.trim()];
+              }
+            } else if (Array.isArray(review.attachments)) {
+              // Already an array
+              parsedAttachments = review.attachments;
+            }
+            
+            // Filter out any empty strings or null values
+            parsedAttachments = parsedAttachments.filter(item => item && item.trim() !== '');
+            
+          } catch (err) {
+            console.error("Error parsing attachments:", err);
+            parsedAttachments = [];
+          }
+        }
+        
+        return {
+          ...review,
+          attachments: parsedAttachments
+        };
+      });
+      
+      setShopReviews(processedReviews);
     } catch (error) {
-      console.error('Error fetching shop reviews:', error);
-      // Set empty array on error to avoid showing loading state indefinitely
       setShopReviews([]);
     } finally {
       setLoadingReviews(false);
@@ -140,11 +186,9 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         
         if (response.ok) {
           const userData = await response.json();
-          console.log('Fresh user data for review:', userData);
           setCurrentUserData(userData);
         }
       } catch (err) {
-        console.error('Failed to fetch fresh user data:', err);
         // Continue with the modal even if we couldn't refresh user data
       }
     }
@@ -164,10 +208,17 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   };
   
   const handleEditReview = (review) => {
-    setEditingReview(review);
-    setRating(review.rating);
-    setReviewComment(review.comment || '');
-    setReviewImages([]);
+    // Make sure we have the correct data format for editing
+    const reviewToEdit = {
+      ...review,
+      // Ensure attachments is an array
+      attachments: Array.isArray(review.attachments) ? review.attachments : []
+    };
+    
+    setEditingReview(reviewToEdit);
+    setRating(reviewToEdit.rating);
+    setReviewComment(reviewToEdit.comment || '');
+    setReviewImages([]); // Reset images for upload
     setShowReviewModal(true);
   };
   
@@ -178,8 +229,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     
     setDeletingReview(true);
     try {
-      // Using query parameter approach for consistency with the fetch method
-      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews?id=${reviewId}`, {
+      // Use URL parameter instead of query parameter
+      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews/${reviewId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -213,7 +264,6 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         fetchShopReviews(selectedProduct);
       }
     } catch (error) {
-      console.error('Error deleting review:', error);
       alert(`Failed to delete review: ${error.message}`);
     } finally {
       setDeletingReview(false);
@@ -314,8 +364,6 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       else if (userData.email) farmerName = userData.email.split('@')[0]; // Use part of email as last resort
       else farmerName = 'Anonymous Farmer';
       
-      console.log('Using farmer name:', farmerName, 'from user data:', userData);
-      
       // Create regular JSON data first (not FormData) to match what the API expects
       const reviewData = {
         rating: Number(rating), // Ensure this is a number
@@ -326,7 +374,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       };
       
       // Handle attachments as an array of filenames
-      if (reviewImages.length > 0) {
+      if (reviewImages && reviewImages.length > 0) {
         const validImages = reviewImages.slice(0, 5); // Ensure max 5 images
         
         // Create an array of file names to send as attachments
@@ -334,12 +382,36 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         
         // Add attachments field to the reviewData
         reviewData.attachments = JSON.stringify(fileNames);
+        
+        // Now upload the actual image files
+        for (const image of validImages) {
+          const formData = new FormData();
+          formData.append('file', image);
+          
+          try {
+            // Upload each image file
+            const uploadResponse = await fetch('http://localhost:5000/api/v1/upload', {
+              method: 'POST',
+              headers: {
+                'Authorization': authToken ? `Bearer ${authToken}` : '',
+              },
+              body: formData,
+            });
+            
+            if (!uploadResponse.ok) {
+              console.error(`Failed to upload image: ${image.name}`);
+            }
+          } catch (uploadError) {
+            console.error(`Error uploading image: ${image.name}`, uploadError);
+          }
+        }
+      } else if (editingReview && editingReview.attachments && editingReview.attachments.length > 0) {
+        // If editing and no new images were added, keep the existing attachments
+        reviewData.attachments = JSON.stringify(editingReview.attachments);
       } else {
-        // Use null if no attachments
-        reviewData.attachments = null;
+        // Use empty array if no attachments
+        reviewData.attachments = JSON.stringify([]);
       }
-      
-      console.log('Submitting review data:', reviewData);
       
       // Since we're using the current user's ID, we should already be authenticated
       // We don't need to verify if the user exists, as they are currently logged in
@@ -350,18 +422,13 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         return;
       }
       
-      // Log the exact data we're sending to help with debugging
-      console.log('Sending review data to server:', JSON.stringify(reviewData, null, 2));
-      console.log('Operation:', isEditing ? 'Update review' : 'Create new review');
-      
       // Send the request with JSON data instead of FormData
       const authToken = localStorage.getItem('authToken');
-      console.log('Using auth token:', authToken ? 'Present' : 'Missing');
       
       // Determine the API endpoint and method based on whether we're creating or updating
-      // Using query parameter approach for consistency with other endpoints
+      // Use URL parameter for edit, direct path for create
       const apiUrl = isEditing
-        ? `http://localhost:5000/api/v1/shop-reviews?id=${editingReview.id}`
+        ? `http://localhost:5000/api/v1/shop-reviews/${editingReview.id}`
         : 'http://localhost:5000/api/v1/shop-reviews';
         
       const method = isEditing ? 'PUT' : 'POST';
@@ -378,36 +445,32 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       });
       
       if (!response.ok) {
-        // Try to get detailed error message from the response
-        let errorMessage = 'Failed to submit review';
-        try {
-          const errorData = await response.json();
-          if (errorData.message) {
-            errorMessage = errorData.message;
-          } else if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-          console.error('Error response:', errorData);
-          
-          // Handle specific error cases
-          if (errorData.error && errorData.error.includes('foreign key constraint fails')) {
-            // This is a foreign key error - likely user ID not found
-            errorMessage = 'Your user account is not properly linked in the system. Please contact support.';
-          }
-          
-          if (response.status === 401 || response.status === 403) {
+      // Try to get detailed error message from the response
+      let errorMessage = 'Failed to submit review';
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+        
+        // Handle specific error cases
+        if (errorData.error && errorData.error.includes('foreign key constraint fails')) {
+          // This is a foreign key error - likely user ID not found
+          errorMessage = 'Your user account is not properly linked in the system. Please contact support.';
+        }          if (response.status === 401 || response.status === 403) {
             // Authentication or authorization issue
             errorMessage = 'Your session may have expired. Please log out and log in again.';
           }
         } catch (parseError) {
-          console.error('Error parsing error response:', parseError);
+          // If we can't parse the error response, use the default error message
         }
         throw new Error(errorMessage);
       }
       
       // Review was submitted successfully, parse the response
       const result = await response.json();
-      console.log('Review operation successful:', result);
       
       // Upload files separately if needed
       // Note: In a production app, you'd want to handle this file upload on the server side
@@ -438,7 +501,6 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       // Close the modal and reset form
       handleCloseReviewModal();
     } catch (err) {
-      console.error('Error submitting review:', err);
       alert('Failed to submit review: ' + err.message);
     } finally {
       setSubmittingReview(false);
@@ -503,7 +565,6 @@ useEffect(() => {
   shopName: item.shop_name,
 })));
     } catch (err) {
-      console.error('Error fetching products:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -576,21 +637,11 @@ useEffect(() => {
   const handleViewMore = (item, e) => {
     e.stopPropagation();
     setSelectedProduct(item);
-    
-    // Fetch reviews for this shop item
-    if (item) {
-      fetchShopReviews(item);
-    }
   };
 
   const handleItemClick = (item) => {
     setSelectedProduct(item);
     setCurrentImageIndex(0); // Reset to first image when opening popup
-    
-    // Fetch reviews for this shop item
-    if (item) {
-      fetchShopReviews(item);
-    }
   };
 
   const closePopup = () => {
@@ -1286,118 +1337,195 @@ useEffect(() => {
                 {/* Reviews Section */}
                 <div className="bg-gray-50 p-6 rounded-lg mt-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-emerald-700">Customer Reviews</h3>
-                    <p className="text-gray-600">
-                      {shopReviews.length} {shopReviews.length === 1 ? 'review' : 'reviews'}
-                    </p>
+                    <div>
+                      <h3 className="text-xl font-bold text-emerald-700">Product Reviews</h3>
+                      {shopReviews && shopReviews.length > 0 && (
+                        <div className="flex items-center mt-2">
+                          {(() => {
+                            // Calculate average rating
+                            const avgRating = shopReviews.reduce((sum, review) => sum + review.rating, 0) / shopReviews.length;
+                            const roundedRating = Math.round(avgRating * 10) / 10; // Round to 1 decimal place
+                            
+                            return (
+                              <>
+                                <div className="flex">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star 
+                                      key={i}
+                                      size={18}
+                                      className={i < Math.round(avgRating) ? "text-amber-400 fill-amber-400" : "text-gray-300"}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="ml-2 font-medium text-amber-700">{roundedRating.toFixed(1)}</span>
+                                <span className="mx-2 text-gray-400">•</span>
+                                <span className="text-gray-600">{shopReviews.length} {shopReviews.length === 1 ? 'review' : 'reviews'}</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenReviewModal();
+                      }}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      Write a Review
+                    </button>
                   </div>
                   
                   {loadingReviews ? (
-                    <div className="flex justify-center py-8">
-                      <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="flex flex-col items-center justify-center py-10">
+                      <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-500">Loading reviews...</p>
                     </div>
                   ) : shopReviews.length === 0 ? (
-                    <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                      <p className="text-gray-500">No reviews yet. Be the first to review this shop!</p>
+                    <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-gray-300 rounded-lg bg-white">
+                      <div className="w-16 h-16 text-gray-300 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500 mb-3 text-lg font-medium">No reviews yet</p>
+                      <p className="text-gray-400 mb-5 text-center max-w-sm">Be the first to share your experience with this product!</p>
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           handleOpenReviewModal();
                         }}
-                        className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center gap-2"
                       >
-                        Write a Review
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        Write the First Review
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {shopReviews.map(review => (
-                        <div key={review.id} className="border border-gray-200 rounded-lg p-4 bg-white">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-semibold text-gray-800">{review.farmer_name}</p>
-                              <div className="flex items-center mt-1">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star 
-                                    key={i}
-                                    size={16}
-                                    className={i < review.rating ? "text-amber-400 fill-amber-400" : "text-gray-300"}
-                                  />
-                                ))}
-                                <span className="ml-2 text-sm text-gray-600">
-                                  {new Date(review.created_at).toLocaleDateString()}
-                                </span>
+                      {shopReviews.map(review => {
+                        // Check if this review was posted by the current user - ensure numeric comparison
+                        const isUserReview = user && (Number(review.farmer_id) === Number(user.id));
+                        
+                        // Format the date more nicely
+                        const reviewDate = new Date(review.created_at);
+                        const formattedDate = reviewDate.toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        });
+                        
+                        // Parse attachments - use the already processed attachments array from the review
+                        const attachments = Array.isArray(review.attachments) ? review.attachments : [];
+                        
+                        return (
+                          <div 
+                            key={review.id} 
+                            className={`border rounded-lg p-5 bg-white shadow-sm ${isUserReview ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200'}`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-start gap-3">
+                                {/* User avatar - first letter of their name */}
+                                <div className="w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-lg">
+                                  {review.farmer_name.charAt(0).toUpperCase()}
+                                </div>
+                                
+                                <div>
+                                  <p className="font-semibold text-gray-800">
+                                    {review.farmer_name}
+                                    {isUserReview && <span className="ml-2 text-xs px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">You</span>}
+                                  </p>
+                                  <div className="flex items-center mt-1">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star 
+                                        key={i}
+                                        size={16}
+                                        className={i < review.rating ? "text-amber-400 fill-amber-400" : "text-gray-300"}
+                                      />
+                                    ))}
+                                    <span className="ml-2 text-sm text-gray-600">
+                                      {formattedDate}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
+                              
+                              {/* Show edit/delete buttons only for the user's own reviews */}
+                              {isUserReview && (
+                                <div className="flex space-x-2">
+                                  <button 
+                                    onClick={() => handleEditReview(review)} 
+                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors"
+                                    title="Edit review"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                    </svg>
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteReview(review.id)}
+                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                                    title="Delete review"
+                                    disabled={deletingReview}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                             
-                            {/* Show edit/delete buttons only for the user's own reviews */}
-                            {user && review.farmer_id === user.id && (
-                              <div className="flex space-x-2">
-                                <button 
-                                  onClick={() => handleEditReview(review)} 
-                                  className="text-emerald-600 hover:text-emerald-700"
-                                  title="Edit review"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                  </svg>
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteReview(review.id)}
-                                  className="text-red-500 hover:text-red-600"
-                                  title="Delete review"
-                                  disabled={deletingReview}
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                  </svg>
-                                </button>
-                              </div>
+                            {review.comment && (
+                              <p className="mt-4 text-gray-700 px-2">{review.comment}</p>
                             )}
-                          </div>
-                          
-                          {review.comment && (
-                            <p className="mt-3 text-gray-700">{review.comment}</p>
-                          )}
-                          
-                          {/* Display attachments if any */}
-                          {review.attachments && (
-                            <div className="mt-3">
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {(() => {
-                                  try {
-                                    // Handle different possible attachment formats
-                                    const attachments = typeof review.attachments === 'string' 
-                                      ? (review.attachments.startsWith('[') 
-                                          ? JSON.parse(review.attachments) 
-                                          : [review.attachments]) 
-                                      : Array.isArray(review.attachments)
-                                        ? review.attachments
-                                        : [];
-                                    
-                                    return attachments.map((attachment, index) => (
-                                      <div key={index} className="relative w-16 h-16 bg-gray-100 rounded-md overflow-hidden">
+                            
+                            {/* Display attachments if any */}
+                            {attachments && attachments.length > 0 && (
+                              <div className="mt-4">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Attachments ({attachments.length})</h4>
+                                <div className="flex flex-wrap gap-3 mt-2">
+                                  {attachments.map((attachment, index) => (
+                                    <div key={index} className="relative group">
+                                      <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                                         <img 
                                           src={`http://localhost:5000/uploads/${attachment}`} 
                                           alt={`Attachment ${index + 1}`}
                                           className="w-full h-full object-cover"
                                           onError={(e) => {
                                             e.target.onerror = null;
-                                            e.target.src = 'https://via.placeholder.com/64?text=Error';
+                                            e.target.src = 'https://via.placeholder.com/80?text=Image';
                                           }}
                                         />
                                       </div>
-                                    ));
-                                  } catch (e) {
-                                    console.error("Error parsing attachments:", e);
-                                    return null;
-                                  }
-                                })()}
+                                      <div className="opacity-0 group-hover:opacity-100 absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg transition-opacity">
+                                        <a 
+                                          href={`http://localhost:5000/uploads/${attachment}`} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-white bg-black bg-opacity-50 p-2 rounded-full"
+                                          title="View full size"
+                                        >
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                          </svg>
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
