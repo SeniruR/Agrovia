@@ -4,6 +4,7 @@ import Select from "react-select";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Fix default marker icon for leaflet in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -55,18 +56,6 @@ const districts = [
   'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
 ];
 
-const companyTypes = [
-  'Restaurant',
-  'Supermarket',
-  'Wholesale',
-  'Food Processing',
-  'Export Company',
-  'Retail Store',
-  'Hotel/Resort',
-  'Catering Service',
-  'Other'
-];
-
 const initialProfile = {
   name: "",
   email: "",
@@ -77,247 +66,257 @@ const initialProfile = {
   profileImage: null,
   password: "",
   confirmPassword: "",
-  companyName: "",
-  companyType: "",
-  companyAddress: "",
-  paymentOffer: "",
+  skillUrls: [""],
+  workerIds: [""],
+  skillDescription: "",
   latitude: "",
   longitude: ""
 };
 
-import { useNavigate, useLocation } from "react-router-dom";
-
-const BuyerEditProfile = () => {
+const ModeratorEditProfile = () => {
   const [profile, setProfile] = useState(initialProfile);
   const [originalProfile, setOriginalProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saveEnabled, setSaveEnabled] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Helper: map backend data to form fields
-  const mapBackendToProfile = (data) => {
-    const user = data.user || {};
-    const details = user.buyer_details || {};
-    // Construct profile image URL if user has a profile image
-    const profileImageUrl = user.profile_image ? 
-      `/api/v1/users/${user.id}/profile-image?t=${Date.now()}` : null;
-    return {
-      name: user.name || user.full_name || "",
-      email: user.email || "",
-      district: user.district || "",
-      nic: user.nic || "",
-      address: user.address || "",
-      phoneNumber: user.phone_number || "",
-      profileImage: profileImageUrl,
-      password: "",
-      confirmPassword: "",
-      companyName: details.company_name || "",
-      companyType: details.company_type || "",
-      companyAddress: details.company_address || "",
-      paymentOffer: details.payment_offer || "",
-      latitude: user.latitude || "",
-      longitude: user.longitude || ""
-    };
-  };
+  // Auto-save and navigation success message handlers
+  const [autoSaveTimer, setAutoSaveTimer] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch buyer profile data
+  // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
-      setLoading(true);
-      setError(null);
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token') || sessionStorage.getItem('authToken');
+        const token = localStorage.getItem('authToken');
         if (!token) {
-          // No token found in common storage keys — go to login
-          navigate('/login');
+          setError('No authentication token found. Please log in again.');
+          setLoading(false);
           return;
         }
-        
+
         let apiUrl = import.meta.env.VITE_API_URL
           ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
           : (import.meta.env.DEV
               ? 'http://localhost:5000/api/v1/auth/profile-full'
               : '/api/v1/auth/profile-full');
-        
+
         apiUrl += `?_t=${Date.now()}`;
 
-        const response = await fetch(apiUrl, {
+        const res = await fetch(apiUrl, {
           credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });        if (!response.ok) {
-          if (response.status === 401) {
-            // Clear any token variants we might have used and redirect to login
-            try {
-              localStorage.removeItem('authToken');
-              localStorage.removeItem('token');
-              sessionStorage.removeItem('token');
-              sessionStorage.removeItem('authToken');
-            } catch (e) {
-              // ignore storage errors
-            }
-            navigate('/login');
-            return;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch profile: ${res.status}`);
         }
 
-        const data = await response.json();
-        const mappedProfile = mapBackendToProfile(data);
-        setProfile(mappedProfile);
-        setOriginalProfile(mappedProfile);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-        setError('Failed to load profile data');
+        const data = await res.json();
+        console.log('ModeratorEditProfile - Backend response:', data);
+
+        const user = data.user || {};
+        const skillDemonstrations = data.skillDemonstrations || [];
+
+        // Process skill demonstrations
+        const skillUrls = skillDemonstrations
+          .filter(demo => demo.data_type_id === 1) // URLs
+          .map(demo => demo.data);
+        
+        const workerIds = skillDemonstrations
+          .filter(demo => demo.data_type_id === 2) // Worker IDs
+          .map(demo => demo.data);
+
+        const skillDescription = skillDemonstrations
+          .filter(demo => demo.data_type_id === 3) // Descriptions
+          .map(demo => demo.data)[0] || '';
+
+        const profileData = {
+          name: user.full_name || '',
+          email: user.email || '',
+          district: user.district || '',
+          nic: user.nic || '',
+          address: user.address || '',
+          phoneNumber: user.phone_number || '',
+          profileImage: null,
+          password: '',
+          confirmPassword: '',
+          skillUrls: skillUrls.length > 0 ? skillUrls : [''],
+          workerIds: workerIds.length > 0 ? workerIds : [''],
+          skillDescription: skillDescription,
+          latitude: user.latitude?.toString() || '',
+          longitude: user.longitude?.toString() || ''
+        };
+
+        setProfile(profileData);
+        setOriginalProfile(JSON.parse(JSON.stringify(profileData)));
+        
+        // Set profile image preview if exists
+        if (user.profile_image) {
+          const imageUrl = `data:${user.profile_image_mime || 'image/jpeg'};base64,${user.profile_image}`;
+          setImagePreview(imageUrl);
+        }
+      } catch (err) {
+        setError(err.message || 'Failed to load profile');
+      } finally {
         setLoading(false);
       }
     };
 
     fetchProfile();
-  }, [navigate]);
+  }, []);
 
-  // Check if form has changes
-  useEffect(() => {
-    const hasChanges = JSON.stringify(profile) !== JSON.stringify(originalProfile);
-    setSaveEnabled(hasChanges);
-  }, [profile, originalProfile]);
+  // Handle form changes
+  const handleInputChange = (field, value) => {
+    setProfile(prev => {
+      const newProfile = { ...prev, [field]: value };
+      
+      // Check if profile has changed
+      const hasChanged = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+      setSaveEnabled(hasChanged);
 
-  // Handle input changes
-  const handleInputChange = (key, value) => {
-    setProfile(prev => ({ ...prev, [key]: value }));
-    
-    if (error) setError(null);
+      return newProfile;
+    });
   };
 
-  // Map selection handler
-  const handleSelectLocationFromMap = async (latLng) => {
-    const [lat, lng] = latLng;
-    console.log('Selected coordinates:', lat, lng);
+  // Handle array field changes (skillUrls, workerIds)
+  const handleArrayChange = (arrayName, index, value) => {
+    setProfile(prev => {
+      const newArray = [...prev[arrayName]];
+      newArray[index] = value;
+      return { ...prev, [arrayName]: newArray };
+    });
+  };
 
-    // Update form with coordinates
+  const addArrayItem = (arrayName) => {
     setProfile(prev => ({
       ...prev,
-      latitude: lat,
-      longitude: lng
+      [arrayName]: [...prev[arrayName], '']
     }));
+  };
 
+  const removeArrayItem = (arrayName, index) => {
+    setProfile(prev => {
+      const newArray = [...prev[arrayName]];
+      newArray.splice(index, 1);
+      return {
+        ...prev,
+        [arrayName]: newArray.length > 0 ? newArray : ['']
+      };
+    });
+  };
+
+  // Handle location selection
+  const handleLocationSelect = (coordinates) => {
+    const [lat, lng] = coordinates;
+    
+    // Reverse geocoding to get address and district
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.display_name) {
+          handleInputChange('address', data.display_name);
+          
+          // Extract district from address components
+          const addressComponents = data.address || {};
+          const district = addressComponents.state_district || 
+                          addressComponents.administrative_level_4 || 
+                          addressComponents.county || '';
+          
+          console.log('Address from coordinates:', data.display_name);
+          console.log('Detected district:', district);
+          
+          // Auto-select district if found and matches our district list
+          if (district) {
+            const matchedDistrict = districts.find(d => 
+              d.toLowerCase().includes(district.toLowerCase()) || 
+              district.toLowerCase().includes(d.toLowerCase())
+            );
+            if (matchedDistrict) {
+              handleInputChange('district', matchedDistrict);
+            }
+          }
+        }
+      })
+      .catch(err => console.warn('Reverse geocoding failed:', err));
+
+    handleInputChange('latitude', lat.toString());
+    handleInputChange('longitude', lng.toString());
     setShowMapPicker(false);
-
-    // Get address from coordinates (reverse geocoding)
-    try {
-      await handleGetAddressFromLocation(lat, lng);
-    } catch (error) {
-      console.error('Error getting address:', error);
-    }
   };
 
-  // Reverse geocoding to get address from coordinates
-  const handleGetAddressFromLocation = async (lat, lng) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        const address = data.display_name || '';
-        
-        // Extract district from address
-        const addressComponents = data.address || {};
-        const district = addressComponents.state_district || 
-                        addressComponents.administrative_level_4 || 
-                        addressComponents.county || '';
-
-        console.log('Address from coordinates:', address);
-        console.log('District from address:', district);
-
-        setProfile(prev => ({
-          ...prev,
-          address: address,
-          district: district
-        }));
-      }
-    } catch (error) {
-      console.error('Error in reverse geocoding:', error);
-    }
-  };
-
-  // Image file selection handler
-  const handleImageChange = (event) => {
-    const file = event.target.files[0];
+  // Handle profile image change
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('Image size must be less than 5MB');
-        return;
-      }
+      handleInputChange('profileImage', file);
       
-      setProfile(prev => ({ ...prev, profileImage: file }));
-      setError(null);
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  // Save profile handler
-  const handleSaveProfile = async () => {
-    setLoading(true);
-    setError(null);
-
+  // Save profile
+  const saveProfile = async () => {
+    if (isSaving) return;
+    
+    setIsSaving(true);
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token') || sessionStorage.getItem('authToken');
+      const token = localStorage.getItem('authToken');
       if (!token) {
-        navigate('/login');
-        return;
+        throw new Error('No authentication token found');
       }
 
       const formData = new FormData();
       
-      // Append user data
-      formData.append('name', profile.name);
+      // Basic profile fields
+      formData.append('full_name', profile.name);
       formData.append('email', profile.email);
       formData.append('district', profile.district);
       formData.append('nic', profile.nic);
       formData.append('address', profile.address);
-      formData.append('phoneNumber', profile.phoneNumber);
+      formData.append('phone_number', profile.phoneNumber);
       
-      // Append coordinates
       if (profile.latitude) formData.append('latitude', profile.latitude);
       if (profile.longitude) formData.append('longitude', profile.longitude);
       
-      // Append buyer-specific data
-      formData.append('companyName', profile.companyName);
-      formData.append('companyType', profile.companyType);
-      formData.append('companyAddress', profile.companyAddress);
-      formData.append('paymentOffer', profile.paymentOffer);
-      
-      // Append password if provided
-      if (profile.password) {
-        if (profile.password !== profile.confirmPassword) {
-          setError('Passwords do not match');
-          setLoading(false);
-          return;
-        }
-        formData.append('password', profile.password);
-      }
-      
-      // Append profile image if it's a new file
-      if (profile.profileImage && typeof profile.profileImage !== 'string') {
+      if (profile.profileImage) {
         formData.append('profileImage', profile.profileImage);
       }
 
-      console.log('Submitting profile update...');
+      // Password fields (only if provided)
+      if (profile.password) {
+        formData.append('password', profile.password);
+      }
+
+      // Skill demonstration fields
+      const validSkillUrls = profile.skillUrls.filter(url => url.trim());
+      const validWorkerIds = profile.workerIds.filter(id => id.trim());
       
+      validSkillUrls.forEach(url => formData.append('skill_urls[]', url));
+      validWorkerIds.forEach(id => formData.append('worker_ids[]', id));
+      
+      if (profile.skillDescription) {
+        formData.append('skill_description', profile.skillDescription);
+      }
+
       let apiUrl = import.meta.env.VITE_API_URL
-        ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
+        ? `${import.meta.env.VITE_API_URL}/api/v1/auth/update-profile`
         : (import.meta.env.DEV
-            ? 'http://localhost:5000/api/v1/auth/profile-full'
-            : '/api/v1/auth/profile-full');
-      
+            ? 'http://localhost:5000/api/v1/auth/update-profile'
+            : '/api/v1/auth/update-profile');
+
       const response = await fetch(apiUrl, {
         method: 'PUT',
         credentials: 'include',
@@ -328,45 +327,53 @@ const BuyerEditProfile = () => {
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          try {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('token');
-            sessionStorage.removeItem('token');
-            sessionStorage.removeItem('authToken');
-          } catch (e) {}
-          navigate('/login');
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(`Failed to update profile: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('Profile update successful:', data);
+      const result = await response.json();
       
-      setLoading(false);
-      
-      // Navigate back to buyer profile immediately with success message
-      navigate('/profile/buyer', { 
-        state: { message: 'Profile updated successfully!' } 
-      });
-      
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setError(error.message || 'Failed to update profile');
-      setLoading(false);
+      if (result.success) {
+        setLastSaved(new Date());
+        setSaveEnabled(false);
+        
+        // Update original profile to reflect saved state
+        setOriginalProfile(JSON.parse(JSON.stringify(profile)));
+        
+        // Navigate back to moderator profile immediately with success message
+        navigate('/profile/moderator', { 
+          state: { message: 'Profile updated successfully!' } 
+        });
+      } else {
+        throw new Error(result.message || 'Failed to update profile');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to save profile');
+    } finally {
+      setIsSaving(false);
     }
   };
 
+  // Form validation - only check for basic required fields, not all fields
+  const isFormValid = () => {
+    return profile.name.trim() && profile.email.trim();
+  };
+
   if (loading) return <FullScreenLoader />;
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <LocationPicker 
         show={showMapPicker} 
         onClose={() => setShowMapPicker(false)} 
-        onSelect={handleSelectLocationFromMap}
+        onSelect={handleLocationSelect}
         initialPosition={profile.latitude && profile.longitude ? [parseFloat(profile.latitude), parseFloat(profile.longitude)] : null}
       />
 
@@ -374,13 +381,13 @@ const BuyerEditProfile = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/profile/buyer')}
+            onClick={() => navigate('/profile/moderator')}
             className="mb-4 text-green-600 hover:text-green-700 font-medium flex items-center gap-2"
           >
             ← Back to Profile
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-          <p className="text-gray-600 mt-2">Update your business information and preferences</p>
+          <p className="text-gray-600 mt-2">Update your content moderation profile information</p>
         </div>
 
         {/* Messages */}
@@ -397,13 +404,7 @@ const BuyerEditProfile = () => {
             <div className="flex items-center gap-6">
               <div className="relative">
                 <img
-                  src={
-                    profile.profileImage && typeof profile.profileImage === 'string' 
-                      ? profile.profileImage 
-                      : profile.profileImage && typeof profile.profileImage === 'object'
-                      ? URL.createObjectURL(profile.profileImage)
-                      : 'https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg'
-                  }
+                  src={imagePreview || "https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg"}
                   alt="Profile"
                   className="w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover"
                   onError={(e) => {
@@ -502,17 +503,17 @@ const BuyerEditProfile = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                 <div className="flex gap-3">
-                  <input
-                    type="text"
+                  <textarea
                     value={profile.address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
+                    rows={3}
                     className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Enter your address"
+                    placeholder="Enter your complete address"
                   />
                   <button
                     type="button"
                     onClick={() => setShowMapPicker(true)}
-                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 h-fit"
                   >
                     📍 Map
                   </button>
@@ -526,60 +527,94 @@ const BuyerEditProfile = () => {
             </div>
           </div>
 
-          {/* Business Information */}
+          {/* Skills & Portfolio */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Business Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Skills & Portfolio</h2>
+            
+            <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                <input
-                  type="text"
-                  value={profile.companyName}
-                  onChange={(e) => handleInputChange('companyName', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Type</label>
-                <Select
-                  value={profile.companyType ? { value: profile.companyType, label: profile.companyType } : null}
-                  onChange={(option) => handleInputChange('companyType', option?.value || '')}
-                  options={companyTypes.map(type => ({ value: type, label: type }))}
-                  placeholder="Select company type"
-                  className="react-select"
-                  classNamePrefix="react-select"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Skill Description <span className="text-gray-500">(optional)</span>
+                </label>
                 <textarea
-                  value={profile.companyAddress}
-                  onChange={(e) => handleInputChange('companyAddress', e.target.value)}
+                  value={profile.skillDescription}
+                  onChange={(e) => handleInputChange('skillDescription', e.target.value)}
                   rows={3}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company address"
+                  placeholder="Describe your content writing, moderation, or other relevant skills..."
                 />
               </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Offer</label>
-                <textarea
-                  value={profile.paymentOffer}
-                  onChange={(e) => handleInputChange('paymentOffer', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Describe your payment terms and offers"
-                />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Previous Work URLs *</label>
+                {profile.skillUrls.map((url, index) => (
+                  <div key={index} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={url}
+                      onChange={(e) => handleArrayChange('skillUrls', index, e.target.value)}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="e.g. google.com or your-portfolio.com"
+                    />
+                    {profile.skillUrls.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeArrayItem('skillUrls', index)}
+                        className="px-3 py-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addArrayItem('skillUrls')}
+                  className="text-green-600 hover:text-green-700 text-sm font-medium"
+                >
+                  + Add another URL
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Worker IDs <span className="text-gray-500">(if any)</span>
+                </label>
+                {profile.workerIds.map((id, index) => (
+                  <div key={index} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={id}
+                      onChange={(e) => handleArrayChange('workerIds', index, e.target.value)}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Enter worker ID"
+                    />
+                    {profile.workerIds.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeArrayItem('workerIds', index)}
+                        className="px-3 py-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addArrayItem('workerIds')}
+                  className="text-green-600 hover:text-green-700 text-sm font-medium"
+                >
+                  + Add another Worker ID
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Security */}
+          {/* Password Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Change Password (Optional)</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Change Password</h2>
+            <p className="text-gray-600 text-sm mb-4">Leave blank to keep your current password</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
@@ -588,12 +623,11 @@ const BuyerEditProfile = () => {
                   value={profile.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter new password (leave empty to keep current)"
+                  placeholder="Enter new password"
                 />
               </div>
-              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
                 <input
                   type="password"
                   value={profile.confirmPassword}
@@ -609,28 +643,32 @@ const BuyerEditProfile = () => {
           <div className="flex justify-end gap-4">
             <button
               type="button"
-              onClick={() => navigate('/profile/buyer')}
+              onClick={() => navigate('/profile/moderator')}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={handleSaveProfile}
-              disabled={!saveEnabled || loading}
-              className={`px-6 py-3 rounded-lg transition-colors ${
-                saveEnabled && !loading
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
+              onClick={saveProfile}
+              disabled={!saveEnabled || isSaving}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Saving...' : 'Save Changes'}
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>
       </div>
+
+      {/* Location Picker Modal */}
+      <LocationPicker
+        show={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onSelect={handleLocationSelect}
+        initialPosition={profile.latitude && profile.longitude ? [parseFloat(profile.latitude), parseFloat(profile.longitude)] : undefined}
+      />
     </div>
   );
 };
 
-export default BuyerEditProfile;
+export default ModeratorEditProfile;
