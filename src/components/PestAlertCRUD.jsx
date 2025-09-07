@@ -280,19 +280,8 @@ export default function PestAlertCRUD() {
       {editing && <PestAlertEditForm alert={editing} onCancel={() => setEditing(null)} onUpdated={() => { setEditing(null); setRefresh(r => r + 1); }} />}
       {/* Create Form Modal */}
       {showCreate && !editing && !viewing && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.18)',
-          zIndex: 300,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <div style={{ position: 'relative', zIndex: 301, background: '#fff', borderRadius: 24, padding: 40, minWidth: 400, maxWidth: 600, boxShadow: '0 8px 32px 0 rgba(76, 175, 80, 0.18)' }}>
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 overflow-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl sm:max-w-4xl max-h-[95vh] overflow-y-auto">
             <PestAlertCreateForm onCancel={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); setRefresh(r => r + 1); }} />
             <button
               onClick={() => setShowCreate(false)}
