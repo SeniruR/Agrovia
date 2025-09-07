@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import FullScreenLoader from "../../components/ui/FullScreenLoader";
 import Select from "react-select";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -55,39 +56,40 @@ const districts = [
   'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
 ];
 
-const companyTypes = [
-  'Restaurant',
-  'Supermarket',
-  'Wholesale',
-  'Food Processing',
-  'Export Company',
-  'Retail Store',
-  'Hotel/Resort',
-  'Catering Service',
-  'Other'
+const vehicleTypes = [
+  'Pickup Truck', 'Mini Lorry', 'Cargo Van', 'Medium Truck', 'Heavy Truck', 
+  'Refrigerated Truck', 'Flatbed Truck', 'Container Truck', 'Other'
+];
+
+const capacityUnits = [
+  { value: 'kg', label: 'Kilograms (kg)' },
+  { value: 'tons', label: 'Tons' },
+  { value: 'cubic_meters', label: 'Cubic Meters (m³)' },
+  { value: 'liters', label: 'Liters' }
 ];
 
 const initialProfile = {
-  name: "",
+  fullName: "",
   email: "",
-  district: "",
-  nic: "",
-  address: "",
   phoneNumber: "",
+  nic: "",
+  district: "",
+  address: "",
   profileImage: null,
-  password: "",
-  confirmPassword: "",
-  companyName: "",
-  companyType: "",
-  companyAddress: "",
-  paymentOffer: "",
+  vehicleType: "",
+  vehicleNumber: "",
+  vehicleCapacity: "",
+  capacityUnit: "tons",
+  licenseNumber: "",
+  licenseExpiry: "",
+  additionalInfo: "",
   latitude: "",
-  longitude: ""
+  longitude: "",
+  password: "",
+  confirmPassword: ""
 };
 
-import { useNavigate, useLocation } from "react-router-dom";
-
-const BuyerEditProfile = () => {
+const TransporterEditProfile = () => {
   const [profile, setProfile] = useState(initialProfile);
   const [originalProfile, setOriginalProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(true);
@@ -101,99 +103,105 @@ const BuyerEditProfile = () => {
   // Helper: map backend data to form fields
   const mapBackendToProfile = (data) => {
     const user = data.user || {};
-    const details = user.buyer_details || {};
+    const details = user.transporter_details || {};
     // Construct profile image URL if user has a profile image
     const profileImageUrl = user.profile_image ? 
       `/api/v1/users/${user.id}/profile-image?t=${Date.now()}` : null;
     return {
-      name: user.name || user.full_name || "",
+      fullName: user.full_name || user.name || "",
       email: user.email || "",
-      district: user.district || "",
-      nic: user.nic || "",
-      address: user.address || "",
       phoneNumber: user.phone_number || "",
+      nic: user.nic || "",
+      district: user.district || "",
+      address: user.address || "",
       profileImage: profileImageUrl,
-      password: "",
-      confirmPassword: "",
-      companyName: details.company_name || "",
-      companyType: details.company_type || "",
-      companyAddress: details.company_address || "",
-      paymentOffer: details.payment_offer || "",
+      vehicleType: details.vehicle_type || "",
+      vehicleNumber: details.vehicle_number || "",
+      vehicleCapacity: details.vehicle_capacity || "",
+      capacityUnit: details.capacity_unit || "tons",
+      licenseNumber: details.license_number || "",
+      licenseExpiry: details.license_expiry ? details.license_expiry.split('T')[0] : "",
+      additionalInfo: details.additional_info || "",
       latitude: user.latitude || "",
-      longitude: user.longitude || ""
+      longitude: user.longitude || "",
+      password: "",
+      confirmPassword: ""
     };
   };
 
-  // Fetch buyer profile data
+  // Fetch profile data on mount
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token') || sessionStorage.getItem('authToken');
+        // Get token with fallback checking multiple storage locations
+        const token = localStorage.getItem("authToken") || 
+                     localStorage.getItem("token") || 
+                     sessionStorage.getItem("authToken") || 
+                     sessionStorage.getItem("token");
+        
         if (!token) {
-          // No token found in common storage keys — go to login
-          navigate('/login');
+          setError("No authentication token found. Please log in again.");
+          setLoading(false);
           return;
         }
-        
+
         let apiUrl = import.meta.env.VITE_API_URL
           ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
           : (import.meta.env.DEV
               ? 'http://localhost:5000/api/v1/auth/profile-full'
               : '/api/v1/auth/profile-full');
         
+        // Add cache-busting query parameter
         apiUrl += `?_t=${Date.now()}`;
-
-        const response = await fetch(apiUrl, {
+        
+        const res = await fetch(apiUrl, {
           credentials: 'include',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
           },
-        });        if (!response.ok) {
-          if (response.status === 401) {
-            // Clear any token variants we might have used and redirect to login
-            try {
-              localStorage.removeItem('authToken');
-              localStorage.removeItem('token');
-              sessionStorage.removeItem('token');
-              sessionStorage.removeItem('authToken');
-            } catch (e) {
-              // ignore storage errors
-            }
-            navigate('/login');
-            return;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const mappedProfile = mapBackendToProfile(data);
-        setProfile(mappedProfile);
-        setOriginalProfile(mappedProfile);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-        setError('Failed to load profile data');
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        const data = await res.json();
+        const mapped = mapBackendToProfile(data);
+        setProfile(mapped);
+        setOriginalProfile(mapped);
+      } catch (err) {
+        setError(err.message || 'Unknown error');
+      } finally {
         setLoading(false);
       }
     };
-
     fetchProfile();
-  }, [navigate]);
+  }, []);
 
-  // Check if form has changes
+  // Detect changes - custom comparison to handle File objects
   useEffect(() => {
-    const hasChanges = JSON.stringify(profile) !== JSON.stringify(originalProfile);
-    setSaveEnabled(hasChanges);
+    // Compare all fields except profileImage
+    const profileCopy = { ...profile };
+    const originalCopy = { ...originalProfile };
+    
+    // Handle profileImage comparison separately
+    const profileImageChanged = 
+      (profile.profileImage instanceof File) || // New file selected
+      (profile.profileImage !== originalProfile.profileImage); // URL changed
+    
+    // Remove profileImage for JSON comparison
+    delete profileCopy.profileImage;
+    delete originalCopy.profileImage;
+    
+    const otherFieldsChanged = JSON.stringify(profileCopy) !== JSON.stringify(originalCopy);
+    
+    setSaveEnabled(profileImageChanged || otherFieldsChanged);
   }, [profile, originalProfile]);
 
-  // Handle input changes
-  const handleInputChange = (key, value) => {
-    setProfile(prev => ({ ...prev, [key]: value }));
-    
-    if (error) setError(null);
+  const handleInputChange = (field, value) => {
+    setProfile(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   // Map selection handler
@@ -249,53 +257,72 @@ const BuyerEditProfile = () => {
     }
   };
 
-  // Image file selection handler
-  const handleImageChange = (event) => {
-    const file = event.target.files[0];
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('Image size must be less than 5MB');
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file.');
         return;
       }
       
-      setProfile(prev => ({ ...prev, profileImage: file }));
+      // Validate file size (5MB limit)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        setError('File size must be less than 5MB.');
+        return;
+      }
+      
       setError(null);
+      setProfile(prev => ({
+        ...prev,
+        profileImage: file
+      }));
     }
   };
 
-  // Save profile handler
   const handleSaveProfile = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token') || sessionStorage.getItem('authToken');
+      // Get token with fallback checking multiple storage locations
+      const token = localStorage.getItem("authToken") || 
+                   localStorage.getItem("token") || 
+                   sessionStorage.getItem("authToken") || 
+                   sessionStorage.getItem("token");
+
       if (!token) {
-        navigate('/login');
+        setError("No authentication token found. Please log in again.");
+        setLoading(false);
         return;
       }
 
+      // Create FormData for file upload
       const formData = new FormData();
       
-      // Append user data
-      formData.append('name', profile.name);
+      // Add user fields
+      formData.append('name', profile.fullName);
       formData.append('email', profile.email);
-      formData.append('district', profile.district);
+      formData.append('phone_number', profile.phoneNumber);
       formData.append('nic', profile.nic);
+      formData.append('district', profile.district);
       formData.append('address', profile.address);
-      formData.append('phoneNumber', profile.phoneNumber);
       
       // Append coordinates
       if (profile.latitude) formData.append('latitude', profile.latitude);
       if (profile.longitude) formData.append('longitude', profile.longitude);
       
-      // Append buyer-specific data
-      formData.append('companyName', profile.companyName);
-      formData.append('companyType', profile.companyType);
-      formData.append('companyAddress', profile.companyAddress);
-      formData.append('paymentOffer', profile.paymentOffer);
-      
-      // Append password if provided
+      // Transporter specific fields
+      formData.append('vehicle_type', profile.vehicleType);
+      formData.append('vehicle_number', profile.vehicleNumber);
+      formData.append('vehicle_capacity', profile.vehicleCapacity);
+      formData.append('capacity_unit', profile.capacityUnit);
+      formData.append('license_number', profile.licenseNumber);
+      formData.append('license_expiry', profile.licenseExpiry);
+      formData.append('additional_info', profile.additionalInfo);
+
+      // Add password if provided
       if (profile.password) {
         if (profile.password !== profile.confirmPassword) {
           setError('Passwords do not match');
@@ -347,8 +374,8 @@ const BuyerEditProfile = () => {
       
       setLoading(false);
       
-      // Navigate back to buyer profile immediately with success message
-      navigate('/profile/buyer', { 
+      // Navigate back to transporter profile immediately with success message
+      navigate('/profile/transporter', { 
         state: { message: 'Profile updated successfully!' } 
       });
       
@@ -374,13 +401,13 @@ const BuyerEditProfile = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/profile/buyer')}
+            onClick={() => navigate('/profile/transporter')}
             className="mb-4 text-green-600 hover:text-green-700 font-medium flex items-center gap-2"
           >
             ← Back to Profile
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-          <p className="text-gray-600 mt-2">Update your business information and preferences</p>
+          <h1 className="text-3xl font-bold text-gray-900">Edit Transporter Profile</h1>
+          <p className="text-gray-600 mt-2">Update your transport service information and preferences</p>
         </div>
 
         {/* Messages */}
@@ -439,8 +466,8 @@ const BuyerEditProfile = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                 <input
                   type="text"
-                  value={profile.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  value={profile.fullName}
+                  onChange={(e) => handleInputChange('fullName', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Enter your full name"
                 />
@@ -526,52 +553,86 @@ const BuyerEditProfile = () => {
             </div>
           </div>
 
-          {/* Business Information */}
+          {/* Transport Information */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Business Information</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Transport Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                <input
-                  type="text"
-                  value={profile.companyName}
-                  onChange={(e) => handleInputChange('companyName', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Type</label>
                 <Select
-                  value={profile.companyType ? { value: profile.companyType, label: profile.companyType } : null}
-                  onChange={(option) => handleInputChange('companyType', option?.value || '')}
-                  options={companyTypes.map(type => ({ value: type, label: type }))}
-                  placeholder="Select company type"
+                  value={profile.vehicleType ? { value: profile.vehicleType, label: profile.vehicleType } : null}
+                  onChange={(option) => handleInputChange('vehicleType', option?.value || '')}
+                  options={vehicleTypes.map(type => ({ value: type, label: type }))}
+                  placeholder="Select vehicle type"
                   className="react-select"
                   classNamePrefix="react-select"
                 />
               </div>
               
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
-                <textarea
-                  value={profile.companyAddress}
-                  onChange={(e) => handleInputChange('companyAddress', e.target.value)}
-                  rows={3}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Number</label>
+                <input
+                  type="text"
+                  value={profile.vehicleNumber}
+                  onChange={(e) => handleInputChange('vehicleNumber', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company address"
+                  placeholder="Enter vehicle registration number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Capacity</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={profile.vehicleCapacity}
+                  onChange={(e) => handleInputChange('vehicleCapacity', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter capacity amount"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Capacity Unit</label>
+                <Select
+                  value={capacityUnits.find(unit => unit.value === profile.capacityUnit)}
+                  onChange={(option) => handleInputChange('capacityUnit', option?.value || 'tons')}
+                  options={capacityUnits}
+                  placeholder="Select capacity unit"
+                  className="react-select"
+                  classNamePrefix="react-select"
                 />
               </div>
               
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">License Number</label>
+                <input
+                  type="text"
+                  value={profile.licenseNumber}
+                  onChange={(e) => handleInputChange('licenseNumber', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter driver's license number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">License Expiry Date</label>
+                <input
+                  type="date"
+                  value={profile.licenseExpiry}
+                  onChange={(e) => handleInputChange('licenseExpiry', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Offer</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Additional Information</label>
                 <textarea
-                  value={profile.paymentOffer}
-                  onChange={(e) => handleInputChange('paymentOffer', e.target.value)}
+                  value={profile.additionalInfo}
+                  onChange={(e) => handleInputChange('additionalInfo', e.target.value)}
                   rows={3}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Describe your payment terms and offers"
+                  placeholder="Additional information about your transport services (routes, specializations, etc.)"
                 />
               </div>
             </div>
@@ -609,7 +670,7 @@ const BuyerEditProfile = () => {
           <div className="flex justify-end gap-4">
             <button
               type="button"
-              onClick={() => navigate('/profile/buyer')}
+              onClick={() => navigate('/profile/transporter')}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
@@ -633,4 +694,4 @@ const BuyerEditProfile = () => {
   );
 };
 
-export default BuyerEditProfile;
+export default TransporterEditProfile;

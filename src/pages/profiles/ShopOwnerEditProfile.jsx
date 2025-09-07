@@ -2,6 +2,52 @@ import { useRef, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import FullScreenLoader from "../../components/ui/FullScreenLoader";
 import Select from "react-select";
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix default marker icon for leaflet in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// Map picker component for selecting location
+const LocationPicker = ({ show, onClose, onSelect, initialPosition, title }) => {
+  const [position, setPosition] = useState(initialPosition || [7.8731, 80.7718]); // Default: Sri Lanka
+
+  function LocationMarker() {
+    useMapEvents({
+      click(e) {
+        setPosition([e.latlng.lat, e.latlng.lng]);
+      },
+    });
+    return <Marker position={position} />;
+  }
+
+  return show ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
+        <h3 className="text-lg font-semibold mb-2 text-green-800">{title || 'Select Location'}</h3>
+        <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
+          <MapContainer center={position} zoom={8} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <LocationMarker />
+          </MapContainer>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-medium">Cancel</button>
+          <button onClick={() => onSelect(position)} className="px-4 py-2 rounded bg-green-600 text-white font-semibold">Select</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+};
 
 const districts = [
   'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 'Galle', 'Gampaha',
@@ -44,7 +90,11 @@ const initialProfile = {
   openingDays: [],
   deliveryAreas: "",
   password: "",
-  confirmPassword: ""
+  confirmPassword: "",
+  latitude: "",
+  longitude: "",
+  shopLatitude: "",
+  shopLongitude: ""
 };
 
 const ShopOwnerEditProfile = () => {
@@ -53,6 +103,8 @@ const ShopOwnerEditProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saveEnabled, setSaveEnabled] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapPickerType, setMapPickerType] = useState('personal'); // 'personal' or 'shop'
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,7 +135,11 @@ const ShopOwnerEditProfile = () => {
       openingDays: details.opening_days ? details.opening_days.split(',') : [],
       deliveryAreas: details.delivery_areas || "",
       password: "",
-      confirmPassword: ""
+      confirmPassword: "",
+      latitude: user.latitude || "",
+      longitude: user.longitude || "",
+      shopLatitude: details.latitude || "",
+      shopLongitude: details.longitude || ""
     };
   };
 
@@ -162,6 +218,79 @@ const ShopOwnerEditProfile = () => {
     }));
   };
 
+  // Map selection handlers
+  const handleOpenMapPicker = (type) => {
+    setMapPickerType(type);
+    setShowMapPicker(true);
+  };
+
+  const handleSelectLocationFromMap = async (latLng) => {
+    const [lat, lng] = latLng;
+    console.log('Selected coordinates:', lat, lng, 'for', mapPickerType);
+
+    // Update form with coordinates based on type
+    if (mapPickerType === 'personal') {
+      setProfile(prev => ({
+        ...prev,
+        latitude: lat,
+        longitude: lng
+      }));
+    } else if (mapPickerType === 'shop') {
+      setProfile(prev => ({
+        ...prev,
+        shopLatitude: lat,
+        shopLongitude: lng
+      }));
+    }
+
+    setShowMapPicker(false);
+
+    // Get address from coordinates (reverse geocoding)
+    try {
+      await handleGetAddressFromLocation(lat, lng, mapPickerType);
+    } catch (error) {
+      console.error('Error getting address:', error);
+    }
+  };
+
+  // Reverse geocoding to get address from coordinates
+  const handleGetAddressFromLocation = async (lat, lng, type) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        const address = data.display_name || '';
+        
+        // Extract district from address
+        const addressComponents = data.address || {};
+        const district = addressComponents.state_district || 
+                        addressComponents.administrative_level_4 || 
+                        addressComponents.county || '';
+
+        console.log('Address from coordinates:', address);
+        console.log('District from address:', district);
+
+        if (type === 'personal') {
+          setProfile(prev => ({
+            ...prev,
+            address: address,
+            district: district
+          }));
+        } else if (type === 'shop') {
+          setProfile(prev => ({
+            ...prev,
+            shopAddress: address
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error in reverse geocoding:', error);
+    }
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -215,6 +344,10 @@ const ShopOwnerEditProfile = () => {
       formData.append('district', profile.district);
       formData.append('address', profile.address);
       
+      // Add coordinates for personal address
+      if (profile.latitude) formData.append('latitude', profile.latitude);
+      if (profile.longitude) formData.append('longitude', profile.longitude);
+      
       // Shop owner specific fields
       formData.append('shop_name', profile.shopName);
       formData.append('business_registration_number', profile.businessRegistrationNumber);
@@ -226,6 +359,10 @@ const ShopOwnerEditProfile = () => {
       formData.append('operating_hours', profile.operatingHours);
       formData.append('opening_days', JSON.stringify(profile.openingDays));
       formData.append('delivery_areas', profile.deliveryAreas);
+      
+      // Add coordinates for shop address
+      if (profile.shopLatitude) formData.append('shop_latitude', profile.shopLatitude);
+      if (profile.shopLongitude) formData.append('shop_longitude', profile.shopLongitude);
 
       // Add password if provided
       if (profile.password) {
@@ -295,6 +432,20 @@ const ShopOwnerEditProfile = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <LocationPicker 
+        show={showMapPicker} 
+        onClose={() => setShowMapPicker(false)} 
+        onSelect={handleSelectLocationFromMap}
+        initialPosition={
+          mapPickerType === 'personal' && profile.latitude && profile.longitude 
+            ? [parseFloat(profile.latitude), parseFloat(profile.longitude)]
+            : mapPickerType === 'shop' && profile.shopLatitude && profile.shopLongitude
+            ? [parseFloat(profile.shopLatitude), parseFloat(profile.shopLongitude)]
+            : null
+        }
+        title={mapPickerType === 'personal' ? 'Select Your Personal Address Location' : 'Select Your Shop Location'}
+      />
+
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -377,8 +528,9 @@ const ShopOwnerEditProfile = () => {
                   type="email"
                   value={profile.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
                   placeholder="Enter your email"
+                  disabled
                 />
               </div>
               
@@ -388,8 +540,9 @@ const ShopOwnerEditProfile = () => {
                   type="text"
                   value={profile.nic}
                   onChange={(e) => handleInputChange('nic', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
                   placeholder="Enter your NIC number"
+                  disabled
                 />
               </div>
               
@@ -418,13 +571,27 @@ const ShopOwnerEditProfile = () => {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                <textarea
-                  value={profile.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                  placeholder="Enter your address"
-                />
+                <div className="flex gap-3">
+                  <textarea
+                    value={profile.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    rows={3}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    placeholder="Enter your address"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleOpenMapPicker('personal')}
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 h-fit"
+                  >
+                    📍 Map
+                  </button>
+                </div>
+                {profile.latitude && profile.longitude && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Coordinates: {parseFloat(profile.latitude).toFixed(6)}, {parseFloat(profile.longitude).toFixed(6)}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -503,13 +670,27 @@ const ShopOwnerEditProfile = () => {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Shop Address</label>
-                <textarea
-                  value={profile.shopAddress}
-                  onChange={(e) => handleInputChange('shopAddress', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                  placeholder="Enter your shop's complete address"
-                />
+                <div className="flex gap-3">
+                  <textarea
+                    value={profile.shopAddress}
+                    onChange={(e) => handleInputChange('shopAddress', e.target.value)}
+                    rows={3}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    placeholder="Enter your shop's complete address"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleOpenMapPicker('shop')}
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 h-fit"
+                  >
+                    📍 Map
+                  </button>
+                </div>
+                {profile.shopLatitude && profile.shopLongitude && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Shop Coordinates: {parseFloat(profile.shopLatitude).toFixed(6)}, {parseFloat(profile.shopLongitude).toFixed(6)}
+                  </p>
+                )}
               </div>
 
               <div className="md:col-span-2">
