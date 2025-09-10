@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, Upload, Truck, AlertCircle } from 'lucide-react';
 
-const TransportComplaintForm = ({ onSubmit, onBack }) => {
+const TransportComplaintForm = ({ onSubmit, onBack, onNavigate }) => {
+  const { user, getAuthHeaders } = useAuth();
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -17,6 +20,10 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
 
   const [errors, setErrors] = useState({});
   const [attachments, setAttachments] = useState([]);
+  const [transporterSuggestions, setTransporterSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const transporterCache = React.useRef(new Map());
+  const transporterBlocked = React.useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [apiError, setApiError] = useState('');
@@ -61,25 +68,33 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
       formPayload.append('description', formData.description);
       formPayload.append('status', 'not consider');
       formPayload.append('priority', formData.priority);
-      formPayload.append('submittedBy', formData.submittedBy);
-      formPayload.append('transportCompany', formData.transportCompany);
+  formPayload.append('submittedBy', formData.submittedBy);
+  // Include authenticated user id if available so backend can persist linkage
+  if (user && user.id) formPayload.append('user_id', String(user.id));
+  formPayload.append('transportCompany', formData.transportCompany);
+  // include selected transporter id if available
+  if (formData.transportCompanyId) formPayload.append('transportCompanyId', String(formData.transportCompanyId));
       formPayload.append('location', formData.location);
       formPayload.append('category', formData.category);
       formPayload.append('orderNumber', formData.orderNumber || '');
       formPayload.append('deliveryDate', formData.deliveryDate || '');
       formPayload.append('trackingNumber', formData.trackingNumber || '');
       attachments.forEach(file => formPayload.append('attachments', file));
+      const headers = getAuthHeaders ? getAuthHeaders() : {};
       const response = await fetch('/api/v1/transport-complaints', {
         method: 'POST',
-        body: formPayload
+        body: formPayload,
+        headers
       });
       const data = await response.json();
       if (response.ok) {
         setSuccess(true);
         setFormData({
-          title: '', description: '', submittedBy: '', priority: 'medium', transportCompany: '', location: '', category: '', orderNumber: '', deliveryDate: '', trackingNumber: ''
+          title: '', description: '', submittedBy: user && user.full_name ? user.full_name : '', priority: 'medium', transportCompany: '', location: '', category: '', orderNumber: '', deliveryDate: '', trackingNumber: ''
         });
         setAttachments([]);
+  // navigate back to complaint dashboard when parent provides callback
+  if (typeof onNavigate === 'function') onNavigate('dashboard');
       } else {
         setApiError(data.error || 'Submission failed');
       }
@@ -90,11 +105,69 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
     }
   };
 
+  // Prefill submittedBy when user is available
+  useEffect(() => {
+    if (user && user.full_name) {
+      setFormData(prev => ({ ...prev, submittedBy: user.full_name }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user && user.full_name]);
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+    if (field === 'transportCompany') {
+      // show suggestions when typing
+      debouncedFetchTransporters(value);
+    }
+  };
+
+  // Debounced transporter fetch
+  const debouncedFetchTransporters = React.useMemo(() => {
+    let timer = null;
+    return (q) => {
+      if (timer) clearTimeout(timer);
+      if (!q || q.trim().length < 1) {
+        setTransporterSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+      timer = setTimeout(() => {
+        fetchTransporters(q.trim());
+      }, 300);
+    };
+  }, []);
+
+  const fetchTransporters = async (q) => {
+    if (transporterBlocked.current) return;
+    if (transporterCache.current.has(q)) {
+      setTransporterSuggestions(transporterCache.current.get(q));
+      setShowSuggestions(true);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/v1/users?userType=4&search=${encodeURIComponent(q)}`);
+      if (res.status === 429) { transporterBlocked.current = true; return; }
+      if (!res.ok) return;
+      const body = await res.json();
+      const list = body && (body.users || body.data || body) ? (body.users || body.data || body) : [];
+      // Normalize to array of { id, full_name }
+      const normalized = Array.isArray(list) ? list.map(u => ({ id: u.id || u.user_id || u.userId, name: u.full_name || u.fullName || u.name })) : [];
+      transporterCache.current.set(q, normalized);
+      setTransporterSuggestions(normalized);
+      setShowSuggestions(true);
+    } catch (err) {
+      // ignore
+    }
+  };
+
+  const handleSelectTransporter = (transporter) => {
+    setFormData(prev => ({ ...prev, transportCompany: transporter.name }));
+    // also store selected transporter id in hidden field for submit
+    setFormData(prev => ({ ...prev, transportCompanyId: transporter.id }));
+    setShowSuggestions(false);
   };
 
   return (
@@ -174,6 +247,7 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
                     type="text"
                     value={formData.transportCompany}
                     onChange={(e) => handleInputChange('transportCompany', e.target.value)}
+                    onFocus={() => { if (transporterSuggestions.length) setShowSuggestions(true); }}
                     className={`w-full bg-white px-4 py-3 rounded-xl border transition-colors ${
                       errors.transportCompany ? 'border-red-300 bg-red-50' : 'border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200'
                     }`}
@@ -184,6 +258,19 @@ const TransportComplaintForm = ({ onSubmit, onBack }) => {
                       <AlertCircle className="w-4 h-4 mr-1" />
                       {errors.transportCompany}
                     </p>
+                  )}
+                  {showSuggestions && transporterSuggestions.length > 0 && (
+                    <div className="mt-2 bg-white border border-slate-200 rounded-xl shadow-sm max-h-48 overflow-auto z-50">
+                      {transporterSuggestions.map(t => (
+                        <div
+                          key={t.id}
+                          onMouseDown={(e) => { e.preventDefault(); handleSelectTransporter(t); }}
+                          className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm"
+                        >
+                          {t.name}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
