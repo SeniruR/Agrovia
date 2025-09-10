@@ -1,45 +1,90 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, MessageSquareX, User, Calendar, CheckCircle, XCircle, Wheat, Store, Truck, MessageCircle, UserX } from 'lucide-react';
 
 const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
-  // Debug: Log the raw complaint data
-  console.log('Raw complaint data:', complaint);
+  // Debug: raw complaint logging removed to avoid console spam; use effect-based debug instead.
   
   // State to store user info if we need to fetch it
   const [submitterInfo, setSubmitterInfo] = useState(null);
+  const [submitterFetchBlocked, setSubmitterFetchBlocked] = useState(false);
+  const [fetchedComplaint, setFetchedComplaint] = useState(null);
+  const [complaintFetchBlocked, setComplaintFetchBlocked] = useState(false);
   
+  // Prefer freshly fetched complaint if available (it includes backend joins like submittedByName)
+  const sourceComplaint = fetchedComplaint || complaint;
+
   // Normalize complaint data to handle both camelCase and snake_case field names
-  const normalizedComplaint = complaint ? {
-    ...complaint,
-    cropType: complaint.cropType || complaint.crop_type,
-    orderNumber: complaint.orderNumber || complaint.order_number,
-    farmer: complaint.farmer || complaint.to_farmer,
-    submittedBy: complaint.submittedBy || complaint.submitted_by,
-    // Look up user name from various possible sources - ensure it's a string
-    submittedByName: (function() {
-      // Try to get the name from various sources
-      const name = complaint.submittedByName || 
-                   complaint.submitted_by_name || 
-                   (complaint.submittedBy && typeof complaint.submittedBy === 'object' && complaint.submittedBy.full_name) || 
-                   (complaint.user && complaint.user.full_name) || 
-                   submitterInfo?.full_name;
-      
-      if (name) return String(name); // Ensure it's a string
-      
-      // If no name but we have an ID, show loading status
-      if (complaint.submittedBy && !isNaN(complaint.submittedBy) && 
-          typeof complaint.submittedBy !== 'object') {
-        return 'Loading...';
+  const normalizedComplaint = useMemo(() => {
+    if (!sourceComplaint) return null;
+    // Normalize attachments: handle JSON string stored in DB or single base64 string
+    let attachmentsArr = [];
+    const rawAttachments = sourceComplaint.attachments ?? sourceComplaint.attachments_json ?? sourceComplaint.attachments;
+    if (Array.isArray(rawAttachments)) {
+      attachmentsArr = rawAttachments;
+    } else if (typeof rawAttachments === 'string' && rawAttachments.trim() !== '') {
+      try {
+        const parsed = JSON.parse(rawAttachments);
+        if (Array.isArray(parsed)) attachmentsArr = parsed;
+        else if (typeof parsed === 'string' && parsed.trim() !== '') attachmentsArr = [parsed];
+      } catch (e) {
+        // Not JSON - treat as a single base64 string
+        attachmentsArr = [rawAttachments];
       }
-      
-      // Default fallback
-      return 'Anonymous';
-    })(),
-    // Use farmer name from object if available
-    farmerName: complaint.farmerName || (complaint.farmer && typeof complaint.farmer === 'object' && complaint.farmer.full_name) || '',
-    submittedAt: complaint.submittedAt || complaint.submitted_at,
-    replyedAt: complaint.replyedAt || complaint.replyed_at
-  } : null;
+    }
+
+    // Normalize images array for shop complaints
+    let imagesArr = [];
+    const rawImages = sourceComplaint.images ?? sourceComplaint.image_list;
+    if (Array.isArray(rawImages)) {
+      imagesArr = rawImages;
+    } else if (typeof rawImages === 'string' && rawImages.trim() !== '') {
+      try {
+        const parsedImgs = JSON.parse(rawImages);
+        if (Array.isArray(parsedImgs)) imagesArr = parsedImgs;
+        else if (typeof parsedImgs === 'string' && parsedImgs.trim() !== '') imagesArr = [parsedImgs];
+      } catch (e) {
+        imagesArr = [rawImages];
+      }
+    }
+
+      return {
+        // Normalize type: prefer explicit type fields, otherwise infer from other fields
+        // Also consider shopId/shop_id so we still show 'shop' when only the id is present
+        type: sourceComplaint.type || sourceComplaint.complaint_type || (
+          sourceComplaint.cropType || sourceComplaint.crop_type ? 'crop' : (
+            sourceComplaint.shopName || sourceComplaint.shop_name || sourceComplaint.shopId || sourceComplaint.shop_id ? 'shop' : (
+              sourceComplaint.transportCompany || sourceComplaint.transport_company ? 'transport' : ''
+            )
+          )
+        ),
+      ...sourceComplaint,
+      // ensure attachments/images are arrays for rendering
+      attachments: attachmentsArr,
+      images: imagesArr,
+      cropType: complaint?.cropType || complaint?.crop_type,
+  transportCompany: sourceComplaint.transportCompany || sourceComplaint.transport_company || sourceComplaint.transport_company_name || sourceComplaint.transportCompanyName || '',
+      orderNumber: complaint?.orderNumber || complaint?.order_number,
+      farmer: sourceComplaint.farmer || sourceComplaint.to_farmer,
+      submittedBy: sourceComplaint.submittedBy || sourceComplaint.submitted_by,
+      // Always prefer submitterInfo.full_name if available.
+      // Treat numeric values returned in submittedByName (e.g. 35) as missing so we can fetch the real user name.
+      submittedByName: (
+        submitterInfo?.full_name ||
+        // backend-provided name only if it's a non-numeric string
+        (typeof sourceComplaint.submittedByName === 'string' && sourceComplaint.submittedByName.trim() !== '' && isNaN(Number(sourceComplaint.submittedByName)) ? sourceComplaint.submittedByName : null) ||
+        (typeof sourceComplaint.submitted_by_name === 'string' && sourceComplaint.submitted_by_name.trim() !== '' && isNaN(Number(sourceComplaint.submitted_by_name)) ? sourceComplaint.submitted_by_name : null) ||
+        (sourceComplaint.submittedBy && typeof sourceComplaint.submittedBy === 'object' && sourceComplaint.submittedBy.full_name) ||
+        (sourceComplaint.user && sourceComplaint.user.full_name) ||
+        // If submittedBy is an id (number or numeric string) show Loading... while we attempt to fetch the user
+        (sourceComplaint.submittedBy && !isNaN(Number(sourceComplaint.submittedBy)) && typeof sourceComplaint.submittedBy !== 'object' ? 'Loading...' : 'Anonymous')
+      ),
+      // Use farmer name from object if available
+      farmerName: sourceComplaint.farmerName || (sourceComplaint.farmer && typeof sourceComplaint.farmer === 'object' && sourceComplaint.farmer.full_name) || '',
+      submittedAt: sourceComplaint.submittedAt || sourceComplaint.submitted_at,
+      replyedAt: sourceComplaint.replyedAt || sourceComplaint.replyed_at
+    };
+  }, [sourceComplaint, complaint, submitterInfo]);
 
   const [newReply, setNewReply] = useState('');
   const [showReplyForm, setShowReplyForm] = useState(false);
@@ -56,10 +101,46 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   // Farmer deactivation state
   const [farmerDeactivated, setFarmerDeactivated] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
+  const [shopOwnerDeactivated, setShopOwnerDeactivated] = useState(false);
+  const [isShopOwnerDeactivating, setIsShopOwnerDeactivating] = useState(false);
+
+  // Make current user reactive so UI updates if localStorage changes (e.g., other tab or logout)
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try { return JSON.parse(localStorage.getItem('user')); } catch (e) { return null; }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onStorage = (e) => {
+      if (e.key === 'user') {
+        try { setCurrentUser(e.newValue ? JSON.parse(e.newValue) : null); } catch (_) { setCurrentUser(null); }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  const isAdmin = Boolean(currentUser && String(currentUser.user_type) === '0');
+  // getAuthHeaders provides { Authorization: `Bearer ${token}` } when available
+  const { getAuthHeaders } = useAuth();
+
+  // Dev debug: log currentUser/isAdmin/normalizedComplaint when they change (dev only)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (process.env.NODE_ENV === 'production') return;
+    try {
+      // eslint-disable-next-line no-console
+      console.log('Debug: currentUser/isAdmin/normalizedComplaint', { currentUser, isAdmin, complaintId: normalizedComplaint?.id });
+    } catch (e) {}
+    // Only re-log when currentUser/isAdmin change or complaint id changes
+  }, [currentUser, isAdmin, normalizedComplaint?.id]);
+
+  // Compute whether the deactivate button should be shown for admin users.
+  // Keep simple: show for crop complaints when current user is admin.
+  const showDeactivateButton = Boolean(normalizedComplaint && normalizedComplaint.type === 'crop' && isAdmin);
 
   // Initialize form data only when popup opens
   const handleEditPopupOpen = () => {
-    console.log('Opening edit popup, initializing form with:', normalizedComplaint);
     setEditForm({ ...normalizedComplaint });
     setShowEditPopup(true);
   };
@@ -109,34 +190,87 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
     }
   };
 
-  // Effect to fetch user details if we only have an ID
+  // Effect to fetch user details if we only have an ID and no name.
+  // Be conservative to avoid repeated requests which can trigger 429 rate-limit responses.
   useEffect(() => {
-    const fetchUserInfo = async () => {
-      if (complaint && 
-          (!complaint.submittedByName || complaint.submittedByName === 'Anonymous') && 
-          (complaint.submittedBy || complaint.submitted_by) && 
-          !isNaN(complaint.submittedBy || complaint.submitted_by)) {
-        
-        try {
-          const userId = complaint.submittedBy || complaint.submitted_by;
-          console.log('Fetching user info for ID:', userId);
-          const response = await fetch(`http://localhost:5000/api/v1/users/${userId}`);
-          
-          if (response.ok) {
-            const userData = await response.json();
-            console.log('Found user data:', userData);
-            setSubmitterInfo(userData);
-          } else {
-            console.log('User not found or error fetching user');
-          }
-        } catch (error) {
-          console.error('Error fetching user info:', error);
+    // If the incoming complaint lacks a submitter name (or the name is numeric), try fetching full complaint from backend
+    const tryFetchComplaint = async () => {
+      if (!complaint) return;
+      const backendName = complaint.submittedByName ?? complaint.submitted_by_name;
+      const hasNonNumericName = typeof backendName === 'string' && backendName.trim() !== '' && isNaN(Number(backendName));
+      if (hasNonNumericName) return;
+      if (complaintFetchBlocked) return;
+      try {
+  // Determine endpoint based on type (use Vite proxy relative path)
+  let endpoint = '';
+  if (complaint.type === 'crop') endpoint = `/api/v1/crop-complaints/${complaint.id}`;
+  else if (complaint.type === 'shop') endpoint = `/api/v1/shop-complaints/${complaint.id}`;
+  else if (complaint.type === 'transport') endpoint = `/api/v1/transport-complaints/${complaint.id}`;
+        if (!endpoint) return;
+  const res = await fetch(endpoint);
+        if (res.status === 429) {
+          setComplaintFetchBlocked(true);
+          return;
         }
+        if (!res.ok) return;
+        const payload = await res.json();
+        // payload may be shaped { success:true, data: complaint }
+        const complaintData = payload && payload.data ? payload.data : payload;
+        if (complaintData) setFetchedComplaint(complaintData);
+      } catch (err) {
+        console.error('Error fetching full complaint:', err);
       }
     };
-    
+    tryFetchComplaint();
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const shouldFetch = () => {
+      if (!sourceComplaint) return false;
+      // If backend provided a non-numeric name, no need to fetch
+      const backendName = sourceComplaint.submittedByName ?? sourceComplaint.submitted_by_name;
+      if (typeof backendName === 'string' && backendName.trim() !== '' && isNaN(Number(backendName))) return false;
+      // Determine user id from any allowed field
+      const userId = sourceComplaint.submittedBy ?? sourceComplaint.submitted_by ?? sourceComplaint.submitted_by_id;
+      if (!userId) return false;
+      if (typeof userId === 'object') return false; // already an object/name
+      // Only proceed if userId is numeric (string or number)
+      if (isNaN(Number(userId))) return false;
+      if (submitterInfo?.full_name) return false; // already fetched
+      if (submitterFetchBlocked) return false; // previous 429/blocked
+      return true;
+    };
+
+    const fetchUserInfo = async () => {
+      if (!shouldFetch()) return;
+      // Use sourceComplaint (may be the freshly fetched complaint) to derive user id
+      const userId = sourceComplaint?.submittedBy ?? sourceComplaint?.submitted_by ?? sourceComplaint?.submitted_by_id;
+      try {
+  const res = await fetch(`/api/v1/users/${userId}`, { signal: controller.signal });
+  if (res.status === 429) {
+          // Stop further attempts for this session
+          setSubmitterFetchBlocked(true);
+          return;
+        }
+        if (!res.ok) return;
+  const payload = await res.json();
+  const userData = payload && payload.data ? payload.data : payload;
+  if (!cancelled && userData) setSubmitterInfo(userData);
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        // Network or other error - do not aggressively retry here
+        console.error('Error fetching submitter info:', err);
+      }
+    };
+
     fetchUserInfo();
-  }, [complaint]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  // Only re-run when the actual submitter id changes or we fetched a name/blocked
+  }, [complaint, fetchedComplaint, submitterInfo?.full_name, submitterFetchBlocked]);
 
   // State for enlarged image modal
   // (already declared above)
@@ -273,15 +407,19 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                   console.log('Endpoint:', endpoint);
                   console.log('Filtered payload:', payload);
                   
-                  try {
+                    try {
                     let res;
                     let files = e.target.attachments?.files;
-                    
+
+                    // helper: convert camelCase keys to snake_case for backend DB columns
+                    const toSnake = (s) => String(s).replace(/([A-Z])/g, '_$1').toLowerCase();
+                    const snakePayload = Object.fromEntries(Object.entries(payload).map(([k, v]) => [toSnake(k), v]));
+
                     // Always use FormData if files are present
                     if (files && files.length > 0) {
                       console.log('Sending with attachments');
                       const formData = new FormData();
-                      Object.entries(payload).forEach(([k, v]) => {
+                      Object.entries(snakePayload).forEach(([k, v]) => {
                         console.log(`Adding to FormData: ${k} = ${v}`);
                         formData.append(k, v ?? '');
                       });
@@ -294,11 +432,11 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                       });
                     } else {
                       console.log('Sending as JSON without attachments');
-                      // No new attachments, send as JSON
+                      // No new attachments, send as JSON (snake-cased keys)
                       res = await fetch(endpoint, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
+                        body: JSON.stringify(snakePayload),
                       });
                     }
                     
@@ -652,8 +790,8 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                       </div>
                     )}
 
-                    {/* Farmer Card */}
-                    {normalizedComplaint.farmerName && (
+                    {/* Farmer (only for crop) or Shop Owner (for shop complaints) */}
+                    {normalizedComplaint && normalizedComplaint.type === 'crop' && (
                       <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start space-x-3 flex-1">
@@ -662,18 +800,16 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                             </div>
                             <div className="flex-1">
                               <p className="text-sm font-medium text-slate-600 mb-1">Farmer</p>
-                              <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmerName}</p>
+                              <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.farmerName || normalizedComplaint.farmer || 'Unknown'}</p>
                             </div>
                           </div>
                           {/* Admin Action: Deactivate Farmer - Only for crop complaints and admin users */}
-                          {normalizedComplaint.type === 'crop' && 
-                           (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && (
+                          {(normalizedComplaint.type === 'crop' && currentUser && Number(currentUser.user_type) === 0) && (
                             <button
                               onClick={async () => {
                                 const confirmAction = window.confirm(
                                   `Are you sure you want to deactivate farmer "${normalizedComplaint.farmer}"? This action will disable their account.`
                                 );
-                                
                                 if (!confirmAction) return;
 
                                 setIsDeactivating(true);
@@ -681,19 +817,17 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                                   const response = await fetch(`http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/deactivate-farmer`, {
                                     method: 'PUT',
                                     headers: {
+                                      ...(getAuthHeaders ? getAuthHeaders() : {}),
                                       'Content-Type': 'application/json',
                                     }
                                   });
 
                                   const result = await response.json();
-
                                   if (!response.ok) {
                                     throw new Error(result.message || 'Failed to deactivate farmer');
                                   }
-
                                   setFarmerDeactivated(true);
                                   alert(`✅ ${result.message}`);
-                                  
                                 } catch (error) {
                                   console.error('Deactivate farmer error:', error);
                                   alert(`❌ Error: ${error.message}`);
@@ -721,6 +855,67 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                       </div>
                     )}
 
+                    {normalizedComplaint && normalizedComplaint.type === 'shop' && (
+                      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-blue-100 p-2 rounded-lg">
+                            <User className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-600 mb-1">Shop owner</p>
+                            <p className="font-semibold text-slate-800 text-sm">
+                              {normalizedComplaint.shopName || normalizedComplaint.shop_name || (normalizedComplaint.shop && (normalizedComplaint.shop.shop_name || normalizedComplaint.shop.name)) || 'Unknown'}
+                            </p>
+                            {((!normalizedComplaint.shopName && !normalizedComplaint.shop_name) && (normalizedComplaint.shopId || normalizedComplaint.shop_id || normalizedComplaint.shop?.id)) && (
+                              <p className="text-xs text-slate-500">Shop ID: {normalizedComplaint.shopId || normalizedComplaint.shop_id || normalizedComplaint.shop?.id}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Admin Action: Deactivate Shop Owner - Only visible to admin users */}
+                        {currentUser && Number(currentUser.user_type) === 0 && (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              onClick={async () => {
+                                const confirmAction = window.confirm(
+                                  `Are you sure you want to deactivate the owner of shop "${normalizedComplaint.shopName || normalizedComplaint.shop_name || normalizedComplaint.shop?.shop_name || ''}"? This will disable their account.`
+                                );
+                                if (!confirmAction) return;
+                                // Determine complaint id
+                                const cid = normalizedComplaint.id || normalizedComplaint.ID || complaint?.id;
+                                if (!cid) return alert('Missing complaint id');
+                                setIsShopOwnerDeactivating(true);
+                                  try {
+                                  const res = await fetch(`/api/v1/shop-complaints/${cid}/deactivate-shop-owner`, { method: 'PUT', headers: { ...(getAuthHeaders ? getAuthHeaders() : {}), 'Content-Type': 'application/json' } });
+                                  const body = await res.json();
+                                  if (!res.ok) throw new Error(body.message || 'Failed to deactivate shop owner');
+                                  setShopOwnerDeactivated(true);
+                                  alert(`✅ ${body.message || 'Shop owner deactivated'}`);
+                                } catch (err) {
+                                  console.error('Deactivate shop owner error:', err);
+                                  alert(`❌ ${err.message || 'Error deactivating shop owner'}`);
+                                } finally {
+                                  setIsShopOwnerDeactivating(false);
+                                }
+                              }}
+                              disabled={isShopOwnerDeactivating || shopOwnerDeactivated}
+                              className={`ml-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors flex items-center space-x-1 ${
+                                shopOwnerDeactivated 
+                                  ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                                  : isShopOwnerDeactivating 
+                                    ? 'bg-orange-50 text-orange-600 border-orange-200 cursor-wait'
+                                    : 'bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border-red-200'
+                              }`}
+                            >
+                              <UserX className="w-3 h-3" />
+                              <span>{shopOwnerDeactivated ? 'Deactivated' : isShopOwnerDeactivating ? 'Deactivating...' : 'Deactivate'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                 
                     {/* Shop Name Card */}
                     {normalizedComplaint.shopName && (
                       <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
@@ -748,6 +943,46 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                             <p className="font-semibold text-slate-800 text-sm">{normalizedComplaint.transportCompany}</p>
                           </div>
                         </div>
+                        {/* Admin Action: Deactivate Transport Company - Only visible to admin users */}
+                        {currentUser && Number(currentUser.user_type) === 0 && (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              onClick={async () => {
+                                const confirmAction = window.confirm(
+                                  `Are you sure you want to deactivate the transport company "${normalizedComplaint.transportCompany}"? This will disable their account.`
+                                );
+                                if (!confirmAction) return;
+                                const cid = normalizedComplaint.id || normalizedComplaint.ID || complaint?.id;
+                                if (!cid) return alert('Missing complaint id');
+                                setIsShopOwnerDeactivating(true);
+                                try {
+                                  const res = await fetch(`/api/v1/transport-complaints/${cid}/deactivate-transport-company`, { method: 'PUT', headers: { ...(getAuthHeaders ? getAuthHeaders() : {}), 'Content-Type': 'application/json' } });
+                                  const body = await res.json();
+                                  if (!res.ok) throw new Error(body.message || 'Failed to deactivate transport company');
+                                  // Reuse shop owner state for simple UX parity
+                                  setShopOwnerDeactivated(true);
+                                  alert(`✅ ${body.message || 'Transport company deactivated'}`);
+                                } catch (err) {
+                                  console.error('Deactivate transport company error:', err);
+                                  alert(`❌ ${err.message || 'Error deactivating transport company'}`);
+                                } finally {
+                                  setIsShopOwnerDeactivating(false);
+                                }
+                              }}
+                              disabled={isShopOwnerDeactivating || shopOwnerDeactivated}
+                              className={`ml-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors flex items-center space-x-1 ${
+                                shopOwnerDeactivated 
+                                  ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' 
+                                  : isShopOwnerDeactivating 
+                                    ? 'bg-orange-50 text-orange-600 border-orange-200 cursor-wait'
+                                    : 'bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border-red-200'
+                              }`}
+                            >
+                              <UserX className="w-3 h-3" />
+                              <span>{shopOwnerDeactivated ? 'Deactivated' : isShopOwnerDeactivating ? 'Deactivating...' : 'Deactivate'}</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -816,12 +1051,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
 
               {/* Debug information for troubleshooting */}
               <div className="hidden">
-                {console.log('Complaint data:', normalizedComplaint.id, normalizedComplaint.type)}
-                {console.log('Image data available:', 
-                  normalizedComplaint.attachments ? 'attachments: ' + normalizedComplaint.attachments.length : 'no attachments',
-                  normalizedComplaint.image ? 'image present' : 'no image',
-                  normalizedComplaint.images ? 'images: ' + normalizedComplaint.images.length : 'no images'
-                )}
+                {/* Hidden debug removed to avoid noisy repeated logs. Use the effect debug above instead. */}
               </div>
               
               {/* Enhanced Attachments Section */}
@@ -841,7 +1071,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {/* Handle complaint.attachments array (crop/transport complaints) */}
-                      {normalizedComplaint.attachments && normalizedComplaint.attachments.map((file, idx) => {
+                      {Array.isArray(normalizedComplaint.attachments) && normalizedComplaint.attachments.map((file, idx) => {
                         if (file && typeof file === 'string') {
                           return (
                             <div key={idx} className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
@@ -936,7 +1166,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         return null;
                       })()}
                       {/* Handle complaint.images array (multiple images for shop complaints) */}
-                      {normalizedComplaint.images && normalizedComplaint.images.map((file, idx) => {
+                      {Array.isArray(normalizedComplaint.images) && normalizedComplaint.images.map((file, idx) => {
                         if (file && typeof file === 'string') {
                           return (
                             <div key={idx} className="group relative overflow-hidden rounded-xl border-2 border-white shadow-md hover:shadow-lg transition-all duration-300 bg-white">
@@ -978,7 +1208,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
                 {/* Show Add Reply button to admin if no reply yet, or Update Reply button if reply exists */}
-                {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && (
+                {isAdmin && (
                   <div>
                     {!currentReply ? (
                       <button
@@ -1005,7 +1235,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
               </div>
 
               {/* Only admin sees reply form */}
-              {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && showReplyForm && (
+              {isAdmin && showReplyForm && (
                 <div className="mb-6 p-4 bg-slate-50 rounded-xl">
                   <textarea
                     value={newReply}
@@ -1048,7 +1278,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
               )}
 
               {/* Admin edit reply form */}
-              {(typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user'))?.user_type === '0') && showEditReplyForm && (
+              {isAdmin && showEditReplyForm && (
                 <div className="mb-6 p-4 bg-slate-50 rounded-xl">
                   <h4 className="text-sm  font-medium text-slate-700 mb-2">Update Reply</h4>
                   <textarea

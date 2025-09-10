@@ -133,11 +133,11 @@ function Complaint() {
       {(() => {
         switch (currentPage) {
           case 'crop-complaint':
-            return <CropComplaintForm onBack={() => setCurrentPage('dashboard')} />;
+            return <CropComplaintForm onBack={() => setCurrentPage('dashboard')} onNavigate={setCurrentPage} />;
           case 'shop-complaint':
-            return <ShopComplaintForm onBack={() => setCurrentPage('dashboard')} />;
+            return <ShopComplaintForm onBack={() => setCurrentPage('dashboard')} onNavigate={setCurrentPage} />;
           case 'transport-complaint':
-            return <TransportComplaintForm onBack={() => setCurrentPage('dashboard')} />;
+            return <TransportComplaintForm onBack={() => setCurrentPage('dashboard')} onNavigate={setCurrentPage} />;
           case 'complaints':
             return (
               <ComplaintsListContainer
