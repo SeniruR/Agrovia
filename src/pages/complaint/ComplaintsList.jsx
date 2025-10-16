@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Filter, Search, Eye, MoreVertical, Trash2, Wheat, Store, Truck } from 'lucide-react';
 
 const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBack, onDeleteComplaint }) => {
@@ -11,7 +11,10 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
 
   const filteredComplaints = complaints.filter(complaint => {
     const title = complaint.title || '';
-    const submittedBy = complaint.submittedBy || complaint.submittedByName || '';
+  // Prefer backend-joined name fields (submittedByName or user.full_name) and also farmer/shop owner names
+  const farmerName = complaint.farmerName || (complaint.farmer && complaint.farmer.full_name) || complaint.farmer_full_name || null;
+  const shopOwnerName = complaint.shopName || (complaint.shop && (complaint.shop.shop_name || complaint.shop.shopName)) || complaint.shop_name || null;
+  const submittedBy = complaint.submittedByName || complaint.submitted_by_name || (complaint.user && complaint.user.full_name) || farmerName || shopOwnerName || complaint.submittedBy || '';
     const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          submittedBy.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || complaint.type === typeFilter;
@@ -102,84 +105,15 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
         {/* Complaints List */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredComplaints.map((complaint) => (
-            <div
+            <ComplaintCard
               key={complaint.type + '-' + complaint.id}
-              className="bg-white border border-slate-100 rounded-2xl shadow-lg p-6 flex flex-col justify-between transition-all duration-200 hover:shadow-2xl hover:border-indigo-200 cursor-pointer group"
-              onClick={() => onViewComplaint(complaint.id, complaint.type)}
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-100 border border-slate-200 group-hover:bg-indigo-50">
-                  {complaint.type === 'crop' && <Wheat className="w-7 h-7 text-green-500" />}
-                  {complaint.type === 'shop' && <Store className="w-7 h-7 text-blue-500" />}
-                  {complaint.type === 'transport' && <Truck className="w-7 h-7 text-purple-500" />}
-                  {!['crop','shop','transport'].includes(complaint.type) && <span className="font-bold text-slate-500 text-lg">?</span>}
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-xl text-indigo-700 mb-1 group-hover:text-indigo-900 transition-colors">{complaint.title}</h3>
-                  <p className="text-xs text-slate-500 mb-2">By <span className="font-semibold text-slate-700">{complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'}</span> • {(() => {
-                    let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
-                    if (date) {
-                      if (typeof date === 'string' || typeof date === 'number') {
-                        date = new Date(date);
-                      }
-                      if (date instanceof Date && !isNaN(date)) {
-                        return date.toDateString();
-                      }
-                    }
-                    return '';
-                  })()}</p>
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${getTypeColor(complaint.type)}`}>{complaint.type}</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(complaint.priority)}`}>{complaint.priority}</span>
-                    {complaint.status && (
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${complaint.status === 'resolved' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>{complaint.status}</span>
-                    )}
-                    {complaint.assignedTo && (
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">Assigned: {complaint.assignedTo}</span>
-                    )}
-                    {complaint.orderNumber && (
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">Order: {complaint.orderNumber}</span>
-                    )}
-                  </div>
-                  <div className="h-10 mb-2">
-                    <p className="text-slate-700 text-sm font-medium overflow-hidden text-ellipsis line-clamp-2 break-words break-all leading-tight group-hover:text-slate-900 transition-colors">{complaint.description}</p>
-                  </div>
-                  {/* Attachments preview - robust array check */}
-                  {Array.isArray(complaint.attachments) && complaint.attachments.length > 0 && (
-                    <div className="flex gap-2 mt-2">
-                      {complaint.attachments.slice(0,2).map((file, idx) => file && typeof file === 'string' && (
-                        <img
-                          key={idx}
-                          src={`data:image/jpeg;base64,${file}`}
-                          alt={`Attachment ${idx + 1}`}
-                          className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm"
-                          style={{ maxHeight: 64 }}
-                        />
-                      ))}
-                      {complaint.attachments.length > 2 && (
-                        <span className="px-2 py-1 bg-slate-100 rounded-lg text-xs text-slate-500">+{complaint.attachments.length - 2} more</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 mt-4">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onViewComplaint(complaint.id, complaint.type); }}
-                  className="p-2 bg-white rounded-lg shadow hover:bg-indigo-50 transition-colors border border-slate-100"
-                  title="View details"
-                >
-                  <Eye className="w-5 h-5 text-indigo-600" />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowDeletePopup(true); setDeleteTarget(complaint); }}
-                  className="p-2 bg-white rounded-lg shadow hover:bg-red-50 transition-colors border border-slate-100"
-                  title="Delete complaint"
-                >
-                  <Trash2 className="w-5 h-5 text-red-500" />
-                </button>
-              </div>
-            </div>
+              complaint={complaint}
+              onViewComplaint={onViewComplaint}
+              setShowDeletePopup={setShowDeletePopup}
+              setDeleteTarget={setDeleteTarget}
+              getTypeColor={getTypeColor}
+              getPriorityColor={getPriorityColor}
+            />
           ))}
         </div>
 
@@ -222,3 +156,148 @@ const ComplaintsList = ({ complaints = [], onUpdateStatus, onViewComplaint, onBa
 };
 
 export default ComplaintsList;
+
+// ComplaintCard: small subcomponent to render individual complaint and ensure submittedByName is shown
+function ComplaintCard({ complaint, onViewComplaint, setShowDeletePopup, setDeleteTarget, getTypeColor, getPriorityColor }) {
+  // Initialize name state from any available non-numeric fields the backend may provide
+  const farmerNameInit = complaint.farmerName || (complaint.farmer && complaint.farmer.full_name) || complaint.farmer_full_name || null;
+  const shopOwnerNameInit = complaint.shopName || (complaint.shop && (complaint.shop.shop_name || complaint.shop.shopName)) || complaint.shop_name || null;
+  const [name, setName] = useState(() => (
+    complaint.submittedByName || complaint.submitted_by_name || (complaint.user && complaint.user.full_name) || farmerNameInit || shopOwnerNameInit || (typeof complaint.submittedBy === 'object' ? complaint.submittedBy?.full_name : null) || null
+  ));
+  const [loading, setLoading] = useState(false);
+  const blockedRef = useRef(false);
+
+  // simple in-memory cache shared per session
+  const cache = ComplaintCard._cache || (ComplaintCard._cache = new Map());
+
+  useEffect(() => {
+  if (name && typeof name === 'string' && name.trim() !== '' && isNaN(Number(name))) return; // already a non-numeric name
+    // determine user id
+    const userId = complaint.submittedBy ?? complaint.submitted_by ?? complaint.submitted_by_id;
+    if (!userId) return;
+    if (typeof userId === 'object') return; // already object
+    if (isNaN(Number(userId))) return;
+    if (cache.has(userId)) {
+      setName(cache.get(userId));
+      return;
+    }
+    if (blockedRef.current) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const fetchName = async () => {
+      try {
+        setLoading(true);
+  const res = await fetch(`/api/v1/users/${userId}`, { signal: controller.signal });
+        if (res.status === 429) {
+          blockedRef.current = true;
+          return;
+        }
+        if (!res.ok) return;
+        const body = await res.json();
+        const user = body && body.data ? body.data : body;
+        const full = user && (user.full_name || user.fullName || user.name) ? (user.full_name || user.fullName || user.name) : null;
+        if (!cancelled) {
+          // Prefer a readable name; if none, fallback to a stable "User ID: <id>" so cards remain identifiable
+          const finalName = full || `User ID: ${userId}`;
+          cache.set(userId, finalName);
+          setName(finalName);
+        }
+      } catch (err) {
+        // ignore abort or network errors
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchName();
+    return () => { cancelled = true; controller.abort(); };
+  }, [complaint, name]);
+
+  // Prefer loading indicator when resolving numeric ids; otherwise prefer various joined name fields including farmer/shop owner
+  const displayName = loading ? 'Loading...' : (
+    name || complaint.submittedByName || complaint.submitted_by_name || (complaint.user && complaint.user.full_name) || farmerNameInit || shopOwnerNameInit || (complaint.submittedBy && typeof complaint.submittedBy === 'object' && complaint.submittedBy.full_name) || 'Unknown'
+  );
+
+  return (
+    <div
+      className="bg-white border border-slate-100 rounded-2xl shadow-lg p-6 flex flex-col justify-between transition-all duration-200 hover:shadow-2xl hover:border-indigo-200 cursor-pointer group"
+      onClick={() => onViewComplaint(complaint.id, complaint.type)}
+    >
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-100 border border-slate-200 group-hover:bg-indigo-50">
+          {complaint.type === 'crop' && <Wheat className="w-7 h-7 text-green-500" />}
+          {complaint.type === 'shop' && <Store className="w-7 h-7 text-blue-500" />}
+          {complaint.type === 'transport' && <Truck className="w-7 h-7 text-purple-500" />}
+          {!['crop','shop','transport'].includes(complaint.type) && <span className="font-bold text-slate-500 text-lg">?</span>}
+        </div>
+        <div className="flex-1">
+          <h3 className="font-bold text-xl text-indigo-700 mb-1 group-hover:text-indigo-900 transition-colors">{complaint.title}</h3>
+          <p className="text-xs text-slate-500 mb-2">By <span className="font-semibold text-slate-700">{displayName}</span> • {(() => {
+            let date = complaint.submittedAt || complaint.submitted_at || complaint.created_at;
+            if (date) {
+              if (typeof date === 'string' || typeof date === 'number') {
+                date = new Date(date);
+              }
+              if (date instanceof Date && !isNaN(date)) {
+                return date.toDateString();
+              }
+            }
+            return '';
+          })()}</p>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${getTypeColor(complaint.type)}`}>{complaint.type}</span>
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(complaint.priority)}`}>{complaint.priority}</span>
+            {complaint.status && (
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${complaint.status === 'resolved' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>{complaint.status}</span>
+            )}
+            {complaint.assignedTo && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">Assigned: {complaint.assignedTo}</span>
+            )}
+            {complaint.orderNumber && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">Order: {complaint.orderNumber}</span>
+            )}
+          </div>
+          <div className="h-10 mb-2">
+            <p className="text-slate-700 text-sm font-medium overflow-hidden text-ellipsis line-clamp-2 break-words break-all leading-tight group-hover:text-slate-900 transition-colors">{complaint.description}</p>
+          </div>
+          {/* Attachments preview - robust array check */}
+          {Array.isArray(complaint.attachments) && complaint.attachments.length > 0 && (
+            <div className="flex gap-2 mt-2">
+              {complaint.attachments.slice(0,2).map((file, idx) => file && typeof file === 'string' && (
+                <img
+                  key={idx}
+                  src={`data:image/jpeg;base64,${file}`}
+                  alt={`Attachment ${idx + 1}`}
+                  className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm"
+                  style={{ maxHeight: 64 }}
+                />
+              ))}
+              {complaint.attachments.length > 2 && (
+                <span className="px-2 py-1 bg-slate-100 rounded-lg text-xs text-slate-500">+{complaint.attachments.length - 2} more</span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 mt-4">
+        <button 
+          onClick={(e) => { e.stopPropagation(); onViewComplaint(complaint.id, complaint.type); }}
+          className="p-2 bg-white rounded-lg shadow hover:bg-indigo-50 transition-colors border border-slate-100"
+          title="View details"
+        >
+          <Eye className="w-5 h-5 text-indigo-600" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowDeletePopup(true); setDeleteTarget(complaint); }}
+          className="p-2 bg-white rounded-lg shadow hover:bg-red-50 transition-colors border border-slate-100"
+          title="Delete complaint"
+        >
+          <Trash2 className="w-5 h-5 text-red-500" />
+        </button>
+      </div>
+    </div>
+  );
+}

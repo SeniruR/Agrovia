@@ -59,10 +59,10 @@ const ProfileRouter = () => {
     case 'transporter':
       return <Navigate to="/profile/transporter" replace />;
     case 'moderator':
-      return <Navigate to="/moderator/dashboard" replace />;
+      return <Navigate to="/profile/moderator" replace />;
     case 'main_moderator':
       // Main moderators might have special access
-      return <Navigate to="/moderator/dashboard" replace />;
+      return <Navigate to="/profile/moderator" replace />;
     case 'committee_member':
       return <Navigate to="/committee/dashboard" replace />;
     default:

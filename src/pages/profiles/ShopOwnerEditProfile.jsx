@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import FullScreenLoader from "../../components/ui/FullScreenLoader";
 import Select from "react-select";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -14,7 +15,7 @@ L.Icon.Default.mergeOptions({
 });
 
 // Map picker component for selecting location
-const LocationPicker = ({ show, onClose, onSelect, initialPosition }) => {
+const LocationPicker = ({ show, onClose, onSelect, initialPosition, title }) => {
   const [position, setPosition] = useState(initialPosition || [7.8731, 80.7718]); // Default: Sri Lanka
 
   function LocationMarker() {
@@ -29,7 +30,7 @@ const LocationPicker = ({ show, onClose, onSelect, initialPosition }) => {
   return show ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
-        <h3 className="text-lg font-semibold mb-2 text-green-800">Select Your Location</h3>
+        <h3 className="text-lg font-semibold mb-2 text-green-800">{title || 'Select Location'}</h3>
         <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
           <MapContainer center={position} zoom={8} style={{ height: '100%', width: '100%' }}>
             <TileLayer
@@ -55,45 +56,55 @@ const districts = [
   'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
 ];
 
-const companyTypes = [
-  'Restaurant',
-  'Supermarket',
-  'Wholesale',
-  'Food Processing',
-  'Export Company',
-  'Retail Store',
-  'Hotel/Resort',
-  'Catering Service',
-  'Other'
+const shopCategoryOptions = [
+  'Agricultural Supplies', 'Seeds & Plants', 'Fertilizers & Chemicals', 'Farm Equipment',
+  'Irrigation Systems', 'Tools & Hardware', 'Organic Products', 'Animal Feed',
+  'Agricultural Technology', 'General Agriculture Store'
+];
+
+const operatingHoursOptions = [
+  '6:00 AM - 6:00 PM', '7:00 AM - 7:00 PM', '8:00 AM - 8:00 PM',
+  '9:00 AM - 9:00 PM', '24/7', 'Custom Hours'
+];
+
+const openingDaysOptions = [
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
 ];
 
 const initialProfile = {
-  name: "",
+  fullName: "",
   email: "",
-  district: "",
-  nic: "",
-  address: "",
   phoneNumber: "",
+  nic: "",
+  district: "",
+  address: "",
   profileImage: null,
+  shopName: "",
+  businessRegistrationNumber: "",
+  shopAddress: "",
+  shopPhoneNumber: "",
+  shopEmail: "",
+  shopDescription: "",
+  shopCategory: "",
+  operatingHours: "",
+  openingDays: [],
+  deliveryAreas: "",
   password: "",
   confirmPassword: "",
-  companyName: "",
-  companyType: "",
-  companyAddress: "",
-  paymentOffer: "",
   latitude: "",
-  longitude: ""
+  longitude: "",
+  shopLatitude: "",
+  shopLongitude: ""
 };
 
-import { useNavigate, useLocation } from "react-router-dom";
-
-const BuyerEditProfile = () => {
+const ShopOwnerEditProfile = () => {
   const [profile, setProfile] = useState(initialProfile);
   const [originalProfile, setOriginalProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saveEnabled, setSaveEnabled] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapPickerType, setMapPickerType] = useState('personal'); // 'personal' or 'shop'
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -101,125 +112,149 @@ const BuyerEditProfile = () => {
   // Helper: map backend data to form fields
   const mapBackendToProfile = (data) => {
     const user = data.user || {};
-    const details = user.buyer_details || {};
+    const details = user.shop_owner_details || {};
     // Construct profile image URL if user has a profile image
     const profileImageUrl = user.profile_image ? 
       `/api/v1/users/${user.id}/profile-image?t=${Date.now()}` : null;
     return {
-      name: user.name || user.full_name || "",
+      fullName: user.name || user.full_name || "",
       email: user.email || "",
-      district: user.district || "",
-      nic: user.nic || "",
-      address: user.address || "",
       phoneNumber: user.phone_number || "",
+      nic: user.nic || "",
+      district: user.district || "",
+      address: user.address || "",
       profileImage: profileImageUrl,
+      shopName: details.shop_name || "",
+      businessRegistrationNumber: details.business_registration_number || "",
+      shopAddress: details.shop_address || "",
+      shopPhoneNumber: details.shop_phone_number || "",
+      shopEmail: details.shop_email || "",
+      shopDescription: details.shop_description || "",
+      shopCategory: details.shop_category || "",
+      operatingHours: details.operating_hours || "",
+      openingDays: details.opening_days ? details.opening_days.split(',') : [],
+      deliveryAreas: details.delivery_areas || "",
       password: "",
       confirmPassword: "",
-      companyName: details.company_name || "",
-      companyType: details.company_type || "",
-      companyAddress: details.company_address || "",
-      paymentOffer: details.payment_offer || "",
       latitude: user.latitude || "",
-      longitude: user.longitude || ""
+      longitude: user.longitude || "",
+      shopLatitude: details.latitude || "",
+      shopLongitude: details.longitude || ""
     };
   };
 
-  // Fetch buyer profile data
+  // Fetch profile data on mount
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token') || sessionStorage.getItem('authToken');
+        // Get token with fallback checking multiple storage locations
+        const token = localStorage.getItem("authToken") || 
+                     localStorage.getItem("token") || 
+                     sessionStorage.getItem("authToken") || 
+                     sessionStorage.getItem("token");
+        
         if (!token) {
-          // No token found in common storage keys — go to login
-          navigate('/login');
+          setError("No authentication token found. Please log in again.");
+          setLoading(false);
           return;
         }
-        
+
         let apiUrl = import.meta.env.VITE_API_URL
           ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
           : (import.meta.env.DEV
               ? 'http://localhost:5000/api/v1/auth/profile-full'
               : '/api/v1/auth/profile-full');
         
+        // Add cache-busting query parameter
         apiUrl += `?_t=${Date.now()}`;
-
-        const response = await fetch(apiUrl, {
+        
+        const res = await fetch(apiUrl, {
           credentials: 'include',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
           },
-        });        if (!response.ok) {
-          if (response.status === 401) {
-            // Clear any token variants we might have used and redirect to login
-            try {
-              localStorage.removeItem('authToken');
-              localStorage.removeItem('token');
-              sessionStorage.removeItem('token');
-              sessionStorage.removeItem('authToken');
-            } catch (e) {
-              // ignore storage errors
-            }
-            navigate('/login');
-            return;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const mappedProfile = mapBackendToProfile(data);
-        setProfile(mappedProfile);
-        setOriginalProfile(mappedProfile);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-        setError('Failed to load profile data');
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        const data = await res.json();
+        const mapped = mapBackendToProfile(data);
+        setProfile(mapped);
+        setOriginalProfile(mapped);
+      } catch (err) {
+        setError(err.message || 'Unknown error');
+      } finally {
         setLoading(false);
       }
     };
-
     fetchProfile();
-  }, [navigate]);
+  }, []);
 
-  // Check if form has changes
+  // Detect changes - custom comparison to handle File objects
   useEffect(() => {
-    const hasChanges = JSON.stringify(profile) !== JSON.stringify(originalProfile);
-    setSaveEnabled(hasChanges);
+    // Compare all fields except profileImage
+    const profileCopy = { ...profile };
+    const originalCopy = { ...originalProfile };
+    
+    // Handle profileImage comparison separately
+    const profileImageChanged = 
+      (profile.profileImage instanceof File) || // New file selected
+      (profile.profileImage !== originalProfile.profileImage); // URL changed
+    
+    // Remove profileImage for JSON comparison
+    delete profileCopy.profileImage;
+    delete originalCopy.profileImage;
+    
+    const otherFieldsChanged = JSON.stringify(profileCopy) !== JSON.stringify(originalCopy);
+    
+    setSaveEnabled(profileImageChanged || otherFieldsChanged);
   }, [profile, originalProfile]);
 
-  // Handle input changes
-  const handleInputChange = (key, value) => {
-    setProfile(prev => ({ ...prev, [key]: value }));
-    
-    if (error) setError(null);
-  };
-
-  // Map selection handler
-  const handleSelectLocationFromMap = async (latLng) => {
-    const [lat, lng] = latLng;
-    console.log('Selected coordinates:', lat, lng);
-
-    // Update form with coordinates
+  const handleInputChange = (field, value) => {
     setProfile(prev => ({
       ...prev,
-      latitude: lat,
-      longitude: lng
+      [field]: value
     }));
+  };
+
+  // Map selection handlers
+  const handleOpenMapPicker = (type) => {
+    setMapPickerType(type);
+    setShowMapPicker(true);
+  };
+
+  const handleSelectLocationFromMap = async (latLng) => {
+    const [lat, lng] = latLng;
+    console.log('Selected coordinates:', lat, lng, 'for', mapPickerType);
+
+    // Update form with coordinates based on type
+    if (mapPickerType === 'personal') {
+      setProfile(prev => ({
+        ...prev,
+        latitude: lat,
+        longitude: lng
+      }));
+    } else if (mapPickerType === 'shop') {
+      setProfile(prev => ({
+        ...prev,
+        shopLatitude: lat,
+        shopLongitude: lng
+      }));
+    }
 
     setShowMapPicker(false);
 
     // Get address from coordinates (reverse geocoding)
     try {
-      await handleGetAddressFromLocation(lat, lng);
+      await handleGetAddressFromLocation(lat, lng, mapPickerType);
     } catch (error) {
       console.error('Error getting address:', error);
     }
   };
 
   // Reverse geocoding to get address from coordinates
-  const handleGetAddressFromLocation = async (lat, lng) => {
+  const handleGetAddressFromLocation = async (lat, lng, type) => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
@@ -238,64 +273,98 @@ const BuyerEditProfile = () => {
         console.log('Address from coordinates:', address);
         console.log('District from address:', district);
 
-        setProfile(prev => ({
-          ...prev,
-          address: address,
-          district: district
-        }));
+        if (type === 'personal') {
+          setProfile(prev => ({
+            ...prev,
+            address: address,
+            district: district
+          }));
+        } else if (type === 'shop') {
+          setProfile(prev => ({
+            ...prev,
+            shopAddress: address
+          }));
+        }
       }
     } catch (error) {
       console.error('Error in reverse geocoding:', error);
     }
   };
 
-  // Image file selection handler
-  const handleImageChange = (event) => {
-    const file = event.target.files[0];
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('Image size must be less than 5MB');
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file.');
         return;
       }
       
-      setProfile(prev => ({ ...prev, profileImage: file }));
+      // Validate file size (5MB limit)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        setError('File size must be less than 5MB.');
+        return;
+      }
+      
       setError(null);
+      setProfile(prev => ({
+        ...prev,
+        profileImage: file
+      }));
     }
   };
 
-  // Save profile handler
   const handleSaveProfile = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('token') || sessionStorage.getItem('authToken');
+      // Get token with fallback checking multiple storage locations
+      const token = localStorage.getItem("authToken") || 
+                   localStorage.getItem("token") || 
+                   sessionStorage.getItem("authToken") || 
+                   sessionStorage.getItem("token");
+
       if (!token) {
-        navigate('/login');
+        setError("No authentication token found. Please log in again.");
+        setLoading(false);
         return;
       }
 
+      // Create FormData for file upload
       const formData = new FormData();
       
-      // Append user data
-      formData.append('name', profile.name);
+      // Add text fields
+      formData.append('name', profile.fullName);
       formData.append('email', profile.email);
-      formData.append('district', profile.district);
+      formData.append('phone_number', profile.phoneNumber);
       formData.append('nic', profile.nic);
+      formData.append('birth_date', profile.birthDate);
+      formData.append('district', profile.district);
       formData.append('address', profile.address);
-      formData.append('phoneNumber', profile.phoneNumber);
       
-      // Append coordinates
+      // Add coordinates for personal address
       if (profile.latitude) formData.append('latitude', profile.latitude);
       if (profile.longitude) formData.append('longitude', profile.longitude);
       
-      // Append buyer-specific data
-      formData.append('companyName', profile.companyName);
-      formData.append('companyType', profile.companyType);
-      formData.append('companyAddress', profile.companyAddress);
-      formData.append('paymentOffer', profile.paymentOffer);
+      // Shop owner specific fields
+      formData.append('shop_name', profile.shopName);
+      formData.append('business_registration_number', profile.businessRegistrationNumber);
+      formData.append('shop_address', profile.shopAddress);
+      formData.append('shop_phone_number', profile.shopPhoneNumber);
+      formData.append('shop_email', profile.shopEmail);
+      formData.append('shop_description', profile.shopDescription);
+      formData.append('shop_category', profile.shopCategory);
+      formData.append('operating_hours', profile.operatingHours);
+      formData.append('opening_days', JSON.stringify(profile.openingDays));
+      formData.append('delivery_areas', profile.deliveryAreas);
       
-      // Append password if provided
+      // Add coordinates for shop address
+      if (profile.shopLatitude) formData.append('shop_latitude', profile.shopLatitude);
+      if (profile.shopLongitude) formData.append('shop_longitude', profile.shopLongitude);
+
+      // Add password if provided
       if (profile.password) {
         if (profile.password !== profile.confirmPassword) {
           setError('Passwords do not match');
@@ -347,8 +416,8 @@ const BuyerEditProfile = () => {
       
       setLoading(false);
       
-      // Navigate back to buyer profile immediately with success message
-      navigate('/profile/buyer', { 
+      // Navigate back to shop owner profile immediately with success message
+      navigate('/profile/shop-owner', { 
         state: { message: 'Profile updated successfully!' } 
       });
       
@@ -367,20 +436,27 @@ const BuyerEditProfile = () => {
         show={showMapPicker} 
         onClose={() => setShowMapPicker(false)} 
         onSelect={handleSelectLocationFromMap}
-        initialPosition={profile.latitude && profile.longitude ? [parseFloat(profile.latitude), parseFloat(profile.longitude)] : null}
+        initialPosition={
+          mapPickerType === 'personal' && profile.latitude && profile.longitude 
+            ? [parseFloat(profile.latitude), parseFloat(profile.longitude)]
+            : mapPickerType === 'shop' && profile.shopLatitude && profile.shopLongitude
+            ? [parseFloat(profile.shopLatitude), parseFloat(profile.shopLongitude)]
+            : null
+        }
+        title={mapPickerType === 'personal' ? 'Select Your Personal Address Location' : 'Select Your Shop Location'}
       />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/profile/buyer')}
+            onClick={() => navigate('/profile/shop-owner')}
             className="mb-4 text-green-600 hover:text-green-700 font-medium flex items-center gap-2"
           >
             ← Back to Profile
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-          <p className="text-gray-600 mt-2">Update your business information and preferences</p>
+          <p className="text-gray-600 mt-2">Update your shop information and preferences</p>
         </div>
 
         {/* Messages */}
@@ -439,8 +515,8 @@ const BuyerEditProfile = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                 <input
                   type="text"
-                  value={profile.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  value={profile.fullName}
+                  onChange={(e) => handleInputChange('fullName', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Enter your full name"
                 />
@@ -481,7 +557,7 @@ const BuyerEditProfile = () => {
                 />
               </div>
               
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">District</label>
                 <Select
                   value={profile.district ? { value: profile.district, label: profile.district } : null}
@@ -492,27 +568,21 @@ const BuyerEditProfile = () => {
                   classNamePrefix="react-select"
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Location & Address */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Location & Address</h2>
-            <div className="space-y-4">
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                 <div className="flex gap-3">
-                  <input
-                    type="text"
+                  <textarea
                     value={profile.address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows={3}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                     placeholder="Enter your address"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowMapPicker(true)}
-                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                    onClick={() => handleOpenMapPicker('personal')}
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 h-fit"
                   >
                     📍 Map
                   </button>
@@ -526,52 +596,135 @@ const BuyerEditProfile = () => {
             </div>
           </div>
 
-          {/* Business Information */}
+          {/* Shop Information */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Business Information</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Shop Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Shop Name</label>
                 <input
                   type="text"
-                  value={profile.companyName}
-                  onChange={(e) => handleInputChange('companyName', e.target.value)}
+                  value={profile.shopName}
+                  onChange={(e) => handleInputChange('shopName', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company name"
+                  placeholder="Enter your shop name"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Business Registration Number</label>
+                <input
+                  type="text"
+                  value={profile.businessRegistrationNumber}
+                  onChange={(e) => handleInputChange('businessRegistrationNumber', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter business registration number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Shop Phone Number</label>
+                <input
+                  type="tel"
+                  value={profile.shopPhoneNumber}
+                  onChange={(e) => handleInputChange('shopPhoneNumber', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter shop phone number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Shop Email (Optional)</label>
+                <input
+                  type="email"
+                  value={profile.shopEmail}
+                  onChange={(e) => handleInputChange('shopEmail', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter shop email address"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Shop Category</label>
                 <Select
-                  value={profile.companyType ? { value: profile.companyType, label: profile.companyType } : null}
-                  onChange={(option) => handleInputChange('companyType', option?.value || '')}
-                  options={companyTypes.map(type => ({ value: type, label: type }))}
-                  placeholder="Select company type"
+                  value={profile.shopCategory ? { value: profile.shopCategory, label: profile.shopCategory } : null}
+                  onChange={(option) => handleInputChange('shopCategory', option?.value || '')}
+                  options={shopCategoryOptions.map(category => ({ value: category, label: category }))}
+                  placeholder="Select shop category"
                   className="react-select"
                   classNamePrefix="react-select"
                 />
               </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
-                <textarea
-                  value={profile.companyAddress}
-                  onChange={(e) => handleInputChange('companyAddress', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company address"
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Operating Hours</label>
+                <Select
+                  value={profile.operatingHours ? { value: profile.operatingHours, label: profile.operatingHours } : null}
+                  onChange={(option) => handleInputChange('operatingHours', option?.value || '')}
+                  options={operatingHoursOptions.map(hours => ({ value: hours, label: hours }))}
+                  placeholder="Select operating hours"
+                  className="react-select"
+                  classNamePrefix="react-select"
                 />
               </div>
-              
+
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Offer</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Shop Address</label>
+                <div className="flex gap-3">
+                  <textarea
+                    value={profile.shopAddress}
+                    onChange={(e) => handleInputChange('shopAddress', e.target.value)}
+                    rows={3}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    placeholder="Enter your shop's complete address"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleOpenMapPicker('shop')}
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 h-fit"
+                  >
+                    📍 Map
+                  </button>
+                </div>
+                {profile.shopLatitude && profile.shopLongitude && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Shop Coordinates: {parseFloat(profile.shopLatitude).toFixed(6)}, {parseFloat(profile.shopLongitude).toFixed(6)}
+                  </p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Opening Days</label>
+                <Select
+                  value={profile.openingDays ? profile.openingDays.map(day => ({ value: day, label: day })) : []}
+                  onChange={(selectedOptions) => handleInputChange('openingDays', selectedOptions ? selectedOptions.map(opt => opt.value) : [])}
+                  options={openingDaysOptions.map(day => ({ value: day, label: day }))}
+                  isMulti
+                  placeholder="Select opening days"
+                  className="react-select"
+                  classNamePrefix="react-select"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Areas</label>
                 <textarea
-                  value={profile.paymentOffer}
-                  onChange={(e) => handleInputChange('paymentOffer', e.target.value)}
+                  value={profile.deliveryAreas}
+                  onChange={(e) => handleInputChange('deliveryAreas', e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                  placeholder="List areas you deliver to (comma separated)"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Shop Description</label>
+                <textarea
+                  value={profile.shopDescription}
+                  onChange={(e) => handleInputChange('shopDescription', e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Describe your payment terms and offers"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                  placeholder="Describe your shop, products, and services"
                 />
               </div>
             </div>
@@ -609,7 +762,7 @@ const BuyerEditProfile = () => {
           <div className="flex justify-end gap-4">
             <button
               type="button"
-              onClick={() => navigate('/profile/buyer')}
+              onClick={() => navigate('/profile/shop-owner')}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
@@ -633,4 +786,4 @@ const BuyerEditProfile = () => {
   );
 };
 
-export default BuyerEditProfile;
+export default ShopOwnerEditProfile;

@@ -1,6 +1,52 @@
 import { useRef, useState, useEffect } from "react";
 import FullScreenLoader from "../components/ui/FullScreenLoader";
 import Select from "react-select";
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix default marker icon for leaflet in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// Map picker component for selecting location
+const LocationPicker = ({ show, onClose, onSelect, initialPosition }) => {
+  const [position, setPosition] = useState(initialPosition || [7.8731, 80.7718]); // Default: Sri Lanka
+
+  function LocationMarker() {
+    useMapEvents({
+      click(e) {
+        setPosition([e.latlng.lat, e.latlng.lng]);
+      },
+    });
+    return <Marker position={position} />;
+  }
+
+  return show ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl relative">
+        <h3 className="text-lg font-semibold mb-2 text-green-800">Select Your Location</h3>
+        <div className="h-80 w-full rounded-xl overflow-hidden mb-4">
+          <MapContainer center={position} zoom={8} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <LocationMarker />
+          </MapContainer>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-medium">Cancel</button>
+          <button onClick={() => onSelect(position)} className="px-4 py-2 rounded bg-green-600 text-white font-semibold">Select</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+};
 
 const districts = [
   'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 'Galle', 'Gampaha',
@@ -98,7 +144,9 @@ const initialProfile = {
   cultivatedCrops: "",
   irrigationSystem: "",
   soilType: "",
-  farmingCertifications: ""
+  farmingCertifications: "",
+  latitude: "",
+  longitude: ""
 };
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -111,6 +159,7 @@ const Profile = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [saveEnabled, setSaveEnabled] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -140,7 +189,9 @@ const Profile = () => {
       cultivatedCrops: details.cultivated_crops || "",
       irrigationSystem: details.irrigation_system || "",
       soilType: details.soil_type || "",
-      farmingCertifications: details.farming_certifications || ""
+      farmingCertifications: details.farming_certifications || "",
+      latitude: user.latitude || "",
+      longitude: user.longitude || ""
     };
   };
 
@@ -290,6 +341,57 @@ const Profile = () => {
     fileInputRef.current.click();
   };
 
+  // Handler for selecting location from map
+  const handleSelectLocationFromMap = async (latlng) => {
+    setShowMapPicker(false);
+    setProfile(prev => ({ ...prev, latitude: latlng[0], longitude: latlng[1] }));
+    setError(null);
+    console.log(`Map location selected: lat=${latlng[0]}, lng=${latlng[1]}`);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latlng[0]}&lon=${latlng[1]}`);
+      const data = await res.json();
+      if (data && data.display_name) {
+        setProfile(prev => ({ ...prev, address: data.display_name }));
+        setSuccessMessage('Address updated from map location!');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setError('Could not fetch address from OpenStreetMap.');
+      }
+    } catch (err) {
+      setError('Failed to fetch address from OpenStreetMap.');
+    }
+  };
+
+  // Get current location and fetch address from OpenStreetMap Nominatim
+  const handleGetAddressFromLocation = async () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setError(null);
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      setProfile(prev => ({ ...prev, latitude: lat, longitude: lng }));
+      console.log(`Current location detected: lat=${lat}, lng=${lng}`);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        if (data && data.display_name) {
+          setProfile(prev => ({ ...prev, address: data.display_name }));
+          setSuccessMessage('Address updated from your current location!');
+          setTimeout(() => setSuccessMessage(null), 3000);
+        } else {
+          setError('Could not fetch address from OpenStreetMap.');
+        }
+      } catch (err) {
+        setError('Failed to fetch address from OpenStreetMap.');
+      }
+    }, (err) => {
+      setError('Failed to get your location. Please allow location access.');
+    });
+  };
+
   // Save changes to backend
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -331,7 +433,9 @@ const Profile = () => {
         'cultivatedCrops',
         'irrigationSystem',
         'soilType',
-        'farmingCertifications'
+        'farmingCertifications',
+        'latitude',
+        'longitude'
       ];
       visibleFields.forEach((key) => {
         let v = profile[key];
@@ -340,6 +444,10 @@ const Profile = () => {
         // Convert landSize to number or null
         if (key === "landSize") {
           v = v === null ? null : (isNaN(Number(v)) ? null : Number(v));
+        }
+        // Convert coordinates to numbers or null
+        if (key === "latitude" || key === "longitude") {
+          v = v === null || v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
         }
         // Only append file if it's a File object (newly selected image)
         if (key === "profileImage") {
@@ -402,12 +510,17 @@ const Profile = () => {
       
       setProfile(mapped);
       setOriginalProfile(mapped);
-      setSuccessMessage("Profile updated successfully!");
-      
-      // Auto-hide success message after 5 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
+
+      // Navigate back to farmer profile page with a success message
+      try {
+        navigate('/profile/farmer', { state: { successMessage: 'Profile updated successfully!' } });
+        return; // stop further local UI updates on this page
+      } catch (navErr) {
+        // Fallback: show local success message if navigation fails
+        console.warn('Navigation to farmer profile failed:', navErr);
+        setSuccessMessage('Profile updated successfully!');
+        setTimeout(() => setSuccessMessage(null), 5000);
+      }
     } catch (err) {
       console.error('Profile update error:', err);
       setError(err.message || 'Failed to update profile. Please try again.');
@@ -429,241 +542,360 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-12 px-4 flex items-center justify-center">
-      <div className="bg-white shadow-2xl rounded-2xl w-full max-w-5xl p-0 md:p-10 flex flex-col gap-8">
-        
-        {/* Success/Error Notifications */}
-        {(successMessage || error) && (
-          <div className="mx-8 mt-8">
-            {successMessage && (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center space-x-2 mb-4">
-                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <span className="font-medium">{successMessage}</span>
-              </div>
-            )}
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2 mb-4">
-                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span className="font-medium">{error}</span>
-                <button 
-                  onClick={() => setError(null)}
-                  className="ml-auto text-red-500 hover:text-red-700"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-              </div>
-            )}
+    <div className="min-h-screen bg-gray-50">
+      <LocationPicker
+        show={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onSelect={handleSelectLocationFromMap}
+        initialPosition={profile.latitude && profile.longitude ? [parseFloat(profile.latitude), parseFloat(profile.longitude)] : undefined}
+      />
+
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => navigate('/profile/farmer')}
+            className="mb-4 text-green-600 hover:text-green-700 font-medium flex items-center gap-2"
+          >
+            ← Back to Profile
+          </button>
+          <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
+          <p className="text-gray-600 mt-2">Update your farming information and preferences</p>
+        </div>
+
+        {/* Messages */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            {error}
           </div>
         )}
 
-        {/* Profile Header */}
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 px-8 pt-8">
-          <div className="flex flex-col items-center md:items-start">
-            <h2 className="text-3xl md:text-4xl font-bold text-green-700 mb-4 text-center md:text-left">My Profile</h2>
-            <div
-              className="w-36 h-36 md:w-40 md:h-40 rounded-full border-4 border-green-500 bg-gray-100 flex items-center justify-center overflow-hidden cursor-pointer hover:border-green-600 transition-colors"
-              onClick={handleImageClick}
-              title="Click to change profile image"
-            >
-              {(() => {
-                if (profile.profileImage) {
-                  if (typeof profile.profileImage === 'string') {
-                    return (
-                      <img
-                        src={profile.profileImage}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          console.error('Failed to load profile image');
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    );
-                  } else if (
-                    typeof profile.profileImage === 'object' &&
-                    profile.profileImage instanceof File
-                  ) {
-                    const imageUrl = URL.createObjectURL(profile.profileImage);
-                    return (
-                      <img
-                        src={imageUrl}
-                        alt="Profile Preview"
-                        className="w-full h-full object-cover"
-                        onLoad={() => {
-                          // Clean up the object URL after the image loads
-                          setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
-                        }}
-                      />
-                    );
+        <form className="space-y-8" onSubmit={handleSubmit}>
+          {/* Profile Image Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Profile Image</h2>
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                <img
+                  src={
+                    profile.profileImage && typeof profile.profileImage === 'string' 
+                      ? profile.profileImage 
+                      : profile.profileImage && typeof profile.profileImage === 'object'
+                      ? URL.createObjectURL(profile.profileImage)
+                      : 'https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg'
                   }
-                }
-                return (
-                  <div className="text-center">
-                    <span className="text-gray-400 text-4xl block">👤</span>
-                    <span className="text-xs text-gray-500 mt-1">Click to upload</span>
-                  </div>
-                );
-              })()}
+                  alt="Profile"
+                  className="w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover"
+                  onError={(e) => {
+                    e.target.src = 'https://i.pinimg.com/736x/7b/ec/18/7bec181edbd32d1b9315b84260d8e2d0.jpg';
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-2">Upload a professional profile picture (max 5MB)</p>
+                <input
+                  type="file"
+                  name="profileImage"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  style={{ display: "none" }}
+                  onChange={handleChange}
+                />
+                <button
+                  type="button"
+                  onClick={handleImageClick}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Change Image
+                </button>
+              </div>
             </div>
-            <input
-              type="file"
-              name="profileImage"
-              accept="image/*"
-              ref={fileInputRef}
-              style={{ display: "none" }}
-              onChange={handleChange}
-            />
           </div>
-        </div>
 
-        <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-10">
           {/* Personal Information */}
-          <div>
-            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2 mb-6">
-              Personal Information
-            </h3>
-            <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Personal Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
-                <input type="text" name="name" value={profile.name} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={profile.name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter your full name"
+                />
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-                <input type="email" name="email" value={profile.email} readOnly className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={profile.email}
+                  readOnly
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                  placeholder="Enter your email"
+                />
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">District</label>
-                <select name="district" value={profile.district} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black">
+                <label className="block text-sm font-medium text-gray-700 mb-2">NIC Number</label>
+                <input
+                  type="text"
+                  name="nic"
+                  value={profile.nic}
+                  readOnly
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                  placeholder="Enter your NIC number"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                <input
+                  type="tel"
+                  name="phoneNumber"
+                  value={profile.phoneNumber}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter your phone number"
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">District</label>
+                <select 
+                  name="district" 
+                  value={profile.district} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
                   <option value="">Select District</option>
                   {districts.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* Location & Address */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Location & Address</h2>
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">NIC</label>
-                <input type="text" name="nic" value={profile.nic} readOnly className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
-                <input type="text" name="phoneNumber" value={profile.phoneNumber} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
-                <input type="text" name="address" value={profile.address} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                <div className="flex gap-3">
+                  <textarea
+                    name="address"
+                    value={profile.address}
+                    onChange={handleChange}
+                    rows={3}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    placeholder="Enter your address or use the buttons to get your location"
+                  />
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleGetAddressFromLocation}
+                      className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      📍 My Location
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowMapPicker(true)}
+                      className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      🗺️ Map
+                    </button>
+                  </div>
+                </div>
+                {profile.latitude && profile.longitude && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Coordinates: {parseFloat(profile.latitude).toFixed(6)}, {parseFloat(profile.longitude).toFixed(6)}
+                  </p>
+                )}
               </div>
             </div>
           </div>
 
           {/* Farming Experience & Background */}
-          <div>
-            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2 mb-6">
-              Farming Experience & Background
-            </h3>
-            <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Farming Experience & Background</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Farming Experience</label>
-                <select name="farmingExperience" value={profile.farmingExperience} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Farming Experience</label>
+                <select 
+                  name="farmingExperience" 
+                  value={profile.farmingExperience} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
                   <option value="">Select Experience</option>
                   {experienceOptions.map((exp) => <option key={exp} value={exp}>{exp}</option>)}
                 </select>
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Land Size (acres)</label>
-                <input type="number" name="landSize" value={profile.landSize} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Land Size (acres)</label>
+                <input 
+                  type="number" 
+                  name="landSize" 
+                  value={profile.landSize} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter land size in acres"
+                />
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Cultivated Crops</label>
-                <input type="text" name="cultivatedCrops" value={profile.cultivatedCrops} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cultivated Crops</label>
+                <input 
+                  type="text" 
+                  name="cultivatedCrops" 
+                  value={profile.cultivatedCrops} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., Rice, Vegetables, Fruits"
+                />
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Irrigation System</label>
-                <select name="irrigationSystem" value={profile.irrigationSystem} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Irrigation System</label>
+                <select 
+                  name="irrigationSystem" 
+                  value={profile.irrigationSystem} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
                   <option value="">Select Irrigation</option>
                   {irrigationOptions.map((i) => <option key={i} value={i}>{i}</option>)}
                 </select>
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Soil Type</label>
-                <select name="soilType" value={profile.soilType} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Soil Type</label>
+                <select 
+                  name="soilType" 
+                  value={profile.soilType} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
                   <option value="">Select Soil Type</option>
                   {soilTypeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Farming Certifications</label>
-                <input type="text" name="farmingCertifications" value={profile.farmingCertifications} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
-              </div>
-            </div>
-          </div>
-
-
-          {/* Administrative Details */}
-          <div>
-            <h3 className="text-xl font-semibold text-green-800 border-b border-green-200 pb-2 mb-6">
-              Administrative Details
-            </h3>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Division of Gramasewa Niladari</label>
-                <Select
-                  name="divisionGramasewaNumber"
-                  value={gramasewaDivisions.find(opt => opt.value === profile.divisionGramasewaNumber) || null}
-                  onChange={selected => handleSelectChange("divisionGramasewaNumber", selected)}
-                  options={gramasewaDivisions}
-                  placeholder="Search your Gramasewa Niladari division"
-                  classNamePrefix="react-select"
-                  isSearchable
-                  styles={{
-                    control: (base) => ({
-                      ...base,
-                      borderColor: "#bbf7d0",
-                      backgroundColor: "#f1f5f9",
-                      borderRadius: "0.75rem",
-                      minHeight: "48px",
-                    }),
-                  }}
+                <label className="block text-sm font-medium text-gray-700 mb-2">Farming Certifications</label>
+                <input 
+                  type="text" 
+                  name="farmingCertifications" 
+                  value={profile.farmingCertifications} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., Organic Certification, GAP"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Administrative Details */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Administrative Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Organization</label>
-                <input type="text" name="organizationName" value={organizationName} readOnly className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Division of Gramasewa Niladari</label>
+                <input 
+                  type="text" 
+                  name="divisionGramasewaNumber" 
+                  value={profile.divisionGramasewaNumber || ''} 
+                  readOnly
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                  placeholder="Gramasewa Niladari division"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Organization</label>
+                <input 
+                  type="text" 
+                  name="organizationName" 
+                  value={organizationName} 
+                  readOnly
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                  placeholder="Organization name"
+                />
               </div>
             </div>
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
-            <textarea name="description" value={profile.description} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none bg-white text-black" />
+          {/* Additional Information */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Additional Information</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+              <textarea 
+                name="description" 
+                value={profile.description} 
+                onChange={handleChange}
+                rows={4}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                placeholder="Tell us about your farming experience, goals, and any additional information"
+              />
+            </div>
           </div>
 
-          {/* Save Changes Button */}
-          <div>
+          {/* Security */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Change Password (Optional)</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  value={profile.password}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter new password (leave empty to keep current)"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={profile.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-4">
+            <button
+              type="button"
+              onClick={() => navigate('/profile/farmer')}
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
             <button
               type="submit"
-              className={`w-full py-3 rounded-lg font-semibold transition flex items-center justify-center space-x-2 ${
-                saveEnabled && !loading 
-                  ? 'bg-green-600 text-white hover:bg-green-700' 
+              disabled={!saveEnabled || loading}
+              className={`px-6 py-3 rounded-lg transition-colors ${
+                saveEnabled && !loading
+                  ? 'bg-green-600 text-white hover:bg-green-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
-              disabled={!saveEnabled || loading}
             >
-              {loading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Saving Changes...</span>
-                </>
-              ) : (
-                <span>Save Changes</span>
-              )}
+              {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

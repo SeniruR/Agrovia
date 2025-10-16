@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import BulkSellerChatWidget from '../components/BulkSellerChatWidget';
 import { Send, Phone, Video, MoreVertical, Paperclip, Smile, Search, Filter, Star, Clock, CheckCircle, AlertCircle, Menu, Bell, Settings } from 'lucide-react';
 
 const BulkSellerChat = () => {
@@ -345,40 +346,12 @@ const BulkSellerChat = () => {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-              <div className="space-y-4">
-                {getMessages(selectedChat.id).map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.sender === 'buyer' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg shadow-sm ${
-                        msg.sender === 'buyer'
-                          ? 'bg-green-500 text-white'
-                          : 'bg-white text-gray-800 border border-gray-200'
-                      }`}
-                    >
-                      <p className="text-sm">{msg.text}</p>
-                      <p className={`text-xs mt-1 ${msg.sender === 'buyer' ? 'text-green-100' : 'text-gray-500'}`}>
-                        {msg.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {isTyping && (
-                  <div className="flex justify-start">
-                    <div className="bg-white text-gray-800 border border-gray-200 px-4 py-3 rounded-lg shadow-sm">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
+              {/* Replace static messages with live widget when connected to backend */}
+              <div style={{ height: '100%', minHeight: 400 }}>
+                <BulkSellerChatWidget sellerId={selectedChat.id} buyerId={/* TODO: replace with actual buyer id from auth */ 1} token={localStorage.getItem('token')} />
               </div>
             </div>
+            
 
             {/* Message Input */}
             <div className="p-4 border-t border-gray-200 bg-white">

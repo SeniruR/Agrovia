@@ -66,6 +66,71 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
     ? complaints
     : complaints.filter(c => c.priority === priorityFilter);
 
+  // Shared per-session cache to avoid repeated user lookups
+  const nameCache = ComplaintsDashboard._nameCache || (ComplaintsDashboard._nameCache = new Map());
+  ComplaintsDashboard._blocked = ComplaintsDashboard._blocked || false; // used when backend returns 429
+
+  // Small component to resolve and render a submitter's readable name.
+  // Prefers joined fields (submittedByName, farmer/shop names, user.full_name) and falls back
+  // to a cached fetch to /api/v1/users/:id when only an id is available.
+  function SubmitterName({ complaint }) {
+    const ReactRef = React;
+    const initial = (
+      complaint.submittedByName || complaint.submitted_by_name ||
+      (complaint.farmerName || (complaint.farmer && complaint.farmer.full_name) || complaint.farmer_full_name) ||
+      (complaint.shopName || (complaint.shop && (complaint.shop.shop_name || complaint.shop.shopName)) || complaint.shop_name) ||
+      (complaint.user && complaint.user.full_name) ||
+      (typeof complaint.submittedBy === 'object' && complaint.submittedBy && complaint.submittedBy.full_name) ||
+      null
+    );
+    const [name, setName] = ReactRef.useState(initial);
+    const [loading, setLoading] = ReactRef.useState(false);
+
+    ReactRef.useEffect(() => {
+      if (name && typeof name === 'string' && name.trim() !== '' && isNaN(Number(name))) return; // already a non-numeric name
+      const userId = complaint.submittedBy ?? complaint.submitted_by ?? complaint.submitted_by_id;
+      if (!userId) return;
+      if (typeof userId === 'object') return; // already resolved
+      if (isNaN(Number(userId))) return; // not numeric
+      if (nameCache.has(userId)) {
+        setName(nameCache.get(userId));
+        return;
+      }
+      if (ComplaintsDashboard._blocked) return;
+
+      const controller = new AbortController();
+      let cancelled = false;
+      const fetchName = async () => {
+        try {
+          setLoading(true);
+          const res = await fetch(`/api/v1/users/${userId}`, { signal: controller.signal });
+          if (res.status === 429) {
+            ComplaintsDashboard._blocked = true;
+            return;
+          }
+          if (!res.ok) return;
+          const body = await res.json();
+          const user = body && body.data ? body.data : body;
+          const full = user && (user.full_name || user.fullName || user.name) ? (user.full_name || user.fullName || user.name) : null;
+          if (!cancelled) {
+            const final = full || `User ID: ${userId}`;
+            nameCache.set(userId, final);
+            setName(final);
+          }
+        } catch (err) {
+          // ignore AbortError and network issues
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      };
+      fetchName();
+      return () => { cancelled = true; controller.abort(); };
+    }, [complaint, name]);
+
+    if (loading) return 'Loading...';
+    return name || 'Unknown';
+  }
+
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
@@ -163,7 +228,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
                     {complaint.priority}
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-medium mr-2 bg-green-100 text-green-700">crop</span>
-                  <span className="text-xs text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'}</span>
+                  <span className="text-xs text-slate-500">By <SubmitterName complaint={complaint} /></span>
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-xs text-slate-400">
@@ -210,7 +275,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
                     {complaint.priority}
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-medium mr-2 bg-blue-100 text-blue-700">shop</span>
-                  <span className="text-xs text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'}</span>
+                  <span className="text-xs text-slate-500">By <SubmitterName complaint={complaint} /></span>
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-xs text-slate-400">
@@ -257,7 +322,7 @@ const ComplaintsDashboard = ({ complaints, onNavigate, onViewComplaint }) => {
                     {complaint.priority}
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-medium mr-2 bg-purple-100 text-purple-700">transport</span>
-                  <span className="text-xs text-slate-500">By {complaint.submittedByName || complaint.submittedBy || complaint.submitted_by || 'Unknown'}</span>
+                  <span className="text-xs text-slate-500">By <SubmitterName complaint={complaint} /></span>
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-xs text-slate-400">

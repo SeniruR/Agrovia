@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -22,8 +23,9 @@ import {
   Star,
   BarChart3,
   Package,
-  Activity
+  
 } from 'lucide-react';
+ 
 
 const FarmerProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -33,10 +35,20 @@ const FarmerProfile = () => {
   const [farmerData, setFarmerData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const location = useLocation();
+  const [navSuccessMessage, setNavSuccessMessage] = useState('');
 
 
 
   useEffect(() => {
+    // If navigated here with a success message in location state, show it briefly
+    if (location && location.state && location.state.successMessage) {
+      setNavSuccessMessage(location.state.successMessage);
+      // Clear the navigation state after showing
+      try { window.history.replaceState({}, document.title); } catch(e) {}
+      setTimeout(() => setNavSuccessMessage(''), 5000);
+    }
+
     const fetchProfile = async () => {
       setLoading(true);
       setError(null);
@@ -347,6 +359,13 @@ const FarmerProfile = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
       <ProfileHeader />
+      {navSuccessMessage && (
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-lg">
+            {navSuccessMessage}
+          </div>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Navigation Tabs */}
         <div className="mb-8">
@@ -354,7 +373,7 @@ const FarmerProfile = () => {
             <TabButton id="overview" label="Overview" icon={User} />
             <TabButton id="farming" label="Farming Details" icon={Tractor} />
             <TabButton id="contact" label="Contact Info" icon={Phone} />
-            <TabButton id="activity" label="Recent Activity" icon={Activity} />
+            {/* activity tab removed */}
           </div>
         </div>
         {/* Tab Content */}
@@ -410,34 +429,7 @@ const FarmerProfile = () => {
             </div>
           </div>
         )}
-        {activeTab === 'activity' && (
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-              <Activity className="w-6 h-6 text-green-600" />
-              Recent Activity
-            </h2>
-            <div className="space-y-4">
-              {recentActivities.length > 0 ? (
-                recentActivities.map((act) => (
-                  <div
-                    key={act.id}
-                    className="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-100 shadow-sm hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-200">
-                      <Activity className="w-5 h-5 text-green-700" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-700 text-base">{act.action}</h3>
-                      <p className="text-gray-600 text-sm">{act.item} &middot; {act.date}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-gray-500 text-sm">No recent activities to display.</div>
-              )}
-            </div>
-          </div>
-        )}
+  {/* Recent Activity tab removed */}
       </div>
     </div>
   );
