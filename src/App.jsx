@@ -74,6 +74,8 @@ import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import OrganizationDashBoard from "./pages/organization/Oraganization";
 import FarmingPestAlerts from "./pages/PestAlert";
 import PestAlertInterface from "./pages/PestAlert";
+import UploadPestAlert from "./pages/UploadPestAlert";
+import ViewPestAlerts from "./pages/ViewPestAlerts";
 import TransportServicesReviews from "./pages/transport/TransportReviews";
 import DeliveryStatus from "./pages/transport/DeliveryStatus";
 import ShopItem from "./pages/shop/Items";
@@ -455,6 +457,18 @@ const App = () => {
        <Route path="/pestalert" element={
           <Layout>
             <PestAlertInterface/>
+          </Layout>
+        }
+      />
+      <Route path="/pestalert/upload" element={
+          <Layout>
+            <UploadPestAlert />
+          </Layout>
+        }
+      />
+      <Route path="/pestalert/view" element={
+          <Layout>
+            <ViewPestAlerts />
           </Layout>
         }
       />
