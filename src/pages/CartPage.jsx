@@ -588,11 +588,56 @@ const CartPage = () => {
         
         const details = {};
         for (const item of cartItems) {
-          const response = await cropService.getByIdEnhanced(item.id);
-          if (response.success && response.data) {
+          // Only fetch crop details for actual crops, not shop items
+          if (item.productType === 'crop' || !item.productType) { // Default to crop if productType is not set
+            const response = await cropService.getByIdEnhanced(item.id);
+            if (response.success && response.data) {
+              details[item.id] = {
+                minimumQuantityBulk: response.data.minimum_quantity_bulk,
+                availableQuantity: response.data.quantity,
+                productType: 'crop'
+              };
+            }
+          } else if (item.productType === 'shop') {
+            // For shop items, fetch from shop products API
+            try {
+              console.log(`🛍️ Fetching shop product details for: ${item.name} (ID: ${item.id})`);
+              const response = await fetch(`http://localhost:5000/api/v1/shop-products/${item.id}`);
+              if (response.ok) {
+                const shopData = await response.json();
+                console.log(`📦 Raw shop product response:`, shopData);
+                if (shopData.success && shopData.data) {
+                  const availableQty = shopData.data.available_quantity || shopData.data.quantity || 1000;
+                  console.log(`🔢 Available quantity for ${item.name}: ${availableQty}`);
+                  details[item.id] = {
+                    minimumQuantityBulk: 1, // Shop items don't have bulk minimums
+                    availableQuantity: availableQty,
+                    available_quantity: availableQty, // Include both field names for compatibility
+                    productType: 'shop'
+                  };
+                  console.log(`✅ Shop item details stored:`, details[item.id]);
+                } else {
+                  console.warn(`⚠️ Shop product API returned unsuccessful response:`, shopData);
+                }
+              } else {
+                console.warn(`⚠️ Shop product API request failed with status: ${response.status}`);
+              }
+            } catch (error) {
+              console.error(`❌ Error fetching shop item details for ${item.name}:`, error);
+              // Fallback values for shop items
+              details[item.id] = {
+                minimumQuantityBulk: 1,
+                availableQuantity: 1000,
+                productType: 'shop'
+              };
+            }
+          } else {
+            // For unknown types, use safe defaults
+            console.log(`❓ Unknown product type for item: ${item.name} (ID: ${item.id})`);
             details[item.id] = {
-              minimumQuantityBulk: response.data.minimum_quantity_bulk,
-              availableQuantity: response.data.quantity
+              minimumQuantityBulk: 1,
+              availableQuantity: 1000,
+              productType: 'unknown'
             };
           }
           
@@ -634,7 +679,26 @@ const CartPage = () => {
 
   const getMaxQuantity = (item) => {
     // Use the cropDetails from state if available, otherwise fallback to item.availableQuantity or item.quantity
-    return cropDetails[item.id]?.availableQuantity || item.availableQuantity || item.quantity || 1000;
+    // Handle both crop posts (use 'quantity' field) and shop products (use 'available_quantity' field)
+    const details = cropDetails[item.id];
+    console.log(`🔢 Getting max quantity for item ${item.id} (${item.name}):`, { 
+      hasDetails: !!details, 
+      details, 
+      itemData: { 
+        availableQuantity: item.availableQuantity, 
+        quantity: item.quantity,
+        productType: item.productType 
+      } 
+    });
+    
+    if (details) {
+      const maxQty = details.available_quantity || details.quantity || 1000;
+      console.log(`✅ Using details max quantity: ${maxQty}`);
+      return maxQty;
+    }
+    const fallbackQty = item.availableQuantity || item.quantity || 1000;
+    console.log(`⚠️ Using fallback max quantity: ${fallbackQty}`);
+    return fallbackQty;
   };
 
   const handleQuantityChange = (item, newQuantity) => {

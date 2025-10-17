@@ -39,7 +39,8 @@ const adminMenuItems = [
 const farmerMenuItems = [
   { label: 'Dashboard', icon: HomeIcon, path: '/dashboard/farmer' },
   { label: 'My Crops', icon: ShoppingBagIcon, path: '/farmviewAllCrops' },
-  { label: 'My Orders', icon: DocumentTextIcon, path: '/farmervieworders' },
+  { label: 'Buyer Orders', icon: DocumentTextIcon, path: '/farmervieworders' },
+  { label: 'My Orders', icon: DocumentTextIcon, path: '/orders' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile/farmer' },
   { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },
   { label: 'AI Features', icon: DocumentCheckIcon, subcategories: [
@@ -64,7 +65,7 @@ const farmerOrganizerMenuItems = [
 const buyerMenuItems = [
   { label: 'Dashboard', icon: HomeIcon, path: '/dashboard/buyer' },
   { label: 'Marketplace', icon: ShoppingBagIcon, path: '/byersmarket' },
-  { label: 'Cart', icon: CreditCardIcon, path: '/cart' },
+  // { label: 'Cart', icon: CreditCardIcon, path: '/cart' },
   { label: 'My Orders', icon: DocumentTextIcon, path: '/orders' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile/buyer' },
   { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },
@@ -78,7 +79,7 @@ const shopOwnerMenuItems = [
     { name: 'Crop Marketplace', path: '/byersmarket' },
     { name: 'Agri Shop (Fertilizers)', path: '/agrishop' },
   ] },
-  { label: 'Cart', icon: ShoppingCartOutlinedIcon, path: '/cart' },
+  // { label: 'Cart', icon: ShoppingCartOutlinedIcon, path: '/cart' },
   { label: 'My Orders', icon: DocumentTextIcon, path: '/orders' },
   { label: 'Price Forecast', icon: DocumentTextIcon, path: '/priceforcast' },
   { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },

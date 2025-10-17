@@ -251,7 +251,8 @@ const CropDetailView = () => {
       unit: crop.unit,
       farmer: crop.farmerName,
       district: crop.district,
-      image: crop.images && crop.images.length > 0 ? crop.images[0] : null
+      image: crop.images && crop.images.length > 0 ? crop.images[0] : null,
+      productType: 'crop' // Explicitly mark as crop
     }, quantity);
     setNotification({ show: true, product: {
       id: crop.id,

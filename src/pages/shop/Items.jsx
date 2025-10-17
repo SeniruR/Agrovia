@@ -18,20 +18,18 @@ function Items() {
     setSelectedItem(null);
   };
 
-  const handleViewCart = () => {
-    setCurrentView('cart');
-  };
+  // View cart handled by navigation bar; keeping internal cart view disabled here
 
   const renderCurrentView = () => {
     switch (currentView) {
       case 'listing':
-        return <ShopItemsListing onItemClick={handleItemClick} onViewCart={handleViewCart} />;
+        return <ShopItemsListing onItemClick={handleItemClick} />;
       case 'detail':
         return selectedItem && <ItemDetail item={selectedItem} onBack={handleBackToListing} />;
       case 'cart':
         return <CartPage onBack={handleBackToListing} />;
       default:
-        return <ShopItemsListing onItemClick={handleItemClick} onViewCart={handleViewCart} />;
+        return <ShopItemsListing onItemClick={handleItemClick} />;
     }
   };
 
