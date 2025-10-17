@@ -10,14 +10,37 @@ export default function BulkSellerChatWidget({ sellerId, buyerId, token }) {
   const socketRef = useRef(null);
   const endRef = useRef(null);
 
+  // helper: decode jwt payload (no external deps) to read user id if needed
+  const decodeJwt = (t) => {
+    try {
+      if (!t) return null;
+      const parts = t.split('.');
+      if (parts.length < 2) return null;
+      const payload = parts[1];
+      const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      return json;
+    } catch (err) {
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (!sellerId || !buyerId) return;
 
     // Load existing conversation via REST
     const load = async () => {
       try {
+        // clear while loading
+        setMessages([]);
         const res = await bulkChatService.getConversation(sellerId, buyerId, token);
-        setMessages(res.data || []);
+        const rows = res && res.data ? res.data : (res || []);
+        // Ensure we only keep messages that belong to this seller<->buyer conversation
+        const filtered = (rows || []).filter((m) => {
+          const s = Number(m.seller_id);
+          const b = Number(m.buyer_id);
+          return (s === Number(sellerId) && b === Number(buyerId)) || (s === Number(buyerId) && b === Number(sellerId));
+        });
+        setMessages(filtered);
       } catch (err) {
         console.error('Failed to load conversation', err);
       }
@@ -25,16 +48,28 @@ export default function BulkSellerChatWidget({ sellerId, buyerId, token }) {
     load();
 
     // Connect socket
-    const socket = io('http://localhost:5000', { auth: { token } });
+    const authToken = token || localStorage.getItem('token');
+    const socket = io('http://localhost:5000', { auth: { token: authToken } });
     socketRef.current = socket;
 
-    socket.on('connect', () => setConnected(true));
+    socket.on('connect', () => {
+      setConnected(true);
+      // Join room after connected
+      socket.emit('join_conversation', { seller_id: sellerId, buyer_id: buyerId });
+    });
     socket.on('disconnect', () => setConnected(false));
-
-    socket.emit('join_conversation', { seller_id: sellerId, buyer_id: buyerId });
+    socket.on('connect_error', (err) => {
+      console.error('Socket connect_error', err && err.message ? err.message : err);
+    });
 
     socket.on('new_message', (msg) => {
       if (!msg) return;
+      // Only append messages that belong to current conversation
+      const s = Number(msg.seller_id);
+      const b = Number(msg.buyer_id);
+      const belongs = (s === Number(sellerId) && b === Number(buyerId)) || (s === Number(buyerId) && b === Number(sellerId));
+      if (!belongs) return;
+      // Append authoritative message from server
       setMessages((m) => [...m, msg]);
     });
 
@@ -50,16 +85,29 @@ export default function BulkSellerChatWidget({ sellerId, buyerId, token }) {
 
   const sendMessage = async () => {
     if (!text.trim()) return;
-    const payload = { seller_id: sellerId, buyer_id: buyerId, message: text, sent_by: 'seller' };
+    const authToken = token || localStorage.getItem('token');
+    const decoded = decodeJwt(authToken);
+    // infer sender: if decoded.userId matches sellerId -> seller, else buyer
+    let inferredSender = 'seller';
+    if (decoded) {
+      const uid = Number(decoded.userId || decoded.id || decoded.user_id);
+      if (uid && uid !== Number(sellerId)) inferredSender = 'buyer';
+    }
+
+    const payload = { seller_id: sellerId, buyer_id: buyerId, message: text, sent_by: inferredSender };
     try {
+      // optimistic UI: push a temp message; server will broadcast final
+      const temp = { id: `temp_${Date.now()}`, ...payload, created_at: new Date().toISOString() };
+      setMessages((m) => [...m, temp]);
+
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit('send_message', payload, (ack) => {
           if (!ack || !ack.success) console.warn('Socket ack failed', ack);
         });
       } else {
         // fallback to REST
-        await bulkChatService.createMessage(payload, token);
-        const res = await bulkChatService.getConversation(sellerId, buyerId, token);
+        await bulkChatService.createMessage(payload, authToken);
+        const res = await bulkChatService.getConversation(sellerId, buyerId, authToken);
         setMessages(res.data || []);
       }
       setText('');

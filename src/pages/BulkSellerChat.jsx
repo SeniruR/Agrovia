@@ -353,33 +353,7 @@ const BulkSellerChat = () => {
             </div>
             
 
-            {/* Message Input */}
-            <div className="p-4 border-t border-gray-200 bg-white">
-              <div className="flex items-center gap-3">
-                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <Paperclip className="w-5 h-5 text-gray-600" />
-                </button>
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    placeholder="Type your message..."
-                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  />
-                  <button className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors">
-                    <Smile className="w-5 h-5 text-gray-600" />
-                  </button>
-                </div>
-                <button
-                  className="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors shadow-lg"
-                  onClick={handleSendMessage}
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+            {/* Message input handled by BulkSellerChatWidget (remove parent input to avoid duplication) */}
           </>
         ) : (
           /* Welcome Screen */
