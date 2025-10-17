@@ -9,7 +9,7 @@ const PestAlertInterface = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   
   // Check if user has access to pest alerts (option_id = 32)
-  const { hasAccess, loading: accessLoading, subscriptionData } = useAlertAccess();
+  const { hasAccess, loading: accessLoading, subscriptionData: _subscriptionData } = useAlertAccess();
   
   const pestAlerts = [
     {
@@ -181,6 +181,22 @@ const PestAlertInterface = () => {
                 </h1>
                 <p className="text-green-600 font-medium">Pest Alert Dashboard</p>
               </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link 
+                to="/pestalert/view" 
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white text-green-700 border border-green-200 font-semibold rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                <Eye className="w-4 h-4" />
+                <span>View Reports</span>
+              </Link>
+              <Link 
+                to="/pestalert/upload" 
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              >
+                <Bug className="w-4 h-4" />
+                <span>Report Pest</span>
+              </Link>
             </div>
           </div>
         </div>
