@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bug, AlertTriangle, X, Plus, Minus } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
+import { Bug, AlertTriangle, X, Plus, Minus, LogIn } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext'; // Corrected Import Path
 
 const UploadPestAlert = () => {
   const navigate = useNavigate();
+  // ⬅️ UPDATED: Destructure 'user' object along with 'isAuthenticated'
+  const { isAuthenticated, user } = useAuth(); 
+  
   const [form, setForm] = useState({
     pestName: '',
     symptoms: '',
+    severity: '',
     recommendations: ['']
   });
   const [errors, setErrors] = useState({});
@@ -14,7 +20,6 @@ const UploadPestAlert = () => {
 
   const updateField = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -39,44 +44,108 @@ const UploadPestAlert = () => {
 
   const validate = () => {
     const newErrors = {};
-    
+
     if (!form.pestName.trim()) {
       newErrors.pestName = 'Pest name is required';
     }
-    
+
     if (!form.symptoms.trim()) {
       newErrors.symptoms = 'Symptoms description is required';
     }
-    
+
+    if (!form.severity) {
+      newErrors.severity = 'Severity level is required';
+    }
+
     const hasValidRecommendation = form.recommendations.some(rec => rec.trim());
     if (!hasValidRecommendation) {
       newErrors.recommendations = 'At least one recommendation is required';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     
-    if (!validate()) {
+    // 1. AUTHENTICATION & TOKEN CHECK
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      alert('❌ You are not logged in. Please login first.');
+      navigate('/login'); 
       return;
     }
     
+    // 2. USER ID CHECK
+    const currentUserId = user?.id || user?._id; // Use .id or ._id based on your backend
+    if (!currentUserId) {
+        alert('❌ Cannot find user ID. Please check your login session.');
+        return;
+    }
+
     setSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      const apiEndpoint = 'http://localhost:5000/api/pest-alert'; 
+
+      // 3. SET HEADERS with Authorization token
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      };
+
+      console.log('📤 Request headers:', headers);
+
+      // 4. API CALL with headers and JSON payload, including the user ID
+      await axios.post(apiEndpoint, {
+        pestName: form.pestName,
+        symptoms: form.symptoms,
+        severity: form.severity,
+        recommendations: form.recommendations.filter(r => r.trim()),
+        // ⬅️ ADDED: User ID field for tracking the poster
+        postedByUserId: currentUserId 
+      }, { headers });
+      
       alert('Pest alert submitted successfully!');
-      setSubmitting(false);
       navigate('/pestalert');
-    }, 1000);
+      
+      // Reset form after success
+      setForm({ pestName: '', symptoms: '', severity: '', recommendations: [''] });
+
+    } catch (err) {
+      console.error('Submission Error:', err);
+      if (err.response && err.response.status === 401) {
+          alert('Session expired. Please log in again.');
+          navigate('/login');
+      } else {
+          alert('Error submitting pest alert: ' + (err.response?.data?.error || 'Server connection failed.'));
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 py-8 px-4">
       <div className="max-w-2xl mx-auto">
+        
+        {/* Login/Auth Status Alert */}
+        {!isAuthenticated() && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+                <div className="flex items-center">
+                    <LogIn className="h-5 w-5 text-red-600 mr-2" />
+                    <p className="text-red-800 text-sm">
+                        You must be **logged in** to submit a pest alert. 
+                        <Link to="/login" className="text-blue-600 hover:underline ml-1 font-medium">
+                            Click here to login.
+                        </Link>
+                    </p>
+                </div>
+            </div>
+        )}
+
         {/* Header */}
         <div className="bg-white rounded-3xl shadow-xl border border-green-100 p-8 mb-6">
           <div className="flex items-center justify-between mb-6">
@@ -109,8 +178,8 @@ const UploadPestAlert = () => {
                 value={form.pestName}
                 onChange={(e) => updateField('pestName', e.target.value)}
                 className={`w-full px-4 py-3 rounded-xl border-2 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                  errors.pestName 
-                    ? 'border-red-300 focus:border-red-500' 
+                  errors.pestName
+                    ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                 }`}
                 placeholder="e.g., Fall Armyworm, Aphids, Colorado Potato Beetle"
@@ -130,14 +199,39 @@ const UploadPestAlert = () => {
                 value={form.symptoms}
                 onChange={(e) => updateField('symptoms', e.target.value)}
                 className={`w-full px-4 py-3 rounded-xl border-2 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 resize-none ${
-                  errors.symptoms 
-                    ? 'border-red-300 focus:border-red-500' 
+                  errors.symptoms
+                    ? 'border-red-300 focus:border-red-500'
                     : 'border-gray-200 focus:border-green-500'
                 }`}
                 placeholder="Describe the symptoms you observed: leaf damage, holes, discoloration, insect presence, etc."
               />
               {errors.symptoms && (
                 <p className="mt-1 text-sm text-red-600">{errors.symptoms}</p>
+              )}
+            </div>
+
+            {/* Severity Level */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Severity Level *
+              </label>
+              <select
+                value={form.severity}
+                onChange={(e) => updateField('severity', e.target.value)}
+                className={`w-full px-4 py-3 rounded-xl border-2 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 bg-white ${
+                  errors.severity
+                    ? 'border-red-300 focus:border-red-500'
+                    : 'border-gray-200 focus:border-green-500'
+                } ${form.severity === '' ? 'text-gray-400' : 'text-gray-900'}`}
+              >
+                <option value="" disabled className="text-gray-400">Select severity level</option>
+                <option value="low" className="text-gray-900">Low - Minor damage, manageable</option>
+                <option value="medium" className="text-gray-900">Medium - Noticeable damage, needs attention</option>
+                <option value="high" className="text-gray-900">High - Significant damage, urgent action needed</option>
+                <option value="critical" className="text-gray-900">Critical - Severe damage, immediate intervention required</option>
+              </select>
+              {errors.severity && (
+                <p className="mt-1 text-sm text-red-600">{errors.severity}</p>
               )}
             </div>
 
@@ -200,10 +294,10 @@ const UploadPestAlert = () => {
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !isAuthenticated()} 
                 className={`px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-lg transition-all ${
-                  submitting 
-                    ? 'opacity-50 cursor-not-allowed' 
+                  submitting || !isAuthenticated()
+                    ? 'opacity-50 cursor-not-allowed'
                     : 'hover:shadow-xl hover:scale-105'
                 }`}
               >
