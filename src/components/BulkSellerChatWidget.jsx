@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { io } from 'socket.io-client';
+import ioClient from 'socket.io-client';
 import bulkChatService from '../services/bulkChatService';
 
 // Simple chat widget that connects to Socket.IO and falls back to REST
@@ -25,7 +25,7 @@ export default function BulkSellerChatWidget({ sellerId, buyerId, token }) {
     load();
 
     // Connect socket
-    const socket = io('http://localhost:5000', { auth: { token } });
+  const socket = ioClient('http://localhost:5000', { auth: { token } });
     socketRef.current = socket;
 
     socket.on('connect', () => setConnected(true));

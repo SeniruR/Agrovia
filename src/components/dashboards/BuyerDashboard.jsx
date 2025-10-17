@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ShoppingCartOutlined,
-  LocalShippingOutlined,
-  CheckCircleOutlined,
-  ReceiptLongOutlined,
-  StarOutlined,
-  HistoryOutlined,
-  StorefrontOutlined
-} from '@mui/icons-material';
+import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined';
+import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
+import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
+import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined';
+import StarOutlined from '@mui/icons-material/StarOutlined';
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
+import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined';
 
 const BuyerDashboard = () => {
   const [recentOrders, setRecentOrders] = useState([]);
