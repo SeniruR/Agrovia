@@ -184,7 +184,7 @@ const CropDetailView = () => {
     const fetchReviews = async () => {
       if (!crop || !crop.id) return;
       try {
-        const response = await fetch(`/api/v1/crop-reviews?crop_id=${crop.id}`);
+        const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews?crop_id=${crop.id}`);
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.reviews)) {
@@ -1216,9 +1216,14 @@ const CropDetailView = () => {
                       <div className="flex flex-wrap gap-2">
                         {review.images.map((img, imgIdx) => {
                           let imgPath = img;
-                          if (!img.startsWith('http') && !img.startsWith('/uploads/')) {
-                            imgPath = '/uploads/' + img;
+                          
+                          // Check if the image path is an absolute URL, a relative URL, or a direct API endpoint
+                          if (!img.startsWith('http') && !img.startsWith('/api/')) {
+                            // If it doesn't start with http or /api/, assume it's a path to an uploaded file
+                            imgPath = `/api/v1/crop-reviews/${review.id}/attachment`;
                           }
+                          
+                          // Add BACKEND_URL for relative paths
                           const imgUrl = imgPath.startsWith('http') ? imgPath : `${BACKEND_URL}${imgPath}`;
                           // Debug: print the image URL to the console
                           console.log('Review image URL:', imgUrl);
