@@ -771,9 +771,16 @@ useEffect(() => {
          product_name: item.product_name,
          available_quantity: item.available_quantity,
          is_available: item.is_available,
-         type: typeof item.available_quantity
+         type: typeof item.available_quantity,
+         average_rating: item.average_rating,
+         review_count: item.review_count
        });
-       
+
+       const numericRating = Number(item.average_rating ?? item.rating);
+       const rating = Number.isFinite(numericRating) ? numericRating : null;
+       const reviewCountRaw = Number(item.review_count ?? item.reviewCount);
+       const reviewCount = Number.isFinite(reviewCountRaw) && reviewCountRaw > 0 ? reviewCountRaw : 0;
+
        return {
          ...item,
          organicCertified: Boolean(item.organic_certified),
@@ -781,8 +788,8 @@ useEffect(() => {
          productType: inferProductType(item),
          productName: item.product_name,
          inStock: item.available_quantity > 0,
-         rating: Number(item.rating) || 4.0,
-         reviewCount: Number(item.review_count) || 0,
+         rating,
+         reviewCount,
          quantity: Number(item.available_quantity),
          available_quantity: Number(item.available_quantity), // Ensure this is properly set as a number
          unit: item.unit,
@@ -998,8 +1005,8 @@ useEffect(() => {
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-bold text-gray-700">{item.rating}</span>
-                <span className="text-sm text-gray-500">({item.reviewCount})</span>
+                <span className="text-sm font-bold text-gray-700">{Number.isFinite(item.rating) ? item.rating.toFixed(1) : '—'}</span>
+                <span className="text-sm text-gray-500">({item.reviewCount || 0})</span>
               </div>
             </div>
           </div>
@@ -1089,8 +1096,8 @@ useEffect(() => {
           <div className="flex items-center gap-6 w-full">
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm font-bold text-gray-700">{item.rating}</span>
-              <span className="text-sm text-gray-500">({item.reviewCount})</span>
+              <span className="text-sm font-bold text-gray-700">{Number.isFinite(item.rating) ? item.rating.toFixed(1) : '—'}</span>
+              <span className="text-sm text-gray-500">({item.reviewCount || 0})</span>
             </div>
             <div className="flex justify-end items-end flex-1">
               <button 

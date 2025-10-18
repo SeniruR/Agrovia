@@ -80,7 +80,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useShopSubscriptionAccess } from '../../hooks/useShopSubscriptionAccess';
 import ProductLimitNotification from '../../components/ProductLimitNotification';
 
-const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
+const DetailView = ({ item, onClose, handleEdit, handleDelete, reviews, reviewsLoading, reviewsError }) => {
   // Helper to safely parse images (array or CSV string)
   const renderImages = () => {
     let images = [];
@@ -141,6 +141,57 @@ const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
     return stars;
   };
 
+  const safeReviews = Array.isArray(reviews) ? reviews : [];
+  const totalReviews = safeReviews.length;
+  const averageReviewRating = totalReviews
+    ? safeReviews.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) / totalReviews
+    : null;
+
+  const renderReviewStars = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return (
+        <div className="flex text-gray-300" aria-hidden="true">
+          {[...Array(5)].map((_, idx) => (
+            <Star key={idx} className="h-4 w-4" />
+          ))}
+        </div>
+      );
+    }
+
+    const rounded = Math.round(numeric);
+    return (
+      <div className="flex text-yellow-400" aria-hidden="true">
+        {[...Array(5)].map((_, idx) => (
+          <Star
+            key={idx}
+            className={`h-4 w-4 ${idx < rounded ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const formatReviewDate = (value) => {
+    if (!value) return 'Unknown date';
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'Unknown date';
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (_err) {
+      return 'Unknown date';
+    }
+  };
+
+  const attachmentsBaseUrl = 'http://localhost:5000/uploads';
+  const productRatingValue = Number(item?.rating ?? item?.average_rating);
+  const hasProductRating = Number.isFinite(productRatingValue) && productRatingValue > 0;
+  const aggregatedReviewCountRaw = item?.review_count ?? item?.reviewCount ?? item?.total_reviews;
+  const aggregatedReviewCount = Number.isFinite(Number(aggregatedReviewCountRaw))
+    ? Number(aggregatedReviewCountRaw)
+    : 0;
+  const reviewCountToShow = totalReviews > 0 ? totalReviews : aggregatedReviewCount;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all">
       <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-green-100 animate-fade-in">
@@ -187,13 +238,24 @@ const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
                     </span>
                   )}
                 </div>
-                {item.rating && (
+                {hasProductRating ? (
                   <div className="flex items-center mb-4">
                     <div className="flex items-center mr-3">
-                      {renderStars(item.rating)}
+                      {renderStars(productRatingValue)}
                     </div>
-                    <span className="text-lg font-semibold text-gray-700 ml-2">({item.rating})</span>
+                    <span className="text-lg font-semibold text-gray-700 ml-2">{productRatingValue.toFixed(1)}</span>
+                    {reviewCountToShow > 0 && (
+                      <span className="text-sm text-gray-500 ml-2">
+                        {reviewCountToShow} {reviewCountToShow === 1 ? 'review' : 'reviews'}
+                      </span>
+                    )}
                   </div>
+                ) : (
+                  reviewCountToShow > 0 && (
+                    <div className="flex items-center mb-4 text-sm text-gray-500">
+                      <span>{reviewCountToShow} {reviewCountToShow === 1 ? 'review' : 'reviews'}</span>
+                    </div>
+                  )
                 )}
               </div>
 
@@ -240,6 +302,110 @@ const DetailView = ({ item, onClose, handleEdit, handleDelete }) => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Customer Reviews */}
+          <div className="mt-10 border-t pt-8">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-2xl font-bold text-green-800">Customer Reviews</h4>
+                  {averageReviewRating !== null && totalReviews > 0 && (
+                    <div className="flex items-center gap-3 mt-2">
+                      {renderReviewStars(averageReviewRating)}
+                      <span className="text-lg font-semibold text-gray-700">{averageReviewRating.toFixed(1)}</span>
+                      <span className="text-sm text-gray-500">
+                        {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}
+                      </span>
+                    </div>
+                  )}
+                  {averageReviewRating === null && reviewCountToShow > 0 && (
+                    <p className="mt-2 text-sm text-gray-500">
+                      {reviewCountToShow} {reviewCountToShow === 1 ? 'review' : 'reviews'}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {reviewsLoading ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="h-10 w-10 rounded-full border-4 border-green-500 border-t-transparent animate-spin mb-3" />
+                  <p className="text-gray-500">Loading reviews...</p>
+                </div>
+              ) : reviewsError ? (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                  {reviewsError}
+                </div>
+              ) : totalReviews === 0 ? (
+                <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-500">
+                  <p className="font-medium text-gray-700">No reviews yet</p>
+                  <p className="text-sm text-gray-500 mt-1">Customers haven't left feedback for this product.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {safeReviews.map((review, index) => {
+                    const displayInitial = (review.displayName || 'A').charAt(0).toUpperCase();
+                    const ratingValue = Number(review.rating);
+                    return (
+                      <div
+                        key={review.id || review.review_id || `${review.createdAt || ''}-${index}`}
+                        className="border border-green-100 bg-white rounded-xl p-5 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-semibold uppercase">
+                              {displayInitial}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-800">{review.displayName || 'Anonymous Farmer'}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                {renderReviewStars(ratingValue)}
+                                <span className="text-xs text-gray-500">
+                                  {Number.isFinite(ratingValue) ? ratingValue.toFixed(1) : 'No rating'}
+                                </span>
+                                <span className="text-xs text-gray-400">•</span>
+                                <span className="text-xs text-gray-500">{formatReviewDate(review.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {review.comment && (
+                          <p className="mt-4 text-gray-700 leading-relaxed">{review.comment}</p>
+                        )}
+
+                        {Array.isArray(review.attachments) && review.attachments.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-sm font-medium text-gray-700 mb-2">Attachments</p>
+                            <div className="flex flex-wrap gap-3">
+                              {review.attachments.map((attachment, attachmentIdx) => (
+                                <a
+                                  key={`${review.id || index}-attachment-${attachmentIdx}`}
+                                  href={`${attachmentsBaseUrl}/${attachment}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block w-24 h-24 rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+                                >
+                                  <img
+                                    src={`${attachmentsBaseUrl}/${attachment}`}
+                                    alt={`Review attachment ${attachmentIdx + 1}`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.onerror = null;
+                                      e.currentTarget.src = 'https://via.placeholder.com/96?text=Image';
+                                    }}
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -713,9 +879,9 @@ const DeleteModal = ({ onConfirm, onCancel }) => {
 };
 
 const MyShopItem = () => {
-   const navigate = useNavigate();
-   const { user, isAuthenticated, getAuthHeaders } = useAuth();
-   const [showAddPage, setShowAddPage] = useState(false);
+  const navigate = useNavigate();
+  const { user, isAuthenticated, getAuthHeaders } = useAuth();
+  const [showAddPage, setShowAddPage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedCity, setSelectedCity] = useState('all');
@@ -758,11 +924,67 @@ const MyShopItem = () => {
       };
     };
 
+    const normalizeReviewRecord = (review) => {
+      if (!review) return null;
+
+      const parseAttachments = (raw) => {
+        if (!raw) return [];
+        let attachments = [];
+
+        if (Array.isArray(raw)) {
+          attachments = raw;
+        } else if (typeof raw === 'string') {
+          const trimmed = raw.trim();
+          if (trimmed) {
+            if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || trimmed.includes('\"')) {
+              try {
+                const parsed = JSON.parse(trimmed);
+                attachments = Array.isArray(parsed) ? parsed : [];
+              } catch (_err) {
+                attachments = [];
+              }
+            } else if (trimmed.includes(',')) {
+              attachments = trimmed.split(',').map(part => part.trim()).filter(Boolean);
+            } else {
+              attachments = [trimmed];
+            }
+          }
+        }
+
+        return attachments
+          .map(entry => {
+            if (!entry) return null;
+            const value = entry.toString();
+            const segments = value.split('/');
+            return segments[segments.length - 1] || null;
+          })
+          .filter(Boolean);
+      };
+
+      const numericRating = Number(review.rating ?? review.average_rating);
+      const rating = Number.isFinite(numericRating) ? numericRating : null;
+      const attachments = parseAttachments(review.attachments ?? review.attachment ?? review.review_images);
+      const nameCandidates = [review.farmer_name, review.reviewer_name, review.user_name, review.name, review.author];
+      const displayName = nameCandidates.find(n => typeof n === 'string' && n.trim()) || 'Anonymous Farmer';
+      const createdAt = review.created_at || review.createdAt || review.updated_at || null;
+
+      return {
+        ...review,
+        rating,
+        attachments,
+        displayName,
+        createdAt
+      };
+    };
+
   // ...existing code...
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedItemReviews, setSelectedItemReviews] = useState([]);
+  const [loadingSelectedItemReviews, setLoadingSelectedItemReviews] = useState(false);
+  const [selectedItemReviewsError, setSelectedItemReviewsError] = useState(null);
     const [editFormData, setEditFormData] = useState({
         shopitemid: '',
         shop_name: '',
@@ -843,11 +1065,22 @@ const MyShopItem = () => {
           }
 
           // Normalize items: many components expect `shopitemid` and `images` fields.
-          const normalized = (Array.isArray(finalProducts) ? finalProducts : []).map(p => ({
-            ...p,
-            shopitemid: p.shopitemid || p.id || p.productId || String(p.id || p.productId || p.shopitemid),
-            images: Array.isArray(p.images) ? p.images : (p.images ? (typeof p.images === 'string' ? p.images.split(',').map(s => s.trim()) : [p.images]) : [])
-          }));
+          const normalized = (Array.isArray(finalProducts) ? finalProducts : []).map(p => {
+            const numericRating = Number(p.average_rating ?? p.rating);
+            const rating = Number.isFinite(numericRating) ? Number(numericRating.toFixed(1)) : null;
+            const reviewCountRaw = Number(p.review_count ?? p.reviewCount ?? p.total_reviews ?? p.reviews);
+            const reviewCount = Number.isFinite(reviewCountRaw) && reviewCountRaw > 0 ? reviewCountRaw : 0;
+
+            return {
+              ...p,
+              rating,
+              average_rating: rating ?? null,
+              review_count: reviewCount,
+              reviewCount,
+              shopitemid: p.shopitemid || p.id || p.productId || String(p.id || p.productId || p.shopitemid),
+              images: Array.isArray(p.images) ? p.images : (p.images ? (typeof p.images === 'string' ? p.images.split(',').map(s => s.trim()) : [p.images]) : [])
+            };
+          });
 
           if (!cancelled) setShopItems(normalized);
 
@@ -902,6 +1135,65 @@ const MyShopItem = () => {
       // a stable reference from context, so avoid depending on it here to prevent
       // repeated fetch loops; if you control AuthContext, memoize getAuthHeaders there.
     }, [user]);
+
+  useEffect(() => {
+    if (!selectedItem) {
+      setSelectedItemReviews([]);
+      setSelectedItemReviewsError(null);
+      setLoadingSelectedItemReviews(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const loadReviews = async () => {
+      try {
+        setLoadingSelectedItemReviews(true);
+        setSelectedItemReviewsError(null);
+
+        const productId = selectedItem.shopitemid || selectedItem.id || selectedItem.productId || selectedItem.shop_id;
+        if (!productId) {
+          if (!cancelled) setSelectedItemReviews([]);
+        } else {
+          const token = localStorage.getItem('authToken');
+          const headersFromCtx = typeof getAuthHeaders === 'function' ? getAuthHeaders() : null;
+          const headers = (headersFromCtx && headersFromCtx.Authorization)
+            ? headersFromCtx
+            : (token ? { Authorization: `Bearer ${token}` } : {});
+
+          const response = await axios.get(`http://localhost:5000/api/v1/shop-reviews/${productId}`, {
+            headers,
+            withCredentials: true,
+            signal: controller.signal
+          });
+
+          if (cancelled) return;
+
+          const raw = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+          const normalized = raw.map(entry => normalizeReviewRecord(entry)).filter(Boolean);
+          setSelectedItemReviews(normalized);
+        }
+      } catch (err) {
+        if (axios.isCancel?.(err) || err.name === 'CanceledError' || err.message === 'canceled') return;
+        console.error('Failed to load reviews:', err);
+        if (!cancelled) {
+          setSelectedItemReviewsError(err.response?.data?.message || err.message || 'Failed to load reviews');
+          setSelectedItemReviews([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingSelectedItemReviews(false);
+      }
+    };
+
+    loadReviews();
+
+    return () => {
+      cancelled = true;
+      try { controller.abort(); } catch (_err) { /* ignore */ }
+    };
+    // We intentionally omit getAuthHeaders from the dependency array because the context may provide a new function reference on each render.
+  }, [selectedItem]);
 
   const handleShopUpdate = async (updated) => {
     try {
@@ -1237,14 +1529,17 @@ const MyShopItem = () => {
     }
 
     // If an item is selected, show the detail view (unless we're in edit mode)
-    if (selectedItem && !showEditModal) {
-        return <DetailView 
-            item={selectedItem} 
-            onClose={() => setSelectedItem(null)} 
-            handleEdit={handleEdit}
-            handleDelete={handleDelete}
-        />;
-    }
+  if (selectedItem && !showEditModal) {
+    return <DetailView 
+      item={selectedItem} 
+      onClose={() => setSelectedItem(null)} 
+      handleEdit={handleEdit}
+      handleDelete={handleDelete}
+      reviews={selectedItemReviews}
+      reviewsLoading={loadingSelectedItemReviews}
+      reviewsError={selectedItemReviewsError}
+    />;
+  }
  
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
@@ -1484,6 +1779,24 @@ const MyShopItem = () => {
                                 <p className="text-gray-600 text-sm mb-4 line-clamp-3">
                                     {item.product_description || 'No description available'}
                                 </p>
+
+                <div className="flex items-center text-sm text-gray-600 mb-4">
+                  {Number.isFinite(Number(item.rating)) && Number(item.rating) > 0 ? (
+                    <>
+                      <div className="flex items-center mr-2 text-yellow-400">
+                        {renderStars(Number(item.rating))}
+                      </div>
+                      <span className="font-semibold text-gray-700 mr-2">{Number(item.rating).toFixed(1)}</span>
+                      {Number(item.review_count) > 0 && (
+                        <span className="text-xs text-gray-500">
+                          ({Number(item.review_count)} {Number(item.review_count) === 1 ? 'review' : 'reviews'})
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-400">No reviews yet</span>
+                  )}
+                </div>
 
                                 {/* Price */}
                                 <div className="flex items-center text-green-700 font-bold text-lg mb-4">
