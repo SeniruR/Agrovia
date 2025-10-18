@@ -9,7 +9,7 @@ import { useMonthlyCropLimit } from "../../hooks/useMonthlyCropLimit";
 import { Package } from 'lucide-react';
 
 function AllCropsView() {
-  const { user } = useAuth();
+  const { user, getAuthHeaders, loading: authLoading } = useAuth();
   const [viewMode, setViewMode] = useState('grid');
   const [selectedType, setSelectedType] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -31,6 +31,8 @@ function AllCropsView() {
 
   // Fetch crops from API
   useEffect(() => {
+    if (authLoading) return;
+
     // Sample crops as fallback
     const sampleCrops = [
       {
@@ -55,9 +57,25 @@ function AllCropsView() {
     const fetchCrops = async () => {
       try {
         setLoading(true);
-        const response = await cropService.getAllEnhanced(1, 50); // Get more crops for display
-        
-        if (response.success && response.data) {
+        if (!user || !user.id) {
+          setError('You need to be logged in as a farmer to view your crops.');
+          setCrops([]);
+          setLoading(false);
+          return;
+        }
+
+        const authHeaders = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
+
+        if (!authHeaders || !authHeaders.Authorization) {
+          setError('Authentication token missing. Please log in again.');
+          setCrops(sampleCrops);
+          setLoading(false);
+          return;
+        }
+
+        const response = await cropService.getMyPosts(authHeaders);
+
+        if (response.success && Array.isArray(response.data)) {
           // Map API response to component format
           const mappedCrops = response.data.map(crop => ({
             id: crop.id,
@@ -81,7 +99,7 @@ function AllCropsView() {
           }));
           setCrops(mappedCrops);
         } else {
-          setError('Failed to fetch crops');
+          setError(response.message || 'Failed to fetch crops');
           // Fallback to sample data
           setCrops(sampleCrops);
         }
@@ -96,7 +114,9 @@ function AllCropsView() {
     };
 
     fetchCrops();
-  }, []);
+  }, [authLoading, user, getAuthHeaders]);
+
+  const normalizedSelectedStatus = selectedStatus ? selectedStatus.toLowerCase() : '';
 
   // Only show crops posted by the current farmer (any status)
   const filteredCrops = crops
@@ -112,7 +132,11 @@ function AllCropsView() {
       crop.location.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .filter(crop => !selectedType || crop.type === selectedType)
-    .filter(crop => !selectedStatus || crop.status === selectedStatus)
+    .filter(crop => {
+      if (!normalizedSelectedStatus) return true;
+      const cropStatus = typeof crop.status === 'string' ? crop.status.toLowerCase() : '';
+      return cropStatus === normalizedSelectedStatus;
+    })
     .sort((a, b) => {
       switch (sortBy) {
         case 'oldest': return a.id - b.id;

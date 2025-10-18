@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Upload, Store, AlertCircle } from 'lucide-react';
 
-const ShopComplaintForm = ({ onBack }) => {
+const ShopComplaintForm = ({ onBack, onNavigate }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -21,10 +21,10 @@ const ShopComplaintForm = ({ onBack }) => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
-        const userObj = JSON.parse(userStr);
-        if (userObj.id) {
-          setFormData(prev => ({ ...prev, userId: userObj.id }));
-        }
+  const userObj = JSON.parse(userStr);
+  const uid = userObj.id || userObj.user_id || userObj.userId;
+  const full = userObj.full_name || userObj.fullName || userObj.name || '';
+  setFormData(prev => ({ ...prev, userId: uid || prev.userId, submittedBy: full || prev.submittedBy }));
       } catch {}
     }
   }, []);
@@ -97,6 +97,8 @@ const ShopComplaintForm = ({ onBack }) => {
           title: '', description: '', submittedBy: '', priority: 'medium', shopName: '', location: '', category: '', orderNumber: '', purchaseDate: ''
         });
         setAttachments([]);
+  // navigate back to complaint dashboard when parent provides callback
+  if (typeof onNavigate === 'function') onNavigate('dashboard');
       } else {
         setApiError(data.error || 'Submission failed');
       }

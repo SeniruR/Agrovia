@@ -24,7 +24,7 @@ const EditCropPost = () => {
     freshly_harvested: false,
     contact_number: '',
     email: '',
-    status: 'pending',
+  status: 'pending',
     images: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,6 +34,14 @@ const EditCropPost = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [existingImages, setExistingImages] = useState([]); // {id, url}
   const [removedImages, setRemovedImages] = useState([]);
+
+  const formatStatus = (status) => {
+    if (!status) return 'Pending';
+    return status
+      .toString()
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
 
   useEffect(() => {
     const fetchCropPost = async () => {
@@ -60,6 +68,8 @@ const EditCropPost = () => {
         }
         setExistingImages(images);
 
+        const supportedStatuses = ['pending','approved','rejected','sold','available','active','inactive','reserved','deleted'];
+
         setFormData({
           crop_name: data.crop_name || '',
           crop_category: data.crop_category || 'vegetables',
@@ -78,7 +88,7 @@ const EditCropPost = () => {
           freshly_harvested: Boolean(data.freshly_harvested),
           contact_number: data.contact_number || '',
           email: data.email || '',
-          status: ['pending','approved','rejected','sold','available'].includes(data.status) ? data.status : 'pending',
+          status: supportedStatuses.includes(data.status) ? data.status : 'pending',
           images: []
         });
       } catch (error) {
@@ -214,6 +224,7 @@ const EditCropPost = () => {
         organic_certified: formData.organic_certified ? 1 : 0,
         pesticide_free: formData.pesticide_free ? 1 : 0,
         freshly_harvested: formData.freshly_harvested ? 1 : 0,
+        status: 'active'
       };
 
       Object.entries(dataToSend).forEach(([key, value]) => {
@@ -458,19 +469,12 @@ const EditCropPost = () => {
               {/* Status */}
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Status</label>
-                <select
-                  name="status"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="sold">Sold</option>
-                  <option value="available">Available</option>
-                </select>
+                <div className="w-full px-4 py-3 rounded-lg border border-green-200 bg-green-50 text-green-800">
+                  <p className="font-semibold">Current: {formatStatus(formData.status)}</p>
+                  <p className="text-sm text-green-700 mt-1">
+                    Once you save your changes, this crop post will be set to <span className="font-semibold">Active</span> automatically.
+                  </p>
+                </div>
               </div>
               {/* Images */}
               <div className="sm:col-span-2">

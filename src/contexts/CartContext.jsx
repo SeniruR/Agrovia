@@ -34,7 +34,8 @@ export const CartProvider = ({ children }) => {
           location: item.district || item.location, // Use district if available, fallback to location
           image: item.productImage,
           quantity: item.quantity,
-          addedAt: item.createdAt
+          addedAt: item.createdAt,
+          productType: item.productType || 'crop' // Include productType from database
         }));
 
         // Try to fetch transport allocations and merge into cart items so selections persist after refresh
@@ -144,10 +145,12 @@ export const CartProvider = ({ children }) => {
   }, [cartItems]);
   
   const addToCart = async (product, quantity = 1) => {
+    console.log('📦 Adding to cart:', { product, quantity, user: !!user });
     try {
       if (user) {
         // Add to database if user is logged in
-        const response = await axios.post(`${API_URL}/cart`, {
+        console.log('🔐 User logged in, saving to database...');
+        const cartData = {
           productId: product.id,
           quantity,
           productName: product.name,
@@ -155,16 +158,25 @@ export const CartProvider = ({ children }) => {
           productUnit: product.unit,
           farmerName: product.farmer,
           location: product.district || product.location, // Use district if available, fallback to location
-          productImage: product.image
-        }, {
+          district: product.district || product.location, // Also send district field separately
+          productImage: product.image,
+          productType: product.productType || 'crop' // Default to 'crop' if not specified
+        };
+        console.log('📊 Cart data being sent:', cartData);
+        
+        const response = await axios.post(`${API_URL}/cart`, cartData, {
           headers: getAuthHeaders()
         });
         
+        console.log('✅ Cart API response:', response.data);
         if (response.data.success) {
           // Refetch cart items to get the updated list from server
           fetchCartItems();
+        } else {
+          console.error('❌ Cart API returned success: false');
         }
       } else {
+        console.log('👤 User not logged in, saving to localStorage only');
         // Add to local state if user is not logged in
         setCartItems(prevItems => {
           const existingItem = prevItems.find(item => item.id === product.id);
@@ -195,9 +207,16 @@ export const CartProvider = ({ children }) => {
       
       console.log(`Added ${quantity} ${product.unit} of ${product.name} to cart`);
     } catch (err) {
-      console.error('Error adding item to cart:', err);
+      console.error('❌ Error adding item to cart:', err);
+      console.error('🔍 Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText
+      });
       setError('Failed to add item to cart');
       
+      console.log('⚠️ Falling back to local storage due to API error');
       // Add to local state as fallback if API call fails
       setCartItems(prevItems => {
         const existingItem = prevItems.find(item => item.id === product.id);

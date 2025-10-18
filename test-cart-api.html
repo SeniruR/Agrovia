@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            border: 1px solid #ccc;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        button { 
+            padding: 10px 20px; 
+            margin: 10px 0; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+        }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Cart API Test Tool</h1>
+    <p>This tool helps debug why shop items aren't persisting in the cart database.</p>
+    
+    <button onclick="testCartAPI()">Test Cart API</button>
+    <button onclick="testAuthStatus()">Test Auth Status</button>
+    <button onclick="testAddShopItem()">Test Add Shop Item</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api/v1';
+        
+        function addResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        function getAuthToken() {
+            return localStorage.getItem('authToken');
+        }
+        
+        function getAuthHeaders() {
+            const token = getAuthToken();
+            if (token) {
+                return {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                };
+            }
+            return { 'Content-Type': 'application/json' };
+        }
+        
+        async function testAuthStatus() {
+            addResult('🔍 Testing Authentication Status...', 'info');
+            
+            const token = getAuthToken();
+            if (!token) {
+                addResult('❌ No auth token found in localStorage', 'error');
+                return;
+            }
+            
+            addResult(`✅ Auth token found: ${token.substring(0, 20)}...`, 'success');
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/me`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    addResult(`✅ User authenticated: <pre>${JSON.stringify(userData, null, 2)}</pre>`, 'success');
+                } else {
+                    addResult(`❌ Auth check failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Auth check error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testCartAPI() {
+            addResult('🛒 Testing Cart API Endpoints...', 'info');
+            
+            // Test GET cart
+            try {
+                const getResponse = await fetch(`${API_URL}/cart`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (getResponse.ok) {
+                    const cartData = await getResponse.json();
+                    addResult(`✅ GET /cart successful: <pre>${JSON.stringify(cartData, null, 2)}</pre>`, 'success');
+                } else {
+                    addResult(`❌ GET /cart failed: ${getResponse.status} ${getResponse.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ GET /cart error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAddShopItem() {
+            addResult('🛍️ Testing Add Shop Item to Cart...', 'info');
+            
+            const testShopItem = {
+                productId: 12345, // Test ID
+                quantity: 2,
+                productName: 'Test Shop Item',
+                priceAtAddTime: 150.00,
+                productUnit: 'pieces',
+                farmerName: 'Test Shop',
+                location: 'Test City',
+                productImage: 'https://example.com/test-image.jpg'
+            };
+            
+            addResult(`📦 Test data: <pre>${JSON.stringify(testShopItem, null, 2)}</pre>`, 'info');
+            
+            try {
+                const response = await fetch(`${API_URL}/cart`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(testShopItem)
+                });
+                
+                const responseData = await response.json();
+                
+                if (response.ok && responseData.success) {
+                    addResult(`✅ POST /cart successful: <pre>${JSON.stringify(responseData, null, 2)}</pre>`, 'success');
+                    
+                    // Test if item was actually saved by fetching cart
+                    setTimeout(async () => {
+                        try {
+                            const getResponse = await fetch(`${API_URL}/cart`, {
+                                headers: getAuthHeaders()
+                            });
+                            const cartData = await getResponse.json();
+                            const foundItem = cartData.data?.find(item => item.productId === testShopItem.productId);
+                            
+                            if (foundItem) {
+                                addResult(`✅ Item found in cart after save: <pre>${JSON.stringify(foundItem, null, 2)}</pre>`, 'success');
+                            } else {
+                                addResult(`❌ Item NOT found in cart after save. Cart contents: <pre>${JSON.stringify(cartData, null, 2)}</pre>`, 'error');
+                            }
+                        } catch (error) {
+                            addResult(`❌ Error checking cart after save: ${error.message}`, 'error');
+                        }
+                    }, 1000);
+                } else {
+                    addResult(`❌ POST /cart failed: <pre>${JSON.stringify(responseData, null, 2)}</pre>`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ POST /cart error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-run basic tests when page loads
+        window.onload = function() {
+            addResult('🚀 Cart API Test Tool Loaded', 'info');
+            addResult('💡 Click the buttons above to run tests', 'info');
+        };
+    </script>
+</body>
+</html>

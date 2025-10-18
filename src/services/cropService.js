@@ -87,6 +87,24 @@ export const cropService = {
     }
   },
 
+  // Get authenticated farmer's crop posts (all statuses except deleted)
+  getMyPosts: async (headers = {}) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/crop-posts/user/my-posts`, {
+        headers,
+        withCredentials: true
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching farmer crop posts:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch farmer crop posts',
+        data: []
+      };
+    }
+  },
+
   // Search crops with filters
   searchCrops: async (searchTerm, filters = {}) => {
     try {

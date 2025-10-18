@@ -1,21 +1,128 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CheckCircle, Truck, Package, Clock, AlertCircle, Search, Phone } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const MyOrders = () => {
-  const { getAuthHeaders, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const { getAuthHeaders, loading: authLoading, user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
   const [transportFilter, setTransportFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [collectingItems, setCollectingItems] = useState({});
+  const [actionError, setActionError] = useState(null);
+  const [actionSuccess, setActionSuccess] = useState(null);
+
+  function extractUserId(userData) {
+    if (!userData || typeof userData !== 'object') return null;
+    if (userData.id !== undefined && userData.id !== null) return userData.id;
+    if (userData.user_id !== undefined && userData.user_id !== null) return userData.user_id;
+    if (userData.userId !== undefined && userData.userId !== null) return userData.userId;
+    if (userData.data && typeof userData.data === 'object') {
+      const nested = extractUserId(userData.data);
+      if (nested !== null) return nested;
+    }
+    if (userData.user && typeof userData.user === 'object') {
+      const nested = extractUserId(userData.user);
+      if (nested !== null) return nested;
+    }
+    return null;
+  }
+
+  const normalizeId = (value) => {
+    if (value === null || value === undefined) return null;
+    const numeric = Number(value);
+    return Number.isNaN(numeric) ? null : numeric;
+  };
+
+  const currentUserId = normalizeId(extractUserId(user));
+  const userRole = ((user && (user.role ?? user.user_type)) || '').toString().toLowerCase();
+  const isPrivilegedRole = ['admin', 'moderator', 'main_moderator'].includes(userRole);
+
+  const getOrderBuyerId = (order) => normalizeId(order?.userId ?? order?.user_id ?? order?.buyerId ?? order?.customerId);
+  const getProductFarmerId = (product) => normalizeId(product?.productFarmerId ?? product?.farmerId ?? product?.farmer_id);
+  const getProductShopOwnerId = (product) => normalizeId(product?.productShopOwnerId ?? product?.shopOwnerId ?? product?.shop_owner_id);
+
+  const canUserCollectProduct = (product, order) => {
+    if (!product || !order) return false;
+    if (isPrivilegedRole) return true;
+    if (currentUserId === null) return false;
+    const buyerId = getOrderBuyerId(order);
+    const farmerId = getProductFarmerId(product);
+    const shopOwnerId = getProductShopOwnerId(product);
+    const allowedIds = [buyerId, farmerId, shopOwnerId].filter((id) => id !== null);
+    return allowedIds.includes(currentUserId);
+  };
+
+  const isPickupProduct = (product) => !product?.transports || product.transports.length === 0;
+
+  const handleMarkCollected = async (orderId, itemId) => {
+    if (!orderId || !itemId) return;
+
+    const itemKey = `${orderId}-${itemId}`;
+    setCollectingItems(prev => ({ ...prev, [itemKey]: true }));
+    setActionError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/orders/${orderId}/items/${itemId}/collect`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        credentials: 'include'
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) {
+        const message = payload?.message || 'Failed to update order item status';
+        throw new Error(message);
+      }
+
+      setOrders(prevOrders => prevOrders.map(order => {
+        if (Number(order.id) !== Number(orderId)) return order;
+        const updatedProducts = (order.products || []).map(product => {
+          if (Number(product.id) !== Number(itemId)) return product;
+          return {
+            ...product,
+            status: 'completed'
+          };
+        });
+
+        const allCompleted = updatedProducts.every(product => {
+          const state = (product.status || '').toString().toLowerCase();
+          return state === 'completed' || state === 'delivered';
+        });
+
+        return {
+          ...order,
+          status: allCompleted ? 'COMPLETED' : order.status,
+          products: updatedProducts
+        };
+      }));
+
+      setActionSuccess('Item marked as collected successfully.');
+    } catch (err) {
+      setActionError(err.message || 'Failed to mark item as collected.');
+    } finally {
+      setCollectingItems(prev => {
+        const { [itemKey]: _removed, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const res = await fetch('http://localhost:5000/api/v1/orders', {
+        setError(null);
+        const res = await fetch(`${API_BASE_URL}/api/v1/orders`, {
           headers: {
             'Content-Type': 'application/json',
             ...getAuthHeaders()
@@ -26,6 +133,8 @@ const MyOrders = () => {
         const data = await res.json();
         if (data.success) {
           setOrders(data.data);
+          setActionError(null);
+          setActionSuccess(null);
         } else {
           throw new Error(data.message || 'Error fetching orders');
         }
@@ -38,6 +147,15 @@ const MyOrders = () => {
     // Wait until auth loading finishes
     if (!authLoading) fetchOrders();
   }, [getAuthHeaders, authLoading]);
+
+  useEffect(() => {
+    if (!actionError && !actionSuccess) return undefined;
+    const timer = setTimeout(() => {
+      setActionError(null);
+      setActionSuccess(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [actionError, actionSuccess]);
 
   if (authLoading || loading) return <p>Loading orders...</p>;
   if (error) return <p className="text-red-600">Error: {error}</p>;
@@ -138,6 +256,11 @@ const MyOrders = () => {
       const itemStatus = itemStatusRaw ? itemStatusRaw.toString().toLowerCase() : '';
       const transport = (product.transports && product.transports.length > 0) ? product.transports[0] : null;
       const tstatus = getTransportStatus(transport, itemStatusRaw);
+      const itemKey = `${order.id}-${product.id}`;
+      const isCompleted = ['completed', 'delivered'].includes(itemStatus);
+      const pickupEligible = isPickupProduct(product);
+      const canCollect = pickupEligible && !isCompleted && canUserCollectProduct(product, order);
+      const collecting = Boolean(collectingItems[itemKey]);
 
       return (
         <li key={product.id} className="mb-2 w-full">
@@ -166,6 +289,13 @@ const MyOrders = () => {
                               Call transporter
                             </a>
                           ) : null}
+                          <button
+                            type="button"
+                            onClick={() => navigate('/agrishop', { state: { openReviewForProductId: product.productId || product.product_id || null } })}
+                            className="inline-flex items-center px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md text-sm"
+                          >
+                            Submit review
+                          </button>
                         </div>
                       </div>
                       <div className="text-xs text-gray-500 mt-3">Note: You can arrange transport dates according to your preference.</div>
@@ -214,6 +344,44 @@ const MyOrders = () => {
                         <div className="mt-1 text-sm text-green-700">{product.productLocation || product.location || product.farmerName || 'Seller location'}</div>
                       )}
                       <div className="text-sm text-gray-700 mt-2">Amount: {product.quantity} {product.productUnit || product.unit || product.productUnitName || ''}</div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {product.productFarmerPhone ? (
+                          <a href={`tel:${product.productFarmerPhone}`} className="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm">
+                            <Phone className="w-4 h-4 mr-2" />
+                            Call farmer
+                          </a>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => navigate('/agrishop', { state: { openReviewForProductId: product.productId || product.product_id || null } })}
+                          className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700"
+                        >
+                          Submit review
+                        </button>
+                        {canCollect ? (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkCollected(order.id, product.id)}
+                            disabled={collecting}
+                            className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white transition-colors ${collecting ? 'bg-green-400 cursor-not-allowed opacity-75' : 'bg-green-600 hover:bg-green-700'}`}
+                          >
+                            {collecting ? (
+                              <>
+                                <Clock className="w-4 h-4 mr-2" />
+                                Marking...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Mark as collected
+                              </>
+                            )}
+                          </button>
+                        ) : null}
+                        {pickupEligible && !canCollect && !isCompleted ? (
+                          <span className="text-xs text-gray-500">Only the buyer, farmer, shop owner, or moderators can mark this collected.</span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -268,6 +436,17 @@ const MyOrders = () => {
             </div>
           </div>
         </div>
+        {/* Status Filter Tabs */}
+        {(actionError || actionSuccess) && (
+          <div className="mb-6 space-y-2">
+            {actionError ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
+            ) : null}
+            {actionSuccess ? (
+              <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionSuccess}</div>
+            ) : null}
+          </div>
+        )}
         {/* Status Filter Tabs */}
         <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
           <div className="flex divide-x divide-gray-200">

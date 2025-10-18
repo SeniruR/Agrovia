@@ -1,6 +1,18 @@
 import React from 'react';
 import { Filter, Grid, List, Plus, Search } from 'lucide-react';
 import AddCropPostButton from '../../ui/AddCropPostButton';
+const statusOptions = [
+  { value: '', label: 'All Statuses' },
+  { value: 'available', label: 'Available' },
+  { value: 'sold', label: 'Sold' },
+  { value: 'reserved', label: 'Reserved' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'deleted', label: 'Deleted' }
+];
+
 const FarmFilterBar = ({
   viewMode,
   onViewModeChange,
@@ -51,10 +63,11 @@ const FarmFilterBar = ({
             onChange={(e) => onStatusChange(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
           >
-            <option value="">All Status</option>
-            <option value="available">Available</option>
-            <option value="sold">Sold</option>
-            <option value="reserved">Reserved</option>
+            {statusOptions.map((status) => (
+              <option key={status.value || 'all'} value={status.value}>
+                {status.label}
+              </option>
+            ))}
           </select>
 
           <select
