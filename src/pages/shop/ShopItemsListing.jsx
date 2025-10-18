@@ -31,7 +31,7 @@ const ImageWithFallback = ({ src, alt, className }) => {
   );
 };
 
-const ShopItemsListing = ({ onItemClick, onViewCart }) => {
+const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('rating');
@@ -40,6 +40,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [orderedProductIds, setOrderedProductIds] = useState(new Set());
+  const [canReviewSelectedProduct, setCanReviewSelectedProduct] = useState(false);
   const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -64,6 +66,65 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [modalQuantity, setModalQuantity] = useState(1);
   const fileInputRef = useRef(null);
   const { user, getAuthHeaders } = useAuth();
+  // Fetch current user's orders once to determine which products they purchased
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        const authToken = localStorage.getItem('authToken');
+        const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
+        const res = await fetch('http://localhost:5000/api/v1/orders', {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authToken ? `Bearer ${authToken}` : (authHeaders.Authorization || ''),
+          },
+          credentials: 'include'
+        });
+        if (!res.ok) return; // silently ignore if not logged in or error
+        const data = await res.json().catch(() => ({}));
+        const orders = Array.isArray(data?.data) ? data.data : [];
+        const ids = new Set();
+        for (const order of orders) {
+          const items = Array.isArray(order.products) ? order.products : [];
+          for (const it of items) {
+            const pid = Number(it.productId || it.product_id);
+            if (Number.isFinite(pid)) ids.add(pid);
+          }
+        }
+        setOrderedProductIds(ids);
+      } catch (_) {
+        // ignore
+      }
+    };
+    loadOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Compute if current user can review the selected product (must be farmer and have ordered it)
+  useEffect(() => {
+    if (!selectedProduct || !user) {
+      setCanReviewSelectedProduct(false);
+      return;
+    }
+    const roleStr = ((user && (user.role ?? user.user_type)) || '').toString().toLowerCase();
+    const isFarmer = roleStr.includes('farmer');
+    const pid = Number(selectedProduct.id || selectedProduct.productId || selectedProduct.shop_id);
+    const hasOrdered = Number.isFinite(pid) && orderedProductIds.has(pid);
+    setCanReviewSelectedProduct(Boolean(isFarmer && hasOrdered));
+  }, [selectedProduct, user, orderedProductIds]);
+  // Open review modal if asked via navigation state
+  useEffect(() => {
+    if (!initialReviewRequest || !Array.isArray(shopItems) || shopItems.length === 0) return;
+    const pid = Number(initialReviewRequest.productId);
+    if (!pid) return;
+    const target = shopItems.find(it => Number(it.id || it.productId || it.shop_id) === pid);
+    if (target) {
+      setSelectedProduct(target);
+      // Ensure reviews load for product
+      fetchShopReviews(target);
+      // Then open review modal
+      setShowReviewModal(true);
+    }
+  }, [initialReviewRequest, shopItems]);
   
   // Log the user data when it changes to help with debugging
   useEffect(() => {
@@ -1549,16 +1610,18 @@ useEffect(() => {
                   <p className="text-xl font-bold text-gray-800">
                     {selectedProduct.available_quantity} {selectedProduct.unit}s
                   </p>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenReviewModal();
-                    }}
-                    className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2 w-full"
-                  >
-                    <Star className="w-5 h-5" />
-                    Write a Review
-                  </button>
+                  {canReviewSelectedProduct && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenReviewModal();
+                      }}
+                      className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2 w-full"
+                    >
+                      <Star className="w-5 h-5" />
+                      Write a Review
+                    </button>
+                  )}
                 </div>
                 {/* Description Section */}
                 <div className="bg-gray-50 p-6 rounded-lg">
@@ -1604,18 +1667,20 @@ useEffect(() => {
                       )}
                     </div>
                     
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenReviewModal();
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                      Write a Review
-                    </button>
+                    {canReviewSelectedProduct && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenReviewModal();
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        Write a Review
+                      </button>
+                    )}
                   </div>
                   
                   {loadingReviews ? (
@@ -1632,18 +1697,20 @@ useEffect(() => {
                       </div>
                       <p className="text-gray-500 mb-3 text-lg font-medium">No reviews yet</p>
                       <p className="text-gray-400 mb-5 text-center max-w-sm">Be the first to share your experience with this product!</p>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenReviewModal();
-                        }}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center gap-2"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        Write the First Review
-                      </button>
+                      {canReviewSelectedProduct && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenReviewModal();
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center gap-2"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          Write the First Review
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-6">
