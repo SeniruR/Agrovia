@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 // 💡 Add axios for API calls
 import axios from 'axios'; 
-import { Bug, AlertTriangle, Eye, Calendar, ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Bug, AlertTriangle, Eye, Calendar, ArrowLeft, Plus, Trash2, User } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const ViewPestAlerts = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,6 +15,17 @@ const ViewPestAlerts = () => {
 
   // --- API Configuration ---
   const API_ENDPOINT = 'http://localhost:5000/api/pest-alert';
+
+  // Check if current user can delete this alert (only owns it)
+  const canDeleteAlert = (alert) => {
+    if (!user) return false;
+    
+    // All users (including moderators) can only delete their own alerts
+    const currentUserId = user.id || user._id;
+    const alertOwnerId = alert.postedByUserId || alert.userId || alert.createdBy || alert.moderatorId;
+    
+    return currentUserId && alertOwnerId && currentUserId.toString() === alertOwnerId.toString();
+  };
 
   // Function to handle fetching pest alerts from the backend
   const fetchAlerts = async () => {
@@ -221,12 +234,21 @@ const ViewPestAlerts = () => {
                             <Calendar className="w-4 h-4" />
                             <span>Reported: {formatDate(alert.dateSubmitted || alert.createdAt)}</span>
                           </div>
+                          <div className="flex items-center space-x-1">
+                            <User className="w-4 h-4" />
+                            <span>By: {alert.authorName || 'Anonymous'}</span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getSeverityColor(alert.severity)}`}>
                           {alert.severity?.toUpperCase() || 'UNKNOWN'} PRIORITY
                         </span>
+                        {canDeleteAlert(alert) && (
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                            Your Alert
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -290,6 +312,7 @@ const ViewPestAlerts = () => {
                     <div>
                       <h2 className="text-3xl font-bold text-gray-900">{selectedAlert.pestName}</h2>
                       <p className="text-gray-600">Reported on {formatDate(selectedAlert.dateSubmitted || selectedAlert.createdAt)}</p>
+                      <p className="text-gray-500 text-sm">By: {selectedAlert.authorName || 'Anonymous'}</p>
                     </div>
                   </div>
                   <button
@@ -339,17 +362,19 @@ const ViewPestAlerts = () => {
                   <div className="flex gap-4 pt-6 border-t">
                     <button
                       onClick={() => setSelectedAlert(null)}
-                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-xl font-semibold transition-colors"
+                      className={`${canDeleteAlert(selectedAlert) ? 'flex-1' : 'w-full'} bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-xl font-semibold transition-colors`}
                     >
                       Close
                     </button>
-                    <button 
-                      onClick={() => handleDeleteAlert(selectedAlert.id || selectedAlert._id)}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete Alert
-                    </button>
+                    {canDeleteAlert(selectedAlert) && (
+                      <button 
+                        onClick={() => handleDeleteAlert(selectedAlert.id || selectedAlert._id)}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Alert
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
