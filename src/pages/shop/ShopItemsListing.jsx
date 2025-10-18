@@ -51,6 +51,9 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [rating, setRating] = useState(0);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewImages, setReviewImages] = useState([]);
+  // For edit mode: existing attachment filenames and which to keep
+  const [existingAttachments, setExistingAttachments] = useState([]);
+  const [removedExistingIdx, setRemovedExistingIdx] = useState(new Set());
   const [submittingReview, setSubmittingReview] = useState(false);
   const [currentUserData, setCurrentUserData] = useState(null);
   const [shopReviews, setShopReviews] = useState([]);
@@ -135,6 +138,16 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
             
             // Filter out any empty strings or null values
             parsedAttachments = parsedAttachments.filter(item => item && item.trim() !== '');
+            // Normalize to just filename (strip any path like /uploads/abc.png)
+            parsedAttachments = parsedAttachments.map(item => {
+              try {
+                const val = item.toString();
+                const parts = val.split('/');
+                return parts[parts.length - 1];
+              } catch {
+                return item;
+              }
+            });
             
           } catch (err) {
             console.error("Error parsing attachments:", err);
@@ -205,6 +218,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     setRating(0);
     setReviewComment('');
     setReviewImages([]);
+    setExistingAttachments([]);
+    setRemovedExistingIdx(new Set());
   };
   
   const handleCloseReviewModal = () => {
@@ -227,6 +242,22 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     setRating(reviewToEdit.rating);
     setReviewComment(reviewToEdit.comment || '');
     setReviewImages([]); // Reset images for upload
+    // Load existing attachment filenames for edit UI
+    const existing = (reviewToEdit.attachments || []).map(a => {
+      // Normalize to filename if path provided
+      if (typeof a === 'string') {
+        // If it looks like a URL/path, take last segment
+        const parts = a.split('/');
+        return parts[parts.length - 1];
+      }
+      if (a && a.path) {
+        const parts = a.path.split('/');
+        return parts[parts.length - 1];
+      }
+      return a;
+    }).filter(Boolean);
+    setExistingAttachments(existing);
+    setRemovedExistingIdx(new Set());
     setShowReviewModal(true);
   };
   
@@ -390,7 +421,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       
       console.log('Using user data for review:', { userId, farmerName });
       
-      // Create regular JSON data first (not FormData) to match what the API expects
+  // Create regular JSON data first (not FormData) to match what the API expects
       const reviewData = {
         rating: Number(rating), // Ensure this is a number
         comment: reviewComment || "", // Make sure it's not undefined
@@ -399,57 +430,51 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         farmer_name: farmerName.trim() // Use the determined farmer name, ensuring no extra spaces
       };
       
-      // Handle attachments as an array of filenames
+      // Handle attachments correctly: upload images first, use server filenames
+      let finalAttachmentNames = [];
+      // Start with existing attachments when editing (minus those user removed)
+      if (editingReview && existingAttachments.length > 0) {
+        finalAttachmentNames = existingAttachments.filter((_, idx) => !removedExistingIdx.has(idx));
+      }
+
+      // Upload any new images and collect server filenames
       if (reviewImages && reviewImages.length > 0) {
-        const validImages = reviewImages.slice(0, 5); // Ensure max 5 images
-        
-        // Create an array of file names to send as attachments
-        const fileNames = validImages.map(image => image.name);
-        
-        // Add attachments field to the reviewData
-        try {
-          reviewData.attachments = JSON.stringify(fileNames);
-        } catch (jsonError) {
-          console.error('Error stringifying file names:', jsonError);
-          reviewData.attachments = '[]'; // Fall back to empty array
-        }
-        
-        // Now upload the actual image files
-        for (const image of validImages) {
+        const validImages = reviewImages.slice(0, Math.max(0, 5 - finalAttachmentNames.length));
+        if (validImages.length) {
           const formData = new FormData();
-          formData.append('file', image);
-          
+          validImages.forEach(f => formData.append('attachments', f));
+
           try {
-            // Get auth token
             const imageAuthToken = localStorage.getItem('authToken');
             const imageAuthHeaders = getAuthHeaders ? getAuthHeaders() : {};
-            
-            // Upload each image file
-            const uploadResponse = await fetch('http://localhost:5000/api/v1/upload', {
+            const uploadResponse = await fetch('http://localhost:5000/api/v1/upload/review-attachments', {
               method: 'POST',
               headers: {
                 'Authorization': imageAuthToken ? `Bearer ${imageAuthToken}` : (imageAuthHeaders.Authorization || ''),
               },
               body: formData,
             });
-            
-            if (!uploadResponse.ok) {
-              console.error(`Failed to upload image: ${image.name}`);
+            if (uploadResponse.ok) {
+              const uploadJson = await uploadResponse.json();
+              const serverNames = (uploadJson.files || []).map(f => {
+                // f.filename is server stored name
+                return f.filename;
+              }).filter(Boolean);
+              finalAttachmentNames = [...finalAttachmentNames, ...serverNames].slice(0, 5);
+            } else {
+              console.error('Failed to upload review attachments:', uploadResponse.status);
             }
           } catch (uploadError) {
-            console.error(`Error uploading image: ${image.name}`, uploadError);
+            console.error('Error uploading review attachments:', uploadError);
           }
         }
-      } else if (editingReview && editingReview.attachments && editingReview.attachments.length > 0) {
-        // If editing and no new images were added, keep the existing attachments
-        try {
-          reviewData.attachments = JSON.stringify(editingReview.attachments);
-        } catch (jsonError) {
-          console.error('Error stringifying existing attachments:', jsonError);
-          reviewData.attachments = '[]'; // Fall back to empty array
-        }
-      } else {
-        // Use empty array if no attachments
+      }
+
+      // Ensure attachments field is valid JSON array
+      try {
+        reviewData.attachments = JSON.stringify(finalAttachmentNames);
+      } catch (jsonError) {
+        console.error('Error stringifying attachment names:', jsonError);
         reviewData.attachments = '[]';
       }
       
@@ -547,7 +572,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         credentials: 'include' // Include cookies if needed for authentication
       });
       
-      if (!response.ok) {
+  if (!response.ok) {
       // Try to get detailed error message from the response
       let errorMessage = 'Failed to submit review';
       try {
@@ -606,7 +631,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         setTimeout(() => document.body.removeChild(toast), 300);
       }, 2000);
       
-      // Refresh the reviews after submitting a new one
+      // Refresh the reviews after submitting
       if (selectedProduct) {
         fetchShopReviews(selectedProduct);
       }
@@ -1809,13 +1834,57 @@ useEffect(() => {
                 ></textarea>
               </div>
               
+              {/* Existing attachments (edit mode) */}
+              {editingReview && existingAttachments.length > 0 && (
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-medium mb-2">Existing attachments</label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {existingAttachments.map((name, idx) => (
+                      <div key={`${name}-${idx}`} className={`relative bg-gray-100 p-1 rounded-md border ${removedExistingIdx.has(idx) ? 'opacity-50 border-red-300' : 'border-gray-200'}`}>
+                        <img
+                          src={`http://localhost:5000/uploads/${name}`}
+                          alt={`Existing ${idx + 1}`}
+                          className="h-16 w-16 object-cover rounded-md"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://via.placeholder.com/80?text=Image';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className={`absolute -top-2 -right-2 rounded-full w-5 h-5 flex items-center justify-center text-xs ${removedExistingIdx.has(idx) ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+                          title={removedExistingIdx.has(idx) ? 'Undo remove' : 'Remove'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRemovedExistingIdx(prev => {
+                              const next = new Set(prev);
+                              if (next.has(idx)) next.delete(idx); else next.add(idx);
+                              return next;
+                            });
+                          }}
+                        >
+                          {removedExistingIdx.has(idx) ? '↺' : '✕'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {existingAttachments.length - removedExistingIdx.size > 0 && (
+                    <p className="mt-2 text-xs text-gray-500">{existingAttachments.length - removedExistingIdx.size} will be kept</p>
+                  )}
+                </div>
+              )}
+
               <div className="mb-6">
                 <label className="block text-gray-700 font-medium mb-2">
                   Upload Images: <span className="text-amber-600 text-sm">(Maximum 5 images)</span>
                 </label>
+                {(() => {
+                  const keptExisting = editingReview ? (existingAttachments.length - removedExistingIdx.size) : 0;
+                  const totalSelected = keptExisting + reviewImages.length;
+                  const atLimit = totalSelected >= 5;
+                  return (
                 <div 
                   className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => { if (!atLimit) fileInputRef.current?.click(); }}
                 >
                   <div className="flex flex-col items-center">
                     <div className="mb-2 text-gray-400">
@@ -1827,7 +1896,7 @@ useEffect(() => {
                     {reviewImages.length > 0 && (
                       <div className="mt-3 text-sm text-emerald-600 font-medium">
                         {reviewImages.length} {reviewImages.length === 1 ? 'file' : 'files'} selected 
-                        {reviewImages.length >= 5 && (
+                        {atLimit && (
                           <span className="text-amber-600"> (Maximum limit reached)</span>
                         )}
                       </div>
@@ -1840,9 +1909,10 @@ useEffect(() => {
                     accept="image/jpeg,image/png,image/gif"
                     multiple
                     onChange={handleFileUpload}
-                    disabled={reviewImages.length >= 5}
+                    disabled={atLimit}
                   />
                 </div>
+                  );})()}
                 {reviewImages.length > 0 && (
                   <div className="mt-2 grid grid-cols-5 gap-2">
                     {reviewImages.slice(0, 5).map((image, index) => (
