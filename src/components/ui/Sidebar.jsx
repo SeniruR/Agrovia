@@ -80,7 +80,7 @@ const shopOwnerMenuItems = [
     { name: 'Agri Shop (Fertilizers)', path: '/agrishop' },
   ] },
   // { label: 'Cart', icon: ShoppingCartOutlinedIcon, path: '/cart' },
-  { label: 'My Orders', icon: DocumentTextIcon, path: '/orders' },
+  { label: 'Farmer Orders', icon: DocumentTextIcon, path: '/shop/orders' },
   { label: 'Price Forecast', icon: DocumentTextIcon, path: '/priceforcast' },
   { label: 'Subscription Plan', icon: CreditCardIcon, path: '/subscriptionmanagement' },
   { label: 'Complaint Dashboard', icon: ChatBubbleLeftRightIcon, path: '/buyer-com-dash' },

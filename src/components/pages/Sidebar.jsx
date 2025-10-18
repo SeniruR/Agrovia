@@ -30,7 +30,7 @@ const menuItems = [
       { name: 'My Crops', path: '/farmviewAllCrops' },
       { name: 'My Delivery', path: '/driversmylist' },
       { name: 'My Organization', path: '/organization' },
-      { name: 'My Orders', path: '/farmervieworders' },
+      { name: 'Farmer Orders', path: '/farmervieworders' },
       { name: 'Price Forcast', path: '/priceforcast' },
     ],
   },
