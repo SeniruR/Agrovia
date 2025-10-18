@@ -31,6 +31,169 @@ const ImageWithFallback = ({ src, alt, className }) => {
   );
 };
 
+const BACKEND_URL = 'http://localhost:5000';
+const MAX_REVIEW_ATTACHMENTS = 1;
+
+const stripBackendPrefix = (value) => {
+  if (!value) return value;
+  if (value.startsWith(BACKEND_URL)) {
+    return value.slice(BACKEND_URL.length).replace(/^\/+/, '');
+  }
+  return value.replace(/^\/+/, '');
+};
+
+const ensureDataUrl = (mimetype, data) => {
+  if (!data || typeof data !== 'string') return null;
+  const trimmed = data.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith('data:') ? trimmed : `data:${mimetype || 'image/jpeg'};base64,${trimmed}`;
+};
+
+const buildAttachmentObject = (entry, index = 0) => {
+  if (!entry) return null;
+
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim();
+    if (!trimmed) return null;
+
+    if (trimmed.startsWith('data:')) {
+      const [meta, payload] = trimmed.split(',');
+      const mime = meta?.slice(5)?.split(';')?.[0] || 'image/jpeg';
+      return {
+        filename: `attachment-${index + 1}`,
+        mimetype: mime,
+        size: null,
+        data: payload || null,
+        legacyPath: null,
+        url: trimmed
+      };
+    }
+
+    const filename = trimmed.split('/').pop();
+    let url;
+    if (trimmed.startsWith('http')) {
+      url = trimmed;
+    } else if (trimmed.startsWith('/uploads/')) {
+      url = `${BACKEND_URL}${trimmed}`;
+    } else {
+      url = `${BACKEND_URL}/uploads/${filename}`;
+    }
+
+    return {
+      filename,
+      mimetype: null,
+      size: null,
+      data: null,
+      legacyPath: trimmed,
+      url
+    };
+  }
+
+  if (typeof entry === 'object') {
+    const filename = entry.filename || entry.name || entry.originalname || `attachment-${index + 1}`;
+    const mimetype = entry.mimetype || entry.type || 'image/jpeg';
+    const size = entry.size ?? null;
+
+    let data = entry.data || entry.base64 || entry.base64Data || null;
+    if (typeof data === 'string') {
+      const trimmedData = data.trim();
+      data = trimmedData.startsWith('data:') ? trimmedData.split(',').pop() : trimmedData;
+    } else {
+      data = null;
+    }
+
+    const legacyPath = entry.legacyPath || entry.path || entry.Location || entry.location || null;
+
+    let url = entry.url || ensureDataUrl(mimetype, data);
+    if (!url && legacyPath) {
+      if (legacyPath.startsWith('http') || legacyPath.startsWith('data:')) {
+        url = legacyPath;
+      } else if (legacyPath.startsWith('/uploads/')) {
+        url = `${BACKEND_URL}${legacyPath}`;
+      } else {
+        url = `${BACKEND_URL}/uploads/${legacyPath}`;
+      }
+    }
+
+    if (!url && filename) {
+      url = `${BACKEND_URL}/uploads/${filename}`;
+    }
+
+    return {
+      filename,
+      mimetype,
+      size,
+      data,
+      legacyPath,
+      url
+    };
+  }
+
+  return null;
+};
+
+const normalizeReviewAttachments = (review) => {
+  if (!review) return [];
+
+  const sources = [];
+
+  if (Array.isArray(review.attachment_blobs)) {
+    sources.push(...review.attachment_blobs);
+  }
+
+  if (Array.isArray(review.attachments)) {
+    sources.push(...review.attachments);
+  } else if (typeof review.attachments === 'string') {
+    sources.push(review.attachments);
+  }
+
+  if (Array.isArray(review.attachment_urls)) {
+    sources.push(...review.attachment_urls);
+  }
+
+  const normalized = [];
+  const seen = new Set();
+
+  sources.forEach((entry, idx) => {
+    const normalizedEntry = buildAttachmentObject(entry, idx);
+    if (!normalizedEntry) return;
+
+    const key = normalizedEntry.url || `${normalizedEntry.filename}-${idx}`;
+    if (!seen.has(key)) {
+      normalized.push(normalizedEntry);
+      seen.add(key);
+    }
+  });
+
+  return normalized;
+};
+
+const serializeAttachmentForSubmit = (attachment) => {
+  if (!attachment) return null;
+
+  const base64FromData = typeof attachment.data === 'string' && attachment.data.trim()
+    ? attachment.data.trim()
+    : null;
+
+  let base64FromUrl = null;
+  if (!base64FromData && typeof attachment.url === 'string' && attachment.url.startsWith('data:')) {
+    base64FromUrl = attachment.url.split(',').pop();
+  }
+
+  const legacyPathCandidate = attachment.legacyPath
+    || (attachment.url && !attachment.url.startsWith('data:') && !attachment.url.startsWith('blob:')
+      ? stripBackendPrefix(attachment.url)
+      : null);
+
+  return {
+    filename: attachment.filename || null,
+    mimetype: attachment.mimetype || 'image/jpeg',
+    size: attachment.size ?? null,
+    data: base64FromData || base64FromUrl || null,
+    legacyPath: legacyPathCandidate || null
+  };
+};
+
 const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -143,85 +306,47 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
   // Function to fetch reviews for a specific shop product
   const fetchShopReviews = async (shopItem) => {
     if (!shopItem) return;
-    
-    // Use product_id or id depending on what's available
+
     const productId = shopItem.id || shopItem.productId || shopItem.shop_id;
     if (!productId) return;
-    
+
     setLoadingReviews(true);
     try {
-      // Get reviews for the specific product
-      
-      // Get auth token and headers
       const authToken = localStorage.getItem('authToken');
       const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
-      
-      // Use URL parameter instead of query parameter
-      const response = await fetch(`http://localhost:5000/api/v1/shop-reviews/${productId}`, {
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/shop-reviews/${productId}`, {
         headers: {
           'Authorization': authToken ? `Bearer ${authToken}` : (authHeaders.Authorization || ''),
         },
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch reviews');
       }
-      
+
       const data = await response.json();
-      
-      // Process reviews to handle attachments properly
-      const processedReviews = (Array.isArray(data) ? data : data.data || []).map(review => {
-        // Parse attachments if they exist
-        let parsedAttachments = [];
-        
-        if (review.attachments) {
-          try {
-            // Handle different cases of attachment format
-            if (typeof review.attachments === 'string') {
-              // Check if it's an empty string
-              if (review.attachments.trim() === '') {
-                parsedAttachments = [];
-              } else if (review.attachments.includes('[') && review.attachments.includes(']')) {
-                // Try to parse as JSON array
-                parsedAttachments = JSON.parse(review.attachments);
-              } else if (review.attachments.includes(',')) {
-                // Handle comma-separated string
-                parsedAttachments = review.attachments.split(',').map(item => item.trim());
-              } else {
-                // Single filename
-                parsedAttachments = [review.attachments.trim()];
-              }
-            } else if (Array.isArray(review.attachments)) {
-              // Already an array
-              parsedAttachments = review.attachments;
-            }
-            
-            // Filter out any empty strings or null values
-            parsedAttachments = parsedAttachments.filter(item => item && item.trim() !== '');
-            // Normalize to just filename (strip any path like /uploads/abc.png)
-            parsedAttachments = parsedAttachments.map(item => {
-              try {
-                const val = item.toString();
-                const parts = val.split('/');
-                return parts[parts.length - 1];
-              } catch {
-                return item;
-              }
-            });
-            
-          } catch (err) {
-            console.error("Error parsing attachments:", err);
-            parsedAttachments = [];
-          }
-        }
-        
+      const payload = Array.isArray(data) ? data : (data?.data || []);
+
+      const processedReviews = payload.map((review) => {
+        const attachments = normalizeReviewAttachments(review);
+        const attachmentBlobs = attachments.map((attachment) => ({
+          filename: attachment.filename || null,
+          mimetype: attachment.mimetype || 'image/jpeg',
+          size: attachment.size ?? null,
+          data: attachment.data || null,
+          legacyPath: attachment.legacyPath || null,
+          url: attachment.url || null
+        }));
+
         return {
           ...review,
-          attachments: parsedAttachments
+          attachments,
+          attachment_blobs: attachmentBlobs
         };
       });
-      
+
       setShopReviews(processedReviews);
     } catch (error) {
       setShopReviews([]);
@@ -288,36 +413,26 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
     setRating(0);
     setReviewComment('');
     setReviewImages([]);
+    setExistingAttachments([]);
+    setRemovedExistingIdx(new Set());
     setEditingReview(null); // Clear any editing state
   };
   
   const handleEditReview = (review) => {
-    // Make sure we have the correct data format for editing
-    const reviewToEdit = {
+    const attachments = normalizeReviewAttachments(review);
+    const attachmentMetadata = Array.isArray(review.attachment_blobs) && review.attachment_blobs.length
+      ? review.attachment_blobs.map((entry, idx) => buildAttachmentObject(entry, idx)).filter(Boolean)
+      : attachments;
+
+    setEditingReview({
       ...review,
-      // Ensure attachments is an array
-      attachments: Array.isArray(review.attachments) ? review.attachments : []
-    };
-    
-    setEditingReview(reviewToEdit);
-    setRating(reviewToEdit.rating);
-    setReviewComment(reviewToEdit.comment || '');
-    setReviewImages([]); // Reset images for upload
-    // Load existing attachment filenames for edit UI
-    const existing = (reviewToEdit.attachments || []).map(a => {
-      // Normalize to filename if path provided
-      if (typeof a === 'string') {
-        // If it looks like a URL/path, take last segment
-        const parts = a.split('/');
-        return parts[parts.length - 1];
-      }
-      if (a && a.path) {
-        const parts = a.path.split('/');
-        return parts[parts.length - 1];
-      }
-      return a;
-    }).filter(Boolean);
-    setExistingAttachments(existing);
+      attachments,
+      attachment_blobs: attachmentMetadata
+    });
+    setRating(review.rating);
+    setReviewComment(review.comment || '');
+    setReviewImages([]);
+  setExistingAttachments(attachmentMetadata.slice(0, MAX_REVIEW_ATTACHMENTS));
     setRemovedExistingIdx(new Set());
     setShowReviewModal(true);
   };
@@ -380,7 +495,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
   };
   
   const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
     
     // Filter out files that exceed the size limit
     let validSizeFiles = files.filter(file => {
@@ -391,20 +506,26 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
       return isValid;
     });
     
-    // Calculate how many more files we can add based on current selection
-    const remainingSlots = 5 - reviewImages.length;
+    const keptExisting = editingReview
+      ? existingAttachments.filter((_, idx) => !removedExistingIdx.has(idx)).length
+      : 0;
+
+    const remainingSlots = Math.max(0, MAX_REVIEW_ATTACHMENTS - keptExisting - reviewImages.length);
+
+    if (remainingSlots <= 0) {
+      alert(`You can only upload a maximum of ${MAX_REVIEW_ATTACHMENTS} image${MAX_REVIEW_ATTACHMENTS === 1 ? '' : 's'}.`);
+      return;
+    }
     
     if (validSizeFiles.length > remainingSlots) {
-      alert(`You can only upload a maximum of 5 images. Only the first ${remainingSlots} will be added.`);
-      // Take only what we can add
+      alert(`You can only upload a maximum of ${MAX_REVIEW_ATTACHMENTS} image${MAX_REVIEW_ATTACHMENTS === 1 ? '' : 's'}. Only the first ${remainingSlots} will be added.`);
       validSizeFiles = validSizeFiles.slice(0, remainingSlots);
     }
     
     if (validSizeFiles.length > 0) {
-      // Add new files to existing ones up to 5 total
       setReviewImages(prev => {
         const combined = [...prev, ...validSizeFiles];
-        return combined.slice(0, 5);
+        return combined.slice(0, MAX_REVIEW_ATTACHMENTS);
       });
     }
   };
@@ -423,7 +544,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
     }
     
     // Ensure we have a product ID
-    const productId = selectedProduct.id || selectedProduct.productId;
+  const productId = selectedProduct.id || selectedProduct.productId || selectedProduct.shop_id;
     if (!productId) {
       alert('Invalid product information. Missing product ID.');
       return;
@@ -436,16 +557,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
       return;
     }
     
-    // Check if we're editing an existing review or creating a new one
-    const isEditing = editingReview !== null;
-    
-    // Validate image count
-    if (reviewImages.length > 5) {
-      alert('You can only upload a maximum of 5 images');
-      setReviewImages(reviewImages.slice(0, 5));
-      return;
-    }
-    
+    const isEditing = Boolean(editingReview);
+
     setSubmittingReview(true);
     
     try {
@@ -456,9 +569,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
       let validUserData = userData;
       if (!validUserData || !validUserData.id) {
         console.error('Missing user data for review submission', userData);
-        // Check if we can use the current user object instead
         if (user && user.id) {
-          console.log('Using current user object as fallback');
           validUserData = user;
         } else {
           alert('Your user information could not be found. Please try logging out and logging in again.');
@@ -467,10 +578,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
         }
       }
       
-      const userId = Number(validUserData.id); // Make sure it's a number
-      
-      // Make sure we have a valid farmer name from the user object
-      // Check all possible fields where the name might be stored
+      const userId = Number(validUserData.id);
+
       let farmerName = '';
       if (validUserData.name) farmerName = validUserData.name;
       else if (validUserData.fullName) farmerName = validUserData.fullName;
@@ -479,201 +588,104 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
       else if (validUserData.username) farmerName = validUserData.username;
       else if (validUserData.email) farmerName = validUserData.email.split('@')[0]; // Use part of email as last resort
       else farmerName = 'Anonymous Farmer';
-      
-      console.log('Using user data for review:', { userId, farmerName });
-      
-  // Create regular JSON data first (not FormData) to match what the API expects
-      const reviewData = {
-        rating: Number(rating), // Ensure this is a number
-        comment: reviewComment || "", // Make sure it's not undefined
-        shop_id: Number(selectedProduct.id || selectedProduct.productId), // Use product ID 
-        farmer_id: Number(userId), // Use the user ID
-        farmer_name: farmerName.trim() // Use the determined farmer name, ensuring no extra spaces
-      };
-      
-      // Handle attachments correctly: upload images first, use server filenames
-      let finalAttachmentNames = [];
-      // Start with existing attachments when editing (minus those user removed)
-      if (editingReview && existingAttachments.length > 0) {
-        finalAttachmentNames = existingAttachments.filter((_, idx) => !removedExistingIdx.has(idx));
-      }
+      const keptExistingAttachments = isEditing
+        ? existingAttachments.filter((_, idx) => !removedExistingIdx.has(idx))
+        : [];
 
-      // Upload any new images and collect server filenames
-      if (reviewImages && reviewImages.length > 0) {
-        const validImages = reviewImages.slice(0, Math.max(0, 5 - finalAttachmentNames.length));
-        if (validImages.length) {
-          const formData = new FormData();
-          validImages.forEach(f => formData.append('attachments', f));
-
-          try {
-            const imageAuthToken = localStorage.getItem('authToken');
-            const imageAuthHeaders = getAuthHeaders ? getAuthHeaders() : {};
-            const uploadResponse = await fetch('http://localhost:5000/api/v1/upload/review-attachments', {
-              method: 'POST',
-              headers: {
-                'Authorization': imageAuthToken ? `Bearer ${imageAuthToken}` : (imageAuthHeaders.Authorization || ''),
-              },
-              body: formData,
-            });
-            if (uploadResponse.ok) {
-              const uploadJson = await uploadResponse.json();
-              const serverNames = (uploadJson.files || []).map(f => {
-                // f.filename is server stored name
-                return f.filename;
-              }).filter(Boolean);
-              finalAttachmentNames = [...finalAttachmentNames, ...serverNames].slice(0, 5);
-            } else {
-              console.error('Failed to upload review attachments:', uploadResponse.status);
-            }
-          } catch (uploadError) {
-            console.error('Error uploading review attachments:', uploadError);
-          }
-        }
-      }
-
-      // Ensure attachments field is valid JSON array
-      try {
-        reviewData.attachments = JSON.stringify(finalAttachmentNames);
-      } catch (jsonError) {
-        console.error('Error stringifying attachment names:', jsonError);
-        reviewData.attachments = '[]';
-      }
-      
-      // Since we're using the current user's ID, we should already be authenticated
-      // We don't need to verify if the user exists, as they are currently logged in
-      // Just double check that we have all required fields
-      if (!reviewData.farmer_id || !reviewData.shop_id || !reviewData.rating) {
-        console.error('Missing review data:', { 
-          farmer_id: reviewData.farmer_id, 
-          shop_id: reviewData.shop_id, 
-          rating: reviewData.rating,
-          user: user
-        });
-        // Force user ID from current user context
-        if (user && user.id) {
-          reviewData.farmer_id = Number(user.id);
-          // Make sure we have a name
-          if (!farmerName || farmerName === 'Anonymous Farmer') {
-            farmerName = user.name || user.username || user.email?.split('@')[0] || 'User';
-            reviewData.farmer_name = farmerName;
-          }
-          console.log('Updated review data with user info:', reviewData);
-          // Continue with submission, don't show an alert
-        } else {
-          console.error('No user information available - cannot submit review');
-          alert('User information is required to submit a review. Please refresh the page or log in again.');
-          setSubmittingReview(false);
-          return;
-        }
-      }
-      
-      // Send the request with JSON data instead of FormData
-      const authToken = localStorage.getItem('authToken');
-      
-      // Determine the API endpoint and method based on whether we're creating or updating
-      // Use URL parameter for edit, direct path for create
-      const apiUrl = isEditing
-        ? `http://localhost:5000/api/v1/shop-reviews/${editingReview.id}`
-        : 'http://localhost:5000/api/v1/shop-reviews';
-        
-      const method = isEditing ? 'PUT' : 'POST';
-      
-      // Get fresh auth token to ensure it's the latest
-      const submitAuthToken = localStorage.getItem('authToken');
-      
-      // Use auth from context if available
-      const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
-      
-      console.log('Review submission details:', {
-        url: apiUrl,
-        method: method,
-        reviewData: { ...reviewData, farmer_id: reviewData.farmer_id, shop_id: reviewData.shop_id },
-        hasAuthToken: Boolean(submitAuthToken),
-        hasAuthHeaders: Object.keys(authHeaders).length > 0,
-      });
-      
-      // Always make sure we have the essential data
-      if (!reviewData.farmer_id && user && user.id) {
-        reviewData.farmer_id = Number(user.id);
-      }
-      
-      if (!reviewData.farmer_name && user) {
-        reviewData.farmer_name = user.name || user.username || 'User';
-      }
-      
-      // Make sure all numeric fields are actually numbers
-      const finalReviewData = {
-        ...reviewData,
-        rating: Number(reviewData.rating),
-        shop_id: Number(reviewData.shop_id),
-        farmer_id: Number(reviewData.farmer_id)
-      };
-      
-      console.log('Submitting final review data:', finalReviewData);
-      
-      // Try to send the request with proper error handling
-      let requestBody;
-      try {
-        requestBody = JSON.stringify(finalReviewData);
-      } catch (jsonError) {
-        console.error('Error stringifying review data:', jsonError);
-        alert('An error occurred preparing your review. Please try again.');
+      if (keptExistingAttachments.length > MAX_REVIEW_ATTACHMENTS) {
+        alert(`You can only keep a maximum of ${MAX_REVIEW_ATTACHMENTS} image${MAX_REVIEW_ATTACHMENTS === 1 ? '' : 's'} per review.`);
         setSubmittingReview(false);
         return;
       }
-      
-      const response = await fetch(apiUrl, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': submitAuthToken ? `Bearer ${submitAuthToken}` : (authHeaders.Authorization || ''),
-          'Accept': 'application/json',
-        },
-        body: requestBody,
-        credentials: 'include' // Include cookies if needed for authentication
+
+      const remainingSlots = Math.max(0, MAX_REVIEW_ATTACHMENTS - keptExistingAttachments.length);
+
+      if (reviewImages.length > remainingSlots) {
+        alert(`Please remove extra images. You can only upload ${remainingSlots} more image${remainingSlots === 1 ? '' : 's'} for this review.`);
+        setSubmittingReview(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('rating', Number(rating));
+      formData.append('comment', reviewComment || '');
+  formData.append('shop_id', Number(productId));
+      formData.append('farmer_id', Number(userId));
+      formData.append('farmer_name', farmerName.trim());
+
+      if (keptExistingAttachments.length) {
+        const serialized = keptExistingAttachments
+          .map(serializeAttachmentForSubmit)
+          .filter(Boolean);
+
+        if (serialized.length) {
+          formData.append('existing_attachments', JSON.stringify(serialized));
+        }
+      }
+
+      const filesToUpload = reviewImages.slice(0, remainingSlots);
+      filesToUpload.forEach((file) => {
+        formData.append('attachments', file);
       });
-      
-  if (!response.ok) {
-      // Try to get detailed error message from the response
-      let errorMessage = 'Failed to submit review';
-      try {
-        // Check for authentication issues first
-        if (response.status === 401 || response.status === 403) {
-          // Authentication or authorization issue
-          console.error('Authentication error:', response.status);
-          errorMessage = 'Your session may have expired. Please log out and log in again.';
-          
-          // Try refreshing the token (if you have a refresh mechanism)
-          // For now, just alert the user
-          throw new Error(errorMessage);
+
+      const apiUrl = isEditing
+        ? `${BACKEND_URL}/api/v1/shop-reviews/${editingReview.id}`
+        : `${BACKEND_URL}/api/v1/shop-reviews`;
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const submitAuthToken = localStorage.getItem('authToken');
+      const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
+
+      const submitHeaders = { Accept: 'application/json' };
+
+      if (submitAuthToken) {
+        submitHeaders.Authorization = `Bearer ${submitAuthToken}`;
+      } else if (authHeaders.Authorization) {
+        submitHeaders.Authorization = authHeaders.Authorization;
+      }
+
+      Object.entries(authHeaders).forEach(([key, value]) => {
+        const lower = key.toLowerCase();
+        if (lower !== 'authorization' && lower !== 'content-type') {
+          submitHeaders[key] = value;
         }
-        
-        const errorData = await response.json();
-        if (errorData.message) {
-          errorMessage = errorData.message;
-        } else if (errorData.error) {
-          errorMessage = errorData.error;
-        }
-        
-        // Handle specific error cases
-        if (errorData.error && errorData.error.includes('foreign key constraint fails')) {
-          // This is a foreign key error - likely user ID not found
-          console.error('Foreign key constraint error:', errorData.error);
-          errorMessage = 'Your user account is not properly linked in the system. Please contact support.';
-        }
+      });
+
+      const response = await fetch(apiUrl, {
+        method,
+        headers: submitHeaders,
+        body: formData,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to submit review';
+
+        try {
+          if (response.status === 401 || response.status === 403) {
+            throw new Error('Your session may have expired. Please log out and log in again.');
+          }
+
+          const errorData = await response.json();
+          if (errorData?.message) {
+            errorMessage = errorData.message;
+          } else if (errorData?.error) {
+            errorMessage = errorData.error;
+          }
+
+          if (errorMessage.includes('foreign key constraint fails')) {
+            errorMessage = 'Your user account is not properly linked in the system. Please contact support.';
+          }
         } catch (parseError) {
-          // If we can't parse the error response, use the default error message
-          console.error('Error parsing response:', parseError);
+          if (parseError instanceof Error && parseError.message) {
+            errorMessage = parseError.message;
+          }
         }
+
         throw new Error(errorMessage);
       }
-      
-      // Review was submitted successfully, parse the response
-      const result = await response.json();
-      
-      // Upload files separately if needed
-      // Note: In a production app, you'd want to handle this file upload on the server side
-      // For now, we'll just show a success message since the image names are saved in the database
+
+  await response.json().catch(() => ({}));
       
       // Show success message
       const toast = document.createElement('div');
@@ -771,9 +783,16 @@ useEffect(() => {
          product_name: item.product_name,
          available_quantity: item.available_quantity,
          is_available: item.is_available,
-         type: typeof item.available_quantity
+         type: typeof item.available_quantity,
+         average_rating: item.average_rating,
+         review_count: item.review_count
        });
-       
+
+       const numericRating = Number(item.average_rating ?? item.rating);
+       const rating = Number.isFinite(numericRating) ? numericRating : null;
+       const reviewCountRaw = Number(item.review_count ?? item.reviewCount);
+       const reviewCount = Number.isFinite(reviewCountRaw) && reviewCountRaw > 0 ? reviewCountRaw : 0;
+
        return {
          ...item,
          organicCertified: Boolean(item.organic_certified),
@@ -781,8 +800,8 @@ useEffect(() => {
          productType: inferProductType(item),
          productName: item.product_name,
          inStock: item.available_quantity > 0,
-         rating: Number(item.rating) || 4.0,
-         reviewCount: Number(item.review_count) || 0,
+         rating,
+         reviewCount,
          quantity: Number(item.available_quantity),
          available_quantity: Number(item.available_quantity), // Ensure this is properly set as a number
          unit: item.unit,
@@ -998,8 +1017,8 @@ useEffect(() => {
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-bold text-gray-700">{item.rating}</span>
-                <span className="text-sm text-gray-500">({item.reviewCount})</span>
+                <span className="text-sm font-bold text-gray-700">{Number.isFinite(item.rating) ? item.rating.toFixed(1) : '—'}</span>
+                <span className="text-sm text-gray-500">({item.reviewCount || 0})</span>
               </div>
             </div>
           </div>
@@ -1089,8 +1108,8 @@ useEffect(() => {
           <div className="flex items-center gap-6 w-full">
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm font-bold text-gray-700">{item.rating}</span>
-              <span className="text-sm text-gray-500">({item.reviewCount})</span>
+              <span className="text-sm font-bold text-gray-700">{Number.isFinite(item.rating) ? item.rating.toFixed(1) : '—'}</span>
+              <span className="text-sm text-gray-500">({item.reviewCount || 0})</span>
             </div>
             <div className="flex justify-end items-end flex-1">
               <button 
@@ -1727,7 +1746,11 @@ useEffect(() => {
                         });
                         
                         // Parse attachments - use the already processed attachments array from the review
-                        const attachments = Array.isArray(review.attachments) ? review.attachments : [];
+                        const attachments = Array.isArray(review.attachments)
+                          ? review.attachments
+                              .map((item, idx) => (item && item.url ? item : buildAttachmentObject(item, idx)))
+                              .filter(Boolean)
+                          : [];
                         
                         return (
                           <div 
@@ -1794,11 +1817,21 @@ useEffect(() => {
                               <div className="mt-4">
                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Attachments ({attachments.length})</h4>
                                 <div className="flex flex-wrap gap-3 mt-2">
-                                  {attachments.map((attachment, index) => (
-                                    <div key={index} className="relative group">
+                                  {attachments.map((attachment, index) => {
+                                    const imageUrl = attachment?.url || ensureDataUrl(attachment?.mimetype, attachment?.data);
+                                    const downloadUrl = imageUrl || (attachment?.legacyPath ? `${BACKEND_URL}/${stripBackendPrefix(attachment.legacyPath)}` : '');
+
+                                    if (!imageUrl && !downloadUrl) {
+                                      return null;
+                                    }
+
+                                    const resolvedUrl = imageUrl || downloadUrl;
+
+                                    return (
+                                      <div key={attachment?.url || attachment?.filename || index} className="relative group">
                                       <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                                         <img 
-                                          src={`http://localhost:5000/uploads/${attachment}`} 
+                                          src={resolvedUrl || 'https://via.placeholder.com/80?text=Image'} 
                                           alt={`Attachment ${index + 1}`}
                                           className="w-full h-full object-cover"
                                           onError={(e) => {
@@ -1809,7 +1842,7 @@ useEffect(() => {
                                       </div>
                                       <div className="opacity-0 group-hover:opacity-100 absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg transition-opacity">
                                         <a 
-                                          href={`http://localhost:5000/uploads/${attachment}`} 
+                                          href={resolvedUrl} 
                                           target="_blank" 
                                           rel="noopener noreferrer"
                                           className="text-white bg-black bg-opacity-50 p-2 rounded-full"
@@ -1821,7 +1854,8 @@ useEffect(() => {
                                         </a>
                                       </div>
                                     </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
@@ -1906,48 +1940,56 @@ useEffect(() => {
                 <div className="mb-4">
                   <label className="block text-gray-700 font-medium mb-2">Existing attachments</label>
                   <div className="grid grid-cols-5 gap-2">
-                    {existingAttachments.map((name, idx) => (
-                      <div key={`${name}-${idx}`} className={`relative bg-gray-100 p-1 rounded-md border ${removedExistingIdx.has(idx) ? 'opacity-50 border-red-300' : 'border-gray-200'}`}>
-                        <img
-                          src={`http://localhost:5000/uploads/${name}`}
-                          alt={`Existing ${idx + 1}`}
-                          className="h-16 w-16 object-cover rounded-md"
-                          onError={(e) => {
-                            e.currentTarget.src = 'https://via.placeholder.com/80?text=Image';
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className={`absolute -top-2 -right-2 rounded-full w-5 h-5 flex items-center justify-center text-xs ${removedExistingIdx.has(idx) ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
-                          title={removedExistingIdx.has(idx) ? 'Undo remove' : 'Remove'}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRemovedExistingIdx(prev => {
-                              const next = new Set(prev);
-                              if (next.has(idx)) next.delete(idx); else next.add(idx);
-                              return next;
-                            });
-                          }}
-                        >
-                          {removedExistingIdx.has(idx) ? '↺' : '✕'}
-                        </button>
-                      </div>
-                    ))}
+                    {existingAttachments.map((attachment, idx) => {
+                      const normalized = attachment && attachment.url ? attachment : buildAttachmentObject(attachment, idx);
+                      const resolvedUrl = normalized?.url
+                        || ensureDataUrl(normalized?.mimetype, normalized?.data)
+                        || (normalized?.legacyPath ? `${BACKEND_URL}/${stripBackendPrefix(normalized.legacyPath)}` : null)
+                        || 'https://via.placeholder.com/80?text=Image';
+
+                      return (
+                        <div key={`${normalized?.filename || 'attachment'}-${idx}`} className={`relative bg-gray-100 p-1 rounded-md border ${removedExistingIdx.has(idx) ? 'opacity-50 border-red-300' : 'border-gray-200'}`}>
+                          <img
+                            src={resolvedUrl}
+                            alt={`Existing ${idx + 1}`}
+                            className="h-16 w-16 object-cover rounded-md"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://via.placeholder.com/80?text=Image';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className={`absolute -top-2 -right-2 rounded-full w-5 h-5 flex items-center justify-center text-xs ${removedExistingIdx.has(idx) ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+                            title={removedExistingIdx.has(idx) ? 'Undo remove' : 'Remove'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRemovedExistingIdx(prev => {
+                                const next = new Set(prev);
+                                if (next.has(idx)) next.delete(idx); else next.add(idx);
+                                return next;
+                              });
+                            }}
+                          >
+                            {removedExistingIdx.has(idx) ? '↺' : '✕'}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                  {existingAttachments.length - removedExistingIdx.size > 0 && (
-                    <p className="mt-2 text-xs text-gray-500">{existingAttachments.length - removedExistingIdx.size} will be kept</p>
+                  {Math.max(0, existingAttachments.length - removedExistingIdx.size) > 0 && (
+                    <p className="mt-2 text-xs text-gray-500">{Math.max(0, existingAttachments.length - removedExistingIdx.size)} will be kept</p>
                   )}
                 </div>
               )}
 
               <div className="mb-6">
                 <label className="block text-gray-700 font-medium mb-2">
-                  Upload Images: <span className="text-amber-600 text-sm">(Maximum 5 images)</span>
+                  Upload Images: <span className="text-amber-600 text-sm">(Maximum {MAX_REVIEW_ATTACHMENTS} image{MAX_REVIEW_ATTACHMENTS === 1 ? '' : 's'})</span>
                 </label>
                 {(() => {
-                  const keptExisting = editingReview ? (existingAttachments.length - removedExistingIdx.size) : 0;
+                  const keptExisting = editingReview ? Math.max(0, existingAttachments.length - removedExistingIdx.size) : 0;
                   const totalSelected = keptExisting + reviewImages.length;
-                  const atLimit = totalSelected >= 5;
+                  const atLimit = totalSelected >= MAX_REVIEW_ATTACHMENTS;
                   return (
                 <div 
                   className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors"
@@ -1974,7 +2016,7 @@ useEffect(() => {
                     type="file" 
                     className="hidden" 
                     accept="image/jpeg,image/png,image/gif"
-                    multiple
+                    multiple={MAX_REVIEW_ATTACHMENTS > 1}
                     onChange={handleFileUpload}
                     disabled={atLimit}
                   />
@@ -1982,7 +2024,7 @@ useEffect(() => {
                   );})()}
                 {reviewImages.length > 0 && (
                   <div className="mt-2 grid grid-cols-5 gap-2">
-                    {reviewImages.slice(0, 5).map((image, index) => (
+                    {reviewImages.slice(0, MAX_REVIEW_ATTACHMENTS).map((image, index) => (
                       <div key={index} className="relative bg-gray-100 p-1 rounded-md">
                         <img 
                           src={URL.createObjectURL(image)} 

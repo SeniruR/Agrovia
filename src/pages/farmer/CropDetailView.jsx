@@ -475,6 +475,20 @@ const CropDetailView = () => {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
   const [reviewImages, setReviewImages] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+  const [orderedCropIds, setOrderedCropIds] = useState(() => new Set());
+
+  const clearReviewImages = () => {
+    setReviewImages((prev) => {
+      prev.forEach((img) => {
+        if (img?.preview?.startsWith('blob:')) {
+          URL.revokeObjectURL(img.preview);
+        }
+      });
+      return [];
+    });
+  };
   
   // For update and delete review functionality
   const [editingReview, setEditingReview] = useState(null);
@@ -488,6 +502,221 @@ const CropDetailView = () => {
   const [loadingTransporters, setLoadingTransporters] = useState(false);
   const [selectedTransporter, setSelectedTransporter] = useState(null);
   const [showTransportRequest, setShowTransportRequest] = useState(false);
+
+  const parseAttachmentList = (rawAttachments, reviewId) => {
+    if (!rawAttachments) return [];
+
+    const normalizeRaw = (input) => {
+      if (!input) return [];
+      if (Array.isArray(input)) return input;
+      if (typeof input === 'object') return [input];
+      if (typeof input === 'string') {
+        const trimmed = input.trim();
+        if (!trimmed) return [];
+
+        if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed;
+            if (parsed && typeof parsed === 'object') return [parsed];
+          } catch (err) {
+            try {
+              const parsedWithDQuotes = JSON.parse(trimmed.replace(/'/g, '"'));
+              if (Array.isArray(parsedWithDQuotes)) return parsedWithDQuotes;
+              if (parsedWithDQuotes && typeof parsedWithDQuotes === 'object') return [parsedWithDQuotes];
+            } catch (err2) {
+              try {
+                const relaxed = JSON.parse(trimmed.replace(/\\/g, '/'));
+                if (Array.isArray(relaxed)) return relaxed;
+                if (relaxed && typeof relaxed === 'object') return [relaxed];
+              } catch {
+                // ignore and fall through
+              }
+            }
+          }
+        }
+
+        if (trimmed.includes(',')) {
+          return trimmed.split(',').map((part) => part.trim()).filter(Boolean);
+        }
+
+        return [trimmed];
+      }
+      return [];
+    };
+
+    const resolveAttachmentUrl = (item) => {
+      if (!item) return null;
+
+      const coerceString = (value) => {
+        if (typeof value !== 'string') return null;
+        const sanitized = value.trim().replace(/\\/g, '/');
+        if (!sanitized) return null;
+        if (sanitized.startsWith('data:')) return sanitized;
+        if (sanitized.startsWith('blob:')) return sanitized;
+        if (sanitized.startsWith('http://') || sanitized.startsWith('https://')) return sanitized;
+        if (sanitized.startsWith('//')) {
+          const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+          return `${protocol}${sanitized}`;
+        }
+        if (sanitized.startsWith('/')) return `${BACKEND_URL}${sanitized}`;
+        if (sanitized.startsWith('uploads/')) return `${BACKEND_URL}/${sanitized}`;
+        if (sanitized.startsWith('api/')) return `${BACKEND_URL}/${sanitized}`;
+        if (sanitized.startsWith('v1/')) return `${BACKEND_URL}/${sanitized}`;
+        return `${BACKEND_URL}/${sanitized}`;
+      };
+
+      if (typeof item === 'string') {
+        return coerceString(item);
+      }
+
+      if (typeof item === 'object') {
+        const dataCandidates = [
+          item.data,
+          item.base64,
+          item.base64Data,
+          item.attachmentData,
+          item.blob
+        ];
+
+        for (const candidate of dataCandidates) {
+          if (typeof candidate === 'string' && candidate.trim()) {
+            const raw = candidate.trim();
+            if (raw.startsWith('data:')) {
+              return raw;
+            }
+
+            const mime = typeof item.mimetype === 'string' && item.mimetype.trim()
+              ? item.mimetype.trim()
+              : 'application/octet-stream';
+            const normalizedBase64 = raw.replace(/^data:[^,]+,/, '').replace(/\s+/g, '');
+            if (normalizedBase64) {
+              return `data:${mime};base64,${normalizedBase64}`;
+            }
+          }
+        }
+
+        const candidates = [
+          item.url,
+          item.secure_url,
+          item.Location,
+          item.location,
+          item.path,
+          item.filepath,
+          item.file_path,
+          item.previewUrl,
+          item.preview,
+          item.attachmentUrl,
+          item.attachment_url,
+          item.filename,
+          item.name,
+        ];
+
+        for (const candidate of candidates) {
+          const resolved = coerceString(candidate);
+          if (resolved) return resolved;
+        }
+      }
+
+      if (reviewId) {
+        return `${BACKEND_URL}/api/v1/crop-reviews/${reviewId}/attachment`;
+      }
+
+      return null;
+    };
+
+    const attachments = normalizeRaw(rawAttachments);
+    const unique = new Set();
+
+    attachments.forEach((entry) => {
+      const resolved = resolveAttachmentUrl(entry);
+      if (resolved) {
+        unique.add(resolved);
+      }
+    });
+
+    return Array.from(unique);
+  };
+
+  const normalizeReviewRecord = (review) => {
+    if (!review) return null;
+
+    const buyerId = review.buyer_id ?? review.buyerId ?? review.user_id ?? review.userId ?? null;
+    const nameCandidates = [
+      review.displayName,
+      review.buyer_name,
+      review.user,
+      review.user_name,
+      review.name,
+      review.author
+    ];
+    const displayName = nameCandidates.find((value) => typeof value === 'string' && value.trim())?.trim() || 'Anonymous';
+
+    const ratingValue = Number(review.rating ?? review.average_rating);
+    const rating = Number.isFinite(ratingValue) ? ratingValue : null;
+    const rawAttachmentSources = review.attachment_blobs ?? review.attachment_urls ?? review.attachments ?? review.images ?? review.review_images;
+    const attachments = parseAttachmentList(
+      rawAttachmentSources,
+      review.id
+    );
+
+    const createdAt = review.created_at ?? review.createdAt ?? review.updated_at ?? null;
+    const initial = displayName.charAt(0).toUpperCase() || 'A';
+
+    return {
+      id: review.id,
+      cropId: review.crop_id ?? review.cropId ?? null,
+      buyer_id: buyerId,
+      buyerId,
+      displayName,
+      rating,
+      comment: review.comment ?? '',
+      createdAt,
+      attachments,
+      attachmentMetadata: Array.isArray(review.attachment_blobs) ? review.attachment_blobs : undefined,
+      initial
+    };
+  };
+
+  const renderReviewStars = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return (
+        <div className="flex text-gray-300" aria-hidden="true">
+          {[...Array(5)].map((_, idx) => (
+            <Star key={idx} className="h-4 w-4" />
+          ))}
+        </div>
+      );
+    }
+
+    const rounded = Math.round(numeric);
+    return (
+      <div className="flex text-yellow-400" aria-hidden="true">
+        {[...Array(5)].map((_, idx) => (
+          <Star
+            key={idx}
+            className={`h-4 w-4 ${idx < rounded ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const formatReviewDate = (value) => {
+    if (!value) return 'Unknown date';
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'Unknown date';
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (err) {
+      return 'Unknown date';
+    }
+  };
 
 
   useEffect(() => {
@@ -605,51 +834,136 @@ const CropDetailView = () => {
 
   // Fetch reviews when crop data is loaded
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchReviews = async () => {
       if (!crop || !crop.id) return;
+
+      setReviewsLoading(true);
+      setReviewsError(null);
+
       try {
         const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews?crop_id=${crop.id}`);
-        if (response.ok) {
-          const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reviews: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!isCancelled) {
           if (data.success && Array.isArray(data.reviews)) {
-            // Map backend attachments (string or array) to images for frontend display
-            const formattedReviews = data.reviews.map(review => {
-              let images = [];
-              if (Array.isArray(review.attachments)) {
-                images = review.attachments;
-              } else if (typeof review.attachments === 'string' && review.attachments.trim() !== '') {
-                images = review.attachments.split(',').map(s => s.trim()).filter(Boolean);
-              } else if (Array.isArray(review.attachment_urls)) {
-                images = review.attachment_urls;
-              }
-              // Parse rating as number if it's a string like '3 Stars'
-              let rating = review.rating;
-              if (typeof rating === 'string') {
-                const match = rating.match(/(\d+)/);
-                rating = match ? parseInt(match[1], 10) : 0;
-              }
-              return {
-                id: review.id,
-                user: review.buyer_name || 'Anonymous',
-                rating,
-                comment: review.comment,
-                images,
-                created_at: review.created_at,
-                buyer_id: review.buyer_id
-              };
-            });
-            setReviews(formattedReviews);
-            console.log('Fetched reviews:', formattedReviews);
+            const normalized = data.reviews
+              .map((entry) => normalizeReviewRecord(entry))
+              .filter(Boolean);
+            setReviews(normalized);
+          } else {
+            setReviews([]);
           }
-        } else {
-          console.error('Failed to fetch reviews');
         }
       } catch (error) {
         console.error('Error fetching reviews:', error);
+        if (!isCancelled) {
+          setReviewsError('Unable to load reviews at this time.');
+          setReviews([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setReviewsLoading(false);
+        }
       }
     };
+
     fetchReviews();
-  }, [crop]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [BACKEND_URL, crop]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadOrders = async () => {
+      if (!user || !user.id) {
+        if (isActive) {
+          setOrderedCropIds(new Set());
+        }
+        return;
+      }
+
+      try {
+        const headers = getAuthHeaders ? getAuthHeaders() : {};
+        const response = await fetch(`${BACKEND_URL}/api/v1/orders`, {
+          headers: {
+            Accept: 'application/json',
+            ...headers,
+          },
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          if (isActive) {
+            setOrderedCropIds(new Set());
+          }
+          return;
+        }
+
+        const payload = await response.json().catch(() => ({}));
+        const orders = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : [];
+
+        const ids = new Set();
+        orders.forEach((order) => {
+          const items = Array.isArray(order.products)
+            ? order.products
+            : Array.isArray(order.items)
+              ? order.items
+              : [];
+
+          items.forEach((item) => {
+            const candidateIds = [
+              item.crop_id,
+              item.cropId,
+              item.product_id,
+              item.productId,
+              item.item_id,
+              item.itemId,
+              item.id,
+            ];
+
+            candidateIds.some((candidate) => {
+              const numeric = Number(candidate);
+              if (Number.isFinite(numeric)) {
+                ids.add(numeric);
+                return true;
+              }
+              return false;
+            });
+          });
+        });
+
+        if (isActive) {
+          setOrderedCropIds(new Set(ids));
+        }
+      } catch (err) {
+        if (isActive) {
+          setOrderedCropIds(new Set());
+        }
+      }
+    };
+
+    loadOrders();
+
+    return () => {
+      isActive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [BACKEND_URL, user]);
+
+  const hasOrderedThisCrop = crop?.id ? orderedCropIds.has(Number(crop.id)) : false;
+  const canSubmitReview = Boolean(user && crop && user.id !== crop.farmer_Id && hasOrderedThisCrop);
 
   // Function to handle updating a review
   const handleUpdateReview = async () => {
@@ -675,12 +989,8 @@ const CropDetailView = () => {
       formData.append('comment', editingReview.comment);
       
       // Append image files if any new ones are added
-      if (reviewImages.length > 0) {
-        reviewImages.forEach((img) => {
-          if (img.file) {
-            formData.append('attachments', img.file);
-          }
-        });
+      if (reviewImages.length > 0 && reviewImages[0]?.file) {
+        formData.append('attachments', reviewImages[0].file);
       }
       
       // Send data to server
@@ -696,16 +1006,21 @@ const CropDetailView = () => {
       if (response.ok) {
         const data = await response.json();
         
+        const updatedNormalized = normalizeReviewRecord({
+          ...editingReview,
+          rating: editingReview.rating,
+          comment: editingReview.comment,
+          attachment_urls: data.review?.attachment_urls ?? editingReview.attachments,
+          attachment_blobs: data.review?.attachment_blobs ?? editingReview.attachmentMetadata ?? [],
+          created_at: editingReview.createdAt ?? editingReview.created_at,
+          buyer_id: editingReview.buyer_id ?? editingReview.buyerId
+        });
+
         // Update the review in the state
         setReviews(prevReviews => 
           prevReviews.map(r => 
             r.id === editingReview.id 
-              ? { 
-                  ...r, 
-                  rating: editingReview.rating,
-                  comment: editingReview.comment,
-                  images: data.review?.attachment_urls || r.images
-                }
+              ? updatedNormalized 
               : r
           )
         );
@@ -714,9 +1029,9 @@ const CropDetailView = () => {
         success('Review updated successfully!');
         
         // Reset form and close modal
-        setEditingReview(null);
-        setShowUpdateReviewModal(false);
-        setReviewImages([]);
+  setEditingReview(null);
+  setShowUpdateReviewModal(false);
+  clearReviewImages();
       } else {
         const errorData = await response.json().catch(() => ({}));
         error(`${errorData.message || 'Failed to update review'}`);
@@ -811,6 +1126,12 @@ const CropDetailView = () => {
   };
 
   // handleContactFarmer function removed
+
+  const reviewCount = reviews.length;
+  const ratedReviews = reviews.filter(review => Number.isFinite(Number(review.rating)) && Number(review.rating) > 0);
+  const averageRating = ratedReviews.length > 0
+    ? parseFloat((ratedReviews.reduce((sum, review) => sum + Number(review.rating), 0) / ratedReviews.length).toFixed(1))
+    : null;
 
   // Fetch available transporters
   const fetchTransporters = async () => {
@@ -1758,20 +2079,30 @@ const CropDetailView = () => {
               <textarea value={newComment} onChange={e => setNewComment(e.target.value)} className="w-full p-2 border rounded" rows={3} />
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2">Upload Images:</label>
+              <label className="block text-sm font-semibold mb-2">Upload Image:</label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <input 
                   type="file" 
                   accept="image/*" 
-                  multiple 
                   onChange={(e) => {
-                    const files = Array.from(e.target.files);
-                    // Convert to array of file objects with preview URLs
-                    const imageFiles = files.map(file => ({
-                      file,
-                      preview: URL.createObjectURL(file)
-                    }));
-                    setReviewImages([...reviewImages, ...imageFiles]);
+                    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                    setReviewImages((prev) => {
+                      prev.forEach((img) => {
+                        if (img.preview?.startsWith('blob:')) {
+                          URL.revokeObjectURL(img.preview);
+                        }
+                      });
+
+                      if (!file) {
+                        return [];
+                      }
+
+                      const preview = URL.createObjectURL(file);
+                      return [{ file, preview }];
+                    });
+                    if (e.target.value) {
+                      e.target.value = '';
+                    }
                   }}
                   className="hidden"
                   id="review-images"
@@ -1780,14 +2111,14 @@ const CropDetailView = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="text-sm text-gray-600 font-medium">Click to upload photos of the crop</span>
+                  <span className="text-sm text-gray-600 font-medium">Click to upload a photo of the crop</span>
                   <span className="text-xs text-gray-500 mt-1">JPG, PNG, GIF up to 5MB</span>
                 </label>
               </div>
               {/* Preview uploaded images */}
               {reviewImages.length > 0 && (
                 <div className="mt-3">
-                  <div className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">Uploaded Image:</div>
                   <div className="flex flex-wrap gap-2">
                     {reviewImages.map((img, idx) => (
                       <div key={idx} className="relative group">
@@ -1798,9 +2129,11 @@ const CropDetailView = () => {
                         />
                         <button
                           onClick={() => {
-                            const newImages = [...reviewImages];
-                            newImages.splice(idx, 1);
-                            setReviewImages(newImages);
+                            const toRemove = reviewImages[idx];
+                            if (toRemove?.preview?.startsWith('blob:')) {
+                              URL.revokeObjectURL(toRemove.preview);
+                            }
+                            clearReviewImages();
                           }}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Remove image"
@@ -1817,7 +2150,7 @@ const CropDetailView = () => {
               <button
                 onClick={() => {
                   setShowReviewModal(false);
-                  setReviewImages([]);
+                  clearReviewImages();
                 }}
                 className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
               >Cancel</button>
@@ -1839,11 +2172,9 @@ const CropDetailView = () => {
                       formData.append('comment', newComment);
                       
                       // Append all image files
-                      reviewImages.forEach((img, index) => {
-                        if (img.file) {
-                          formData.append(`attachments`, img.file);
-                        }
-                      });
+                      if (reviewImages.length > 0 && reviewImages[0]?.file) {
+                        formData.append('attachments', reviewImages[0].file);
+                      }
                       
                       // Send data to server
                       const response = await fetch('/api/v1/crop-reviews', {
@@ -1859,15 +2190,19 @@ const CropDetailView = () => {
                         const data = await response.json();
                         
                         // Update UI with the new review, showing buyer's name immediately
-                        const newReview = { 
+                        const newReviewNormalized = normalizeReviewRecord({
                           id: data.id,
-                          buyer_name: user?.full_name || user?.name || 'Anonymous',
+                          crop_id: crop.id,
                           buyer_id: user?.id,
-                          rating: newRating, 
+                          buyer_name: user?.full_name || user?.name || 'Anonymous',
+                          rating: newRating,
                           comment: newComment,
-                          images: data.review?.attachment_urls || [] 
-                        };
-                        setReviews(prevReviews => [newReview, ...prevReviews]);
+                          attachment_urls: data.review?.attachment_urls || [],
+                          attachment_blobs: data.review?.attachment_blobs || [],
+                          created_at: data.review?.created_at || new Date().toISOString()
+                        });
+
+                        setReviews(prevReviews => [newReviewNormalized, ...prevReviews]);
                         
                         // Show success message
                         success('Review submitted successfully!');
@@ -1881,7 +2216,7 @@ const CropDetailView = () => {
                     } finally {
                       setNewRating(0);
                       setNewComment('');
-                      setReviewImages([]);
+                      clearReviewImages();
                       setShowReviewModal(false);
                     }
                   } else {
@@ -1894,7 +2229,7 @@ const CropDetailView = () => {
             <button
               onClick={() => {
                 setShowReviewModal(false);
-                setReviewImages([]);
+                clearReviewImages();
               }}
               className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold"
               aria-label="Close"
@@ -1904,35 +2239,92 @@ const CropDetailView = () => {
       )}
 
       {/* Reviews & Ratings Section */}
-      <div className="max-w-5xl mx-auto mt-12 mb-8 p-6  bg-green-50 rounded-2xl shadow-xl border border-green-200">
-        <h2 className="text-2xl font-bold text-yellow-700 mb-4 flex items-center"><Star className="w-6 h-6 mr-2 text-yellow-500" /> Reviews & Ratings</h2>
-        {reviews.length === 0 ? (
-          <div className="text-gray-500 text-center">No reviews yet. Be the first to review!</div>
-        ) : (
-          <ul className="space-y-4">
-            {reviews.map((review, idx) => {
-              // Ensure rating is a valid, finite, non-negative integer
-              const safeRating = Number.isFinite(Number(review.rating)) && Number(review.rating) > 0 ? Math.floor(Number(review.rating)) : 0;
-              // Debug: print the review object to the console
-              console.log('Review object:', review);
-              return (
-                <li key={review.id || idx} className="border-b pb-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center">
-                      <span className="font-semibold text-gray-800">{review.user || review.buyer_name}</span>
-                      <span className="ml-4 text-xs text-gray-500">
-                        {review.created_at ? new Date(review.created_at).toLocaleDateString('en-US', {
-                          year: 'numeric', month: 'short', day: 'numeric'
-                        }) : ''}
-                      </span>
+      <div className="max-w-5xl mx-auto mt-12 mb-8 p-6 bg-green-50 rounded-2xl shadow-xl border border-green-200">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-yellow-700 flex items-center">
+                <Star className="w-6 h-6 mr-2 text-yellow-500" />
+                Customer Reviews
+              </h2>
+              {averageRating !== null && reviewCount > 0 && (
+                <div className="flex items-center gap-3 mt-2">
+                  {renderReviewStars(averageRating)}
+                  <span className="text-lg font-semibold text-gray-700">{averageRating.toFixed(1)}</span>
+                  <span className="text-sm text-gray-500">
+                    {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+                  </span>
+                </div>
+              )}
+              {averageRating === null && !reviewsLoading && reviewCount > 0 && (
+                <p className="mt-2 text-sm text-gray-500">
+                  {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+                </p>
+              )}
+              {!reviewsLoading && reviewCount === 0 && !reviewsError && (
+                <p className="mt-2 text-sm text-gray-500">
+                  No reviews yet. Be the first to share your experience!
+                </p>
+              )}
+            </div>
+
+            {canSubmitReview && (
+              <button
+                onClick={() => setShowReviewModal(true)}
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg shadow-md hover:from-yellow-600 hover:to-yellow-700 transition-all text-sm font-semibold"
+              >
+                <Star className="w-4 h-4 mr-2 text-white" />
+                Write a Review
+              </button>
+            )}
+          </div>
+
+          {reviewsLoading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="h-10 w-10 rounded-full border-4 border-yellow-500 border-t-transparent animate-spin mb-3" />
+              <p className="text-gray-500">Loading reviews...</p>
+            </div>
+          ) : reviewsError ? (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {reviewsError}
+            </div>
+          ) : reviewCount === 0 ? (
+            <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-500">
+              <p className="font-medium text-gray-700">No reviews yet</p>
+              <p className="text-sm text-gray-500 mt-1">Customers haven't left feedback for this crop.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="border border-green-100 bg-white rounded-xl p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-semibold uppercase">
+                        {review.initial}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-800">{review.displayName}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {renderReviewStars(review.rating)}
+                          {Number.isFinite(Number(review.rating)) && Number(review.rating) > 0 && (
+                            <span className="text-xs text-gray-500">
+                              {Number(review.rating).toFixed(1)}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400">•</span>
+                          <span className="text-xs text-gray-500">{formatReviewDate(review.createdAt)}</span>
+                        </div>
+                      </div>
                     </div>
-                    
-                    {/* Only show edit/delete buttons for the user's own reviews */}
+
                     {user && review.buyer_id === user.id && (
                       <div className="flex space-x-2">
                         <button
                           onClick={() => {
-                            setEditingReview({...review});
+                            setEditingReview({ ...review });
                             setShowUpdateReviewModal(true);
                           }}
                           className="text-blue-500 hover:text-blue-700 text-sm flex items-center"
@@ -1957,46 +2349,42 @@ const CropDetailView = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center mb-1 mt-1">
-                    {Array.from({ length: safeRating }).map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-yellow-400 mr-1 inline" />
-                    ))}
-                  </div>
-                  <div className="text-gray-700 mb-2">{review.comment}</div>
-                  {review.images && review.images.length > 0 && (
-                    <div className="mt-2">
-                      <div className="flex flex-wrap gap-2">
-                        {review.images.map((img, imgIdx) => {
-                          let imgPath = img;
-                          
-                          // Check if the image path is an absolute URL, a relative URL, or a direct API endpoint
-                          if (!img.startsWith('http') && !img.startsWith('/api/')) {
-                            // If it doesn't start with http or /api/, assume it's a path to an uploaded file
-                            imgPath = `/api/v1/crop-reviews/${review.id}/attachment`;
-                          }
-                          
-                          // Add BACKEND_URL for relative paths
-                          const imgUrl = imgPath.startsWith('http') ? imgPath : `${BACKEND_URL}${imgPath}`;
-                          // Debug: print the image URL to the console
-                          console.log('Review image URL:', imgUrl);
-                          return (
-                            <a key={imgIdx} href={imgUrl} target="_blank" rel="noopener noreferrer">
-                              <img
-                                src={imgUrl}
-                                alt={`Review image ${imgIdx + 1}`}
-                                className="w-32 h-32 object-cover rounded border border-gray-200 hover:border-yellow-400 transition-colors"
-                              />
-                            </a>
-                          );
-                        })}
+
+                  {review.comment && (
+                    <p className="mt-4 text-gray-700 leading-relaxed">{review.comment}</p>
+                  )}
+
+                  {Array.isArray(review.attachments) && review.attachments.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Attachments</p>
+                      <div className="flex flex-wrap gap-3">
+                        {review.attachments.map((attachment, index) => (
+                          <a
+                            key={`${review.id}-attachment-${index}`}
+                            href={attachment}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block w-24 h-24 rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+                          >
+                            <img
+                              src={attachment}
+                              alt={`Review attachment ${index + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = 'https://via.placeholder.com/96?text=Image';
+                              }}
+                            />
+                          </a>
+                        ))}
                       </div>
                     </div>
                   )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Transport Modal */}
@@ -2243,7 +2631,7 @@ const CropDetailView = () => {
                 onClick={() => {
                   setShowUpdateReviewModal(false);
                   setEditingReview(null);
-                  setReviewImages([]);
+                  clearReviewImages();
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -2282,7 +2670,7 @@ const CropDetailView = () => {
               
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
-                  Add Images (optional)
+                  Add Image (optional)
                 </label>
                 <div className="flex items-center space-x-2">
                   <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
@@ -2290,17 +2678,30 @@ const CropDetailView = () => {
                       <svg className="w-8 h-8 mb-3 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
                       </svg>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Upload images</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Upload image</p>
                     </div>
                     <input 
                       type="file" 
                       className="hidden"
                       accept="image/*"
                       onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          const file = e.target.files[0];
+                        const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                        setReviewImages((prev) => {
+                          prev.forEach((img) => {
+                            if (img.preview?.startsWith('blob:')) {
+                              URL.revokeObjectURL(img.preview);
+                            }
+                          });
+
+                          if (!file) {
+                            return [];
+                          }
+
                           const preview = URL.createObjectURL(file);
-                          setReviewImages([...reviewImages, { preview, file }]);
+                          return [{ preview, file }];
+                        });
+                        if (e.target.value) {
+                          e.target.value = '';
                         }
                       }}
                     />
@@ -2315,7 +2716,11 @@ const CropDetailView = () => {
                       <button
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
                         onClick={() => {
-                          setReviewImages(reviewImages.filter((_, i) => i !== index));
+                          const toRemove = reviewImages[index];
+                          if (toRemove?.preview?.startsWith('blob:')) {
+                            URL.revokeObjectURL(toRemove.preview);
+                          }
+                          clearReviewImages();
                         }}
                       >
                         <X size={16} />
@@ -2330,7 +2735,7 @@ const CropDetailView = () => {
                   onClick={() => {
                     setShowUpdateReviewModal(false);
                     setEditingReview(null);
-                    setReviewImages([]);
+                    clearReviewImages();
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                 >
