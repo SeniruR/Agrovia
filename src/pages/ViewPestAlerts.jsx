@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+// 💡 Add axios for API calls
+import axios from 'axios'; 
 import { Bug, AlertTriangle, Eye, Calendar, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
 const ViewPestAlerts = () => {
@@ -7,65 +9,98 @@ const ViewPestAlerts = () => {
   const [alerts, setAlerts] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); // Added state for API errors
 
-  const handleDeleteAlert = (alertId) => {
-    if (window.confirm('Are you sure you want to delete this pest alert?')) {
-      setAlerts(alerts.filter(alert => alert.id !== alertId));
-      setSelectedAlert(null);
+  // --- API Configuration ---
+  const API_ENDPOINT = 'http://localhost:5000/api/pest-alert';
+
+  // Function to handle fetching pest alerts from the backend
+  const fetchAlerts = async () => {
+    setLoading(true);
+    setError(null); // Clear previous errors
+
+    // 1. AUTHENTICATION & TOKEN CHECK
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      setError('❌ Not authenticated. Please login to view alerts.');
+      setLoading(false);
+      // Optional: navigate('/login'); 
+      return;
+    }
+
+    try {
+      // 2. SET HEADERS with Authorization token
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      };
+
+      console.log('📤 Fetching pest alerts from:', API_ENDPOINT);
+
+      // 3. API GET Call to retrieve data
+      const response = await axios.get(API_ENDPOINT, { headers });
+      
+      // Assuming the backend returns the array of alerts in response.data
+      setAlerts(response.data);
+      console.log('✅ Alerts fetched successfully:', response.data.length);
+
+    } catch (err) {
+      console.error('Data Retrieval Error:', err);
+      // Handle error status codes, especially 401 Unauthorized
+      if (err.response && err.response.status === 401) {
+        setError('Session expired. Please log in again.');
+        navigate('/login');
+      } else {
+        setError('Error fetching pest alerts: ' + (err.response?.data?.error || err.message || 'Server connection failed.'));
+      }
+      setAlerts([]); // Clear alerts on error
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Mock data - replace with actual API call
+  const handleDeleteAlert = async (alertId) => {
+    if (!window.confirm('Are you sure you want to delete this pest alert?')) {
+      return;
+    }
+
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      alert('❌ Not authenticated. Please login to delete alerts.');
+      return;
+    }
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      };
+
+      await axios.delete(`${API_ENDPOINT}/${alertId}`, { headers });
+      
+      // Remove from local state after successful deletion
+      setAlerts(alerts.filter(alert => (alert.id || alert._id) !== alertId));
+      setSelectedAlert(null);
+      alert('✅ Pest alert deleted successfully!');
+      
+    } catch (err) {
+      console.error('Delete Error:', err);
+      if (err.response && err.response.status === 401) {
+        alert('Session expired. Please log in again.');
+        navigate('/login');
+      } else {
+        alert('Error deleting pest alert: ' + (err.response?.data?.error || err.message));
+      }
+    }
+  };
+
+  // 1. REPLACED MOCK DATA WITH ACTUAL API CALL
   useEffect(() => {
-    // Simulate loading data
-    setTimeout(() => {
-      const mockAlerts = [
-        {
-          id: 1,
-          pestName: "Fall Armyworm",
-          symptoms: "Irregular feeding holes in leaves, brown frass (excrement) visible, windowpane damage on young leaves. Plants showing stunted growth.",
-          recommendations: [
-            "Apply approved insecticide treatment within 24-48 hours",
-            "Monitor adjacent fields for spread",
-            "Remove heavily damaged plants",
-            "Consider biological control agents if available"
-          ],
-          dateSubmitted: "2024-10-15",
-          severity: "high"
-        },
-        {
-          id: 2,
-          pestName: "Aphids",
-          symptoms: "Curled leaves, sticky honeydew deposits, presence of small green insects on undersides of leaves. Yellowing of affected areas.",
-          recommendations: [
-            "Introduce beneficial insects like ladybugs",
-            "Apply insecticidal soap spray",
-            "Increase air circulation in greenhouse",
-            "Monitor weekly for population changes"
-          ],
-          dateSubmitted: "2024-10-14",
-          severity: "medium"
-        },
-        {
-          id: 3,
-          pestName: "Colorado Potato Beetle",
-          symptoms: "Skeletonized leaves, orange egg masses on leaf undersides, striped adult beetles visible on plants.",
-          recommendations: [
-            "Hand-pick adult beetles if population is manageable",
-            "Apply targeted insecticide for larvae control",
-            "Rotate crops next season to break pest cycle"
-          ],
-          dateSubmitted: "2024-10-13",
-          severity: "high"
-        }
-      ];
-      setAlerts(mockAlerts);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    fetchAlerts();
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const getSeverityColor = (severity) => {
-    switch (severity) {
+    switch (severity?.toLowerCase()) {
       case 'high':
         return 'bg-red-100 text-red-800 border-red-200';
       case 'medium':
@@ -77,9 +112,12 @@ const ViewPestAlerts = () => {
     }
   };
 
-
+  // 2. REMOVED the handleSubmit function entirely as it was incorrect for viewing data.
+  // The original component had a handleSubmit function trying to fetch data, 
+  // but it was using submission logic which is wrong for viewing/retrieving.
 
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -93,7 +131,26 @@ const ViewPestAlerts = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto mb-4"></div>
           <h3 className="text-xl font-medium text-gray-900 mb-2">Loading Pest Alerts...</h3>
-          <p className="text-gray-500">Please wait while we fetch the latest reports</p>
+          <p className="text-gray-500">Connecting to server to fetch reports...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // 3. ADDED Error Display
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-100 flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-2xl shadow-xl">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-medium text-gray-900 mb-2">Error Loading Data</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button 
+                onClick={fetchAlerts}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors"
+            >
+                Try Again
+            </button>
         </div>
       </div>
     );
@@ -102,7 +159,7 @@ const ViewPestAlerts = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 py-8 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* Header (UI remains the same) */}
         <div className="bg-white rounded-3xl shadow-xl border border-green-100 p-8 mb-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
@@ -128,8 +185,6 @@ const ViewPestAlerts = () => {
               <span>New Report</span>
             </Link>
           </div>
-
-
         </div>
 
         {/* Alert Cards */}
@@ -152,7 +207,7 @@ const ViewPestAlerts = () => {
           ) : (
             alerts.map((alert) => (
               <div
-                key={alert.id}
+                key={alert.id || alert._id} // Use a robust key check
                 className="bg-white rounded-3xl shadow-xl border border-green-100 p-8 hover:shadow-2xl transition-all duration-300"
               >
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
@@ -164,13 +219,13 @@ const ViewPestAlerts = () => {
                         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
                           <div className="flex items-center space-x-1">
                             <Calendar className="w-4 h-4" />
-                            <span>Reported: {formatDate(alert.dateSubmitted)}</span>
+                            <span>Reported: {formatDate(alert.dateSubmitted || alert.createdAt)}</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getSeverityColor(alert.severity)}`}>
-                          {alert.severity.toUpperCase()} PRIORITY
+                          {alert.severity?.toUpperCase() || 'UNKNOWN'} PRIORITY
                         </span>
                       </div>
                     </div>
@@ -179,7 +234,7 @@ const ViewPestAlerts = () => {
                     <div className="mb-6">
                       <h4 className="font-semibold text-gray-800 mb-2">Symptoms Observed:</h4>
                       <p className="text-gray-700 leading-relaxed">
-                        {alert.symptoms.length > 150 
+                        {alert.symptoms?.length > 150 
                           ? `${alert.symptoms.substring(0, 150)}...` 
                           : alert.symptoms}
                       </p>
@@ -189,7 +244,7 @@ const ViewPestAlerts = () => {
                     <div className="mb-6">
                       <h4 className="font-semibold text-gray-800 mb-3">Recommendations:</h4>
                       <div className="space-y-2">
-                        {alert.recommendations.slice(0, 2).map((rec, idx) => (
+                        {Array.isArray(alert.recommendations) && alert.recommendations.slice(0, 2).map((rec, idx) => (
                           <div key={idx} className="flex items-start gap-3">
                             <span className="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
                               {idx + 1}
@@ -197,7 +252,7 @@ const ViewPestAlerts = () => {
                             <span className="text-gray-700 text-sm">{rec}</span>
                           </div>
                         ))}
-                        {alert.recommendations.length > 2 && (
+                        {Array.isArray(alert.recommendations) && alert.recommendations.length > 2 && (
                           <p className="text-sm text-gray-500 ml-9">
                             +{alert.recommendations.length - 2} more recommendations
                           </p>
@@ -234,14 +289,15 @@ const ViewPestAlerts = () => {
                     </div>
                     <div>
                       <h2 className="text-3xl font-bold text-gray-900">{selectedAlert.pestName}</h2>
-                      <p className="text-gray-600">Reported on {formatDate(selectedAlert.dateSubmitted)}</p>
+                      <p className="text-gray-600">Reported on {formatDate(selectedAlert.dateSubmitted || selectedAlert.createdAt)}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setSelectedAlert(null)}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
-                    <AlertTriangle className="w-8 h-8" />
+                    {/* Replaced AlertTriangle with a standard close icon for better UX */}
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                   </button>
                 </div>
 
@@ -249,7 +305,7 @@ const ViewPestAlerts = () => {
                   {/* Priority */}
                   <div className="flex flex-wrap gap-4">
                     <span className={`px-4 py-2 rounded-xl text-sm font-semibold border ${getSeverityColor(selectedAlert.severity)}`}>
-                      {selectedAlert.severity.toUpperCase()} PRIORITY
+                      {selectedAlert.severity?.toUpperCase() || 'UNKNOWN'} PRIORITY
                     </span>
                   </div>
 
@@ -265,7 +321,7 @@ const ViewPestAlerts = () => {
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3 text-lg">Recommended Actions</h4>
                     <div className="space-y-4">
-                      {selectedAlert.recommendations.map((rec, index) => (
+                      {Array.isArray(selectedAlert.recommendations) && selectedAlert.recommendations.map((rec, index) => (
                         <div key={index} className="flex items-start gap-4 bg-green-50 p-4 rounded-2xl">
                           <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
                             {index + 1}
@@ -273,6 +329,9 @@ const ViewPestAlerts = () => {
                           <p className="text-gray-700">{rec}</p>
                         </div>
                       ))}
+                      {!Array.isArray(selectedAlert.recommendations) && (
+                          <p className="text-gray-500">No specific recommendations provided.</p>
+                      )}
                     </div>
                   </div>
 
@@ -285,7 +344,7 @@ const ViewPestAlerts = () => {
                       Close
                     </button>
                     <button 
-                      onClick={() => handleDeleteAlert(selectedAlert.id)}
+                      onClick={() => handleDeleteAlert(selectedAlert.id || selectedAlert._id)}
                       className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
                     >
                       <Trash2 className="w-4 h-4" />
