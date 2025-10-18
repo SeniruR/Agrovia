@@ -53,6 +53,7 @@ const CropDetailView = () => {
   const [loadingBuyersList, setLoadingBuyersList] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState(null);
   const [isBuyersListView, setIsBuyersListView] = useState(false);
+  const [deletingMessageId, setDeletingMessageId] = useState(null);
   const socketRef = useRef(null);
   const chatScrollRef = useRef(null);
   
@@ -63,19 +64,30 @@ const CropDetailView = () => {
     const senderId = message.sender_id ?? message.senderId ?? message.user_id ?? message.userId ?? null;
     const content = message.message ?? message.content ?? message.body ?? '';
     const createdAt = message.created_at ?? message.createdAt ?? message.timestamp ?? new Date().toISOString();
+    
+    // Determine sender name based on who sent the message
+    let senderName;
+    if (message.sender_name || message.senderName) {
+      senderName = message.sender_name ?? message.senderName;
+    } else if (senderId === user?.id) {
+      senderName = 'You';
+    } else if (selectedBuyer && senderId === selectedBuyer.id) {
+      senderName = selectedBuyer.name || 'Buyer';
+    } else {
+      // Fallback: if not current user and not selected buyer, it might be another buyer or farmer
+      senderName = senderId === crop?.farmer_Id ? (crop?.farmerName || 'Farmer') : 'Buyer';
+    }
+    
     return {
       id: message.id ?? message.clientMessageId ?? `${senderId ?? 'unknown'}-${createdAt}`,
       clientMessageId: message.clientMessageId,
       senderId,
-      senderName:
-        message.sender_name ??
-        message.senderName ??
-        (senderId === user?.id ? 'You' : crop?.farmerName || 'Farmer'),
+      senderName,
       content,
       createdAt,
       isOptimistic: message.isOptimistic || false
     };
-  }, [crop?.farmerName, user?.id]);
+  }, [crop?.farmerName, crop?.farmer_Id, user?.id, selectedBuyer]);
   const formatChatTimestamp = (value) => {
     try {
       const date = new Date(value);
@@ -247,6 +259,11 @@ const CropDetailView = () => {
       setChatError(err?.message || 'Unable to connect to chat.');
     });
 
+    // Listen for message deletion events
+    connection.on('messageDeleted', ({ messageId }) => {
+      setChatMessages(prev => prev.filter(message => message.id !== messageId));
+    });
+
     return () => {
       connection.disconnect();
       socketRef.current = null;
@@ -398,6 +415,45 @@ const CropDetailView = () => {
       setChatInput(trimmed);
     } finally {
       setSendingChatMessage(false);
+    }
+  };
+
+  const handleDeleteChatMessage = async (messageId) => {
+    if (!messageId || deletingMessageId === messageId) return;
+
+    setDeletingMessageId(messageId);
+    setChatError(null);
+
+    try {
+      // Try socket first for real-time updates
+      if (socketRef.current) {
+        socketRef.current.emit('deleteCropChatMessage', { messageId });
+      }
+
+      // Also send HTTP request as backup
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/crop-chats/${messageId}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to delete message');
+      }
+
+      // If socket didn't work, remove the message from local state
+      if (!socketRef.current) {
+        setChatMessages(prev => prev.filter(message => message.id !== messageId));
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      setChatError('Unable to delete message. Please try again.');
+    } finally {
+      setDeletingMessageId(null);
     }
   };
   
@@ -1617,9 +1673,9 @@ const CropDetailView = () => {
                   {chatMessages.map((message) => {
                     const isCurrentUser = message.senderId === user?.id;
                     return (
-                      <div key={message.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                      <div key={message.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} group`}>
                         <div
-                          className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm ${
+                          className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm relative ${
                             isCurrentUser ? 'bg-agrovia-500 text-white' : 'bg-gray-100 text-gray-800'
                           }`}
                         >
@@ -1634,6 +1690,26 @@ const CropDetailView = () => {
                           >
                             {formatChatTimestamp(message.createdAt)}
                           </span>
+                          
+                          {/* Delete button - only show for current user's messages */}
+                          {isCurrentUser && (
+                            <button
+                              onClick={() => handleDeleteChatMessage(message.id)}
+                              disabled={deletingMessageId === message.id}
+                              className={`absolute -top-2 -right-2 w-6 h-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-xs ${
+                                isCurrentUser 
+                                  ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                  : 'bg-red-100 hover:bg-red-200 text-red-600'
+                              } ${deletingMessageId === message.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title="Delete message"
+                            >
+                              {deletingMessageId === message.id ? (
+                                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                '×'
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
