@@ -19,7 +19,8 @@ import {
   TrendingUp,
   MessageCircle,
   RefreshCcw,
-  Shield
+  Shield,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import FullScreenLoader from '../../components/ui/FullScreenLoader';
@@ -114,6 +115,48 @@ const formatStatusLabel = (status) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+const normalizeReview = (review) => {
+  if (!review) return null;
+  const ratingValue = parseNumber(review?.rating);
+  const createdAt = review?.created_at ? new Date(review.created_at) : null;
+  const updatedAt = review?.updated_at ? new Date(review.updated_at) : null;
+  return {
+    id:
+      review?.id ??
+      `${review?.order_item_id ?? 'item'}-${review?.reviewer_id ?? 'user'}-${review?.reviewer_role ?? 'role'}`,
+    orderItemId: review?.order_item_id ?? null,
+    orderTransportId: review?.order_transport_id ?? null,
+    transporterId: review?.transporter_id ?? null,
+    reviewerId: review?.reviewer_id ?? null,
+    reviewerRole: review?.reviewer_role ?? 'buyer',
+    rating: Number.isFinite(ratingValue) ? ratingValue : null,
+    comment: review?.comment ?? '',
+    createdAt: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt : null,
+    updatedAt: updatedAt && !Number.isNaN(updatedAt.getTime()) ? updatedAt : null,
+  };
+};
+
+const normalizeReviewSummary = (summary, fallbackTransporterId = null) => {
+  if (!summary) {
+    return {
+      transporterId: fallbackTransporterId,
+      reviewCount: 0,
+      averageRating: null,
+      lastUpdated: null,
+    };
+  }
+
+  const average = parseNumber(summary?.average_rating);
+  const lastUpdated = summary?.last_updated ? new Date(summary.last_updated) : null;
+
+  return {
+    transporterId: summary?.transporter_id ?? fallbackTransporterId,
+    reviewCount: parseNumber(summary?.review_count) ?? 0,
+    averageRating: Number.isFinite(average) ? average : null,
+    lastUpdated: lastUpdated && !Number.isNaN(lastUpdated.getTime()) ? lastUpdated : null,
+  };
+};
+
 const getStatusIcon = (status) => {
   switch (status) {
     case 'completed':
@@ -139,10 +182,39 @@ const TransportDashboard = () => {
   const [error, setError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [reviewSummary, setReviewSummary] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewError, setReviewError] = useState(null);
 
   const [activeTab, setActiveTab] = useState('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const transporterDetailId = useMemo(() => {
+    const userCandidates = [
+      user?.transporterDetailId,
+      user?.transporter_detail_id,
+      user?.transporterDetailsId,
+      user?.transporter_details_id,
+      user?.transporter?.id,
+      user?.transporter?.transporter_detail_id,
+    ];
+
+    const fromUser = userCandidates
+      .map((value) => parseNumber(value))
+      .find((value) => value !== null);
+
+    if (fromUser !== undefined && fromUser !== null) {
+      return fromUser;
+    }
+
+    const fromDeliveries = deliveries
+      .map((delivery) => parseNumber(delivery?.transporterDetailId))
+      .find((value) => value !== null);
+
+    return fromDeliveries ?? null;
+  }, [deliveries, user]);
 
   const normalizeDelivery = useCallback((item) => {
     const status = normalizeStatus(item?.status || item?.orderStatus);
@@ -251,11 +323,84 @@ const TransportDashboard = () => {
     }
   }, [getAuthHeaders, normalizeDelivery, user]);
 
+  const fetchReviewData = useCallback(
+    async (transporterId) => {
+      if (!transporterId) {
+        setReviewSummary(null);
+        setReviews([]);
+        return;
+      }
+
+      setLoadingReviews(true);
+      setReviewError(null);
+
+      try {
+        const [summaryRes, listRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/v1/transporter-reviews/transporter/${transporterId}/summary`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
+            credentials: 'include',
+          }),
+          fetch(`${API_BASE_URL}/api/v1/transporter-reviews/transporter/${transporterId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
+            credentials: 'include',
+          }),
+        ]);
+
+        if (!summaryRes.ok) {
+          const errorData = await summaryRes.json().catch(() => null);
+          throw new Error(errorData?.message || 'Failed to load review summary');
+        }
+
+        if (!listRes.ok) {
+          const errorData = await listRes.json().catch(() => null);
+          throw new Error(errorData?.message || 'Failed to load reviews');
+        }
+
+        const summaryPayload = await summaryRes.json().catch(() => null);
+        const listPayload = await listRes.json().catch(() => null);
+
+        const parsedSummary = normalizeReviewSummary(summaryPayload?.data, transporterId);
+        const list = Array.isArray(listPayload?.data)
+          ? listPayload.data
+          : Array.isArray(listPayload)
+          ? listPayload
+          : [];
+
+        setReviewSummary(parsedSummary);
+        setReviews(list.map((item) => normalizeReview(item)).filter(Boolean));
+      } catch (err) {
+        console.error('Error fetching transporter review data:', err);
+        setReviewError(err.message || 'Failed to load reviews');
+        setReviewSummary(normalizeReviewSummary(null, transporterId));
+        setReviews([]);
+      } finally {
+        setLoadingReviews(false);
+      }
+    },
+    [getAuthHeaders]
+  );
+
   useEffect(() => {
     if (!authLoading) {
       fetchDeliveries();
     }
   }, [authLoading, fetchDeliveries]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!transporterDetailId) {
+      setReviewSummary(null);
+      setReviews([]);
+      return;
+    }
+    fetchReviewData(transporterDetailId);
+  }, [authLoading, fetchReviewData, transporterDetailId]);
 
   const updateDeliveryStatus = useCallback(
     async (deliveryId, nextStatus) => {
@@ -335,6 +480,51 @@ const TransportDashboard = () => {
     });
   }, [deliveries, activeTab, searchTerm, statusFilter]);
 
+  const reviewsWithDelivery = useMemo(() => {
+    if (!reviews.length) return [];
+
+    return reviews.map((review) => {
+      const deliveryMatch = deliveries.find((delivery) => {
+        if (!delivery?.orderItemId || !review?.orderItemId) return false;
+        return String(delivery.orderItemId) === String(review.orderItemId);
+      });
+
+      return {
+        ...review,
+        productName: deliveryMatch?.productName ?? null,
+        orderCode: deliveryMatch?.code ?? null,
+        deliveryStatus: deliveryMatch?.status ?? null,
+      };
+    });
+  }, [deliveries, reviews]);
+
+  const ratingsByOrderItem = useMemo(() => {
+    if (!reviews.length) return new Map();
+
+    const aggregates = new Map();
+
+    reviews.forEach((review) => {
+      const orderItemId = review?.orderItemId ?? review?.order_item_id;
+      const numericRating = parseNumber(review?.rating);
+      if (!orderItemId || !Number.isFinite(numericRating)) return;
+
+      const key = String(orderItemId);
+      const current = aggregates.get(key) || { sum: 0, count: 0 };
+      current.sum += numericRating;
+      current.count += 1;
+      aggregates.set(key, current);
+    });
+
+    const result = new Map();
+    aggregates.forEach((value, key) => {
+      if (value.count > 0) {
+        result.set(key, value.sum / value.count);
+      }
+    });
+
+    return result;
+  }, [reviews]);
+
   const stats = useMemo(() => {
     if (!deliveries.length) {
       return {
@@ -398,6 +588,23 @@ const TransportDashboard = () => {
       successRate,
     };
   }, [deliveries]);
+
+  const averageRating = useMemo(() => {
+    if (reviewSummary && Number.isFinite(parseNumber(reviewSummary?.averageRating))) {
+      return parseNumber(reviewSummary.averageRating);
+    }
+    return Number.isFinite(stats.avgRating) ? stats.avgRating : null;
+  }, [reviewSummary, stats.avgRating]);
+
+  const reviewCount = reviewSummary?.reviewCount ?? 0;
+
+  const reviewSummaryUpdatedLabel = useMemo(() => {
+    if (!reviewSummary?.lastUpdated) return null;
+    const date = formatDateLabel(reviewSummary.lastUpdated);
+    const time = formatTimeLabel(reviewSummary.lastUpdated);
+    if (date && time) return `${date} • ${time}`;
+    return date || time;
+  }, [reviewSummary]);
 
   const lastUpdatedLabel = useMemo(() => {
     if (!lastUpdated) return null;
@@ -498,9 +705,11 @@ const TransportDashboard = () => {
               >
                 <Star className="w-6 h-6 text-yellow-300 mx-auto mb-2" />
                 <div className="text-2xl font-bold text-white">
-                  {Number.isFinite(stats.avgRating) ? stats.avgRating.toFixed(1) : '—'}
+                  {Number.isFinite(averageRating) ? averageRating.toFixed(1) : '—'}
                 </div>
-                <div className="text-green-200 text-sm">Avg Rating</div>
+                <div className="text-green-200 text-sm">
+                  Avg Rating{reviewCount ? ` • ${reviewCount} review${reviewCount === 1 ? '' : 's'}` : ''}
+                </div>
               </div>
               <div
                 className="p-4 rounded-xl text-center"
@@ -732,6 +941,119 @@ const TransportDashboard = () => {
             )}
           </div>
 
+          {/* Transporter Reviews */}
+          <div
+            className="rounded-2xl shadow-lg p-6 mb-8 border backdrop-blur-sm"
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%)',
+              borderColor: 'rgba(34, 197, 94, 0.1)',
+            }}
+          >
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-800">Transporter Reviews</h2>
+                <p className="text-slate-500 text-sm">
+                  Feedback from buyers and farmers
+                  {reviewSummaryUpdatedLabel ? ` • Updated ${reviewSummaryUpdatedLabel}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+                  <Star className="w-4 h-4" />
+                  <span>{Number.isFinite(averageRating) ? averageRating.toFixed(1) : '—'}</span>
+                </div>
+                <div className="text-sm text-slate-500">
+                  {reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : 'No reviews yet'}
+                </div>
+              </div>
+            </div>
+
+            {reviewError && (
+              <div className="mb-4 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm">
+                {reviewError}
+              </div>
+            )}
+
+            {loadingReviews ? (
+              <div className="py-10 flex items-center justify-center text-slate-500 space-x-3">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Loading reviews...</span>
+              </div>
+            ) : reviewsWithDelivery.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead>
+                    <tr className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <th className="px-4 py-3">Delivery</th>
+                      <th className="px-4 py-3">Rating</th>
+                      <th className="px-4 py-3">Comment</th>
+                      <th className="px-4 py-3">Reviewer</th>
+                      <th className="px-4 py-3">Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {reviewsWithDelivery.map((review) => {
+                      const updatedDate = review.updatedAt ? formatDateLabel(review.updatedAt) : null;
+                      const updatedTime = review.updatedAt ? formatTimeLabel(review.updatedAt) : null;
+                      const ratingLabel = Number.isFinite(review.rating) ? review.rating.toFixed(1) : '—';
+                      const deliveryStatusLabel = review.deliveryStatus
+                        ? formatStatusLabel(review.deliveryStatus)
+                        : null;
+
+                      return (
+                        <tr key={review.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-4 align-top text-sm text-slate-700">
+                            <div className="font-semibold text-slate-800">
+                              {review.productName || `Order item #${review.orderItemId}`}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {review.orderCode ? `Order ${review.orderCode}` : `Item ID ${review.orderItemId}`}
+                            </div>
+                            {deliveryStatusLabel && (
+                              <span className="inline-flex items-center mt-2 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-600">
+                                {deliveryStatusLabel}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 align-top text-sm text-slate-700">
+                            <div className="flex items-center space-x-2 font-medium">
+                              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                              <span>{ratingLabel}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 align-top text-sm text-slate-700 max-w-sm">
+                            {review.comment ? (
+                              <p className="text-slate-700 line-clamp-3">{review.comment}</p>
+                            ) : (
+                              <span className="text-slate-400 italic">No comment provided</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 align-top text-sm text-slate-700">
+                            <div className="font-medium text-slate-800">
+                              {formatStatusLabel(review.reviewerRole)}
+                            </div>
+                            {review.reviewerId && (
+                              <div className="text-xs text-slate-500 mt-1">User #{review.reviewerId}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 align-top text-sm text-slate-700">
+                            <div>{updatedDate || '—'}</div>
+                            {updatedTime && <div className="text-xs text-slate-500 mt-1">{updatedTime}</div>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-10 text-center text-slate-500">
+                No reviews yet. Share great service to start receiving feedback!
+              </div>
+            )}
+          </div>
+
           {/* Tabs */}
           <div
             className="rounded-2xl shadow-lg mb-8 border backdrop-blur-sm overflow-hidden"
@@ -790,7 +1112,15 @@ const TransportDashboard = () => {
               const statusLabel = formatStatusLabel(delivery.status);
               const priorityClasses = getPriorityBadgeClasses(delivery.priority);
               const priorityLabel = getPriorityLabel(delivery.priority);
-              const ratingLabel = Number.isFinite(delivery.rating) ? delivery.rating.toFixed(1) : '—';
+              const ratingOverride = ratingsByOrderItem.get(
+                delivery?.orderItemId ? String(delivery.orderItemId) : ''
+              );
+              const ratingValue = Number.isFinite(ratingOverride)
+                ? ratingOverride
+                : Number.isFinite(delivery.rating)
+                ? delivery.rating
+                : null;
+              const ratingLabel = Number.isFinite(ratingValue) ? ratingValue.toFixed(1) : '—';
               const pickupDateLabel = delivery.createdAtDateLabel || 'Date not set';
               const pickupTimeLabel = delivery.createdAtTimeLabel || '—';
               const dropoffDateLabel = delivery.scheduledDate || delivery.createdAtDateLabel || 'Date not set';
