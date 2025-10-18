@@ -44,7 +44,8 @@ import MyOrders from './pages/MyOrders';
 
 import CropPostForm from "./pages/farmer/CropPostForm";
 
-import CreateArticle from "./pages/Moderator/CreateArticle";
+import CreateArticle from "./pages/Moderator/CreateArticleNew";
+import MyArticleRequests from "./pages/Moderator/MyArticleRequests";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
@@ -474,13 +475,25 @@ const App = () => {
       />
         <Route path="/transportreviews" element={
           <Layout>
-            <TransportServicesReviews/>
+            <TransportServicesReviews />
+          </Layout>
+        }
+        />
+      <Route path="/createarticle" element={
+          <Layout>
+            <CreateArticle />
           </Layout>
         }
       />
-      <Route path="/createarticle" element={
+      <Route path="/my-article-requests" element={
           <Layout>
-            <CreateArticle/>
+            <MyArticleRequests />
+          </Layout>
+        }
+      />
+      <Route path="/my-article-requests/:articleId" element={
+          <Layout>
+            <MyArticleRequests />
           </Layout>
         }
       />

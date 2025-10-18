@@ -95,6 +95,7 @@ const transporterMenuItems = [
 
 const moderatorMenuItems = [
   { label: 'Create Article', icon: DocumentTextIcon, path: '/createarticle' },
+  { label: 'My Article Requests', icon: BookOpenIcon, path: '/my-article-requests' },
   { label: 'Content Approval', icon: DocumentCheckIcon, path: '/conapproval' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile' },
 ];
