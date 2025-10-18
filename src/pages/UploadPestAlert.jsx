@@ -109,7 +109,7 @@ const UploadPestAlert = () => {
       }, { headers });
       
       alert('Pest alert submitted successfully!');
-      navigate('/pestalert');
+      navigate('/pestalert/view');
       
       // Reset form after success
       setForm({ pestName: '', symptoms: '', severity: '', recommendations: [''] });
@@ -159,7 +159,7 @@ const UploadPestAlert = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate('/pestalert')}
+              onClick={() => navigate('/pestalert/view')}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X className="w-6 h-6" />
@@ -287,7 +287,7 @@ const UploadPestAlert = () => {
             <div className="flex items-center justify-between pt-6 border-t border-gray-200">
               <button
                 type="button"
-                onClick={() => navigate('/pestalert')}
+                onClick={() => navigate('/pestalert/view')}
                 className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold transition-colors"
               >
                 Cancel

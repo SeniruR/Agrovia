@@ -164,7 +164,7 @@ const ViewPestAlerts = () => {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/pestalert')}
+                onClick={() => navigate('/')}
                 className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
               >
                 <ArrowLeft className="w-6 h-6 text-gray-600" />

@@ -95,6 +95,7 @@ const transporterMenuItems = [
 const moderatorMenuItems = [
   { label: 'Create Article', icon: DocumentTextIcon, path: '/createarticle' },
   { label: 'Content Approval', icon: DocumentCheckIcon, path: '/conapproval' },
+  { label: 'Pest Alerts', icon: BellIcon, path: '/pestalert/view' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile' },
 ];
 const menuItems = [
@@ -256,7 +257,7 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
           }
           setFilteredMenu(menu);
         }
-      } catch (e) {
+      } catch {
         if (isMounted) {
           setUserType(null);
           setFilteredMenu(menuItems);
@@ -265,7 +266,7 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
     }
     fetchUserType();
     return () => { isMounted = false; };
-  }, []);
+  }, [hasCropRecommendationAccess, hasAlertAccess, hasForecastAccess]);
 
   // Clear selected collapsed item when sidebar opens
   useEffect(() => {
@@ -280,8 +281,9 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   };
 
   const handleLogout = () => {
-    // Use AuthContext logout function
-    logout();
+    // Clear the auth token and redirect to login
+    localStorage.removeItem('authToken');
+    window.location.href = '/login';
     onClose(); // Close sidebar after logout
   };
 
