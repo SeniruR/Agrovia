@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+
+import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload, Pencil, Trash2 } from 'lucide-react';
 import { useCart } from '../../hooks/useCart';
+
 import { useAuth } from '../../contexts/AuthContext';
 // Add this component at the top of your file
 const ImageWithFallback = ({ src, alt, className }) => {
@@ -29,7 +31,7 @@ const ImageWithFallback = ({ src, alt, className }) => {
   );
 };
 
-const ShopItemsListing = ({ onItemClick, onViewCart }) => {
+const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('rating');
@@ -38,6 +40,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [orderedProductIds, setOrderedProductIds] = useState(new Set());
+  const [canReviewSelectedProduct, setCanReviewSelectedProduct] = useState(false);
   const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -49,6 +53,9 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [rating, setRating] = useState(0);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewImages, setReviewImages] = useState([]);
+  // For edit mode: existing attachment filenames and which to keep
+  const [existingAttachments, setExistingAttachments] = useState([]);
+  const [removedExistingIdx, setRemovedExistingIdx] = useState(new Set());
   const [submittingReview, setSubmittingReview] = useState(false);
   const [currentUserData, setCurrentUserData] = useState(null);
   const [shopReviews, setShopReviews] = useState([]);
@@ -59,6 +66,65 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [modalQuantity, setModalQuantity] = useState(1);
   const fileInputRef = useRef(null);
   const { user, getAuthHeaders } = useAuth();
+  // Fetch current user's orders once to determine which products they purchased
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        const authToken = localStorage.getItem('authToken');
+        const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
+        const res = await fetch('http://localhost:5000/api/v1/orders', {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authToken ? `Bearer ${authToken}` : (authHeaders.Authorization || ''),
+          },
+          credentials: 'include'
+        });
+        if (!res.ok) return; // silently ignore if not logged in or error
+        const data = await res.json().catch(() => ({}));
+        const orders = Array.isArray(data?.data) ? data.data : [];
+        const ids = new Set();
+        for (const order of orders) {
+          const items = Array.isArray(order.products) ? order.products : [];
+          for (const it of items) {
+            const pid = Number(it.productId || it.product_id);
+            if (Number.isFinite(pid)) ids.add(pid);
+          }
+        }
+        setOrderedProductIds(ids);
+      } catch (_) {
+        // ignore
+      }
+    };
+    loadOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Compute if current user can review the selected product (must be farmer and have ordered it)
+  useEffect(() => {
+    if (!selectedProduct || !user) {
+      setCanReviewSelectedProduct(false);
+      return;
+    }
+    const roleStr = ((user && (user.role ?? user.user_type)) || '').toString().toLowerCase();
+    const isFarmer = roleStr.includes('farmer');
+    const pid = Number(selectedProduct.id || selectedProduct.productId || selectedProduct.shop_id);
+    const hasOrdered = Number.isFinite(pid) && orderedProductIds.has(pid);
+    setCanReviewSelectedProduct(Boolean(isFarmer && hasOrdered));
+  }, [selectedProduct, user, orderedProductIds]);
+  // Open review modal if asked via navigation state
+  useEffect(() => {
+    if (!initialReviewRequest || !Array.isArray(shopItems) || shopItems.length === 0) return;
+    const pid = Number(initialReviewRequest.productId);
+    if (!pid) return;
+    const target = shopItems.find(it => Number(it.id || it.productId || it.shop_id) === pid);
+    if (target) {
+      setSelectedProduct(target);
+      // Ensure reviews load for product
+      fetchShopReviews(target);
+      // Then open review modal
+      setShowReviewModal(true);
+    }
+  }, [initialReviewRequest, shopItems]);
   
   // Log the user data when it changes to help with debugging
   useEffect(() => {
@@ -86,10 +152,14 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     try {
       // Get reviews for the specific product
       
+      // Get auth token and headers
+      const authToken = localStorage.getItem('authToken');
+      const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
+      
       // Use URL parameter instead of query parameter
       const response = await fetch(`http://localhost:5000/api/v1/shop-reviews/${productId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': authToken ? `Bearer ${authToken}` : (authHeaders.Authorization || ''),
         },
         credentials: 'include'
       });
@@ -129,6 +199,16 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
             
             // Filter out any empty strings or null values
             parsedAttachments = parsedAttachments.filter(item => item && item.trim() !== '');
+            // Normalize to just filename (strip any path like /uploads/abc.png)
+            parsedAttachments = parsedAttachments.map(item => {
+              try {
+                const val = item.toString();
+                const parts = val.split('/');
+                return parts[parts.length - 1];
+              } catch {
+                return item;
+              }
+            });
             
           } catch (err) {
             console.error("Error parsing attachments:", err);
@@ -199,6 +279,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     setRating(0);
     setReviewComment('');
     setReviewImages([]);
+    setExistingAttachments([]);
+    setRemovedExistingIdx(new Set());
   };
   
   const handleCloseReviewModal = () => {
@@ -221,6 +303,22 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     setRating(reviewToEdit.rating);
     setReviewComment(reviewToEdit.comment || '');
     setReviewImages([]); // Reset images for upload
+    // Load existing attachment filenames for edit UI
+    const existing = (reviewToEdit.attachments || []).map(a => {
+      // Normalize to filename if path provided
+      if (typeof a === 'string') {
+        // If it looks like a URL/path, take last segment
+        const parts = a.split('/');
+        return parts[parts.length - 1];
+      }
+      if (a && a.path) {
+        const parts = a.path.split('/');
+        return parts[parts.length - 1];
+      }
+      return a;
+    }).filter(Boolean);
+    setExistingAttachments(existing);
+    setRemovedExistingIdx(new Set());
     setShowReviewModal(true);
   };
   
@@ -353,20 +451,38 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     try {
       // Use currentUserData if available, otherwise fall back to user
       const userData = currentUserData || user;
-      const userId = userData.id;
+      
+      // Ensure we have a valid user ID - directly use numerical ID
+      let validUserData = userData;
+      if (!validUserData || !validUserData.id) {
+        console.error('Missing user data for review submission', userData);
+        // Check if we can use the current user object instead
+        if (user && user.id) {
+          console.log('Using current user object as fallback');
+          validUserData = user;
+        } else {
+          alert('Your user information could not be found. Please try logging out and logging in again.');
+          setSubmittingReview(false);
+          return;
+        }
+      }
+      
+      const userId = Number(validUserData.id); // Make sure it's a number
       
       // Make sure we have a valid farmer name from the user object
       // Check all possible fields where the name might be stored
       let farmerName = '';
-      if (userData.name) farmerName = userData.name;
-      else if (userData.fullName) farmerName = userData.fullName;
-      else if (userData.first_name && userData.last_name) farmerName = `${userData.first_name} ${userData.last_name}`;
-      else if (userData.firstName && userData.lastName) farmerName = `${userData.firstName} ${userData.lastName}`;
-      else if (userData.username) farmerName = userData.username;
-      else if (userData.email) farmerName = userData.email.split('@')[0]; // Use part of email as last resort
+      if (validUserData.name) farmerName = validUserData.name;
+      else if (validUserData.fullName) farmerName = validUserData.fullName;
+      else if (validUserData.first_name && validUserData.last_name) farmerName = `${validUserData.first_name} ${validUserData.last_name}`;
+      else if (validUserData.firstName && validUserData.lastName) farmerName = `${validUserData.firstName} ${validUserData.lastName}`;
+      else if (validUserData.username) farmerName = validUserData.username;
+      else if (validUserData.email) farmerName = validUserData.email.split('@')[0]; // Use part of email as last resort
       else farmerName = 'Anonymous Farmer';
       
-      // Create regular JSON data first (not FormData) to match what the API expects
+      console.log('Using user data for review:', { userId, farmerName });
+      
+  // Create regular JSON data first (not FormData) to match what the API expects
       const reviewData = {
         rating: Number(rating), // Ensure this is a number
         comment: reviewComment || "", // Make sure it's not undefined
@@ -375,53 +491,80 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         farmer_name: farmerName.trim() // Use the determined farmer name, ensuring no extra spaces
       };
       
-      // Handle attachments as an array of filenames
+      // Handle attachments correctly: upload images first, use server filenames
+      let finalAttachmentNames = [];
+      // Start with existing attachments when editing (minus those user removed)
+      if (editingReview && existingAttachments.length > 0) {
+        finalAttachmentNames = existingAttachments.filter((_, idx) => !removedExistingIdx.has(idx));
+      }
+
+      // Upload any new images and collect server filenames
       if (reviewImages && reviewImages.length > 0) {
-        const validImages = reviewImages.slice(0, 5); // Ensure max 5 images
-        
-        // Create an array of file names to send as attachments
-        const fileNames = validImages.map(image => image.name);
-        
-        // Add attachments field to the reviewData
-        reviewData.attachments = JSON.stringify(fileNames);
-        
-        // Now upload the actual image files
-        for (const image of validImages) {
+        const validImages = reviewImages.slice(0, Math.max(0, 5 - finalAttachmentNames.length));
+        if (validImages.length) {
           const formData = new FormData();
-          formData.append('file', image);
-          
+          validImages.forEach(f => formData.append('attachments', f));
+
           try {
-            // Upload each image file
-            const uploadResponse = await fetch('http://localhost:5000/api/v1/upload', {
+            const imageAuthToken = localStorage.getItem('authToken');
+            const imageAuthHeaders = getAuthHeaders ? getAuthHeaders() : {};
+            const uploadResponse = await fetch('http://localhost:5000/api/v1/upload/review-attachments', {
               method: 'POST',
               headers: {
-                'Authorization': authToken ? `Bearer ${authToken}` : '',
+                'Authorization': imageAuthToken ? `Bearer ${imageAuthToken}` : (imageAuthHeaders.Authorization || ''),
               },
               body: formData,
             });
-            
-            if (!uploadResponse.ok) {
-              console.error(`Failed to upload image: ${image.name}`);
+            if (uploadResponse.ok) {
+              const uploadJson = await uploadResponse.json();
+              const serverNames = (uploadJson.files || []).map(f => {
+                // f.filename is server stored name
+                return f.filename;
+              }).filter(Boolean);
+              finalAttachmentNames = [...finalAttachmentNames, ...serverNames].slice(0, 5);
+            } else {
+              console.error('Failed to upload review attachments:', uploadResponse.status);
             }
           } catch (uploadError) {
-            console.error(`Error uploading image: ${image.name}`, uploadError);
+            console.error('Error uploading review attachments:', uploadError);
           }
         }
-      } else if (editingReview && editingReview.attachments && editingReview.attachments.length > 0) {
-        // If editing and no new images were added, keep the existing attachments
-        reviewData.attachments = JSON.stringify(editingReview.attachments);
-      } else {
-        // Use empty array if no attachments
-        reviewData.attachments = JSON.stringify([]);
+      }
+
+      // Ensure attachments field is valid JSON array
+      try {
+        reviewData.attachments = JSON.stringify(finalAttachmentNames);
+      } catch (jsonError) {
+        console.error('Error stringifying attachment names:', jsonError);
+        reviewData.attachments = '[]';
       }
       
       // Since we're using the current user's ID, we should already be authenticated
       // We don't need to verify if the user exists, as they are currently logged in
       // Just double check that we have all required fields
       if (!reviewData.farmer_id || !reviewData.shop_id || !reviewData.rating) {
-        alert('Missing required review information. Please try again.');
-        setSubmittingReview(false);
-        return;
+        console.error('Missing review data:', { 
+          farmer_id: reviewData.farmer_id, 
+          shop_id: reviewData.shop_id, 
+          rating: reviewData.rating,
+          user: user
+        });
+        // Force user ID from current user context
+        if (user && user.id) {
+          reviewData.farmer_id = Number(user.id);
+          // Make sure we have a name
+          if (!farmerName || farmerName === 'Anonymous Farmer') {
+            farmerName = user.name || user.username || user.email?.split('@')[0] || 'User';
+            reviewData.farmer_name = farmerName;
+          }
+          console.log('Updated review data with user info:', reviewData);
+          // Continue with submission, don't show an alert
+        } else {
+          console.error('No user information available - cannot submit review');
+          alert('User information is required to submit a review. Please refresh the page or log in again.');
+          setSubmittingReview(false);
+          return;
+        }
       }
       
       // Send the request with JSON data instead of FormData
@@ -435,21 +578,76 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         
       const method = isEditing ? 'PUT' : 'POST';
       
+      // Get fresh auth token to ensure it's the latest
+      const submitAuthToken = localStorage.getItem('authToken');
+      
+      // Use auth from context if available
+      const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
+      
+      console.log('Review submission details:', {
+        url: apiUrl,
+        method: method,
+        reviewData: { ...reviewData, farmer_id: reviewData.farmer_id, shop_id: reviewData.shop_id },
+        hasAuthToken: Boolean(submitAuthToken),
+        hasAuthHeaders: Object.keys(authHeaders).length > 0,
+      });
+      
+      // Always make sure we have the essential data
+      if (!reviewData.farmer_id && user && user.id) {
+        reviewData.farmer_id = Number(user.id);
+      }
+      
+      if (!reviewData.farmer_name && user) {
+        reviewData.farmer_name = user.name || user.username || 'User';
+      }
+      
+      // Make sure all numeric fields are actually numbers
+      const finalReviewData = {
+        ...reviewData,
+        rating: Number(reviewData.rating),
+        shop_id: Number(reviewData.shop_id),
+        farmer_id: Number(reviewData.farmer_id)
+      };
+      
+      console.log('Submitting final review data:', finalReviewData);
+      
+      // Try to send the request with proper error handling
+      let requestBody;
+      try {
+        requestBody = JSON.stringify(finalReviewData);
+      } catch (jsonError) {
+        console.error('Error stringifying review data:', jsonError);
+        alert('An error occurred preparing your review. Please try again.');
+        setSubmittingReview(false);
+        return;
+      }
+      
       const response = await fetch(apiUrl, {
         method: method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authToken ? `Bearer ${authToken}` : '', // Add auth token from local storage if available
+          'Authorization': submitAuthToken ? `Bearer ${submitAuthToken}` : (authHeaders.Authorization || ''),
           'Accept': 'application/json',
         },
-        body: JSON.stringify(reviewData),
+        body: requestBody,
         credentials: 'include' // Include cookies if needed for authentication
       });
       
-      if (!response.ok) {
+  if (!response.ok) {
       // Try to get detailed error message from the response
       let errorMessage = 'Failed to submit review';
       try {
+        // Check for authentication issues first
+        if (response.status === 401 || response.status === 403) {
+          // Authentication or authorization issue
+          console.error('Authentication error:', response.status);
+          errorMessage = 'Your session may have expired. Please log out and log in again.';
+          
+          // Try refreshing the token (if you have a refresh mechanism)
+          // For now, just alert the user
+          throw new Error(errorMessage);
+        }
+        
         const errorData = await response.json();
         if (errorData.message) {
           errorMessage = errorData.message;
@@ -460,13 +658,12 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         // Handle specific error cases
         if (errorData.error && errorData.error.includes('foreign key constraint fails')) {
           // This is a foreign key error - likely user ID not found
+          console.error('Foreign key constraint error:', errorData.error);
           errorMessage = 'Your user account is not properly linked in the system. Please contact support.';
-        }          if (response.status === 401 || response.status === 403) {
-            // Authentication or authorization issue
-            errorMessage = 'Your session may have expired. Please log out and log in again.';
-          }
+        }
         } catch (parseError) {
           // If we can't parse the error response, use the default error message
+          console.error('Error parsing response:', parseError);
         }
         throw new Error(errorMessage);
       }
@@ -495,7 +692,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         setTimeout(() => document.body.removeChild(toast), 300);
       }, 2000);
       
-      // Refresh the reviews after submitting a new one
+      // Refresh the reviews after submitting
       if (selectedProduct) {
         fetchShopReviews(selectedProduct);
       }
@@ -503,7 +700,26 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       // Close the modal and reset form
       handleCloseReviewModal();
     } catch (err) {
-      alert('Failed to submit review: ' + err.message);
+      console.error('Review submission error:', err);
+      
+      // Show an error toast instead of an alert for better UX
+      const errorToast = document.createElement('div');
+      errorToast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+      errorToast.innerHTML = `
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          ${err.message || 'Failed to submit review. Please try again.'}
+        </div>
+      `;
+      document.body.appendChild(errorToast);
+      setTimeout(() => {
+        errorToast.style.transform = 'translateX(100%)';
+        setTimeout(() => document.body.removeChild(errorToast), 300);
+      }, 4000);
+      
+      // Keep the modal open so they can try again
     } finally {
       setSubmittingReview(false);
     }
@@ -1394,16 +1610,18 @@ useEffect(() => {
                   <p className="text-xl font-bold text-gray-800">
                     {selectedProduct.available_quantity} {selectedProduct.unit}s
                   </p>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenReviewModal();
-                    }}
-                    className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2 w-full"
-                  >
-                    <Star className="w-5 h-5" />
-                    Write a Review
-                  </button>
+                  {canReviewSelectedProduct && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenReviewModal();
+                      }}
+                      className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2 w-full"
+                    >
+                      <Star className="w-5 h-5" />
+                      Write a Review
+                    </button>
+                  )}
                 </div>
                 {/* Description Section */}
                 <div className="bg-gray-50 p-6 rounded-lg">
@@ -1449,18 +1667,20 @@ useEffect(() => {
                       )}
                     </div>
                     
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenReviewModal();
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                      Write a Review
-                    </button>
+                    {canReviewSelectedProduct && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenReviewModal();
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        Write a Review
+                      </button>
+                    )}
                   </div>
                   
                   {loadingReviews ? (
@@ -1477,18 +1697,20 @@ useEffect(() => {
                       </div>
                       <p className="text-gray-500 mb-3 text-lg font-medium">No reviews yet</p>
                       <p className="text-gray-400 mb-5 text-center max-w-sm">Be the first to share your experience with this product!</p>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenReviewModal();
-                        }}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center gap-2"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        Write the First Review
-                      </button>
+                      {canReviewSelectedProduct && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenReviewModal();
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center gap-2"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          Write the First Review
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-6">
@@ -1541,25 +1763,23 @@ useEffect(() => {
                               
                               {/* Show edit/delete buttons only for the user's own reviews */}
                               {isUserReview && (
-                                <div className="flex space-x-2">
+                                <div className="flex items-center space-x-3">
                                   <button 
                                     onClick={() => handleEditReview(review)} 
-                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors"
+                                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-semibold transition-colors duration-200"
                                     title="Edit review"
                                   >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                    </svg>
+                                    <Pencil size={16} />
+                                    <span>Edit</span>
                                   </button>
                                   <button 
                                     onClick={() => handleDeleteReview(review.id)}
-                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                                    className="flex items-center gap-2 text-sm text-red-600 hover:text-red-800 font-semibold transition-colors duration-200"
                                     title="Delete review"
                                     disabled={deletingReview}
                                   >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
+                                    <Trash2 size={16} />
+                                    <span>{deletingReview ? 'Deleting...' : 'Delete'}</span>
                                   </button>
                                 </div>
                               )}
@@ -1644,7 +1864,9 @@ useEffect(() => {
             >
               ✕
             </button>
-            <h2 className="text-2xl font-bold text-amber-700 mb-6">Add Review & Rating</h2>
+            <h2 className="text-2xl font-bold text-amber-700 mb-2">Add Review & Rating</h2>
+            
+           
             
             <form onSubmit={handleSubmitReview}>
               <div className="mb-4">
@@ -1679,13 +1901,57 @@ useEffect(() => {
                 ></textarea>
               </div>
               
+              {/* Existing attachments (edit mode) */}
+              {editingReview && existingAttachments.length > 0 && (
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-medium mb-2">Existing attachments</label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {existingAttachments.map((name, idx) => (
+                      <div key={`${name}-${idx}`} className={`relative bg-gray-100 p-1 rounded-md border ${removedExistingIdx.has(idx) ? 'opacity-50 border-red-300' : 'border-gray-200'}`}>
+                        <img
+                          src={`http://localhost:5000/uploads/${name}`}
+                          alt={`Existing ${idx + 1}`}
+                          className="h-16 w-16 object-cover rounded-md"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://via.placeholder.com/80?text=Image';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className={`absolute -top-2 -right-2 rounded-full w-5 h-5 flex items-center justify-center text-xs ${removedExistingIdx.has(idx) ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+                          title={removedExistingIdx.has(idx) ? 'Undo remove' : 'Remove'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRemovedExistingIdx(prev => {
+                              const next = new Set(prev);
+                              if (next.has(idx)) next.delete(idx); else next.add(idx);
+                              return next;
+                            });
+                          }}
+                        >
+                          {removedExistingIdx.has(idx) ? '↺' : '✕'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {existingAttachments.length - removedExistingIdx.size > 0 && (
+                    <p className="mt-2 text-xs text-gray-500">{existingAttachments.length - removedExistingIdx.size} will be kept</p>
+                  )}
+                </div>
+              )}
+
               <div className="mb-6">
                 <label className="block text-gray-700 font-medium mb-2">
                   Upload Images: <span className="text-amber-600 text-sm">(Maximum 5 images)</span>
                 </label>
+                {(() => {
+                  const keptExisting = editingReview ? (existingAttachments.length - removedExistingIdx.size) : 0;
+                  const totalSelected = keptExisting + reviewImages.length;
+                  const atLimit = totalSelected >= 5;
+                  return (
                 <div 
                   className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => { if (!atLimit) fileInputRef.current?.click(); }}
                 >
                   <div className="flex flex-col items-center">
                     <div className="mb-2 text-gray-400">
@@ -1697,7 +1963,7 @@ useEffect(() => {
                     {reviewImages.length > 0 && (
                       <div className="mt-3 text-sm text-emerald-600 font-medium">
                         {reviewImages.length} {reviewImages.length === 1 ? 'file' : 'files'} selected 
-                        {reviewImages.length >= 5 && (
+                        {atLimit && (
                           <span className="text-amber-600"> (Maximum limit reached)</span>
                         )}
                       </div>
@@ -1710,9 +1976,10 @@ useEffect(() => {
                     accept="image/jpeg,image/png,image/gif"
                     multiple
                     onChange={handleFileUpload}
-                    disabled={reviewImages.length >= 5}
+                    disabled={atLimit}
                   />
                 </div>
+                  );})()}
                 {reviewImages.length > 0 && (
                   <div className="mt-2 grid grid-cols-5 gap-2">
                     {reviewImages.slice(0, 5).map((image, index) => (

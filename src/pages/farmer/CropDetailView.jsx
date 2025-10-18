@@ -28,8 +28,10 @@ import { Star } from 'lucide-react';
 import CartNotification from '../../components/CartNotification';
 import OrderLimitNotification from '../../components/OrderLimitNotification';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 
 const CropDetailView = () => {
+  const { success, error, warning, info } = useAlert();
   const { user, getAuthHeaders } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { id } = useParams();
@@ -57,6 +59,12 @@ const CropDetailView = () => {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
   const [reviewImages, setReviewImages] = useState([]);
+  
+  // For update and delete review functionality
+  const [editingReview, setEditingReview] = useState(null);
+  const [showUpdateReviewModal, setShowUpdateReviewModal] = useState(false);
+  const [showDeleteReviewModal, setShowDeleteReviewModal] = useState(false);
+  const [reviewToDelete, setReviewToDelete] = useState(null);
 
   // Transport states
   const [showTransportModal, setShowTransportModal] = useState(false);
@@ -184,7 +192,7 @@ const CropDetailView = () => {
     const fetchReviews = async () => {
       if (!crop || !crop.id) return;
       try {
-        const response = await fetch(`/api/v1/crop-reviews?crop_id=${crop.id}`);
+        const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews?crop_id=${crop.id}`);
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.reviews)) {
@@ -210,7 +218,8 @@ const CropDetailView = () => {
                 rating,
                 comment: review.comment,
                 images,
-                created_at: review.created_at
+                created_at: review.created_at,
+                buyer_id: review.buyer_id
               };
             });
             setReviews(formattedReviews);
@@ -225,6 +234,128 @@ const CropDetailView = () => {
     };
     fetchReviews();
   }, [crop]);
+
+  // Function to handle updating a review
+  const handleUpdateReview = async () => {
+    if (!editingReview || !editingReview.id) return;
+    
+    try {
+      // Check if user is logged in
+      if (!user || !user.id) {
+        warning('Please log in to update a review');
+        return;
+      }
+      
+      // Check if the user owns this review
+      if (editingReview.buyer_id !== user.id) {
+        error('You can only update your own reviews');
+        return;
+      }
+      
+      // Create FormData to handle file uploads
+      const formData = new FormData();
+      formData.append('buyer_id', user.id);
+      formData.append('rating', editingReview.rating); 
+      formData.append('comment', editingReview.comment);
+      
+      // Append image files if any new ones are added
+      if (reviewImages.length > 0) {
+        reviewImages.forEach((img) => {
+          if (img.file) {
+            formData.append('attachments', img.file);
+          }
+        });
+      }
+      
+      // Send data to server
+      const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews/${editingReview.id}`, {
+        method: 'PUT',
+        headers: {
+          ...getAuthHeaders(),
+          // Don't set Content-Type when using FormData, browser will set it with boundary
+        },
+        body: formData,
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update the review in the state
+        setReviews(prevReviews => 
+          prevReviews.map(r => 
+            r.id === editingReview.id 
+              ? { 
+                  ...r, 
+                  rating: editingReview.rating,
+                  comment: editingReview.comment,
+                  images: data.review?.attachment_urls || r.images
+                }
+              : r
+          )
+        );
+        
+        // Show success message
+        success('Review updated successfully!');
+        
+        // Reset form and close modal
+        setEditingReview(null);
+        setShowUpdateReviewModal(false);
+        setReviewImages([]);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        error(`${errorData.message || 'Failed to update review'}`);
+      }
+    } catch (error) {
+      console.error('Error updating review:', error);
+      error('Error updating review. Please try again.');
+    }
+  };
+  
+  // Function to handle deleting a review
+  const handleDeleteReview = async () => {
+    if (!reviewToDelete || !reviewToDelete.id) return;
+    
+    try {
+      // Check if user is logged in
+      if (!user || !user.id) {
+        warning('Please log in to delete a review');
+        return;
+      }
+      
+      // Check if the user owns this review
+      if (reviewToDelete.buyer_id !== user.id) {
+        error('You can only delete your own reviews');
+        return;
+      }
+      
+      // Send delete request
+      const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews/${reviewToDelete.id}?buyer_id=${user.id}`, {
+        method: 'DELETE',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        // Remove the review from the state
+        setReviews(prevReviews => prevReviews.filter(r => r.id !== reviewToDelete.id));
+        
+        // Show success message
+        success('Review deleted successfully!');
+        
+        // Reset form and close modal
+        setReviewToDelete(null);
+        setShowDeleteReviewModal(false);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        error(`${errorData.message || 'Failed to delete review'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      error('Error deleting review. Please try again.');
+    }
+  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -555,7 +686,13 @@ const CropDetailView = () => {
                 </button>
           {user && crop && user.id !== crop.farmer_Id && (      
           <button
-            onClick={() => setShowReviewModal(true)}
+            onClick={() => {
+              // Reset form fields when opening the review modal
+              setNewRating(0);
+              setNewComment('');
+              setReviewImages([]);
+              setShowReviewModal(true);
+            }}
             className="flex items-center justify-center px-4 py-2 border border-yellow-500 text-yellow-700 rounded-lg hover:bg-yellow-50 transition-colors text-sm font-medium"
           >
             <Star className="w-4 h-4 mr-1" />
@@ -1107,7 +1244,7 @@ const CropDetailView = () => {
                     try {
                       // First check if the user is logged in
                       if (!user || !user.id) {
-                        alert('Please log in to submit a review');
+                        warning('Please log in to submit a review');
                         return;
                       }
                       
@@ -1150,14 +1287,14 @@ const CropDetailView = () => {
                         setReviews(prevReviews => [newReview, ...prevReviews]);
                         
                         // Show success message
-                        alert('Review submitted successfully!');
+                        success('Review submitted successfully!');
                       } else {
                         const errorData = await response.json().catch(() => ({}));
-                        alert(`Error: ${errorData.message || 'Failed to submit review'}`);
+                        error(`${errorData.message || 'Failed to submit review'}`);
                       }
                     } catch (error) {
                       console.error('Error submitting review:', error);
-                      alert('Error submitting review. Please try again.');
+                      error('Error submitting review. Please try again.');
                     } finally {
                       setNewRating(0);
                       setNewComment('');
@@ -1165,7 +1302,7 @@ const CropDetailView = () => {
                       setShowReviewModal(false);
                     }
                   } else {
-                    alert('Please provide both a rating and a comment.');
+                    warning('Please provide both a rating and a comment.');
                   }
                 }}
                 className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-700 text-white font-bold shadow hover:from-yellow-600 hover:to-yellow-800 transition-all"
@@ -1197,13 +1334,45 @@ const CropDetailView = () => {
               console.log('Review object:', review);
               return (
                 <li key={review.id || idx} className="border-b pb-4">
-                  <div className="flex items-center mb-1">
-                    <span className="font-semibold text-gray-800">{review.user || review.buyer_name}</span>
-                    <span className="ml-4 text-xs text-gray-500">
-                      {review.created_at ? new Date(review.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric', month: 'short', day: 'numeric'
-                      }) : ''}
-                    </span>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center">
+                      <span className="font-semibold text-gray-800">{review.user || review.buyer_name}</span>
+                      <span className="ml-4 text-xs text-gray-500">
+                        {review.created_at ? new Date(review.created_at).toLocaleDateString('en-US', {
+                          year: 'numeric', month: 'short', day: 'numeric'
+                        }) : ''}
+                      </span>
+                    </div>
+                    
+                    {/* Only show edit/delete buttons for the user's own reviews */}
+                    {user && review.buyer_id === user.id && (
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            setEditingReview({...review});
+                            setShowUpdateReviewModal(true);
+                          }}
+                          className="text-blue-500 hover:text-blue-700 text-sm flex items-center"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setReviewToDelete(review);
+                            setShowDeleteReviewModal(true);
+                          }}
+                          className="text-red-500 hover:text-red-700 text-sm flex items-center"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center mb-1 mt-1">
                     {Array.from({ length: safeRating }).map((_, i) => (
@@ -1216,9 +1385,14 @@ const CropDetailView = () => {
                       <div className="flex flex-wrap gap-2">
                         {review.images.map((img, imgIdx) => {
                           let imgPath = img;
-                          if (!img.startsWith('http') && !img.startsWith('/uploads/')) {
-                            imgPath = '/uploads/' + img;
+                          
+                          // Check if the image path is an absolute URL, a relative URL, or a direct API endpoint
+                          if (!img.startsWith('http') && !img.startsWith('/api/')) {
+                            // If it doesn't start with http or /api/, assume it's a path to an uploaded file
+                            imgPath = `/api/v1/crop-reviews/${review.id}/attachment`;
                           }
+                          
+                          // Add BACKEND_URL for relative paths
                           const imgUrl = imgPath.startsWith('http') ? imgPath : `${BACKEND_URL}${imgPath}`;
                           // Debug: print the image URL to the console
                           console.log('Review image URL:', imgUrl);
@@ -1469,6 +1643,167 @@ const CropDetailView = () => {
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Upgrade Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Update Review Modal */}
+      {showUpdateReviewModal && editingReview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Update Review
+              </h2>
+              <button 
+                onClick={() => {
+                  setShowUpdateReviewModal(false);
+                  setEditingReview(null);
+                  setReviewImages([]);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">Rating</label>
+                <div className="flex items-center">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setEditingReview({...editingReview, rating: star})}
+                      className={`${
+                        star <= editingReview.rating ? 'text-yellow-400' : 'text-gray-300'
+                      } hover:text-yellow-400 focus:outline-none focus:ring-0`}
+                    >
+                      <Star className="w-8 h-8" fill={star <= editingReview.rating ? 'currentColor' : 'none'} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">Comment</label>
+                <textarea
+                  value={editingReview.comment}
+                  onChange={(e) => setEditingReview({...editingReview, comment: e.target.value})}
+                  className="w-full h-32 p-2 border rounded-lg focus:ring-green-500 focus:border-green-500"
+                  placeholder="Share your thoughts about this crop..."
+                ></textarea>
+              </div>
+              
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Add Images (optional)
+                </label>
+                <div className="flex items-center space-x-2">
+                  <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <svg className="w-8 h-8 mb-3 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                      </svg>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Upload images</p>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          const preview = URL.createObjectURL(file);
+                          setReviewImages([...reviewImages, { preview, file }]);
+                        }
+                      }}
+                    />
+                  </label>
+                  {reviewImages.map((img, index) => (
+                    <div key={index} className="relative w-32 h-32">
+                      <img 
+                        src={img.preview} 
+                        alt={`Preview ${index}`} 
+                        className="w-full h-full object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                        onClick={() => {
+                          setReviewImages(reviewImages.filter((_, i) => i !== index));
+                        }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowUpdateReviewModal(false);
+                    setEditingReview(null);
+                    setReviewImages([]);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateReview}
+                  disabled={!editingReview.rating || !editingReview.comment.trim()}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Update Review
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Review Modal */}
+      {showDeleteReviewModal && reviewToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-semibold text-red-600">
+                Delete Review
+              </h2>
+              <button 
+                onClick={() => {
+                  setShowDeleteReviewModal(false);
+                  setReviewToDelete(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="py-4">
+              <p className="text-gray-700">Are you sure you want to delete this review? This action cannot be undone.</p>
+            </div>
+            
+            <div className="flex justify-end space-x-2 pt-4 border-t">
+              <button
+                onClick={() => {
+                  setShowDeleteReviewModal(false);
+                  setReviewToDelete(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteReview}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Delete
               </button>
             </div>
           </div>
