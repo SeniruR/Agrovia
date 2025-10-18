@@ -174,9 +174,16 @@ const getProductStock = (product) => {
 };
 
 const getProductRating = (product) => {
-  const candidates = [product?.rating, product?.average_rating, product?.avg_rating];
+  const candidates = [product?.average_rating, product?.avg_rating, product?.rating];
   const value = candidates.find((candidate) => candidate !== undefined && candidate !== null);
   return Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '-';
+};
+
+const getProductReviewCount = (product) => {
+  const candidates = [product?.review_count, product?.reviewCount, product?.total_reviews, product?.reviews];
+  const value = candidates.find((candidate) => candidate !== undefined && candidate !== null);
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
 
 const capitalizeLabel = (value) => {
@@ -634,9 +641,14 @@ const ShopDashboard = () => {
                       <DollarSign className="w-4 h-4 text-emerald-600" />
                       <span>{formatCurrency(getProductPrice(product))}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-sm">
                       <Star className="w-4 h-4 text-yellow-500" />
-                      <span>{getProductRating(product)}</span>
+                      <span className="font-medium text-gray-700">{getProductRating(product)}</span>
+                      {getProductReviewCount(product) > 0 ? (
+                        <span className="text-xs text-gray-500">({getProductReviewCount(product)} reviews)</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">No reviews yet</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Layers className="w-4 h-4 text-emerald-600" />
@@ -768,7 +780,10 @@ const ShopDashboard = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>Rating</span>
-                  <span className="font-semibold">{getProductRating(product)}</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-800">{getProductRating(product)}</span>
+                    <span className="ml-2 text-xs text-gray-500">{getProductReviewCount(product) > 0 ? `${getProductReviewCount(product)} reviews` : 'No reviews yet'}</span>
+                  </div>
                 </div>
               </div>
             </div>
