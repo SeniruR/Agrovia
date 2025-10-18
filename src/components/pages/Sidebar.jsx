@@ -53,6 +53,11 @@ const menuItems = [
     path: '/createarticle',
   },
   {
+    label: 'Review Article Requests',
+    icon: <ArticleOutlinedIcon />,
+    path: '/moderation/article-requests',
+  },
+  {
     label: 'Manage Users',
     icon: <ManageAccountsOutlinedIcon />,
     path: '/usermanagement',

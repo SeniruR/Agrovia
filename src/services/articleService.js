@@ -61,4 +61,15 @@ export const articleService = {
 
     return response.data;
   },
+
+  updateArticleStatus: async (articleId, status) => {
+    const payload = new FormData();
+    payload.append("status", status);
+
+    const response = await axios.put(`${API_BASE_URL}/knowledge-articles/${articleId}`, payload, {
+      headers: buildAuthHeaders(),
+    });
+
+    return response.data;
+  },
 };

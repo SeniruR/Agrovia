@@ -99,6 +99,11 @@ const moderatorMenuItems = [
   { label: 'Content Approval', icon: DocumentCheckIcon, path: '/conapproval' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile' },
 ];
+
+const mainModeratorMenuItems = [
+  { label: 'Review Article Requests', icon: DocumentCheckIcon, path: '/moderation/article-requests' },
+  ...moderatorMenuItems,
+];
 const menuItems = [
   {
     label: 'Marketplace',
@@ -251,7 +256,9 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
             }).filter(Boolean); // Remove null items
           } else if (type === '4' || type === 4) {
             menu = transporterMenuItems;
-          } else if (type === '5' || type === 5 || type === '5.1' || type === 5.1) {
+          } else if (type === '5.1' || type === 5.1) {
+            menu = mainModeratorMenuItems;
+          } else if (type === '5' || type === 5) {
             menu = moderatorMenuItems;
           } else {
             menu = menuItems;

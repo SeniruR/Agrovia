@@ -375,8 +375,8 @@ const KnowledgeHubHome = () => {
                     </div>
                     
                     <div className="text-center">
-                      <button  onClick={() => navigate('/hubContent')} className="inline-flex items-center space-x-2 text-green-600 hover:text-green-700 font-semibold text-base transition-all group-hover:translate-x-1 bg-green-50 hover:bg-green-100 px-4 py-2 rounded-lg">
-                        <span>Explore more</span>
+                      <button onClick={() => navigate('/knowledge-hub/published')} className="inline-flex items-center space-x-2 text-green-600 hover:text-green-700 font-semibold text-base transition-all group-hover:translate-x-1 bg-green-50 hover:bg-green-100 px-4 py-2 rounded-lg">
+                        <span>Browse published briefs</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>

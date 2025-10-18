@@ -7,6 +7,7 @@ const statusConfigs = {
   pending: { label: "Pending", badge: "bg-amber-100 text-amber-700", indicator: "bg-amber-500" },
   published: { label: "Published", badge: "bg-emerald-100 text-emerald-700", indicator: "bg-emerald-500" },
   archived: { label: "Archived", badge: "bg-slate-200 text-slate-600", indicator: "bg-slate-500" },
+  rejected: { label: "Rejected", badge: "bg-rose-100 text-rose-700", indicator: "bg-rose-500" },
 };
 
 const formatDate = (value) => {
@@ -223,6 +224,7 @@ const MyArticleRequests = () => {
                   <option value="pending">Pending</option>
                   <option value="published">Published</option>
                   <option value="archived">Archived</option>
+                  <option value="rejected">Rejected</option>
                 </select>
               </div>
             )}
