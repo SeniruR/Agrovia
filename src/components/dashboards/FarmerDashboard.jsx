@@ -1,603 +1,667 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  Phone, 
-  Mail, 
-  Package, 
-  TrendingUp, 
-  DollarSign, 
-  MapPin, 
-  Clock, 
-  CheckCircle, 
-  Truck, 
-  Eye,
-  Star,
-  Calendar,
-  Navigation,
-  Leaf,
-  Award,
-  Sprout,
-  Tractor,
-  Droplets,
-  Mountain,
-  BarChart3,
-  Activity
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+	Activity,
+	Award,
+	BarChart3,
+	CheckCircle,
+	Clock,
+	DollarSign,
+	Leaf,
+	MapPin,
+	Package,
+	Phone,
+	Sprout,
+	Tractor,
+	Truck,
+	TrendingUp,
+	User,
+	Mail,
+	Droplets,
+	Mountain,
+	Layers,
+	FileText
 } from 'lucide-react';
 import FullScreenLoader from '../../components/ui/FullScreenLoader';
 
+const colorThemes = {
+	green: {
+		container: 'bg-green-50 border-green-100',
+		label: 'text-green-600'
+	},
+	blue: {
+		container: 'bg-blue-50 border-blue-100',
+		label: 'text-blue-600'
+	},
+	yellow: {
+		container: 'bg-yellow-50 border-yellow-100',
+		label: 'text-yellow-600'
+	},
+	gray: {
+		container: 'bg-gray-50 border-gray-200',
+		label: 'text-gray-600'
+	}
+};
+
+const InfoCard = ({ label, value, icon: Icon, tone = 'green' }) => {
+	const theme = colorThemes[tone] || colorThemes.green;
+	const displayValue = value === null || value === undefined || value === '' ? '-' : value;
+	return (
+		<div className={`flex flex-col items-start rounded-xl p-4 border ${theme.container}`}>
+			<label className={`text-sm font-medium mb-1 flex items-center gap-2 ${theme.label}`}>
+				{Icon && <Icon className="w-4 h-4" />}
+				{label}
+			</label>
+			<p className="text-gray-800 font-medium break-words max-w-full">{displayValue}</p>
+		</div>
+	);
+};
+
 const FarmerDashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [farmerData, setFarmerData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+	const [activeTab, setActiveTab] = useState('overview');
+	const [farmerProfile, setFarmerProfile] = useState(null);
+	const [farmerPosts, setFarmerPosts] = useState([]);
+	const [farmerOrders, setFarmerOrders] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          setError('No authentication token found. Please log in again.');
-          setLoading(false);
-          return;
-        }
-        
-        let apiUrl = import.meta.env.VITE_API_URL
-          ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
-          : (import.meta.env.DEV
-              ? 'http://localhost:5000/api/v1/auth/profile-full'
-              : '/api/v1/auth/profile-full');
+	useEffect(() => {
+		const fetchData = async () => {
+			setLoading(true);
+			setError(null);
 
-        const res = await fetch(apiUrl, {
-          credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        const contentType = res.headers.get('content-type');
-        if (!res.ok) {
-          let msg = `Failed to fetch profile (status ${res.status})`;
-          if (contentType && contentType.includes('text/html')) {
-            msg = 'API endpoint not reachable. Check your Vite proxy or backend server.';
-          } else {
-            try {
-              const errJson = await res.json();
-              if (errJson && errJson.message) msg += `: ${errJson.message}`;
-            } catch {}
-          }
-          throw new Error(msg);
-        }
-        
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('API did not return JSON. Check your proxy and backend.');
-        }
-        
-        const data = await res.json();
-        const user = data.user || {};
-        const details = user.farmer_details || {};
-        
-        const profileImageUrl = user.profile_image ? 
-          `/api/v1/users/${user.id}/profile-image` : '';
-        
-        setFarmerData({
-          fullName: user.full_name || '-',
-          email: user.email || '-',
-          phoneNumber: user.phone_number || '-',
-          nic: user.nic || '-',
-          district: user.district || '-',
-          address: user.address || '-',
-          profileImage: profileImageUrl,
-          userId: user.id,
-          joinedDate: user.created_at || '-',
-          verified: user.is_active === 1,
-          // Farmer details
-          id: details.id || '-',
-          organizationId: details.organization_id || '-',
-          organizationName: details.organization_name || '-',
-          landSize: details.land_size ? `${details.land_size} acres` : '-',
-          description: details.description || '-',
-          divisionGramasewaNumber: details.division_gramasewa_number || '-',
-          farmingExperience: details.farming_experience || '-',
-          cultivatedCrops: details.cultivated_crops || '-',
-          irrigationSystem: details.irrigation_system || '-',
-          soilType: details.soil_type || '-',
-          farmingCertifications: details.farming_certifications || '-',
-          createdAt: details.created_at || '-',
-        });
-      } catch (err) {
-        setError(err.message || 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchProfile();
-  }, []);
+			try {
+				const token = localStorage.getItem('authToken');
+				if (!token) {
+					throw new Error('No authentication token found. Please log in again.');
+				}
 
-  // Sample data for dashboard stats and orders
-  const stats = [
-    { title: 'Total Crops Posted', value: '12', icon: Package, color: 'green' },
-    { title: 'Monthly Revenue', value: 'Rs. 45,000', icon: DollarSign, color: 'green' },
-    { title: 'Success Rate', value: '96%', icon: TrendingUp, color: 'green' },
-    { title: 'Rating', value: '4.8', icon: Star, color: 'green' }
-  ];
+				const buildApiUrl = (path) => {
+					if (import.meta.env.VITE_API_URL) {
+						return `${import.meta.env.VITE_API_URL}${path}`;
+					}
+					if (import.meta.env.DEV) {
+						return `http://localhost:5000${path}`;
+					}
+					return path;
+				};
 
-  const recentOrders = [
-    {
-      id: "DEL001",
-      product: "Carrot",
-      quantity: "25 kg",
-      price: "Rs. 3,000",
-      buyer: "Spice Masters Ltd",
-      status: "Completed",
-      date: "2025-07-03",
-      priority: "HIGH",
-      rating: 5
-    },
-    {
-      id: "DEL002",
-      product: "Cabbage",
-      quantity: "15 kg",
-      price: "Rs. 4,500",
-      buyer: "Green Valley Foods",
-      status: "Processing",
-      date: "2025-07-04",
-      priority: "MEDIUM",
-      rating: 4
-    },
-    {
-      id: "DEL003",
-      product: "Rice",
-      quantity: "50 kg",
-      price: "Rs. 6,000",
-      buyer: "Organic Foods Ltd",
-      status: "Completed",
-      date: "2025-07-05",
-      priority: "LOW",
-      rating: 5
-    }
-  ];
+				const fetchWithAuth = async (path, options = {}) => {
+					const response = await fetch(buildApiUrl(path), {
+						...options,
+						headers: {
+							Authorization: `Bearer ${token}`,
+							...(options.headers || {})
+						}
+					});
 
-  const orders = [
-    {
-      id: "DEL003",
-      product: "Rice",
-      quantity: "50 kg",
-      price: "Rs. 6,000",
-      buyer: "Organic Foods Ltd",
-      buyerPhone: "+94 11 234 5678",
-      status: "Completed",
-      date: "2025-07-05",
-      priority: "LOW",
-      rating: 5,
-      pickupLocation: "Galle, Southern",
-      deliveryLocation: "Negombo, Western",
-      pickupTime: "07:00 AM",
-      deliveryTime: "11:30 AM"
-    },
-    {
-      id: "DEL004",
-      product: "Tomato",
-      quantity: "20 kg",
-      price: "Rs. 8,000",
-      buyer: "Royal Food Co.",
-      buyerPhone: "+94 11 345 6789",
-      status: "Processing",
-      date: "2025-07-04",
-      priority: "HIGH",
-      rating: 4,
-      pickupLocation: "Galle, Southern",
-      deliveryLocation: "Colombo, Western",
-      pickupTime: "08:00 AM",
-      deliveryTime: "12:00 PM"
-    }
-  ];
+					const contentType = response.headers.get('content-type') || '';
+					if (!contentType.includes('application/json')) {
+						const endpoint = path.replace('/api/v1', '').replace('/', '');
+						throw new Error(`Unexpected response from ${endpoint || 'the server'}. Check your backend availability.`);
+					}
 
-  const logistics = [
-    {
-      id: "DEL003",
-      product: "Rice",
-      quantity: "50 kg",
-      status: "Delivered",
-      driver: "K. Perera",
-      vehicle: "LB-1234",
-      distance: "120 km",
-      pickupLocation: "Galle, Southern",
-      deliveryLocation: "Negombo, Western",
-      pickupTime: "07:00 AM",
-      deliveryTime: "11:30 AM",
-      estimatedTime: "4.5 hours",
-      actualTime: "4.5 hours"
-    }
-  ];
+					const payload = await response.json();
+					if (!response.ok) {
+						throw new Error(payload?.message || `Request failed with status ${response.status}`);
+					}
+					if (payload?.success === false) {
+						throw new Error(payload?.message || 'Request failed on the server.');
+					}
+					return payload;
+				};
 
-  const productImages = {
-    'Rice': 'https://i.pinimg.com/736x/57/68/60/5768607b3115c7d9eccce0b39ea1c320.jpg',
-    'Tomato': 'https://i.pinimg.com/736x/5d/8c/44/5d8c44920a45da876871fccbcd1a5e01.jpg',
-    'Carrot': 'https://i.pinimg.com/736x/b6/c7/5d/b6c75de307bcf0075896a0c03a7a20f4.jpg',
-    'Cabbage': 'https://i.pinimg.com/736x/c2/4f/f7/c24ff7271bd7257ea1484607a68bbfc4.jpg'
-  };
+				const [profilePayload, postsPayload, ordersPayload] = await Promise.all([
+					fetchWithAuth('/api/v1/auth/profile-full', { credentials: 'include' }),
+					fetchWithAuth('/api/v1/crop-posts/user/my-posts'),
+					fetchWithAuth('/api/v1/orders/farmer/orders')
+				]);
 
-  const getPriorityColor = (priority) => {
-    switch(priority) {
-      case 'HIGH': return 'bg-red-100 text-red-800';
-      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800';
-      case 'LOW': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+				const user = profilePayload?.user || {};
+				const details = user?.farmer_details || {};
+				const profileImageUrl = user?.profile_image ? `/api/v1/users/${user.id}/profile-image` : '';
 
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'Completed':
-      case 'Delivered': return 'bg-green-100 text-green-800';
-      case 'Processing':
-      case 'In Transit': return 'bg-blue-100 text-blue-800';
-      case 'Pending':
-      case 'Scheduled': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+				setFarmerProfile({
+					id: user?.id,
+					fullName: user?.full_name || '-',
+					email: user?.email || '-',
+					phoneNumber: user?.phone_number || '-',
+					nic: user?.nic || '-',
+					district: user?.district || '-',
+					address: user?.address || '-',
+					profileImage: profileImageUrl,
+					joinedDate: user?.created_at || '-',
+					verified: user?.is_active === 1,
+					organizationId: details?.organization_id || '-',
+					organizationName: details?.organization_name || '-',
+					landSize: details?.land_size ? `${details.land_size} acres` : '-',
+					description: details?.description || '-',
+					divisionGramasewaNumber: details?.division_gramasewa_number || '-',
+					farmingExperience: details?.farming_experience || '-',
+					cultivatedCrops: details?.cultivated_crops || '-',
+					irrigationSystem: details?.irrigation_system || '-',
+					soilType: details?.soil_type || '-',
+					farmingCertifications: details?.farming_certifications || '-' 
+				});
 
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star 
-        key={i} 
-        className={`w-5 h-5 ${i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
-      />
-    ));
-  };
+				setFarmerPosts(Array.isArray(postsPayload?.data) ? postsPayload.data : []);
+				setFarmerOrders(Array.isArray(ordersPayload?.data) ? ordersPayload.data : []);
+			} catch (err) {
+				setError(err?.message || 'Failed to load farmer dashboard data.');
+			} finally {
+				setLoading(false);
+			}
+		};
 
-  const InfoCard = ({ label, value, icon: Icon, color = "green" }) => (
-    <div className={`flex flex-col items-start rounded-xl p-4 border
-      ${color === "green" ? "bg-green-50 border-green-100" : ""}
-      ${color === "blue" ? "bg-blue-50 border-blue-100" : ""}
-      ${color === "yellow" ? "bg-yellow-50 border-yellow-100" : ""}
-      ${color === "gray" ? "bg-gray-50 border-gray-100" : ""}
-    `}>
-      <label className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-2">
-        {Icon && <Icon className={`w-4 h-4 text-${color}-600`} />}
-        {label}
-      </label>
-      <p className="text-gray-800 font-medium">{value && value !== "" ? value : "-"}</p>
-    </div>
-  );
+		fetchData();
+	}, []);
 
-  if (loading) {
-    return <FullScreenLoader />;
-  }
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
-        <div className="text-red-600">{error}</div>
-      </div>
-    );
-  }
-  if (!farmerData) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-xl">
-        No profile data found.
-      </div>
-    );
-  }
+	const allOrderItems = useMemo(() => {
+		if (!Array.isArray(farmerOrders)) return [];
 
-  const OverviewSection = () => (
-    <div className="space-y-8">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {stats.map((stat, index) => (
-          <div key={index} className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg border border-green-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base font-semibold text-green-700">{stat.title}</p>
-                <p className="text-2xl font-bold text-green-900">{stat.value}</p>
-              </div>
-              <div className="p-3 bg-green-200 rounded-full">
-                <stat.icon className="w-6 h-6 text-green-700" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+		return farmerOrders.flatMap((order) => {
+			const products = Array.isArray(order?.products) ? order.products : [];
+			return products.map((product) => ({
+				...product,
+				orderInternalId: order?.id,
+				orderExternalId: order?.externalOrderId,
+				orderStatus: order?.status,
+				orderCreatedAt: order?.createdAt,
+				deliveryName: order?.deliveryName,
+				deliveryPhone: order?.deliveryPhone,
+				deliveryAddress: order?.deliveryAddress,
+				deliveryDistrict: order?.deliveryDistrict
+			}));
+		});
+	}, [farmerOrders]);
 
-      {/* Farmer Info */}
-      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-          <User className="w-6 h-6 text-green-600" />
-          Personal Information
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <InfoCard label="Full Name" value={farmerData.fullName} icon={User} color="green" />
-          <InfoCard label="NIC" value={farmerData.nic} icon={Award} color="blue" />
-          <InfoCard label="Phone Number" value={farmerData.phoneNumber} icon={Phone} color="green" />
-          <InfoCard label="Email" value={farmerData.email} icon={Mail} color="blue" />
-          <InfoCard label="District" value={farmerData.district} icon={MapPin} color="yellow" />
-          <InfoCard label="Address" value={farmerData.address} icon={MapPin} color="gray" />
-        </div>
-      </div>
+	const stats = useMemo(() => {
+		const activePosts = farmerPosts.filter((post) => (post?.status || '').toLowerCase() === 'active').length;
+		const pendingItems = allOrderItems.filter((item) => ['pending', 'collecting'].includes((item?.status || '').toLowerCase())).length;
+		const completedItems = allOrderItems.filter((item) => (item?.status || '').toLowerCase() === 'completed').length;
+		const completedRevenue = allOrderItems.reduce((total, item) => {
+			if ((item?.status || '').toLowerCase() === 'completed') {
+				const value = Number(item?.subtotal ?? item?.unitPrice ?? 0);
+				return total + (Number.isFinite(value) ? value : 0);
+			}
+			return total;
+		}, 0);
 
-      {/* Farming Info */}
-      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-          <Tractor className="w-6 h-6 text-green-600" />
-          Farming Overview
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <InfoCard label="Land Size (acres)" value={farmerData.landSize} icon={BarChart3} color="green" />
-          <InfoCard label="Farming Experience" value={farmerData.farmingExperience} icon={Award} color="yellow" />
-          <InfoCard label="Cultivated Crops" value={farmerData.cultivatedCrops} icon={Sprout} color="green" />
-          <InfoCard label="Irrigation System" value={farmerData.irrigationSystem} icon={Droplets} color="blue" />
-          <InfoCard label="Soil Type" value={farmerData.soilType} icon={Mountain} color="yellow" />
-          <InfoCard label="Farming Certifications" value={farmerData.farmingCertifications} icon={CheckCircle} color="green" />
-        </div>
-      </div>
+		const formatCurrency = (value) => {
+			if (!Number.isFinite(value) || value === 0) return 'Rs. 0.00';
+			return `Rs. ${value.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+		};
 
-      {/* Recent Orders */}
-      <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-        <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-          <Activity className="w-6 h-6 text-green-600" />
-          Recent Orders
-        </h3>
-        <div className="space-y-6">
-          {recentOrders.map((order) => (
-            <div key={order.id} className="flex items-center justify-between p-6 bg-green-50 rounded-lg shadow-sm border border-green-100">
-              <div className="flex items-center space-x-6">
-                <img
-                  src={productImages[order.product] || 'https://via.placeholder.com/64x64?text=Product'}
-                  alt={order.product}
-                  className="w-16 h-16 object-cover rounded-full border border-green-100 shadow-md bg-white"
-                />
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-800">{order.product}</h4>
-                  <p className="text-base text-gray-600">{order.quantity} • {order.buyer}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-green-700">{order.price}</p>
-                <div className="flex items-center space-x-3 mt-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
-                  <div className="flex">{renderStars(order.rating)}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+		return {
+			totalPosts: farmerPosts.length,
+			activePosts,
+			pendingItems,
+			completedItems,
+			completedRevenue: formatCurrency(completedRevenue)
+		};
+	}, [farmerPosts, allOrderItems]);
 
-  const OrdersSection = () => (
-    <div className="space-y-6">
-      {orders.map((order) => (
-        <div key={order.id} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden relative">
-          <div className="bg-gradient-to-r from-green-100 to-green-200 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="bg-white px-3 py-1 rounded-full text-sm font-semibold text-green-800">
-                  {order.id}
-                </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
-                  ✓ {order.status}
-                </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getPriorityColor(order.priority)}`}>
-                  {order.priority} PRIORITY
-                </span>
-              </div>
-            </div>
-          </div>
+	const recentPosts = useMemo(() => {
+		return [...farmerPosts]
+			.sort((a, b) => new Date(b?.created_at || 0) - new Date(a?.created_at || 0))
+			.slice(0, 6);
+	}, [farmerPosts]);
 
-          <div className="p-4">
-            <div className="flex items-center space-x-4 mb-4">
-              <img
-                src={productImages[order.product] || 'https://via.placeholder.com/56x56?text=Product'}
-                alt={order.product}
-                className="w-14 h-14 object-cover rounded-lg border border-green-100 shadow bg-white"
-              />
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-800">{order.product}</h3>
-                <p className="text-base text-gray-600">Quantity: {order.quantity}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-green-700">{order.price}</p>
-              </div>
-            </div>
+	const recentOrderItems = useMemo(() => {
+		return [...allOrderItems]
+			.sort((a, b) => new Date(b?.orderCreatedAt || 0) - new Date(a?.orderCreatedAt || 0))
+			.slice(0, 6);
+	}, [allOrderItems]);
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <MapPin className="w-5 h-5 text-green-700" />
-                  <span className="text-base font-semibold text-gray-800">Pickup Location</span>
-                </div>
-                <p className="text-base text-gray-600 ml-7">{order.pickupLocation}</p>
-                <div className="flex items-center space-x-2 ml-7">
-                  <Clock className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-500">{order.pickupTime}</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Navigation className="w-5 h-5 text-green-700" />
-                  <span className="text-base font-semibold text-gray-800">Delivery Location</span>
-                </div>
-                <p className="text-base text-gray-600 ml-7">{order.deliveryLocation}</p>
-                <div className="flex items-center space-x-2 ml-7">
-                  <Clock className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-500">{order.deliveryTime}</span>
-                </div>
-              </div>
-            </div>
+	const logisticsAssignments = useMemo(() => {
+		return allOrderItems
+			.map((item) => ({
+				...item,
+				transports: Array.isArray(item?.transports) ? item.transports : []
+			}))
+			.filter((item) => item.transports.length > 0)
+			.slice(0, 6);
+	}, [allOrderItems]);
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-green-200 rounded-full flex items-center justify-center">
-                  <User className="w-5 h-5 text-green-700" />
-                </div>
-                <div>
-                  <p className="text-base font-semibold text-gray-800">{order.buyer}</p>
-                  <p className="text-sm text-gray-500">Buyer</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-200 rounded-full cursor-pointer hover:bg-green-300 transition-colors">
-                  <Phone className="w-5 h-5 text-green-700" />
-                </div>
-                <div className="p-2 bg-green-200 rounded-full cursor-pointer hover:bg-green-300 transition-colors">
-                  <Eye className="w-5 h-5 text-green-700" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+	const formatDate = (value) => {
+		if (!value) return '-';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '-';
+		return date.toLocaleDateString('en-GB', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		});
+	};
 
-  const LogisticsSection = () => (
-    <div className="space-y-6">
-      {logistics.map((item) => (
-        <div key={item.id} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-green-100 to-green-200 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="bg-white px-3 py-1 rounded-full text-sm font-semibold text-green-800">
-                  {item.id}
-                </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(item.status)}`}>
-                  {item.status === 'Delivered' ? '✓' : item.status === 'In Transit' ? '🚛' : '📅'} {item.status}
-                </span>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-green-800">Distance: {item.distance}</p>
-              </div>
-            </div>
-          </div>
+	const getStatusBadge = (status) => {
+		const normalized = (status || '').toLowerCase();
+		if (['completed', 'delivered'].includes(normalized)) {
+			return 'bg-green-100 text-green-700 border-green-200';
+		}
+		if (['collecting', 'in-progress', 'in transit', 'in-transit', 'processing'].includes(normalized)) {
+			return 'bg-blue-100 text-blue-700 border-blue-200';
+		}
+		if (['pending', 'scheduled'].includes(normalized)) {
+			return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+		}
+		return 'bg-gray-100 text-gray-600 border-gray-200';
+	};
 
-          <div className="p-4">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-14 h-14 bg-green-200 rounded-lg flex items-center justify-center">
-                <Truck className="w-7 h-7 text-green-700" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-800">{item.product}</h3>
-                <p className="text-base text-gray-600">Quantity: {item.quantity}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-base font-bold text-gray-800">{item.vehicle}</p>
-                <p className="text-sm text-gray-500">Driver: {item.driver}</p>
-              </div>
-            </div>
+	if (loading) {
+		return <FullScreenLoader />;
+	}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <MapPin className="w-5 h-5 text-green-700" />
-                  <span className="text-base font-semibold text-gray-800">Pickup Location</span>
-                </div>
-                <p className="text-base text-gray-600 ml-7">{item.pickupLocation}</p>
-                <div className="flex items-center space-x-2 ml-7">
-                  <Clock className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-500">{item.pickupTime}</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Navigation className="w-5 h-5 text-green-700" />
-                  <span className="text-base font-semibold text-gray-800">Delivery Location</span>
-                </div>
-                <p className="text-base text-gray-600 ml-7">{item.deliveryLocation}</p>
-                <div className="flex items-center space-x-2 ml-7">
-                  <Clock className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-500">{item.deliveryTime}</span>
-                </div>
-              </div>
-            </div>
+	if (error) {
+		return (
+			<div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
+				<div className="max-w-xl space-y-4">
+					<h2 className="text-2xl font-semibold text-red-600">Unable to load dashboard</h2>
+					<p className="text-gray-600">{error}</p>
+				</div>
+			</div>
+		);
+	}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-green-50 border border-green-100 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Clock className="w-4 h-4 text-green-700" />
-                  <span className="text-sm font-semibold text-gray-800">Estimated Time</span>
-                </div>
-                <p className="text-lg font-bold text-gray-800">{item.estimatedTime}</p>
-              </div>
-              <div className="bg-green-50 border border-green-100 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-green-700" />
-                  <span className="text-sm font-semibold text-gray-800">Actual Time</span>
-                </div>
-                <p className="text-lg font-bold text-gray-800">{item.actualTime}</p>
-              </div>
-            </div>
+	if (!farmerProfile) {
+		return (
+			<div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
+				<div className="max-w-xl space-y-4">
+					<h2 className="text-2xl font-semibold text-gray-800">We could not find your farmer profile.</h2>
+					<p className="text-gray-600">Please ensure your account is registered as a farmer and try again.</p>
+				</div>
+			</div>
+		);
+	}
 
-            <div className="mt-6 flex justify-center">
-              <button className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center space-x-2">
-                <Navigation className="w-5 h-5" />
-                <span className="text-base">Open Maps</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+	const overviewCards = [
+		{
+			label: 'Active Listings',
+			value: stats.activePosts,
+			icon: Sprout,
+			tone: 'green',
+			sub: `${stats.totalPosts} total`
+		},
+		{
+			label: 'Orders Awaiting Action',
+			value: stats.pendingItems,
+			icon: Package,
+			tone: 'yellow',
+			sub: `${stats.completedItems} completed`
+		},
+		{
+			label: 'Completed Deliveries',
+			value: stats.completedItems,
+			icon: CheckCircle,
+			tone: 'blue',
+			sub: stats.completedItems > 0 ? 'Great work!' : 'No deliveries yet'
+		},
+		{
+			label: 'Earned from Platform',
+			value: stats.completedRevenue,
+			icon: DollarSign,
+			tone: 'green',
+			sub: stats.completedItems > 0 ? 'Based on completed orders' : 'Complete an order to see earnings'
+		}
+	];
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-green-700 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-6">
-              <div className="w-12 h-12 bg-green-200 rounded-lg flex items-center justify-center">
-                <Leaf className="w-8 h-8 text-green-700" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Farmer Dashboard</h1>
-                <p className="text-base text-green-100">Welcome back, {farmerData.fullName}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+	const OverviewSection = () => (
+		<div className="space-y-8">
+			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+				{overviewCards.map((card) => (
+					<div key={card.label} className="bg-white rounded-xl border border-green-100 shadow-sm p-5 flex flex-col justify-between">
+						<div className="flex items-center justify-between mb-4">
+							<div className={`p-3 rounded-lg ${card.tone === 'green' ? 'bg-green-50 text-green-600' : card.tone === 'yellow' ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}`}>
+								<card.icon className="w-6 h-6" />
+							</div>
+							<TrendingUp className="w-5 h-5 text-gray-300" />
+						</div>
+						<div>
+							<p className="text-sm font-medium text-gray-500">{card.label}</p>
+							<p className="text-2xl font-semibold text-gray-900 mt-1">{card.value ?? 0}</p>
+							<p className="text-xs text-gray-500 mt-2">{card.sub}</p>
+						</div>
+					</div>
+				))}
+			</div>
 
-      {/* Navigation */}
-      <div className="bg-white shadow-sm border-b border-green-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-10">
-            {[
-              { id: 'overview', label: 'Overview', icon: TrendingUp },
-              { id: 'orders', label: 'Orders', icon: Package },
-              { id: 'logistics', label: 'Logistics', icon: Truck }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-3 px-6 py-5 border-b-2 font-semibold text-base transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <tab.icon className="w-6 h-6" />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+				<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+					<h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-3">
+						<User className="w-6 h-6 text-green-600" />
+						Personal Information
+					</h2>
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<InfoCard label="Full Name" value={farmerProfile.fullName} icon={User} tone="green" />
+						<InfoCard label="NIC" value={farmerProfile.nic} icon={Award} tone="blue" />
+						<InfoCard label="Phone Number" value={farmerProfile.phoneNumber} icon={Phone} tone="green" />
+						<InfoCard label="Email" value={farmerProfile.email} icon={Mail} tone="blue" />
+						<InfoCard label="District" value={farmerProfile.district} icon={MapPin} tone="yellow" />
+						<InfoCard label="Address" value={farmerProfile.address} icon={MapPin} tone="gray" />
+					</div>
+				</div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {activeTab === 'overview' && <OverviewSection />}
-        {activeTab === 'orders' && <OrdersSection />}
-        {activeTab === 'logistics' && <LogisticsSection />}
-      </main>
-    </div>
-  );
+				<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+					<h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-3">
+						<Tractor className="w-6 h-6 text-green-600" />
+						Farming Overview
+					</h2>
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<InfoCard label="Land Size" value={farmerProfile.landSize} icon={BarChart3} tone="green" />
+						<InfoCard label="Farming Experience" value={farmerProfile.farmingExperience} icon={Award} tone="yellow" />
+						<InfoCard label="Cultivated Crops" value={farmerProfile.cultivatedCrops} icon={Sprout} tone="green" />
+						<InfoCard label="Irrigation System" value={farmerProfile.irrigationSystem} icon={Droplets} tone="blue" />
+						<InfoCard label="Soil Type" value={farmerProfile.soilType} icon={Mountain} tone="yellow" />
+						<InfoCard label="Certifications" value={farmerProfile.farmingCertifications} icon={CheckCircle} tone="green" />
+					</div>
+				</div>
+			</div>
+
+			<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+				<div className="flex items-center justify-between mb-6">
+					<h3 className="text-xl font-semibold text-gray-800 flex items-center gap-3">
+						<Sprout className="w-6 h-6 text-green-600" />
+						My Crop Listings
+					</h3>
+					<span className="text-sm text-gray-500">Showing latest {recentPosts.length} posts</span>
+				</div>
+				{recentPosts.length === 0 ? (
+					<div className="text-center py-8">
+						<p className="text-gray-500">You have not published any crop posts yet.</p>
+					</div>
+				) : (
+					<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+						{recentPosts.map((post) => (
+							<div key={post.id} className="border border-green-100 rounded-xl p-4 hover:shadow-lg transition-shadow bg-green-50/60">
+								<div className="flex items-start justify-between gap-3">
+									<div>
+										<p className="text-sm font-medium text-gray-500">{post.crop_category || 'Crop'}</p>
+										<h4 className="text-lg font-semibold text-gray-900">{post.crop_name}</h4>
+									</div>
+									<span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getStatusBadge(post.status)}`}>
+										{(post.status || 'unknown').toUpperCase()}
+									</span>
+								</div>
+								<div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-600">
+									<div className="flex items-center gap-2">
+										<Layers className="w-4 h-4 text-green-600" />
+										<span>{post.quantity} {post.unit}</span>
+									</div>
+									<div className="flex items-center gap-2">
+										<DollarSign className="w-4 h-4 text-green-600" />
+										<span>Rs. {Number(post.price_per_unit || 0).toLocaleString('en-LK')}</span>
+									</div>
+									<div className="flex items-center gap-2">
+										<MapPin className="w-4 h-4 text-green-600" />
+										<span>{post.district || 'Unknown'}</span>
+									</div>
+									<div className="flex items-center gap-2">
+										<Clock className="w-4 h-4 text-green-600" />
+										<span>{formatDate(post.created_at)}</span>
+									</div>
+								</div>
+								{post.minimum_quantity_bulk && (
+									<div className="mt-3 text-xs text-gray-500">
+										Minimum bulk order: {post.minimum_quantity_bulk} {post.unit}
+									</div>
+								)}
+							</div>
+						))}
+					</div>
+				)}
+			</div>
+
+			<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+				<div className="flex items-center justify-between mb-6">
+					<h3 className="text-xl font-semibold text-gray-800 flex items-center gap-3">
+						<Activity className="w-6 h-6 text-green-600" />
+						Recent Order Activity
+					</h3>
+					<span className="text-sm text-gray-500">Tracking your latest {recentOrderItems.length} order items</span>
+				</div>
+				{recentOrderItems.length === 0 ? (
+					<div className="text-center py-8">
+						<p className="text-gray-500">No orders found. Once buyers purchase your crops, the orders will appear here.</p>
+					</div>
+				) : (
+					<div className="space-y-4">
+						{recentOrderItems.map((item) => (
+							<div key={`${item.orderInternalId}-${item.id}`} className="border border-green-100 rounded-xl p-4 bg-white/80 shadow-sm">
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<div>
+										<p className="text-sm font-medium text-gray-500">Order #{item.orderExternalId || item.orderInternalId}</p>
+										<h4 className="text-lg font-semibold text-gray-900">{item.productName}</h4>
+									</div>
+									<span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getStatusBadge(item.status)}`}>
+										{(item.status || 'pending').toUpperCase()}
+									</span>
+								</div>
+								<div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-gray-600">
+									<div className="flex items-center gap-2">
+										<Package className="w-4 h-4 text-green-600" />
+										<span>{item.quantity} {item.productUnit || ''}</span>
+									</div>
+									<div className="flex items-center gap-2">
+										<DollarSign className="w-4 h-4 text-green-600" />
+										<span>Rs. {Number(item.subtotal || 0).toLocaleString('en-LK')}</span>
+									</div>
+									<div className="flex items-center gap-2">
+										<Clock className="w-4 h-4 text-green-600" />
+										<span>{formatDate(item.orderCreatedAt)}</span>
+									</div>
+								</div>
+								{(item.deliveryName || item.deliveryDistrict) && (
+									<div className="mt-3 text-xs text-gray-500">
+										Buyer: {item.deliveryName || 'N/A'} {item.deliveryDistrict ? `• ${item.deliveryDistrict}` : ''}
+										{item.deliveryPhone ? ` • ${item.deliveryPhone}` : ''}
+									</div>
+								)}
+							</div>
+						))}
+					</div>
+				)}
+			</div>
+		</div>
+	);
+
+	const OrdersSection = () => (
+		<div className="space-y-6">
+			{farmerOrders.length === 0 ? (
+				<div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
+					<h3 className="text-lg font-semibold text-gray-800">No orders yet</h3>
+					<p className="text-gray-500 mt-2">When buyers purchase your crops, you will see the full order details here.</p>
+				</div>
+			) : (
+				farmerOrders.map((order) => {
+					const products = Array.isArray(order?.products) ? order.products : [];
+					return (
+						<div key={order.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+							<div className="bg-green-50 border-b border-green-100 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+								<div>
+									<p className="text-sm font-medium text-green-700">Order #{order.externalOrderId || order.id}</p>
+									<h4 className="text-lg font-semibold text-gray-900">{products.length} item{products.length === 1 ? '' : 's'} • {formatDate(order.createdAt)}</h4>
+								</div>
+								<span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(order.status)}`}>
+									{(order.status || 'pending').toUpperCase()}
+								</span>
+							</div>
+
+							<div className="divide-y divide-gray-100">
+								{products.map((item) => (
+									<div key={item.id} className="px-5 py-4">
+										<div className="flex flex-wrap items-start justify-between gap-3">
+											<div>
+												<p className="text-sm font-medium text-gray-500">Crop</p>
+												<h5 className="text-base font-semibold text-gray-900">{item.productName}</h5>
+												<p className="text-sm text-gray-500 mt-1">Quantity: {item.quantity} {item.productUnit || ''}</p>
+											</div>
+											<div className="text-right">
+												<p className="text-sm font-medium text-gray-500">Subtotal</p>
+												<p className="text-lg font-semibold text-green-700">Rs. {Number(item.subtotal || 0).toLocaleString('en-LK')}</p>
+												<span className={`mt-2 inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border ${getStatusBadge(item.status)}`}>
+													{(item.status || 'pending').toUpperCase()}
+												</span>
+											</div>
+										</div>
+
+										<div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-600">
+											<div className="flex items-start gap-2">
+												<MapPin className="w-4 h-4 text-green-600 mt-0.5" />
+												<span>Pickup: {item.productLocation || order.deliveryDistrict || 'Not specified'}</span>
+											</div>
+											<div className="flex items-start gap-2">
+												<FileText className="w-4 h-4 text-green-600 mt-0.5" />
+												<span>Buyer: {order.deliveryName || 'N/A'}{order.deliveryPhone ? ` • ${order.deliveryPhone}` : ''}</span>
+											</div>
+											<div className="flex items-start gap-2">
+												<Clock className="w-4 h-4 text-green-600 mt-0.5" />
+												<span>Created: {formatDate(order.createdAt)}</span>
+											</div>
+										</div>
+
+										{item.transports && item.transports.length > 0 && (
+											<div className="mt-4 bg-green-50 border border-green-100 rounded-lg p-4">
+												<p className="text-sm font-semibold text-green-700 mb-2 flex items-center gap-2">
+													<Truck className="w-4 h-4" />
+													Transport Assignment
+												</p>
+												<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
+													<div>Vehicle: {item.transports[0].vehicle_type || 'Not assigned'} {item.transports[0].vehicle_number ? `(${item.transports[0].vehicle_number})` : ''}</div>
+													<div>Driver: {item.transports[0].transporter_name || 'Pending allocation'}</div>
+													{item.transports[0].phone_number && (
+														<div>Contact: {item.transports[0].phone_number}</div>
+													)}
+													{item.transports[0].transport_cost && (
+														<div>Cost: Rs. {Number(item.transports[0].transport_cost).toLocaleString('en-LK')}</div>
+													)}
+												</div>
+											</div>
+										)}
+									</div>
+								))}
+							</div>
+						</div>
+					);
+				})
+			)}
+		</div>
+	);
+
+	const LogisticsSection = () => (
+		<div className="space-y-6">
+			{logisticsAssignments.length === 0 ? (
+				<div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
+					<h3 className="text-lg font-semibold text-gray-800">No logistics tasks yet</h3>
+					<p className="text-gray-500 mt-2">Once transporters are assigned to your orders, tracking details will appear here.</p>
+				</div>
+			) : (
+				logisticsAssignments.map((item) => {
+					const transport = item.transports[0];
+					return (
+						<div key={`${item.orderInternalId}-${item.id}`} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+							<div className="bg-green-600 text-white px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+								<div>
+									<p className="text-sm text-green-100">Order #{item.orderExternalId || item.orderInternalId}</p>
+									<h4 className="text-lg font-semibold">{item.productName}</h4>
+								</div>
+								<span className="inline-flex items-center gap-2 text-sm font-medium">
+									<Truck className="w-4 h-4" />
+									{transport?.vehicle_type || 'Awaiting vehicle'}
+								</span>
+							</div>
+
+							<div className="px-5 py-4 space-y-4">
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600">
+									<div className="flex items-start gap-2">
+										<MapPin className="w-4 h-4 text-green-600 mt-0.5" />
+										<span>
+											Pickup: {item.productLocation || 'Not provided'}
+											{item.productDistrict ? ` • ${item.productDistrict}` : ''}
+										</span>
+									</div>
+									<div className="flex items-start gap-2">
+										<MapPin className="w-4 h-4 text-green-600 mt-0.5" />
+										<span>Delivery: {item.deliveryAddress || item.deliveryDistrict || 'Not provided'}</span>
+									</div>
+									<div className="flex items-start gap-2">
+										<Package className="w-4 h-4 text-green-600 mt-0.5" />
+										<span>{item.quantity} {item.productUnit || ''}</span>
+									</div>
+									<div className="flex items-start gap-2">
+										<Clock className="w-4 h-4 text-green-600 mt-0.5" />
+										<span>Created: {formatDate(item.orderCreatedAt)}</span>
+									</div>
+								</div>
+
+								<div className="bg-green-50 border border-green-100 rounded-lg p-4 text-sm text-gray-700">
+									<p className="font-semibold text-green-700 mb-2">Transporter Details</p>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+										<div>Driver: {transport?.transporter_name || 'Pending assignment'}</div>
+										<div>Contact: {transport?.transporter_phone || transport?.phone_number || 'N/A'}</div>
+										<div>Vehicle No: {transport?.vehicle_number || 'N/A'}</div>
+										<div>Estimated Cost: {transport?.transport_cost ? `Rs. ${Number(transport.transport_cost).toLocaleString('en-LK')}` : 'N/A'}</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					);
+				})
+			)}
+		</div>
+	);
+
+	return (
+		<div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100">
+			<div className="bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="flex flex-wrap items-center justify-between gap-4 py-8">
+						<div className="flex items-center gap-4">
+							<div className="w-14 h-14 rounded-lg bg-white/20 backdrop-blur flex items-center justify-center">
+								<Leaf className="w-9 h-9" />
+							</div>
+							<div>
+								<h1 className="text-2xl font-semibold">Farmer Dashboard</h1>
+								<p className="text-sm text-green-50">Welcome back, {farmerProfile.fullName}</p>
+							</div>
+						</div>
+						<div className="text-sm text-green-50">
+							Member since {formatDate(farmerProfile.joinedDate)}
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div className="bg-white/90 border-b border-green-100">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="flex flex-wrap gap-4">
+						{[
+							{ id: 'overview', label: 'Overview', icon: Activity },
+							{ id: 'orders', label: 'Orders', icon: Package },
+							{ id: 'logistics', label: 'Logistics', icon: Truck }
+						].map((tab) => (
+							<button
+								key={tab.id}
+								onClick={() => setActiveTab(tab.id)}
+								className={`flex items-center gap-3 px-4 py-4 border-b-2 text-sm font-semibold transition-colors ${
+									activeTab === tab.id
+										? 'border-green-600 text-green-700'
+										: 'border-transparent text-gray-500 hover:text-gray-700'
+								}`}
+							>
+								<tab.icon className="w-5 h-5" />
+								<span>{tab.label}</span>
+							</button>
+						))}
+					</div>
+				</div>
+			</div>
+
+			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+				{activeTab === 'overview' && <OverviewSection />}
+				{activeTab === 'orders' && <OrdersSection />}
+				{activeTab === 'logistics' && <LogisticsSection />}
+			</main>
+		</div>
+	);
 };
 
 export default FarmerDashboard;

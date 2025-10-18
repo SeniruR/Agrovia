@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload, Pencil, Trash2 } from 'lucide-react';
-import { useCart } from './CartContext';
+
+import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { useCart } from '../../hooks/useCart';
+
 import { useAuth } from '../../contexts/AuthContext';
 // Add this component at the top of your file
 const ImageWithFallback = ({ src, alt, className }) => {
@@ -55,6 +57,8 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [editingReview, setEditingReview] = useState(null);
   const [deletingReview, setDeletingReview] = useState(false);
+  // Quantity for selected product in modal
+  const [modalQuantity, setModalQuantity] = useState(1);
   const fileInputRef = useRef(null);
   const { user, getAuthHeaders } = useAuth();
   
@@ -174,7 +178,7 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     setErrorTransporters(null);
   };
   
-  const { addToCart, getCartItemsCount } = useCart();
+  const { addToCart, getCartItemCount } = useCart();
   
   const handleOpenReviewModal = async () => {
     // Ensure we have the latest user data
@@ -674,24 +678,36 @@ useEffect(() => {
     // filter out products that belong to inactive shops
     const activeData = (data || []).filter(item => Number(item.is_active) === 1);
 
-     setShopItems(activeData.map(item => ({
-  ...item,
-  organicCertified: Boolean(item.organic_certified),
-  termsAccepted: Boolean(item.terms_accepted),
-  productType: inferProductType(item),
-  productName: item.product_name,
-  inStock: item.available_quantity > 0,
-  rating: Number(item.rating) || 4.0,
-  reviewCount: Number(item.review_count) || 0,
-  quantity: Number(item.available_quantity),
-  unit: item.unit,
-  description: item.product_description,
-  usage: item.usage_history,
-  images: Array.isArray(item.images) ? 
-    item.images.filter(img => img) : // Remove empty/null images
-    [item.images || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'],
-  shopName: item.shop_name,
-})));
+     setShopItems(activeData.map(item => {
+       // Debug logging to see what data we're getting
+       console.log('🔍 Processing shop item:', {
+         id: item.id,
+         product_name: item.product_name,
+         available_quantity: item.available_quantity,
+         is_available: item.is_available,
+         type: typeof item.available_quantity
+       });
+       
+       return {
+         ...item,
+         organicCertified: Boolean(item.organic_certified),
+         termsAccepted: Boolean(item.terms_accepted),
+         productType: inferProductType(item),
+         productName: item.product_name,
+         inStock: item.available_quantity > 0,
+         rating: Number(item.rating) || 4.0,
+         reviewCount: Number(item.review_count) || 0,
+         quantity: Number(item.available_quantity),
+         available_quantity: Number(item.available_quantity), // Ensure this is properly set as a number
+         unit: item.unit,
+         description: item.product_description,
+         usage: item.usage_history,
+         images: Array.isArray(item.images) ? 
+           item.images.filter(img => img) : // Remove empty/null images
+           [item.images || 'https://images.pexels.com/photos/1327838/pexels-photo-1327838.jpeg'],
+         shopName: item.shop_name,
+       };
+     }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -739,10 +755,33 @@ useEffect(() => {
 
   // ... rest of your component code remains the same ...
 
-  const handleAddToCart = (item, e) => {
+  const handleAddToCart = (item, e, qty = 1) => {
     e.stopPropagation();
     if (item.inStock) {
-      addToCart(item, 1);
+      const available = Number(item.available_quantity) || 0;
+      const clampedQty = Math.max(1, Math.min(qty, available));
+      // Normalize shop item to CartContext's expected product shape
+      const primaryImage = Array.isArray(item.images) ? (item.images[0] || null) : (item.images || null);
+      const name = item.product_name || item.productName || item.name || 'Product';
+      const unit = item.unit || item.product_unit || 'unit';
+      const price = Number(item.price) || Number(item.priceAtAddTime) || 0;
+      const shopName = item.shop_name || item.shopName || item.brand || '';
+      const cityOrDistrict = item.city || item.district || item.location || '';
+
+      const productForCart = {
+        id: item.id,
+        name,
+        price,
+        unit,
+        // Use shop name in farmer field to reuse existing UI labels
+        farmer: shopName,
+        district: cityOrDistrict,
+        location: cityOrDistrict,
+        image: primaryImage,
+        productType: 'shop' // Explicitly mark as shop item
+      };
+
+      addToCart(productForCart, clampedQty);
       // Show success message
       const toast = document.createElement('div');
       toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
@@ -751,7 +790,7 @@ useEffect(() => {
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
           </svg>
-          Added to cart!
+          Added ${clampedQty} to cart!
         </div>
       `;
       document.body.appendChild(toast);
@@ -768,13 +807,23 @@ useEffect(() => {
   };
 
   const handleItemClick = (item) => {
+    console.log('🔍 Selected product data:', {
+      id: item.id,
+      product_name: item.product_name,
+      available_quantity: item.available_quantity,
+      quantity: item.quantity,
+      type_available_quantity: typeof item.available_quantity,
+      type_quantity: typeof item.quantity
+    });
     setSelectedProduct(item);
     setCurrentImageIndex(0); // Reset to first image when opening popup
+    setModalQuantity(1);
   };
 
   const closePopup = () => {
     setSelectedProduct(null);
     setCurrentImageIndex(0); // Reset image index when closing
+    setModalQuantity(1);
   };
 
   const handleCallClick = (phone, e) => {
@@ -1022,18 +1071,7 @@ useEffect(() => {
                 Discover premium quality seeds, fertilizers, and chemicals for your farming success
               </p>
             </div>
-            <button
-              onClick={onViewCart}
-              className="bg-white/20 hover:bg-white/30 text-white px-9 py-3 rounded-2xl font-bold transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 relative"
-            >
-              <ShoppingCart className="w-6 h-6" />
-              View Cart
-              {getCartItemsCount() > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                  {getCartItemsCount()}
-                </span>
-              )}
-            </button>
+            {/* View Cart button removed; cart is accessible from navigation bar */}
           </div>
           
           {/* Search and Filters */}
@@ -1289,20 +1327,66 @@ useEffect(() => {
                     </div>
                   </div>
                 </div>
-                {/* Add to cart button */}
-                <div className="mt-6 flex justify-center">
-                  <button
-                    className={`px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 ${
-                      selectedProduct.inStock 
-                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                    onClick={(e) => handleAddToCart(selectedProduct, e)}
-                    disabled={!selectedProduct.inStock}
-                  >
-                    <ShoppingCart className="w-6 h-6" />
-                    {selectedProduct.inStock ? 'Add to Cart' : 'Out of Stock'}
-                  </button>
+                {/* Quantity selector + Add to cart */}
+                <div className="mt-6 w-full">
+                  <div className="mb-3">
+                    <label className="block text-sm font-semibold text-gray-800 mb-2">Select Quantity:</label>
+                    <div className="flex items-center border-2 border-emerald-300 rounded-xl shadow-inner bg-white max-w-md mx-auto">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModalQuantity((q) => Math.max(1, q - 1));
+                        }}
+                        className="px-4 py-3 hover:bg-emerald-50 transition-colors text-lg font-bold text-emerald-600 rounded-l-xl"
+                        disabled={modalQuantity <= 1}
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        value={modalQuantity}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const available = Number(selectedProduct?.available_quantity) || 0;
+                          let val = parseInt(e.target.value) || 1;
+                          val = Math.max(1, Math.min(val, available));
+                          setModalQuantity(val);
+                        }}
+                        className="flex-1 py-3 text-center border-x-2 border-emerald-300 focus:outline-none focus:bg-emerald-50 text-lg font-bold text-gray-800"
+                        min={1}
+                        max={selectedProduct?.available_quantity || 1}
+                        step={1}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const available = Number(selectedProduct?.available_quantity) || 0;
+                          setModalQuantity((q) => Math.min(available, q + 1));
+                        }}
+                        className="px-4 py-3 hover:bg-emerald-50 transition-colors text-lg font-bold text-emerald-600 rounded-r-xl"
+                        disabled={modalQuantity >= (Number(selectedProduct?.available_quantity) || 0)}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <div className="text-sm text-gray-600 mt-2 text-center font-medium">
+                      {Number(selectedProduct?.available_quantity) || 0} {selectedProduct?.unit}s available
+                    </div>
+                  </div>
+                  <div className="flex justify-center">
+                    <button
+                      className={`px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 ${
+                        selectedProduct.inStock 
+                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                      onClick={(e) => handleAddToCart(selectedProduct, e, modalQuantity)}
+                      disabled={!selectedProduct.inStock}
+                    >
+                      <ShoppingCart className="w-6 h-6" />
+                      {selectedProduct.inStock ? 'Add to Cart' : 'Out of Stock'}
+                    </button>
+                  </div>
                 </div>
                 {/* Available Transporters Button below farming tips section */}
                 <div className="mt-4 flex justify-center">
