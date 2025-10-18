@@ -33,6 +33,10 @@ import FarmerProfileEdit from "./pages/Profile";
 import FarmerProfile from "./pages/profiles/FarmerProfile";
 import BuyerProfile from "./pages/profiles/BuyerProfile";
 import BuyerEditProfile from "./pages/profiles/BuyerEditProfile";
+import AdminProfile from "./pages/profiles/AdminProfile";
+import AdminEditProfile from "./pages/profiles/AdminEditProfile";
+import ModeratorProfile from "./pages/profiles/ModeratorProfile";
+import ModeratorEditProfile from "./pages/profiles/ModeratorEditProfile";
 import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
 import ShopOwnerEditProfile from "./pages/profiles/ShopOwnerEditProfile";
 import TransporterProfile from "./pages/profiles/TransporterProfile";
@@ -128,6 +132,11 @@ const App = () => {
       <Route path="/admin/shop" element={
         <Layout>
           <AdminShop />
+        </Layout>
+      } />
+      <Route path="/admin/dashboard" element={
+        <Layout>
+          <AdminDashboard />
         </Layout>
       } />
       <Route path="/discover-more" element={
@@ -282,6 +291,30 @@ const App = () => {
       <Route path="/profile/buyer" element={
           <Layout>
             <BuyerProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/admin" element={
+          <Layout>
+            <AdminProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/admin/edit" element={
+          <Layout>
+            <AdminEditProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/moderator" element={
+          <Layout>
+            <ModeratorProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/moderator/edit" element={
+          <Layout>
+            <ModeratorEditProfile />
          </Layout>
         }
       />
