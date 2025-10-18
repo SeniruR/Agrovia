@@ -22,7 +22,9 @@ import {
   ChatBubbleLeftRightIcon,
   ArrowRightOnRectangleIcon,
   ArrowLeftOnRectangleIcon,
-  UserPlusIcon
+  UserPlusIcon,
+  ExclamationTriangleIcon,
+  ShieldExclamationIcon
 } from '@heroicons/react/24/outline';
 // Main menu for all user types (used as base for filtering)
 // Sidebar menu configs for each user type
@@ -51,14 +53,18 @@ const farmerMenuItems = [
     { name: 'Agri Shop (Fertilizers)', path: '/agrishop' },
   ] },
   { label: 'Alerts', icon: BellIcon, subcategories: [
-    { name: 'Pest Alerts', path: '/pestalert' },
-    { name: 'Weather Alerts', path: '/weatheralerts' },
+    { name: 'Pest Alerts', path: '/pestalert/view', icon: ExclamationTriangleIcon },
+    { name: 'Weather Alerts', path: '/weatheralerts', icon: BellIcon },
   ] },
 ];
 
 const farmerOrganizerMenuItems = [
   ...farmerMenuItems,
   { label: 'Organization Dashboard', icon: UserGroupIcon, path: '/verificationpanel' }, //use /organization
+  { label: 'Pest Alert Management', icon: ShieldExclamationIcon, subcategories: [
+    { name: 'View Pest Alerts', path: '/pestalert/view', icon: ExclamationTriangleIcon },
+    { name: 'Report Pest Alert', path: '/pestalert/upload', icon: PlusCircleIcon },
+  ] },
 ];
 
 const buyerMenuItems = [
@@ -173,6 +179,30 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
         // Show all other items
         return item;
       }).filter(Boolean); // Remove null items
+      setFilteredMenu(menu);
+    } else if (userType === '1.1' || userType === 1.1) {
+      // Premium farmer/organizer - show all farmer menu items plus special features
+      const menu = farmerOrganizerMenuItems.map(item => {
+        // If this is the AI Features item, filter subcategories based on access
+        if (item.label === 'AI Features') {
+          const filteredSubcategories = item.subcategories.filter(sub => {
+            if (sub.name === 'Crop Recommendation') {
+              return hasCropRecommendationAccess;
+            }
+            if (sub.name === 'Price Forecast') {
+              return hasForecastAccess;
+            }
+            return true;
+          });
+          return filteredSubcategories.length > 0 ? { ...item, subcategories: filteredSubcategories } : null;
+        }
+        // Premium users always have access to pest alerts
+        if (item.label === 'Alerts' || item.label === 'Pest Alert Management') {
+          return item;
+        }
+        // Show all other items
+        return item;
+      }).filter(Boolean);
       setFilteredMenu(menu);
     } else if (userType === '3' || userType === 3) {
       // Re-filter shop menu items when subscription access changes
@@ -731,7 +761,10 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
                               outline: 'none'
                             }}
                           >
-                            {sub.name}
+                            <div className="flex items-center space-x-2">
+                              {sub.icon && <sub.icon className="w-4 h-4 flex-shrink-0" />}
+                              <span>{sub.name}</span>
+                            </div>
                           </Link>
                         ))}
                       </div>

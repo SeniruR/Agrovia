@@ -27,6 +27,19 @@ const ViewPestAlerts = () => {
     return currentUserId && alertOwnerId && currentUserId.toString() === alertOwnerId.toString();
   };
 
+  // Check if current user can create new pest alert reports
+  // Only admin (type 0) and moderators (type 5, 5.1) can create new reports
+  const canCreateReport = () => {
+    if (!user) return false;
+    
+    const userType = user.user_type || user.type;
+    // Convert to string for consistent comparison
+    const typeStr = userType ? userType.toString() : '';
+    
+    // Allow admin (0) and moderators (5, 5.1) to create reports
+    return typeStr === '0' || typeStr === '5' || typeStr === '5.1';
+  };
+
   // Function to handle fetching pest alerts from the backend
   const fetchAlerts = async () => {
     setLoading(true);
@@ -190,13 +203,15 @@ const ViewPestAlerts = () => {
                 <p className="text-gray-600">View and manage community pest reports</p>
               </div>
             </div>
-            <Link
-              to="/pestalert/upload"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Report</span>
-            </Link>
+            {canCreateReport() && (
+              <Link
+                to="/pestalert/upload"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Report</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -207,15 +222,20 @@ const ViewPestAlerts = () => {
               <Bug className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Pest Alerts Found</h3>
               <p className="text-gray-500 mb-6">
-                No pest reports have been submitted yet.
+                {canCreateReport() 
+                  ? "No pest reports have been submitted yet."
+                  : "No pest alerts have been reported by moderators yet. Check back later for updates."
+                }
               </p>
-              <Link
-                to="/pestalert/upload"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
-              >
-                <Plus className="w-5 h-5" />
-                Submit First Report
-              </Link>
+              {canCreateReport() && (
+                <Link
+                  to="/pestalert/upload"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Plus className="w-5 h-5" />
+                  Submit First Report
+                </Link>
+              )}
             </div>
           ) : (
             alerts.map((alert) => (

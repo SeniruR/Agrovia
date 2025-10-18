@@ -7,7 +7,20 @@ import { useAuth } from '../contexts/AuthContext'; // Corrected Import Path
 const UploadPestAlert = () => {
   const navigate = useNavigate();
   // ⬅️ UPDATED: Destructure 'user' object along with 'isAuthenticated'
-  const { isAuthenticated, user } = useAuth(); 
+  const { isAuthenticated, user } = useAuth();
+
+  // Check if current user can create pest alert reports
+  // Only admin (type 0) and moderators (type 5, 5.1) can create reports
+  const canCreateReport = () => {
+    if (!user) return false;
+    
+    const userType = user.user_type || user.type;
+    // Convert to string for consistent comparison
+    const typeStr = userType ? userType.toString() : '';
+    
+    // Allow admin (0) and moderators (5, 5.1) to create reports
+    return typeStr === '0' || typeStr === '5' || typeStr === '5.1';
+  }; 
   
   const [form, setForm] = useState({
     pestName: '',
@@ -146,6 +159,21 @@ const UploadPestAlert = () => {
             </div>
         )}
 
+        {/* Access Control Alert */}
+        {isAuthenticated() && !canCreateReport() && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6">
+                <div className="flex items-center">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+                    <p className="text-yellow-800 text-sm">
+                        Access Denied: Only administrators and moderators can create pest alert reports. 
+                        <Link to="/pestalert/view" className="text-blue-600 hover:underline ml-1 font-medium">
+                            View existing alerts instead.
+                        </Link>
+                    </p>
+                </div>
+            </div>
+        )}
+
         {/* Header */}
         <div className="bg-white rounded-3xl shadow-xl border border-green-100 p-8 mb-6">
           <div className="flex items-center justify-between mb-6">
@@ -166,8 +194,9 @@ const UploadPestAlert = () => {
             </button>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Form - Only show for authorized users */}
+          {isAuthenticated() && canCreateReport() && (
+            <form onSubmit={handleSubmit} className="space-y-6">
             {/* Pest Name */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -312,6 +341,7 @@ const UploadPestAlert = () => {
               </button>
             </div>
           </form>
+          )}
         </div>
 
         {/* Info Card */}
