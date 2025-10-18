@@ -36,6 +36,7 @@ import BuyerEditProfile from "./pages/profiles/BuyerEditProfile";
 import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
 import ShopOwnerEditProfile from "./pages/profiles/ShopOwnerEditProfile";
 import TransporterProfile from "./pages/profiles/TransporterProfile";
+import TransporterEditProfile from "./pages/profiles/TransporterEditProfile";
 import ProfileRouter from "./components/ProfileRouter";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
@@ -50,7 +51,7 @@ import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
 import FarmerViewOrderDetails from "./pages/farmer/FarmerViewOrderDetails";
 
-import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
+import TranspoartManagementDashboard from "./pages/transport/TransportManagementDashboard";
 
 import ShopReviews from "./pages/shop/ShopReviews";
 
@@ -300,6 +301,12 @@ const App = () => {
       <Route path="/profile/transporter" element={
           <Layout>
             <TransporterProfile />
+         </Layout>
+        }
+      />
+      <Route path="/profile/transporter/edit" element={
+          <Layout>
+            <TransporterEditProfile />
          </Layout>
         }
       />
