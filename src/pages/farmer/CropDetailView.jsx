@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
-  // Use build-time env var for backend URL (must be inside component for browser)
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  User, 
-  Calendar, 
-  Leaf, 
-  Package, 
+import {
+  ArrowLeft,
+  MapPin,
+  User,
+  Calendar,
+  Leaf,
+  Package,
   DollarSign,
   Phone,
   Mail,
@@ -17,22 +15,26 @@ import {
   Camera,
   CheckCircle,
   Truck,
-  X
+  X,
+  Star,
+  Send,
+  ChevronRight
 } from 'lucide-react';
 import { cropService } from '../../services/cropService';
 import { useCart } from '../../hooks/useCart';
 import { useBuyerOrderLimits } from '../../hooks/useBuyerOrderLimits';
 
 import EditCropPost from './EditCropPost'; // Add this import at the top if not present
-import { Star } from 'lucide-react';
 import CartNotification from '../../components/CartNotification';
 import OrderLimitNotification from '../../components/OrderLimitNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAlert } from '../../contexts/AlertContext';
+import { io } from 'socket.io-client';
 
 const CropDetailView = () => {
   const { success, error, warning, info } = useAlert();
-  const { user, getAuthHeaders } = useAuth();
+  const { user, getAuthHeaders, token } = useAuth();
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
@@ -40,6 +42,364 @@ const CropDetailView = () => {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
+  const [showChatWindow, setShowChatWindow] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState(null);
+  const [sendingChatMessage, setSendingChatMessage] = useState(false);
+  // New state variables for enhanced chat functionality
+  const [buyersList, setBuyersList] = useState([]);
+  const [loadingBuyersList, setLoadingBuyersList] = useState(false);
+  const [selectedBuyer, setSelectedBuyer] = useState(null);
+  const [isBuyersListView, setIsBuyersListView] = useState(false);
+  const socketRef = useRef(null);
+  const chatScrollRef = useRef(null);
+  
+  // We'll check if the user is the farmer inside each relevant function
+  // instead of defining it at the top level to avoid null references
+  const normalizeChatMessage = useCallback((message) => {
+    if (!message) return null;
+    const senderId = message.sender_id ?? message.senderId ?? message.user_id ?? message.userId ?? null;
+    const content = message.message ?? message.content ?? message.body ?? '';
+    const createdAt = message.created_at ?? message.createdAt ?? message.timestamp ?? new Date().toISOString();
+    return {
+      id: message.id ?? message.clientMessageId ?? `${senderId ?? 'unknown'}-${createdAt}`,
+      clientMessageId: message.clientMessageId,
+      senderId,
+      senderName:
+        message.sender_name ??
+        message.senderName ??
+        (senderId === user?.id ? 'You' : crop?.farmerName || 'Farmer'),
+      content,
+      createdAt,
+      isOptimistic: message.isOptimistic || false
+    };
+  }, [crop?.farmerName, user?.id]);
+  const formatChatTimestamp = (value) => {
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    } catch (err) {
+      return '';
+    }
+  };
+
+  useEffect(() => {
+    if (!showChatWindow || !crop?.id || !user?.id) {
+      return;
+    }
+    
+    // Skip loading chat history when in buyers list view
+    const isUserFarmer = user.id === crop.farmer_Id;
+    if (isBuyersListView && isUserFarmer) {
+      return;
+    }
+    
+    let isActive = true;
+    const loadChatHistory = async () => {
+      setChatLoading(true);
+      setChatError(null);
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        };
+        
+        // Determine which buyer ID to use
+        const buyerId = isUserFarmer && selectedBuyer ? selectedBuyer.id : user.id;
+        
+        const response = await fetch(
+          `${BACKEND_URL}/api/v1/crop-chats/${crop.id}?farmerId=${crop.farmer_Id}&buyerId=${buyerId}`,
+          {
+            headers
+          }
+        );
+        if (!response.ok) {
+          throw new Error('Unable to load chat history.');
+        }
+        const data = await response.json();
+        if (!isActive) {
+          return;
+        }
+        const rawMessages = Array.isArray(data?.messages)
+          ? data.messages
+          : Array.isArray(data)
+            ? data
+            : [];
+        const normalized = rawMessages
+          .map((msg) => normalizeChatMessage(msg))
+          .filter(Boolean);
+        setChatMessages(normalized);
+      } catch (err) {
+        if (isActive) {
+          setChatError(err.message || 'Unable to load chat history.');
+        }
+      } finally {
+        if (isActive) {
+          setChatLoading(false);
+        }
+      }
+    };
+
+    loadChatHistory();
+
+    return () => {
+      isActive = false;
+    };
+  }, [showChatWindow, crop?.id, crop?.farmer_Id, user?.id, token, BACKEND_URL, normalizeChatMessage, selectedBuyer, isBuyersListView]);
+
+  useEffect(() => {
+    if (!showChatWindow || !crop?.id || !user?.id) {
+      return;
+    }
+    
+    // Skip socket connection when in buyers list view
+    const isUserFarmer = user.id === crop.farmer_Id;
+    if (isBuyersListView && isUserFarmer) {
+      return;
+    }
+
+    const connection = io(BACKEND_URL, {
+      transports: ['websocket'],
+      auth: token ? { token } : undefined,
+      query: {
+        cropId: crop.id
+      }
+    });
+
+    socketRef.current = connection;
+
+    // Determine which buyer ID to use for the room - reuse isUserFarmer from above
+    const buyerId = isUserFarmer && selectedBuyer ? selectedBuyer.id : user.id;
+
+    const roomPayload = {
+      cropId: crop.id,
+      farmerId: crop.farmer_Id,
+      buyerId: buyerId
+    };
+
+    connection.emit('joinCropChat', roomPayload);
+
+    connection.on('cropChatMessage', (incoming) => {
+      const normalized = normalizeChatMessage(incoming);
+      if (!normalized) {
+        return;
+      }
+      setChatMessages((prev) => {
+        // Check if we already have this message by clientMessageId or id
+        if (normalized.clientMessageId) {
+          const existingByClientIdIdx = prev.findIndex(
+            (msg) => msg.clientMessageId && msg.clientMessageId === normalized.clientMessageId
+          );
+          if (existingByClientIdIdx !== -1) {
+            const updated = [...prev];
+            updated[existingByClientIdIdx] = { ...normalized, isOptimistic: false };
+            return updated;
+          }
+        }
+        
+        // Check if we have the message by its database ID
+        if (normalized.id) {
+          const existingByIdIdx = prev.findIndex((msg) => msg.id === normalized.id);
+          if (existingByIdIdx !== -1) {
+            return prev; // Already have this message, don't add it again
+          }
+        }
+        
+        // Check for possible duplicates by comparing content and timestamps
+        const isDuplicate = prev.some(
+          (msg) => 
+            msg.content === normalized.content && 
+            msg.senderId === normalized.senderId &&
+            Math.abs(new Date(msg.createdAt) - new Date(normalized.createdAt)) < 3000 // within 3 seconds
+        );
+        
+        if (isDuplicate) {
+          return prev; // Likely a duplicate, don't add
+        }
+        
+        return [...prev, { ...normalized, isOptimistic: false }];
+      });
+    });
+
+    connection.on('cropChatHistory', (history) => {
+      if (!Array.isArray(history)) {
+        return;
+      }
+      const normalized = history.map((msg) => normalizeChatMessage(msg)).filter(Boolean);
+      setChatMessages(normalized);
+    });
+
+    connection.on('cropChatError', (err) => {
+      setChatError(
+        typeof err === 'string' ? err : err?.message || 'Unable to connect to chat.'
+      );
+    });
+
+    connection.on('connect_error', (err) => {
+      setChatError(err?.message || 'Unable to connect to chat.');
+    });
+
+    return () => {
+      connection.disconnect();
+      socketRef.current = null;
+    };
+  }, [showChatWindow, crop?.id, crop?.farmer_Id, user?.id, token, BACKEND_URL, normalizeChatMessage, selectedBuyer, isBuyersListView]);
+
+  useEffect(() => {
+    if (showChatWindow && chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, showChatWindow]);
+
+  // Function to fetch list of buyers who messaged about this crop
+  const fetchBuyersList = async () => {
+    if (!crop?.id || !user?.id || user.id !== crop.farmer_Id) return;
+    
+    try {
+      setLoadingBuyersList(true);
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/crop-chats/${crop.id}/buyers`,
+        { headers }
+      );
+      if (!response.ok) {
+        throw new Error('Unable to load buyers list.');
+      }
+      const data = await response.json();
+      if (Array.isArray(data?.buyers)) {
+        setBuyersList(data.buyers);
+      } else {
+        setBuyersList([]);
+      }
+    } catch (error) {
+      console.error('Error fetching buyers list:', error);
+      setChatError('Failed to load buyers list. Please try again.');
+    } finally {
+      setLoadingBuyersList(false);
+    }
+  };
+  
+  const openChatWindow = () => {
+    if (!user || !crop) {
+      return;
+    }
+    setChatError(null);
+    setShowChatWindow(true);
+    
+    const isUserFarmer = user.id === crop.farmer_Id;
+    
+    if (isUserFarmer) {
+      // Farmer viewing their own crop - show buyers list
+      setIsBuyersListView(true);
+      fetchBuyersList();
+    } else {
+      // Buyer view - or farmer viewing someone else's crop
+      setIsBuyersListView(false);
+      setSelectedBuyer(null);
+      // Chat history will be loaded by the existing useEffect
+    }
+  };
+
+  const closeChatWindow = () => {
+    setShowChatWindow(false);
+    setChatInput('');
+    setSendingChatMessage(false);
+    setChatError(null);
+    setChatLoading(false);
+    // Reset chat-related state
+    setIsBuyersListView(false);
+    setSelectedBuyer(null);
+  };
+  
+  const selectBuyer = (buyer) => {
+    setSelectedBuyer(buyer);
+    setIsBuyersListView(false);
+    setChatMessages([]); // Clear current messages
+    setChatLoading(true);
+    
+    // Now load the conversation with this specific buyer
+    // The existing useEffect will handle loading the conversation
+  };
+
+  const handleSendChatMessage = async (event) => {
+    event.preventDefault();
+    if (!chatInput.trim() || !user || !crop) {
+      return;
+    }
+
+    const trimmed = chatInput.trim();
+    const clientMessageId = `client-${Date.now()}`;
+    const optimisticMessage = normalizeChatMessage({
+      clientMessageId,
+      sender_id: user.id,
+      message: trimmed,
+      created_at: new Date().toISOString(),
+      isOptimistic: true
+    });
+
+    if (optimisticMessage) {
+      setChatMessages((prev) => [...prev, optimisticMessage]);
+    }
+
+    setChatInput('');
+    setChatError(null);
+    setSendingChatMessage(true);
+
+    // Determine which buyer ID to use based on whether a farmer is viewing their own crop
+    // and has selected a specific buyer to chat with
+    const isUserFarmer = user.id === crop.farmer_Id;
+    const buyerId = isUserFarmer && selectedBuyer ? selectedBuyer.id : user.id;
+    
+    const payload = {
+      cropId: crop.id,
+      farmerId: crop.farmer_Id,
+      buyerId: buyerId,
+      senderId: user.id,
+      message: trimmed,
+      clientMessageId
+    };
+
+    try {
+      // Use only one method to send the message - preferably the socket
+      // as it's faster and will avoid duplication
+      if (socketRef.current) {
+        socketRef.current.emit('sendCropChatMessage', payload);
+      } else {
+        // Fallback to HTTP request only if socket is not available
+        const headers = {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        };
+
+        const response = await fetch(`${BACKEND_URL}/api/v1/crop-chats`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error('Unable to save message.');
+        }
+      }
+    } catch (err) {
+      setChatError(err.message || 'Unable to send message. Please try again.');
+      setChatMessages((prev) => prev.filter((msg) => msg.clientMessageId !== clientMessageId));
+      setChatInput(trimmed);
+    } finally {
+      setSendingChatMessage(false);
+    }
+  };
   
   // Order limits for buyers
   const {
@@ -394,10 +754,7 @@ const CropDetailView = () => {
     // Optionally, show a notification or feedback here
   };
 
-  const handleContactFarmer = () => {
-    // Contact farmer logic
-    console.log('Contacting farmer');
-  };
+  // handleContactFarmer function removed
 
   // Fetch available transporters
   const fetchTransporters = async () => {
@@ -677,13 +1034,16 @@ const CropDetailView = () => {
                     Add to Cart
                   </button>
                 )}
-                <button
-                  onClick={handleContactFarmer}
-                  className="flex items-center justify-center px-4 py-2 border border-agrovia-500 text-agrovia-600 rounded-lg hover:bg-agrovia-50 transition-colors text-sm font-medium"
-                >
-                  <MessageCircle className="w-4 h-4 mr-1" />
-                  Contact
-                </button>
+                {user && crop && user.id !== crop.farmer_Id && (
+                  <button
+                    onClick={openChatWindow}
+                    className="flex items-center justify-center px-4 py-2 border border-green-500 text-green-600 rounded-lg hover:bg-green-50 transition-colors text-sm font-medium"
+                  >
+                    <Send className="w-4 h-4 mr-1" />
+                    Chat with Farmer
+                  </button>
+                )}
+                {/* Contact button removed */}
           {user && crop && user.id !== crop.farmer_Id && (      
           <button
             onClick={() => {
@@ -1050,6 +1410,15 @@ const CropDetailView = () => {
                   Add to Cart
                 </button>
                 )}
+                {user && crop && (
+                <button
+                  onClick={openChatWindow}
+                  className="w-full flex items-center justify-center px-6 py-4 border-3 border-green-500 text-green-600 rounded-xl hover:bg-green-50 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
+                >
+                  <Send className="w-5 h-5 mr-2" />
+                  {user.id === crop.farmer_Id ? "View Messages" : "Chat with Farmer"}
+                </button>
+                )}
                 
                 {user && crop && user.id !== crop.farmer_Id && (
                 <button
@@ -1061,17 +1430,7 @@ const CropDetailView = () => {
                 </button>
                 )}
                 
-                {user && crop && user.id != crop.farmer_Id && (
-                  <>
-                <button
-                  onClick={handleContactFarmer}
-                  className="w-full flex items-center justify-center px-6 py-4 border-3 border-agrovia-500 text-agrovia-600 rounded-xl hover:bg-agrovia-50 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
-                >
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  Contact Farmer
-                </button>
-                </>
-                )}
+                {/* Contact Farmer button removed */}
                
                 
   {/* Delete Confirmation Modal */}
@@ -1158,6 +1517,154 @@ const CropDetailView = () => {
         quantity={notification.quantity}
         onClose={() => setNotification({ show: false, product: null, quantity: 0 })}
       />
+      {showChatWindow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 h-[520px] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div>
+                {user?.id === crop?.farmer_Id && selectedBuyer ? (
+                  <div className="flex items-center">
+                    <button 
+                      className="mr-2 text-gray-500 hover:text-agrovia-500"
+                      onClick={() => {
+                        setIsBuyersListView(true);
+                        setSelectedBuyer(null);
+                      }}
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Chat with {selectedBuyer.name || 'Buyer'}
+                    </h3>
+                  </div>
+                ) : (
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {isBuyersListView && user?.id === crop?.farmer_Id 
+                      ? "Messages from Buyers" 
+                      : `Chat with ${crop?.farmerName || 'Farmer'}`}
+                  </h3>
+                )}
+                <p className="text-xs text-gray-500">Crop: {crop?.cropName || ''}</p>
+              </div>
+              <button
+                onClick={closeChatWindow}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close chat"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Conditional rendering based on view type */}
+            {isBuyersListView && user?.id === crop?.farmer_Id ? (
+              // Buyers list view for farmers
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                {chatError && (
+                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    {chatError}
+                  </div>
+                )}
+                {loadingBuyersList && (
+                  <div className="flex justify-center py-6">
+                    <div className="h-6 w-6 border-2 border-agrovia-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {!loadingBuyersList && buyersList.length === 0 && !chatError && (
+                  <div className="text-sm text-gray-500 text-center mt-12">
+                    No buyers have messaged about this crop yet.
+                  </div>
+                )}
+                {buyersList.map((buyer) => (
+                  <div 
+                    key={buyer.id} 
+                    className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50"
+                    onClick={() => selectBuyer(buyer)}
+                  >
+                    <div className="flex-shrink-0 h-10 w-10 bg-agrovia-100 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-agrovia-500" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="font-medium text-gray-900">{buyer.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {buyer.lastMessage ? `${buyer.lastMessage.substr(0, 30)}${buyer.lastMessage.length > 30 ? '...' : ''}` : 'Click to view conversation'}
+                      </p>
+                    </div>
+                    <div className="ml-auto">
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Chat conversation view
+              <>
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" ref={chatScrollRef}>
+                  {chatError && (
+                    <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      {chatError}
+                    </div>
+                  )}
+                  {chatLoading && (
+                    <div className="flex justify-center py-6">
+                      <div className="h-6 w-6 border-2 border-agrovia-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {!chatLoading && chatMessages.length === 0 && !chatError && (
+                    <div className="text-sm text-gray-500 text-center mt-12">
+                      No messages yet. Say hello to start the chat.
+                    </div>
+                  )}
+                  {chatMessages.map((message) => {
+                    const isCurrentUser = message.senderId === user?.id;
+                    return (
+                      <div key={message.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm ${
+                            isCurrentUser ? 'bg-agrovia-500 text-white' : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          <p className="text-xs font-semibold mb-1">
+                            {isCurrentUser ? 'You' : message.senderName}
+                          </p>
+                          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                          <span
+                            className={`block text-[10px] mt-1 ${
+                              isCurrentUser ? 'text-white/70' : 'text-gray-500'
+                            }`}
+                          >
+                            {formatChatTimestamp(message.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <form onSubmit={handleSendChatMessage} className="border-t border-gray-200 px-4 py-3">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Type your message..."
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-agrovia-400"
+                      disabled={sendingChatMessage}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim() || sendingChatMessage}
+                      className="flex items-center justify-center bg-agrovia-500 text-white rounded-lg px-3 py-2 hover:bg-agrovia-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Send className="w-4 h-4 mr-1" />
+                      Send
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          
+          </div>
+        </div>
+      )}
       {/* Review Modal */}
       {showReviewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
