@@ -103,6 +103,9 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [shopOwnerDeactivated, setShopOwnerDeactivated] = useState(false);
   const [isShopOwnerDeactivating, setIsShopOwnerDeactivating] = useState(false);
+  // Reply deletion state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingReply, setIsDeletingReply] = useState(false);
 
   // Make current user reactive so UI updates if localStorage changes (e.g., other tab or logout)
   const [currentUser, setCurrentUser] = useState(() => {
@@ -1209,7 +1212,7 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                 <h3 className="text-xl font-semibold text-slate-800">Admin Reply</h3>
                 {/* Show Add Reply button to admin if no reply yet, or Update Reply button if reply exists */}
                 {isAdmin && (
-                  <div>
+                  <div className="flex gap-2">
                     {!currentReply ? (
                       <button
                         onClick={() => setShowReplyForm(!showReplyForm)}
@@ -1219,16 +1222,25 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                         <span>Add Reply</span>
                       </button>
                     ) : (
-                      <button
-                        onClick={() => {
-                          setEditReplyText(currentReply);
-                          setShowEditReplyForm(!showEditReplyForm);
-                        }}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        <span>Update Reply</span>
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditReplyText(currentReply);
+                            setShowEditReplyForm(!showEditReplyForm);
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          <span>Update Reply</span>
+                        </button>
+                        <button
+                          onClick={() => setShowDeleteConfirm(true)}
+                          className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl hover:bg-red-700 transition-colors flex items-center space-x-2"
+                        >
+                          <MessageSquareX className="w-4 h-4" />
+                          <span>Delete Reply</span>
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
@@ -1253,11 +1265,27 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                     </button>
                     <button
                       onClick={async () => {
-                        // Use correct backend URL for admin reply
+                        // Use correct backend URL for admin reply based on complaint type
                         try {
-                          const res = await fetch(`http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/reply`, {
+                          let url = '';
+                          if (normalizedComplaint.type === 'crop') {
+                            url = `http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/reply`;
+                          } else if (normalizedComplaint.type === 'shop') {
+                            url = `http://localhost:5000/api/v1/shop-complaints/${normalizedComplaint.id}/reply`;
+                          } else if (normalizedComplaint.type === 'transport') {
+                            url = `http://localhost:5000/api/v1/transport-complaints/${normalizedComplaint.id}/reply`;
+                          }
+                          
+                          // Get token directly from localStorage for debugging
+                          const token = localStorage.getItem('authToken');
+                          console.log('Using auth token:', token ? 'Token exists' : 'No token found');
+                          
+                          const res = await fetch(url, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`
+                            },
                             body: JSON.stringify({ reply: newReply })
                           });
                           if (!res.ok) throw new Error('Failed to add reply');
@@ -1301,9 +1329,25 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                     <button
                       onClick={async () => {
                         try {
-                          const res = await fetch(`http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/reply`, {
+                          let url = '';
+                          if (normalizedComplaint.type === 'crop') {
+                            url = `http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/reply`;
+                          } else if (normalizedComplaint.type === 'shop') {
+                            url = `http://localhost:5000/api/v1/shop-complaints/${normalizedComplaint.id}/reply`;
+                          } else if (normalizedComplaint.type === 'transport') {
+                            url = `http://localhost:5000/api/v1/transport-complaints/${normalizedComplaint.id}/reply`;
+                          }
+                          
+                          // Get token directly from localStorage for debugging
+                          const token = localStorage.getItem('authToken');
+                          console.log('Using auth token for update:', token ? 'Token exists' : 'No token found');
+                          
+                          const res = await fetch(url, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`
+                            },
                             body: JSON.stringify({ reply: editReplyText })
                           });
                           if (!res.ok) throw new Error('Failed to update reply');
@@ -1318,6 +1362,73 @@ const ComplaintDetail = ({ complaint, onBack, onAddReply }) => {
                       className="px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
                     >
                       <span>Update Reply</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Delete Reply Confirmation Modal */}
+              {isAdmin && showDeleteConfirm && (
+                <div className="mb-6 p-4 bg-red-50 rounded-xl border border-red-200">
+                  <h4 className="text-lg font-medium text-red-700 mb-3">Delete Admin Reply?</h4>
+                  <p className="text-slate-700 mb-4">
+                    Are you sure you want to delete this admin reply? This action cannot be undone.
+                  </p>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-4 py-2 bg-white text-slate-600 hover:text-slate-800 transition-colors border border-slate-300 rounded-lg"
+                      disabled={isDeletingReply}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          setIsDeletingReply(true);
+                          
+                          let url = '';
+                          if (normalizedComplaint.type === 'crop') {
+                            url = `http://localhost:5000/api/v1/crop-complaints/${normalizedComplaint.id}/reply/delete`;
+                          } else if (normalizedComplaint.type === 'shop') {
+                            url = `http://localhost:5000/api/v1/shop-complaints/${normalizedComplaint.id}/reply/delete`;
+                          } else if (normalizedComplaint.type === 'transport') {
+                            url = `http://localhost:5000/api/v1/transport-complaints/${normalizedComplaint.id}/reply/delete`;
+                          }
+                          
+                          const token = localStorage.getItem('authToken');
+                          
+                          const res = await fetch(url, {
+                            method: 'DELETE',
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+                          
+                          if (!res.ok) throw new Error('Failed to delete reply');
+                          
+                          // Update UI
+                          setShowDeleteConfirm(false);
+                          setCurrentReply('');
+                          
+                        } catch (err) {
+                          alert(err.message || 'Failed to delete reply');
+                        } finally {
+                          setIsDeletingReply(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                      disabled={isDeletingReply}
+                    >
+                      {isDeletingReply ? (
+                        <span>Deleting...</span>
+                      ) : (
+                        <>
+                          <MessageSquareX className="w-4 h-4" />
+                          <span>Confirm Delete</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
