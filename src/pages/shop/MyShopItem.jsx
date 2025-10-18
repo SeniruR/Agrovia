@@ -80,6 +80,142 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useShopSubscriptionAccess } from '../../hooks/useShopSubscriptionAccess';
 import ProductLimitNotification from '../../components/ProductLimitNotification';
 
+const BACKEND_URL = 'http://localhost:5000';
+
+const stripBackendPrefix = (value) => {
+  if (!value) return value;
+  if (value.startsWith(BACKEND_URL)) {
+    return value.slice(BACKEND_URL.length).replace(/^\/+/, '');
+  }
+  return value.replace(/^\/+/, '');
+};
+
+const ensureDataUrl = (mimetype, data) => {
+  if (!data || typeof data !== 'string') return null;
+  const trimmed = data.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith('data:') ? trimmed : `data:${mimetype || 'image/jpeg'};base64,${trimmed}`;
+};
+
+const buildAttachmentObject = (entry, index = 0) => {
+  if (!entry) return null;
+
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim();
+    if (!trimmed) return null;
+
+    if (trimmed.startsWith('data:')) {
+      const [meta, payload] = trimmed.split(',');
+      const mime = meta?.slice(5)?.split(';')?.[0] || 'image/jpeg';
+      return {
+        filename: `attachment-${index + 1}`,
+        mimetype: mime,
+        size: null,
+        data: payload || null,
+        legacyPath: null,
+        url: trimmed
+      };
+    }
+
+    const filename = trimmed.split('/').pop();
+    let url;
+    if (trimmed.startsWith('http')) {
+      url = trimmed;
+    } else if (trimmed.startsWith('/uploads/')) {
+      url = `${BACKEND_URL}${trimmed}`;
+    } else {
+      url = `${BACKEND_URL}/uploads/${filename}`;
+    }
+
+    return {
+      filename,
+      mimetype: null,
+      size: null,
+      data: null,
+      legacyPath: trimmed,
+      url
+    };
+  }
+
+  if (typeof entry === 'object') {
+    const filename = entry.filename || entry.name || entry.originalname || `attachment-${index + 1}`;
+    const mimetype = entry.mimetype || entry.type || 'image/jpeg';
+    const size = entry.size ?? null;
+
+    let data = entry.data || entry.base64 || entry.base64Data || null;
+    if (typeof data === 'string') {
+      const trimmedData = data.trim();
+      data = trimmedData.startsWith('data:') ? trimmedData.split(',').pop() : trimmedData;
+    } else {
+      data = null;
+    }
+
+    const legacyPath = entry.legacyPath || entry.path || entry.Location || entry.location || null;
+
+    let url = entry.url || ensureDataUrl(mimetype, data);
+    if (!url && legacyPath) {
+      if (legacyPath.startsWith('http') || legacyPath.startsWith('data:')) {
+        url = legacyPath;
+      } else if (legacyPath.startsWith('/uploads/')) {
+        url = `${BACKEND_URL}${legacyPath}`;
+      } else {
+        url = `${BACKEND_URL}/uploads/${legacyPath}`;
+      }
+    }
+
+    if (!url && filename) {
+      url = `${BACKEND_URL}/uploads/${filename}`;
+    }
+
+    return {
+      filename,
+      mimetype,
+      size,
+      data,
+      legacyPath,
+      url
+    };
+  }
+
+  return null;
+};
+
+const normalizeReviewAttachments = (review) => {
+  if (!review) return [];
+
+  const sources = [];
+
+  if (Array.isArray(review.attachment_blobs)) {
+    sources.push(...review.attachment_blobs);
+  }
+
+  if (Array.isArray(review.attachments)) {
+    sources.push(...review.attachments);
+  } else if (typeof review.attachments === 'string') {
+    sources.push(review.attachments);
+  }
+
+  if (Array.isArray(review.attachment_urls)) {
+    sources.push(...review.attachment_urls);
+  }
+
+  const normalized = [];
+  const seen = new Set();
+
+  sources.forEach((entry, idx) => {
+    const normalizedEntry = buildAttachmentObject(entry, idx);
+    if (!normalizedEntry) return;
+
+    const key = normalizedEntry.url || `${normalizedEntry.filename}-${idx}`;
+    if (!seen.has(key)) {
+      normalized.push(normalizedEntry);
+      seen.add(key);
+    }
+  });
+
+  return normalized;
+};
+
 const DetailView = ({ item, onClose, handleEdit, handleDelete, reviews, reviewsLoading, reviewsError }) => {
   // Helper to safely parse images (array or CSV string)
   const renderImages = () => {
@@ -183,7 +319,6 @@ const DetailView = ({ item, onClose, handleEdit, handleDelete, reviews, reviewsL
     }
   };
 
-  const attachmentsBaseUrl = 'http://localhost:5000/uploads';
   const productRatingValue = Number(item?.rating ?? item?.average_rating);
   const hasProductRating = Number.isFinite(productRatingValue) && productRatingValue > 0;
   const aggregatedReviewCountRaw = item?.review_count ?? item?.reviewCount ?? item?.total_reviews;
@@ -379,25 +514,40 @@ const DetailView = ({ item, onClose, handleEdit, handleDelete, reviews, reviewsL
                           <div className="mt-4">
                             <p className="text-sm font-medium text-gray-700 mb-2">Attachments</p>
                             <div className="flex flex-wrap gap-3">
-                              {review.attachments.map((attachment, attachmentIdx) => (
-                                <a
-                                  key={`${review.id || index}-attachment-${attachmentIdx}`}
-                                  href={`${attachmentsBaseUrl}/${attachment}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="block w-24 h-24 rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-                                >
-                                  <img
-                                    src={`${attachmentsBaseUrl}/${attachment}`}
-                                    alt={`Review attachment ${attachmentIdx + 1}`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.currentTarget.onerror = null;
-                                      e.currentTarget.src = 'https://via.placeholder.com/96?text=Image';
-                                    }}
-                                  />
-                                </a>
-                              ))}
+                              {review.attachments.map((attachment, attachmentIdx) => {
+                                const normalizedAttachment = attachment && attachment.url
+                                  ? attachment
+                                  : buildAttachmentObject(attachment, attachmentIdx);
+
+                                if (!normalizedAttachment) return null;
+
+                                const resolvedUrl = normalizedAttachment.url
+                                  || ensureDataUrl(normalizedAttachment.mimetype, normalizedAttachment.data)
+                                  || (normalizedAttachment.legacyPath
+                                    ? `${BACKEND_URL}/${stripBackendPrefix(normalizedAttachment.legacyPath)}`
+                                    : null)
+                                  || 'https://via.placeholder.com/96?text=Image';
+
+                                return (
+                                  <a
+                                    key={`${review.id || index}-attachment-${attachmentIdx}`}
+                                    href={resolvedUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="block w-24 h-24 rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+                                  >
+                                    <img
+                                      src={resolvedUrl}
+                                      alt={`${normalizedAttachment.filename || 'Review attachment'} ${attachmentIdx + 1}`}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.onerror = null;
+                                        e.currentTarget.src = 'https://via.placeholder.com/96?text=Image';
+                                      }}
+                                    />
+                                  </a>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -927,43 +1077,9 @@ const MyShopItem = () => {
     const normalizeReviewRecord = (review) => {
       if (!review) return null;
 
-      const parseAttachments = (raw) => {
-        if (!raw) return [];
-        let attachments = [];
-
-        if (Array.isArray(raw)) {
-          attachments = raw;
-        } else if (typeof raw === 'string') {
-          const trimmed = raw.trim();
-          if (trimmed) {
-            if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || trimmed.includes('\"')) {
-              try {
-                const parsed = JSON.parse(trimmed);
-                attachments = Array.isArray(parsed) ? parsed : [];
-              } catch (_err) {
-                attachments = [];
-              }
-            } else if (trimmed.includes(',')) {
-              attachments = trimmed.split(',').map(part => part.trim()).filter(Boolean);
-            } else {
-              attachments = [trimmed];
-            }
-          }
-        }
-
-        return attachments
-          .map(entry => {
-            if (!entry) return null;
-            const value = entry.toString();
-            const segments = value.split('/');
-            return segments[segments.length - 1] || null;
-          })
-          .filter(Boolean);
-      };
-
       const numericRating = Number(review.rating ?? review.average_rating);
       const rating = Number.isFinite(numericRating) ? numericRating : null;
-      const attachments = parseAttachments(review.attachments ?? review.attachment ?? review.review_images);
+      const attachments = normalizeReviewAttachments(review);
       const nameCandidates = [review.farmer_name, review.reviewer_name, review.user_name, review.name, review.author];
       const displayName = nameCandidates.find(n => typeof n === 'string' && n.trim()) || 'Anonymous Farmer';
       const createdAt = review.created_at || review.createdAt || review.updated_at || null;
