@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CheckCircle, Truck, Package, Clock, AlertCircle, Search, Phone } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const MyOrders = () => {
+  const navigate = useNavigate();
   const { getAuthHeaders, loading: authLoading, user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -287,6 +289,13 @@ const MyOrders = () => {
                               Call transporter
                             </a>
                           ) : null}
+                          <button
+                            type="button"
+                            onClick={() => navigate('/agrishop', { state: { openReviewForProductId: product.productId || product.product_id || null } })}
+                            className="inline-flex items-center px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md text-sm"
+                          >
+                            Submit review
+                          </button>
                         </div>
                       </div>
                       <div className="text-xs text-gray-500 mt-3">Note: You can arrange transport dates according to your preference.</div>
@@ -342,6 +351,13 @@ const MyOrders = () => {
                             Call farmer
                           </a>
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={() => navigate('/agrishop', { state: { openReviewForProductId: product.productId || product.product_id || null } })}
+                          className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700"
+                        >
+                          Submit review
+                        </button>
                         {canCollect ? (
                           <button
                             type="button"
