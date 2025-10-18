@@ -95,10 +95,7 @@ const AdminProfile = () => {
           nic: user.nic || '-',
           district: user.district || '-',
           address: user.address || '-',
-          companyName: details.company_name || '-',
-          companyType: details.company_type || '-',
-          companyAddress: details.company_address || '-',
-          paymentOffer: details.payment_offer || '-',
+          // company fields intentionally omitted for admin
           profileImage: profileImageUrl,
           userId: user.id,
           joinedDate: user.created_at || '-',
@@ -188,23 +185,10 @@ const AdminProfile = () => {
                 <Calendar size={16} />
                 Member since {new Date(adminData.joinedDate).getFullYear()}
               </span>
-              <span className="flex items-center gap-1">
-                <Building size={16} />
-                {adminData.companyType}
-              </span>
             </div>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-3">
-              {adminData.companyName && (
-                <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                  � {adminData.companyName}
-                </span>
-              )}
-              {adminData.paymentOffer && (
-                <span className="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                  💰 {adminData.paymentOffer}
-                </span>
-              )}
+              {/* Business details removed for admin profile */}
             </div>
           </div>
 
@@ -286,9 +270,8 @@ const AdminProfile = () => {
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Navigation Tabs */}
         <div className="mb-8">
-          <div className="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-2xl">
+            <div className="flex flex-wrap gap-3 bg-gray-50 p-3 rounded-2xl">
             <TabButton id="overview" label="Overview" icon={User} />
-            <TabButton id="business" label="Business Details" icon={Building} />
             <TabButton id="contact" label="Contact Info" icon={Phone} />
           </div>
         </div>
@@ -312,20 +295,7 @@ const AdminProfile = () => {
             </div>
           </div>
         )}
-        {activeTab === 'business' && (
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-              <Building className="w-6 h-6 text-green-600" />
-              Business Details
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <InfoCard label="Company Name" value={adminData.companyName} icon={Building} color="green" />
-              <InfoCard label="Company Type" value={adminData.companyType} icon={FileText} color="blue" />
-              <InfoCard label="Company Address" value={adminData.companyAddress} icon={MapPin} color="gray" />
-              <InfoCard label="Payment Offer" value={adminData.paymentOffer} icon={DollarSign} color="yellow" />
-            </div>
-          </div>
-        )}
+  {/* Business tab removed for admin profile */}
         {activeTab === 'contact' && (
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">

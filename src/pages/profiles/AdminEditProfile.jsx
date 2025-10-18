@@ -55,18 +55,6 @@ const districts = [
   'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
 ];
 
-const companyTypes = [
-  'Restaurant',
-  'Supermarket',
-  'Wholesale',
-  'Food Processing',
-  'Export Company',
-  'Retail Store',
-  'Hotel/Resort',
-  'Catering Service',
-  'Other'
-];
-
 const initialProfile = {
   name: "",
   email: "",
@@ -77,10 +65,6 @@ const initialProfile = {
   profileImage: null,
   password: "",
   confirmPassword: "",
-  companyName: "",
-  companyType: "",
-  companyAddress: "",
-  paymentOffer: "",
   latitude: "",
   longitude: ""
 };
@@ -101,7 +85,6 @@ const AdminEditProfile = () => {
   // Helper: map backend data to form fields
   const mapBackendToProfile = (data) => {
     const user = data.user || {};
-    const details = user.admin_details || {};
     // Construct profile image URL if user has a profile image
     const profileImageUrl = user.profile_image ? 
       `/api/v1/users/${user.id}/profile-image?t=${Date.now()}` : null;
@@ -115,10 +98,6 @@ const AdminEditProfile = () => {
       profileImage: profileImageUrl,
       password: "",
       confirmPassword: "",
-      companyName: details.company_name || "",
-      companyType: details.company_type || "",
-      companyAddress: details.company_address || "",
-      paymentOffer: details.payment_offer || "",
       latitude: user.latitude || "",
       longitude: user.longitude || ""
     };
@@ -289,12 +268,6 @@ const AdminEditProfile = () => {
       if (profile.latitude) formData.append('latitude', profile.latitude);
       if (profile.longitude) formData.append('longitude', profile.longitude);
       
-      // Append buyer-specific data
-      formData.append('companyName', profile.companyName);
-      formData.append('companyType', profile.companyType);
-      formData.append('companyAddress', profile.companyAddress);
-      formData.append('paymentOffer', profile.paymentOffer);
-      
       // Append password if provided
       if (profile.password) {
         if (profile.password !== profile.confirmPassword) {
@@ -347,8 +320,8 @@ const AdminEditProfile = () => {
       
       setLoading(false);
       
-      // Navigate back to buyer profile immediately with success message
-      navigate('/profile/buyer', { 
+      // Navigate back to admin profile immediately with success message
+      navigate('/profile/admin', { 
         state: { message: 'Profile updated successfully!' } 
       });
       
@@ -374,13 +347,13 @@ const AdminEditProfile = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/profile/buyer')}
+            onClick={() => navigate('/profile/admin')}
             className="mb-4 text-green-600 hover:text-green-700 font-medium flex items-center gap-2"
           >
             ← Back to Profile
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-          <p className="text-gray-600 mt-2">Update your business information and preferences</p>
+          <p className="text-gray-600 mt-2">Update your profile information and preferences</p>
         </div>
 
         {/* Messages */}
@@ -526,56 +499,7 @@ const AdminEditProfile = () => {
             </div>
           </div>
 
-          {/* Business Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Business Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                <input
-                  type="text"
-                  value={profile.companyName}
-                  onChange={(e) => handleInputChange('companyName', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Type</label>
-                <Select
-                  value={profile.companyType ? { value: profile.companyType, label: profile.companyType } : null}
-                  onChange={(option) => handleInputChange('companyType', option?.value || '')}
-                  options={companyTypes.map(type => ({ value: type, label: type }))}
-                  placeholder="Select company type"
-                  className="react-select"
-                  classNamePrefix="react-select"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
-                <textarea
-                  value={profile.companyAddress}
-                  onChange={(e) => handleInputChange('companyAddress', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company address"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Offer</label>
-                <textarea
-                  value={profile.paymentOffer}
-                  onChange={(e) => handleInputChange('paymentOffer', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Describe your payment terms and offers"
-                />
-              </div>
-            </div>
-          </div>
+          {/* Business Information removed for admin edit */}
 
           {/* Security */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -609,7 +533,7 @@ const AdminEditProfile = () => {
           <div className="flex justify-end gap-4">
             <button
               type="button"
-              onClick={() => navigate('/profile/buyer')}
+              onClick={() => navigate('/profile/admin')}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
