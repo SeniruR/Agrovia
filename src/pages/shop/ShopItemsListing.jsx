@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+
 import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { useCart } from '../../hooks/useCart';
+
 import { useAuth } from '../../contexts/AuthContext';
 // Add this component at the top of your file
 const ImageWithFallback = ({ src, alt, className }) => {
@@ -86,10 +88,14 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     try {
       // Get reviews for the specific product
       
+      // Get auth token and headers
+      const authToken = localStorage.getItem('authToken');
+      const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
+      
       // Use URL parameter instead of query parameter
       const response = await fetch(`http://localhost:5000/api/v1/shop-reviews/${productId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': authToken ? `Bearer ${authToken}` : (authHeaders.Authorization || ''),
         },
         credentials: 'include'
       });
@@ -353,18 +359,36 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
     try {
       // Use currentUserData if available, otherwise fall back to user
       const userData = currentUserData || user;
-      const userId = userData.id;
+      
+      // Ensure we have a valid user ID - directly use numerical ID
+      let validUserData = userData;
+      if (!validUserData || !validUserData.id) {
+        console.error('Missing user data for review submission', userData);
+        // Check if we can use the current user object instead
+        if (user && user.id) {
+          console.log('Using current user object as fallback');
+          validUserData = user;
+        } else {
+          alert('Your user information could not be found. Please try logging out and logging in again.');
+          setSubmittingReview(false);
+          return;
+        }
+      }
+      
+      const userId = Number(validUserData.id); // Make sure it's a number
       
       // Make sure we have a valid farmer name from the user object
       // Check all possible fields where the name might be stored
       let farmerName = '';
-      if (userData.name) farmerName = userData.name;
-      else if (userData.fullName) farmerName = userData.fullName;
-      else if (userData.first_name && userData.last_name) farmerName = `${userData.first_name} ${userData.last_name}`;
-      else if (userData.firstName && userData.lastName) farmerName = `${userData.firstName} ${userData.lastName}`;
-      else if (userData.username) farmerName = userData.username;
-      else if (userData.email) farmerName = userData.email.split('@')[0]; // Use part of email as last resort
+      if (validUserData.name) farmerName = validUserData.name;
+      else if (validUserData.fullName) farmerName = validUserData.fullName;
+      else if (validUserData.first_name && validUserData.last_name) farmerName = `${validUserData.first_name} ${validUserData.last_name}`;
+      else if (validUserData.firstName && validUserData.lastName) farmerName = `${validUserData.firstName} ${validUserData.lastName}`;
+      else if (validUserData.username) farmerName = validUserData.username;
+      else if (validUserData.email) farmerName = validUserData.email.split('@')[0]; // Use part of email as last resort
       else farmerName = 'Anonymous Farmer';
+      
+      console.log('Using user data for review:', { userId, farmerName });
       
       // Create regular JSON data first (not FormData) to match what the API expects
       const reviewData = {
@@ -383,7 +407,12 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         const fileNames = validImages.map(image => image.name);
         
         // Add attachments field to the reviewData
-        reviewData.attachments = JSON.stringify(fileNames);
+        try {
+          reviewData.attachments = JSON.stringify(fileNames);
+        } catch (jsonError) {
+          console.error('Error stringifying file names:', jsonError);
+          reviewData.attachments = '[]'; // Fall back to empty array
+        }
         
         // Now upload the actual image files
         for (const image of validImages) {
@@ -391,11 +420,15 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
           formData.append('file', image);
           
           try {
+            // Get auth token
+            const imageAuthToken = localStorage.getItem('authToken');
+            const imageAuthHeaders = getAuthHeaders ? getAuthHeaders() : {};
+            
             // Upload each image file
             const uploadResponse = await fetch('http://localhost:5000/api/v1/upload', {
               method: 'POST',
               headers: {
-                'Authorization': authToken ? `Bearer ${authToken}` : '',
+                'Authorization': imageAuthToken ? `Bearer ${imageAuthToken}` : (imageAuthHeaders.Authorization || ''),
               },
               body: formData,
             });
@@ -409,19 +442,43 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         }
       } else if (editingReview && editingReview.attachments && editingReview.attachments.length > 0) {
         // If editing and no new images were added, keep the existing attachments
-        reviewData.attachments = JSON.stringify(editingReview.attachments);
+        try {
+          reviewData.attachments = JSON.stringify(editingReview.attachments);
+        } catch (jsonError) {
+          console.error('Error stringifying existing attachments:', jsonError);
+          reviewData.attachments = '[]'; // Fall back to empty array
+        }
       } else {
         // Use empty array if no attachments
-        reviewData.attachments = JSON.stringify([]);
+        reviewData.attachments = '[]';
       }
       
       // Since we're using the current user's ID, we should already be authenticated
       // We don't need to verify if the user exists, as they are currently logged in
       // Just double check that we have all required fields
       if (!reviewData.farmer_id || !reviewData.shop_id || !reviewData.rating) {
-        alert('Missing required review information. Please try again.');
-        setSubmittingReview(false);
-        return;
+        console.error('Missing review data:', { 
+          farmer_id: reviewData.farmer_id, 
+          shop_id: reviewData.shop_id, 
+          rating: reviewData.rating,
+          user: user
+        });
+        // Force user ID from current user context
+        if (user && user.id) {
+          reviewData.farmer_id = Number(user.id);
+          // Make sure we have a name
+          if (!farmerName || farmerName === 'Anonymous Farmer') {
+            farmerName = user.name || user.username || user.email?.split('@')[0] || 'User';
+            reviewData.farmer_name = farmerName;
+          }
+          console.log('Updated review data with user info:', reviewData);
+          // Continue with submission, don't show an alert
+        } else {
+          console.error('No user information available - cannot submit review');
+          alert('User information is required to submit a review. Please refresh the page or log in again.');
+          setSubmittingReview(false);
+          return;
+        }
       }
       
       // Send the request with JSON data instead of FormData
@@ -435,14 +492,58 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         
       const method = isEditing ? 'PUT' : 'POST';
       
+      // Get fresh auth token to ensure it's the latest
+      const submitAuthToken = localStorage.getItem('authToken');
+      
+      // Use auth from context if available
+      const authHeaders = getAuthHeaders ? getAuthHeaders() : {};
+      
+      console.log('Review submission details:', {
+        url: apiUrl,
+        method: method,
+        reviewData: { ...reviewData, farmer_id: reviewData.farmer_id, shop_id: reviewData.shop_id },
+        hasAuthToken: Boolean(submitAuthToken),
+        hasAuthHeaders: Object.keys(authHeaders).length > 0,
+      });
+      
+      // Always make sure we have the essential data
+      if (!reviewData.farmer_id && user && user.id) {
+        reviewData.farmer_id = Number(user.id);
+      }
+      
+      if (!reviewData.farmer_name && user) {
+        reviewData.farmer_name = user.name || user.username || 'User';
+      }
+      
+      // Make sure all numeric fields are actually numbers
+      const finalReviewData = {
+        ...reviewData,
+        rating: Number(reviewData.rating),
+        shop_id: Number(reviewData.shop_id),
+        farmer_id: Number(reviewData.farmer_id)
+      };
+      
+      console.log('Submitting final review data:', finalReviewData);
+      
+      // Try to send the request with proper error handling
+      let requestBody;
+      try {
+        requestBody = JSON.stringify(finalReviewData);
+      } catch (jsonError) {
+        console.error('Error stringifying review data:', jsonError);
+        alert('An error occurred preparing your review. Please try again.');
+        setSubmittingReview(false);
+        return;
+      }
+      
       const response = await fetch(apiUrl, {
         method: method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authToken ? `Bearer ${authToken}` : '', // Add auth token from local storage if available
+          'Authorization': submitAuthToken ? `Bearer ${submitAuthToken}` : (authHeaders.Authorization || ''),
           'Accept': 'application/json',
         },
-        body: JSON.stringify(reviewData),
+        body: requestBody,
         credentials: 'include' // Include cookies if needed for authentication
       });
       
@@ -450,6 +551,17 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       // Try to get detailed error message from the response
       let errorMessage = 'Failed to submit review';
       try {
+        // Check for authentication issues first
+        if (response.status === 401 || response.status === 403) {
+          // Authentication or authorization issue
+          console.error('Authentication error:', response.status);
+          errorMessage = 'Your session may have expired. Please log out and log in again.';
+          
+          // Try refreshing the token (if you have a refresh mechanism)
+          // For now, just alert the user
+          throw new Error(errorMessage);
+        }
+        
         const errorData = await response.json();
         if (errorData.message) {
           errorMessage = errorData.message;
@@ -460,13 +572,12 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
         // Handle specific error cases
         if (errorData.error && errorData.error.includes('foreign key constraint fails')) {
           // This is a foreign key error - likely user ID not found
+          console.error('Foreign key constraint error:', errorData.error);
           errorMessage = 'Your user account is not properly linked in the system. Please contact support.';
-        }          if (response.status === 401 || response.status === 403) {
-            // Authentication or authorization issue
-            errorMessage = 'Your session may have expired. Please log out and log in again.';
-          }
+        }
         } catch (parseError) {
           // If we can't parse the error response, use the default error message
+          console.error('Error parsing response:', parseError);
         }
         throw new Error(errorMessage);
       }
@@ -503,7 +614,26 @@ const ShopItemsListing = ({ onItemClick, onViewCart }) => {
       // Close the modal and reset form
       handleCloseReviewModal();
     } catch (err) {
-      alert('Failed to submit review: ' + err.message);
+      console.error('Review submission error:', err);
+      
+      // Show an error toast instead of an alert for better UX
+      const errorToast = document.createElement('div');
+      errorToast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+      errorToast.innerHTML = `
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          ${err.message || 'Failed to submit review. Please try again.'}
+        </div>
+      `;
+      document.body.appendChild(errorToast);
+      setTimeout(() => {
+        errorToast.style.transform = 'translateX(100%)';
+        setTimeout(() => document.body.removeChild(errorToast), 300);
+      }, 4000);
+      
+      // Keep the modal open so they can try again
     } finally {
       setSubmittingReview(false);
     }
@@ -1541,25 +1671,23 @@ useEffect(() => {
                               
                               {/* Show edit/delete buttons only for the user's own reviews */}
                               {isUserReview && (
-                                <div className="flex space-x-2">
+                                <div className="flex items-center space-x-3">
                                   <button 
                                     onClick={() => handleEditReview(review)} 
-                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors"
+                                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-semibold transition-colors duration-200"
                                     title="Edit review"
                                   >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                    </svg>
+                                    <Pencil size={16} />
+                                    <span>Edit</span>
                                   </button>
                                   <button 
                                     onClick={() => handleDeleteReview(review.id)}
-                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                                    className="flex items-center gap-2 text-sm text-red-600 hover:text-red-800 font-semibold transition-colors duration-200"
                                     title="Delete review"
                                     disabled={deletingReview}
                                   >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
+                                    <Trash2 size={16} />
+                                    <span>{deletingReview ? 'Deleting...' : 'Delete'}</span>
                                   </button>
                                 </div>
                               )}
@@ -1644,7 +1772,9 @@ useEffect(() => {
             >
               ✕
             </button>
-            <h2 className="text-2xl font-bold text-amber-700 mb-6">Add Review & Rating</h2>
+            <h2 className="text-2xl font-bold text-amber-700 mb-2">Add Review & Rating</h2>
+            
+           
             
             <form onSubmit={handleSubmitReview}>
               <div className="mb-4">
