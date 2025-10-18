@@ -88,6 +88,8 @@ import OrderHistory from "./components/dashboards/OrderHistory";
 import SavedItems from "./components/dashboards/SavedItems";
 import TrackOrders from "./components/dashboards/TrackOrders";
 import MyShopItem from "./pages/shop/MyShopItem";
+import ShopOwnerViewOrders from "./pages/shop/ShopOwnerViewOrders";
+import ShopOwnerViewOrderDetails from "./pages/shop/ShopOwnerViewOrderDetails";
 
 import NavigationTest from "./pages/NavigationTest";
 
@@ -492,6 +494,18 @@ const App = () => {
       <Route path="/shopitem" element={
           <Layout>
             <ShopItem/>
+          </Layout>
+        }
+      />
+      <Route path="/shop/orders" element={
+          <Layout>
+            <ShopOwnerViewOrders />
+          </Layout>
+        }
+      />
+      <Route path="/shop/order-details" element={
+          <Layout>
+            <ShopOwnerViewOrderDetails />
           </Layout>
         }
       />

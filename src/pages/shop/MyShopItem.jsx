@@ -1373,7 +1373,7 @@ const MyShopItem = () => {
                               {/* (reason block moved below so it sits right above affected-items) */}
 
                               <p className="text-sm mt-3 text-gray-700">Your shop has been temporarily disabled due to detected unexpected behaviour. While the shop is disabled, your listed items will not be visible to customers in the public marketplace.</p>
-                              <p className="text-sm mt-2 text-gray-700">You may still manage orders that customers have placed. To view and act on customer orders (fulfil, cancel, or update status), please visit your Orders page.</p>
+                              <p className="text-sm mt-2 text-gray-700">You may still manage orders that customers have placed. To view and act on customer orders (fulfil, cancel, or update status), please visit your Farmer Orders page.</p>
 
                               {/* Suspension reason and detail if present - show immediately before affected-items */}
                               {shopDetails?.suspension_reason && (
@@ -1409,10 +1409,10 @@ const MyShopItem = () => {
 
                               <div className="mt-3 flex flex-wrap gap-2">
                                 <button
-                                  onClick={() => navigate('/orders')}
+                                  onClick={() => navigate('/shop/orders')}
                                   className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                                 >
-                                  Manage Orders
+                                  Manage Farmer Orders
                                 </button>
                                 <button
                                   onClick={() => navigate('/complaintHandling')}
