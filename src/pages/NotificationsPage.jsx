@@ -5,7 +5,10 @@ import io from 'socket.io-client';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
+  const [hasPestAlertAccess, setHasPestAlertAccess] = useState(true);
+  const [pestAccessMessage, setPestAccessMessage] = useState('');
   const socketRef = useRef(null);
+  const hasPestAlertAccessRef = useRef(true);
   const navigate = useNavigate();
 
   const createNotificationAlertMapping = (notificationId, alertId) => {
@@ -63,6 +66,20 @@ const NotificationsPage = () => {
           }
         });
         
+        if (markReadResponse.status === 403) {
+          let forbiddenPayload = {};
+          try {
+            forbiddenPayload = await markReadResponse.json();
+          } catch (jsonError) {
+            console.warn('⚠️ Failed to parse mark-read access JSON', jsonError);
+          }
+          setHasPestAlertAccess(false);
+          setPestAccessMessage(forbiddenPayload?.message || 'Pest alerts are available with an active premium subscription.');
+          setNotifications([]);
+          window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: 0 } }));
+          return;
+        }
+
         if (markReadResponse.ok) {
           let result = null;
           try {
@@ -80,6 +97,13 @@ const NotificationsPage = () => {
           }
           if (typeof result?.unreadCount === 'number') {
             window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: result.unreadCount } }));
+          }
+          if (result?.hasAccess === false) {
+            setHasPestAlertAccess(false);
+            setPestAccessMessage(result.message || 'Pest alerts are available with an active premium subscription.');
+            setNotifications([]);
+            window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: 0 } }));
+            return;
           }
         } else {
           console.warn('⚠️ Failed to mark notification as read:', markReadResponse.status);
@@ -197,6 +221,8 @@ const NotificationsPage = () => {
         } else {
           console.log('No token found in localStorage');
           console.error('Cannot fetch notifications - user not logged in properly');
+          setHasPestAlertAccess(true);
+          setPestAccessMessage('');
           return;
         }
         
@@ -206,6 +232,18 @@ const NotificationsPage = () => {
         console.log('Response status:', res.status, res.statusText);
         
         if (!res.ok) {
+          if (res.status === 403) {
+            let forbiddenPayload = {};
+            try {
+              forbiddenPayload = await res.json();
+            } catch (jsonErr) {
+              console.warn('⚠️ Failed to parse subscription restriction payload', jsonErr);
+            }
+            setHasPestAlertAccess(false);
+            setPestAccessMessage(forbiddenPayload?.message || 'Pest alerts are available with an active premium subscription.');
+            setNotifications([]);
+            return;
+          }
           console.error('API response not ok:', res.status, res.statusText);
           const errorText = await res.text();
           console.error('Error response body:', errorText);
@@ -221,6 +259,17 @@ const NotificationsPage = () => {
         }
         
         const data = await res.json();
+        const hasAccess = data?.hasAccess !== false;
+        setHasPestAlertAccess(hasAccess);
+
+        if (!hasAccess) {
+          setPestAccessMessage(data?.message || 'Pest alerts are available with an active premium subscription.');
+          setNotifications([]);
+          return;
+        }
+
+        setPestAccessMessage('');
+
         const notificationsPayload = Array.isArray(data)
           ? data
           : Array.isArray(data?.notifications)
@@ -235,6 +284,8 @@ const NotificationsPage = () => {
         setNotifications(formatted);
       } catch (err) {
         console.error('Failed to load notifications', err);
+        setHasPestAlertAccess(true);
+        setPestAccessMessage('');
       }
     };
 
@@ -258,6 +309,9 @@ const NotificationsPage = () => {
     socketRef.current.on('new_pest_alert', (notification) => {
       if (notification && notification.type === 'pest_alert') {
         setNotifications(prev => {
+          if (!hasPestAlertAccessRef.current) {
+            return prev;
+          }
           const formatted = {
             ...notification,
             time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
@@ -282,9 +336,9 @@ const NotificationsPage = () => {
     // Listen for notificationRead events from other parts of the app
     const onNotificationRead = (e) => {
       try {
-        const id = e?.detail?.notificationId;
-        if (!id) return;
-  markNotificationAsReadLocally(id);
+    const id = e?.detail?.notificationId;
+    if (!id) return;
+    markNotificationAsReadLocally(id);
         const alertId = e?.detail?.alertId;
         if (alertId) {
           createNotificationAlertMapping(id, alertId);
@@ -300,6 +354,30 @@ const NotificationsPage = () => {
       window.removeEventListener('notificationRead', onNotificationRead);
     };
   }, []);
+
+  useEffect(() => {
+    hasPestAlertAccessRef.current = hasPestAlertAccess;
+  }, [hasPestAlertAccess]);
+
+  if (!hasPestAlertAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center px-4">
+        <div className="max-w-xl w-full bg-white rounded-2xl shadow-2xl border border-green-100 p-10 text-center">
+          <BellIcon className="w-12 h-12 text-green-500 mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-green-800 mb-3">Unlock Pest Alerts</h1>
+          <p className="text-slate-600 mb-6">
+            {pestAccessMessage || 'Pest alert notifications are reserved for premium farmer plans.'}
+          </p>
+          <Link
+            to="/subscription-management"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-green-600 text-white font-semibold shadow hover:bg-green-700 transition-colors"
+          >
+            View Subscription Plans
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 py-10 px-4">

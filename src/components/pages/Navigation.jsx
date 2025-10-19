@@ -28,7 +28,10 @@ const Navigation = ({ onSidebarToggle }) => {
   const [notificationCount, setNotificationCount] = useState(3);
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [hasPestAlertAccess, setHasPestAlertAccess] = useState(true);
+  const [pestAccessMessage, setPestAccessMessage] = useState('');
   const socketRef = useRef(null);
+  const hasPestAlertAccessRef = useRef(true);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showCartPopup, setShowCartPopup] = useState(false);
   const { getCartItemCount } = useCart();
@@ -72,14 +75,20 @@ const Navigation = ({ onSidebarToggle }) => {
             console.log('Navigation: Authorization header:', headers['Authorization'].substring(0, 30) + '...');
           } else {
             console.log('Navigation: No token found in localStorage');
+            setHasPestAlertAccess(true);
+            setPestAccessMessage('');
             return; // Don't make the request if no token
           }
         } catch (e) {
           console.error('Error parsing user from localStorage:', e);
+          setHasPestAlertAccess(true);
+          setPestAccessMessage('');
           return;
         }
       } else {
         console.log('Navigation: No user found in localStorage');
+        setHasPestAlertAccess(true);
+        setPestAccessMessage('');
         return;
       }
       
@@ -89,6 +98,19 @@ const Navigation = ({ onSidebarToggle }) => {
       console.log('Response status:', res.status, res.statusText);
       
       if (!res.ok) {
+        if (res.status === 403) {
+          let errorPayload = {};
+          try {
+            errorPayload = await res.json();
+          } catch (jsonErr) {
+            console.warn('Navigation: failed to parse subscription error payload', jsonErr);
+          }
+          setHasPestAlertAccess(false);
+          setPestAccessMessage(errorPayload?.message || 'Pest alerts are available with an active premium subscription.');
+          setNotifications([]);
+          setNotificationCount(0);
+          return;
+        }
         console.error('API response not ok:', res.status, res.statusText);
         const errorText = await res.text();
         console.error('Error response body:', errorText);
@@ -104,6 +126,17 @@ const Navigation = ({ onSidebarToggle }) => {
       }
       
       const data = await res.json();
+      const hasAccess = data?.hasAccess !== false;
+      setHasPestAlertAccess(hasAccess);
+
+      if (!hasAccess) {
+        setPestAccessMessage(data?.message || 'Pest alerts are available with an active premium subscription.');
+        setNotifications([]);
+        setNotificationCount(0);
+        return;
+      }
+
+      setPestAccessMessage('');
       const notificationsPayload = Array.isArray(data)
         ? data
         : Array.isArray(data?.notifications)
@@ -133,8 +166,14 @@ const Navigation = ({ onSidebarToggle }) => {
     } catch (err) {
       // silent fail; keep UI usable
       console.error('Failed to fetch notifications', err);
+      setHasPestAlertAccess(true);
+      setPestAccessMessage('');
     }
   }, [createNotificationAlertMapping]);
+
+  useEffect(() => {
+    hasPestAlertAccessRef.current = hasPestAlertAccess;
+  }, [hasPestAlertAccess]);
 
   // Handle scroll effect for navbar
   useEffect(() => {
@@ -160,11 +199,15 @@ const Navigation = ({ onSidebarToggle }) => {
         } catch {
           setUserEmail("");
         }
-        setNotificationCount(5);
+        setHasPestAlertAccess(true);
+        setPestAccessMessage('');
+        setNotificationCount(0);
       } else {
         setIsLoggedIn(false);
         setUserEmail("");
-        setNotificationCount(2);
+        setHasPestAlertAccess(true);
+        setPestAccessMessage('');
+        setNotificationCount(0);
       }
     };
     checkUser();
@@ -202,6 +245,9 @@ const Navigation = ({ onSidebarToggle }) => {
       // ensure we only add pest alert notifications
       if (notification && notification.type === 'pest_alert') {
         setNotifications(prev => {
+          if (!hasPestAlertAccessRef.current) {
+            return prev;
+          }
           const formatted = {
             ...notification,
             time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
@@ -222,7 +268,9 @@ const Navigation = ({ onSidebarToggle }) => {
           }
           return [formatted, ...prev];
         });
-        setNotificationCount(c => c + 1);
+        if (hasPestAlertAccessRef.current) {
+          setNotificationCount(c => c + 1);
+        }
       }
     });
 
@@ -233,6 +281,9 @@ const Navigation = ({ onSidebarToggle }) => {
 
   useEffect(() => {
     const handleUnreadCountUpdated = (event) => {
+      if (!hasPestAlertAccess) {
+        return;
+      }
       const incomingCount = event?.detail?.unreadCount;
       if (typeof incomingCount === 'number') {
         setNotificationCount(Math.max(0, incomingCount));
@@ -241,10 +292,13 @@ const Navigation = ({ onSidebarToggle }) => {
 
     window.addEventListener('notificationUnreadCountUpdated', handleUnreadCountUpdated);
     return () => window.removeEventListener('notificationUnreadCountUpdated', handleUnreadCountUpdated);
-  }, []);
+  }, [hasPestAlertAccess]);
 
   useEffect(() => {
     const onNotificationRead = (event) => {
+      if (!hasPestAlertAccess) {
+        return;
+      }
       const identifier = event?.detail?.notificationId;
       if (!identifier) {
         return;
@@ -257,7 +311,7 @@ const Navigation = ({ onSidebarToggle }) => {
 
     window.addEventListener('notificationRead', onNotificationRead);
     return () => window.removeEventListener('notificationRead', onNotificationRead);
-  }, []);
+  }, [hasPestAlertAccess]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -381,11 +435,23 @@ const Navigation = ({ onSidebarToggle }) => {
                     </button>
                   </div>
                   <div className="max-h-80 overflow-y-auto divide-y divide-green-50">
-                    {notifications.length === 0 ? (
+                    {!hasPestAlertAccess ? (
+                      <div className="p-6 text-center text-slate-600">
+                        <p className="text-sm font-medium text-green-800 mb-3">
+                          {pestAccessMessage || 'Pest alerts are available with an active premium subscription.'}
+                        </p>
+                        <Link
+                          to="/subscription-management"
+                          className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-green-600 text-white font-semibold shadow hover:bg-green-700 transition-colors"
+                        >
+                          Explore Subscription Plans
+                        </Link>
+                      </div>
+                    ) : notifications.length === 0 ? (
                       <div className="p-6 text-center text-slate-400">No notifications yet.</div>
                     ) : notifications.map(n => (
                       <div 
-                        key={n.id} 
+                        key={n.recipientId || n.recipient_id || n.id || n.notification_id} 
                         className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer"
                         onClick={async () => {
                           // Try multiple possible field names for the alert ID
@@ -418,6 +484,21 @@ const Navigation = ({ onSidebarToggle }) => {
                                 }
                               });
                               
+                              if (markReadResponse.status === 403) {
+                                let forbiddenPayload = {};
+                                try {
+                                  forbiddenPayload = await markReadResponse.json();
+                                } catch (jsonErr) {
+                                  console.warn('Navigation: failed to parse mark-read access payload', jsonErr);
+                                }
+                                setHasPestAlertAccess(false);
+                                setPestAccessMessage(forbiddenPayload?.message || 'Pest alerts are available with an active premium subscription.');
+                                setNotifications([]);
+                                setNotificationCount(0);
+                                window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: 0 } }));
+                                return;
+                              }
+
                               if (markReadResponse.ok) {
                                 const result = await markReadResponse.json();
                                 console.log('✅ Notification marked as read successfully');
@@ -426,6 +507,14 @@ const Navigation = ({ onSidebarToggle }) => {
                                 }
                                 if (typeof result?.unreadCount === 'number') {
                                   updatedUnreadCount = result.unreadCount;
+                                }
+                                if (result?.hasAccess === false) {
+                                  setHasPestAlertAccess(false);
+                                  setPestAccessMessage(result.message || 'Pest alerts are available with an active premium subscription.');
+                                  setNotifications([]);
+                                  setNotificationCount(0);
+                                  window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: 0 } }));
+                                  return;
                                 }
                               } else {
                                 console.warn('⚠️ Failed to mark notification as read:', markReadResponse.status);
@@ -482,13 +571,23 @@ const Navigation = ({ onSidebarToggle }) => {
                     ))}
                   </div>
                   <div className="p-3 text-center border-t border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 rounded-b-2xl">
-                    <Link
-                      to="/notifications"
-                      className="text-green-700 font-semibold hover:underline"
-                      onClick={() => setShowNotificationPopup(false)}
-                    >
-                      View all notifications
-                    </Link>
+                    {hasPestAlertAccess ? (
+                      <Link
+                        to="/notifications"
+                        className="text-green-700 font-semibold hover:underline"
+                        onClick={() => setShowNotificationPopup(false)}
+                      >
+                        View all notifications
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/subscription-management"
+                        className="text-green-700 font-semibold hover:underline"
+                        onClick={() => setShowNotificationPopup(false)}
+                      >
+                        Upgrade subscription
+                      </Link>
+                    )}
                   </div>
                 </div>
               )}
