@@ -240,42 +240,54 @@ const Navigation = ({ onSidebarToggle }) => {
       socketRef.current.emit('register', { userId: userObj.id, userType: userObj.user_type, premium: !!userObj.premium });
     });
 
-    // listen for pest alert notifications
-    socketRef.current.on('new_pest_alert', (notification) => {
-      // ensure we only add pest alert notifications
-      if (notification && notification.type === 'pest_alert') {
-        setNotifications(prev => {
-          if (!hasPestAlertAccessRef.current) {
-            return prev;
-          }
-          const formatted = {
-            ...notification,
-            time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
-          };
-          const incomingKey = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
-          if (!incomingKey) {
-            return [formatted, ...prev];
-          }
-          const alreadyExists = prev.some(n => {
-            const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
-            return existingKey === incomingKey;
-          });
-          if (alreadyExists) {
-            return prev.map(n => {
-              const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
-              return existingKey === incomingKey ? formatted : n;
-            });
-          }
-          return [formatted, ...prev];
-        });
-        if (hasPestAlertAccessRef.current) {
-          setNotificationCount(c => c + 1);
-        }
+    const handleIncomingNotification = (notification) => {
+      if (!notification || !hasPestAlertAccessRef.current) {
+        return;
       }
-    });
+
+      const type = notification.type || notification.alertType;
+      if (type !== 'pest_alert' && type !== 'weather_alert') {
+        return;
+      }
+
+      setNotifications(prev => {
+        const formatted = {
+          ...notification,
+          type,
+          alertCategory: type === 'weather_alert' ? 'weather' : 'pest',
+          time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
+        };
+        const incomingKey = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
+        if (!incomingKey) {
+          return [formatted, ...prev];
+        }
+        const alreadyExists = prev.some(n => {
+          const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+          return existingKey === incomingKey;
+        });
+        if (alreadyExists) {
+          return prev.map(n => {
+            const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+            return existingKey === incomingKey ? formatted : n;
+          });
+        }
+        return [formatted, ...prev];
+      });
+
+      setNotificationCount(c => c + 1);
+    };
+
+    socketRef.current.on('new_pest_alert', handleIncomingNotification);
+    socketRef.current.on('new_weather_alert', handleIncomingNotification);
+    socketRef.current.on('new_notification', handleIncomingNotification);
 
     return () => {
-      if (socketRef.current) socketRef.current.disconnect();
+      if (socketRef.current) {
+        socketRef.current.off('new_pest_alert', handleIncomingNotification);
+        socketRef.current.off('new_weather_alert', handleIncomingNotification);
+        socketRef.current.off('new_notification', handleIncomingNotification);
+        socketRef.current.disconnect();
+      }
     };
   }, []);
 
@@ -454,20 +466,23 @@ const Navigation = ({ onSidebarToggle }) => {
                         key={n.recipientId || n.recipient_id || n.id || n.notification_id} 
                         className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer"
                         onClick={async () => {
-                          // Try multiple possible field names for the alert ID
-                          const alertId = n.alertId || 
-                                         n.pest_alert_id || 
-                                         n.related_id ||
-                                         n.id ||
-                                         n.notification_id;
-                          
+                          const initialAlertId = n.alertId ||
+                            n.pest_alert_id ||
+                            n.weather_alert_id ||
+                            n.related_id ||
+                            n.id ||
+                            n.notification_id;
+                          const alertCategory = n.alertCategory || (n.type === 'weather_alert' ? 'weather' : n.type === 'pest_alert' ? 'pest' : undefined);
+
                           console.log('🔔 Navigation notification clicked:', n);
-                          console.log('🆔 Extracted alert ID:', alertId);
+                          console.log('🆔 Extracted alert ID:', initialAlertId);
                           console.log('📝 Notification title:', n.title);
                           console.log('💬 Notification message:', n.message);
                           
                           // Mark notification as read in the database
                           let updatedUnreadCount = null;
+                          let resolvedAlertId = initialAlertId;
+                          let resolvedCategory = alertCategory;
                           try {
                             const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
                             const token = localStorage.getItem('authToken');
@@ -502,8 +517,13 @@ const Navigation = ({ onSidebarToggle }) => {
                               if (markReadResponse.ok) {
                                 const result = await markReadResponse.json();
                                 console.log('✅ Notification marked as read successfully');
-                                if (result?.alertId) {
-                                  createNotificationAlertMapping(result.notificationId || notificationIdToMark, result.alertId);
+                                const mappedAlertId = result?.alertId || result?.pestAlertId || result?.weatherAlertId;
+                                if (result?.alertCategory) {
+                                  resolvedCategory = result.alertCategory;
+                                }
+                                if (mappedAlertId) {
+                                  resolvedAlertId = mappedAlertId;
+                                  createNotificationAlertMapping(result.notificationId || notificationIdToMark, mappedAlertId);
                                 }
                                 if (typeof result?.unreadCount === 'number') {
                                   updatedUnreadCount = result.unreadCount;
@@ -524,13 +544,26 @@ const Navigation = ({ onSidebarToggle }) => {
                             console.warn('⚠️ Error marking notification as read:', err);
                           }
                           
-                          navigate('/pestalert/view', { 
-                            state: { 
-                              openAlertId: alertId,
+                          const finalAlertId = resolvedAlertId;
+                          const finalCategory = resolvedCategory || 'pest';
+                          const destination = finalCategory === 'weather' ? '/weatheralerts' : '/pestalert/view';
+                          const searchTerms = [
+                            n.title || '',
+                            n.message || '',
+                            typeof n.weatherType === 'string' ? n.weatherType : '',
+                            typeof n.weatherAlert?.weatherType === 'string' ? n.weatherAlert.weatherType : '',
+                            typeof n.pestName === 'string' ? n.pestName : '',
+                            typeof n.pestAlert?.pestName === 'string' ? n.pestAlert.pestName : ''
+                          ].filter(Boolean);
+
+                          navigate(destination, {
+                            state: {
+                              openAlertId: finalAlertId,
                               fromNotification: true,
-                              notificationData: n, // Pass full notification for debugging
-                              searchTerms: [n.title || '', n.message || ''].filter(Boolean)
-                            } 
+                              alertCategory: finalCategory,
+                              notificationData: n,
+                              searchTerms
+                            }
                           });
                           // Remove this notification from the popup immediately so it doesn't remain blurred in the full page
                           try {
@@ -550,7 +583,7 @@ const Navigation = ({ onSidebarToggle }) => {
                               });
                             }
                             // Let other parts of the app know this notification was opened/read
-                            window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId: notificationIdToRemove, alertId: alertId } }));
+                            window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId: notificationIdToRemove, alertId: finalAlertId } }));
                           } catch (err) {
                             console.warn('Failed to remove notification from popup state', err);
                           }
