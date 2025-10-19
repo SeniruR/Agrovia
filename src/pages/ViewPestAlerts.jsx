@@ -14,6 +14,7 @@ const ViewPestAlerts = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null); // Added state for API errors
 	const [readAlerts, setReadAlerts] = useState(new Set()); // Track which alerts have been read
+	const [notificationHandled, setNotificationHandled] = useState(false);
 
 	// Create a mapping system for notification ID to alert ID
 	const createNotificationAlertMapping = (notificationId, alertId) => {
@@ -204,6 +205,35 @@ const ViewPestAlerts = () => {
 	useEffect(() => {
 		fetchAlerts();
 	}, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
+	useEffect(() => {
+		setNotificationHandled(false);
+	}, [location.key]);
+
+	useEffect(() => {
+		// Auto-open the correct alert when a notification navigates here
+		if (
+			notificationHandled ||
+			!location.state?.fromNotification ||
+			(location.state?.alertCategory && location.state.alertCategory !== 'pest') ||
+			!location.state?.openAlertId ||
+			alerts.length === 0
+		) {
+			return;
+		}
+
+		const targetId = String(location.state.openAlertId);
+		const targetAlert = alerts.find((alert) => {
+			const alertId = alert.id || alert._id;
+			return alertId && String(alertId) === targetId;
+		});
+
+		if (targetAlert) {
+			handleAlertClick(targetAlert, true, 'notification direct match');
+			setNotificationHandled(true);
+			window.history.replaceState({}, document.title);
+		}
+	}, [alerts, location.state, notificationHandled]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Handle auto-opening specific alert when navigated from notification
 	useEffect(() => {
