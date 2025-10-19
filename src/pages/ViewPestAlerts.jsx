@@ -515,21 +515,7 @@ const ViewPestAlerts = () => {
 								</Link>
                 
 								{/* Debug test button for notification simulation */}
-								<button
-									onClick={() => {
-										console.log('🧪 Testing notification click simulation');
-										if (alerts.length > 0) {
-											console.log('🧪 Simulating notification click for first alert');
-											handleAlertClick(alerts[0], true, 'test simulation');
-										} else {
-											alert('No alerts available to test with');
-										}
-									}}
-									className="inline-flex items-center gap-2 px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
-									title="Test notification click"
-								>
-									🧪 Test
-								</button>
+								
 							</div>
 						)}
 					</div>
