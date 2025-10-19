@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import EmailIcon from '@mui/icons-material/EmailOutlined';
 import { 
   Bars3Icon, 
-  UserCircleIcon, 
   BellIcon, 
   HomeIcon,
   ChatBubbleLeftRightIcon,
@@ -16,56 +15,112 @@ import {
   ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import logo from '../../assets/images/agrovia.png';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
+import io from 'socket.io-client';
 import useForecastAccess from '../../hooks/useForecastAccess';
 import CartPopup from '../CartPopup';
 
 const Navigation = ({ onSidebarToggle }) => {
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [notificationCount, setNotificationCount] = useState(3);
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
-
-  // Example notifications (replace with real data from backend if available)
-  const notifications = [
-    {
-      id: 1,
-      type: 'order',
-      title: 'Order Delivered',
-      message: 'Your order #12345 has been delivered successfully.',
-      time: '2 hours ago',
-      icon: <HomeIcon className="w-5 h-5 text-green-500" />
-    },
-    {
-      id: 2,
-      type: 'payment',
-      title: 'Payment Successful',
-      message: 'Your payment for order #12345 was successful.',
-      time: '3 hours ago',
-      icon: <CurrencyDollarIcon className="w-5 h-5 text-emerald-500" />
-    },
-    {
-      id: 3,
-      type: 'payment',
-      title: 'Payment Unsuccessful',
-      message: 'Your payment for order #12346 failed. Please try again.',
-      time: '5 hours ago',
-      icon: <CurrencyDollarIcon className="w-5 h-5 text-red-500" />
-    },
-    {
-      id: 4,
-      type: 'crop',
-      title: 'New Crop Added',
-      message: 'Fresh Tomatoes are now available in the marketplace.',
-      time: '1 day ago',
-      icon: <BookOpenIcon className="w-5 h-5 text-yellow-500" />
-    }
-  ];
+  const [notifications, setNotifications] = useState([]);
+  const socketRef = useRef(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showCartPopup, setShowCartPopup] = useState(false);
   const { getCartItemCount } = useCart();
   const { hasAccess: hasForecastAccess } = useForecastAccess();
+
+  const createNotificationAlertMapping = useCallback((notificationId, alertId) => {
+    if (!notificationId || !alertId) return;
+    try {
+      const mappings = JSON.parse(localStorage.getItem('notificationAlertMappings') || '{}');
+      mappings[notificationId] = alertId;
+      localStorage.setItem('notificationAlertMappings', JSON.stringify(mappings));
+    } catch (err) {
+      console.warn('Navigation: failed to persist notification mapping', err);
+    }
+  }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      // Default to backend port if no base URL is set
+      const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
+      // Use the new secure route that doesn't require user ID in URL
+      const url = `${base}/api/v1/notifications/my-notifications`;
+      console.log('Fetching notifications from:', url);
+      
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Get token from localStorage (stored separately as 'authToken')
+      const userStr = localStorage.getItem('user');
+      const token = localStorage.getItem('authToken');
+      
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          console.log('Navigation: User object from localStorage:', userObj);
+          console.log('Navigation: Token from authToken localStorage:', token ? token.substring(0, 20) + '...' : 'No token');
+          
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+            console.log('Navigation: Authorization header:', headers['Authorization'].substring(0, 30) + '...');
+          } else {
+            console.log('Navigation: No token found in localStorage');
+            return; // Don't make the request if no token
+          }
+        } catch (e) {
+          console.error('Error parsing user from localStorage:', e);
+          return;
+        }
+      } else {
+        console.log('Navigation: No user found in localStorage');
+        return;
+      }
+      
+      console.log('Navigation: Final headers being sent:', headers);
+      
+      const res = await fetch(url, { headers });
+      console.log('Response status:', res.status, res.statusText);
+      
+      if (!res.ok) {
+        console.error('API response not ok:', res.status, res.statusText);
+        const errorText = await res.text();
+        console.error('Error response body:', errorText);
+        return;
+      }
+      
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Response is not JSON:', contentType);
+        const text = await res.text();
+        console.error('Response body:', text.substring(0, 200));
+        return;
+      }
+      
+      const data = await res.json();
+      const formatted = (data || []).map((item) => ({
+        ...item,
+        time: item.created_at ? new Date(item.created_at).toLocaleString() : ''
+      }));
+      formatted.forEach(item => {
+        const alertMappingId = item.id || item.notification_id;
+        if (alertMappingId && item.alertId) {
+          createNotificationAlertMapping(alertMappingId, item.alertId);
+        }
+      });
+      setNotifications(formatted);
+      setNotificationCount(formatted.length ? formatted.length : 0);
+    } catch (err) {
+      // silent fail; keep UI usable
+      console.error('Failed to fetch notifications', err);
+    }
+  }, [createNotificationAlertMapping]);
 
   // Handle scroll effect for navbar
   useEffect(() => {
@@ -86,6 +141,8 @@ const Navigation = ({ onSidebarToggle }) => {
         try {
           const userObj = JSON.parse(userStr);
           setUserEmail(userObj.email || "");
+          // load notifications for logged in user
+          fetchNotifications();
         } catch {
           setUserEmail("");
         }
@@ -99,6 +156,59 @@ const Navigation = ({ onSidebarToggle }) => {
     checkUser();
     window.addEventListener('userChanged', checkUser);
     return () => window.removeEventListener('userChanged', checkUser);
+  }, [fetchNotifications]);
+
+  // Initialize socket connection once
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    let userObj;
+    try { userObj = JSON.parse(userStr); } catch { return; }
+
+    // connect socket
+    // front-end env can be provided via a runtime window.__ENV__ shim. Fallback to backend port.
+    const SOCKET_URL = (window.__ENV__ && window.__ENV__.REACT_APP_SOCKET_URL) || 'http://localhost:5000';
+    
+    // Check if we have a valid token before connecting
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      console.log('No auth token found, skipping socket connection');
+      return;
+    }
+    
+    socketRef.current = io(SOCKET_URL, { transports: ['websocket', 'polling'], auth: { token } });
+
+    socketRef.current.on('connect', () => {
+      // register this client so server can target by user id
+      socketRef.current.emit('register', { userId: userObj.id, userType: userObj.user_type, premium: !!userObj.premium });
+    });
+
+    // listen for pest alert notifications
+    socketRef.current.on('new_pest_alert', (notification) => {
+      // ensure we only add pest alert notifications
+      if (notification && notification.type === 'pest_alert') {
+        setNotifications(prev => {
+          const formatted = {
+            ...notification,
+            time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
+          };
+          const incomingId = notification.id || notification.notification_id;
+          if (!incomingId) {
+            return [formatted, ...prev];
+          }
+          const alreadyExists = prev.some(n => (n.id || n.notification_id) === incomingId);
+          if (alreadyExists) {
+            return prev.map(n => ((n.id || n.notification_id) === incomingId ? formatted : n));
+          }
+          return [formatted, ...prev];
+        });
+        setNotificationCount(c => c + 1);
+      }
+    });
+
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
   }, []);
 
   const handleLogout = () => {
@@ -226,12 +336,83 @@ const Navigation = ({ onSidebarToggle }) => {
                     {notifications.length === 0 ? (
                       <div className="p-6 text-center text-slate-400">No notifications yet.</div>
                     ) : notifications.map(n => (
-                      <div key={n.id} className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer">
-                        <div className="flex-shrink-0 mt-1">{n.icon}</div>
+                      <div 
+                        key={n.id} 
+                        className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer"
+                        onClick={async () => {
+                          // Try multiple possible field names for the alert ID
+                          const alertId = n.alertId || 
+                                         n.pest_alert_id || 
+                                         n.related_id ||
+                                         n.id ||
+                                         n.notification_id;
+                          
+                          console.log('🔔 Navigation notification clicked:', n);
+                          console.log('🆔 Extracted alert ID:', alertId);
+                          console.log('📝 Notification title:', n.title);
+                          console.log('💬 Notification message:', n.message);
+                          
+                          // Mark notification as read in the database
+                          try {
+                            const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
+                            const token = localStorage.getItem('authToken');
+                            
+                            if (token) {
+                              const notificationIdToMark = n.id || n.notification_id;
+                              console.log('🔴 Marking notification as read:', notificationIdToMark);
+                              
+                              const markReadResponse = await fetch(`${base}/api/v1/notifications/mark-read/${notificationIdToMark}`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                }
+                              });
+                              
+                              if (markReadResponse.ok) {
+                                const result = await markReadResponse.json();
+                                console.log('✅ Notification marked as read successfully');
+                                if (result?.alertId) {
+                                  createNotificationAlertMapping(result.notificationId || notificationIdToMark, result.alertId);
+                                }
+                              } else {
+                                console.warn('⚠️ Failed to mark notification as read:', markReadResponse.status);
+                              }
+                            }
+                          } catch (err) {
+                            console.warn('⚠️ Error marking notification as read:', err);
+                          }
+                          
+                          navigate('/pestalert/view', { 
+                            state: { 
+                              openAlertId: alertId,
+                              fromNotification: true,
+                              notificationData: n, // Pass full notification for debugging
+                              searchTerms: [n.title || '', n.message || ''].filter(Boolean)
+                            } 
+                          });
+                          // Remove this notification from the popup immediately so it doesn't remain blurred in the full page
+                          try {
+                            const notificationIdToRemove = n.id || n.notification_id;
+                            setNotifications(prev => prev.filter(x => (x.id || x.notification_id) !== notificationIdToRemove));
+                            setNotificationCount(prev => Math.max(0, prev - 1));
+                            // Let other parts of the app know this notification was opened/read
+                            window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId: notificationIdToRemove, alertId: alertId } }));
+                          } catch (err) {
+                            console.warn('Failed to remove notification from popup state', err);
+                          }
+
+                          setShowNotificationPopup(false);
+                        }}
+                      >
+                        <div className="flex-shrink-0 mt-1">{n.icon || <BellIcon className="w-5 h-5 text-green-500" />}</div>
                         <div className="flex-1">
                           <div className="font-semibold text-slate-800 group-hover:text-green-700 transition-colors">{n.title}</div>
                           <div className="text-sm text-slate-600 mt-0.5">{n.message}</div>
                           <div className="text-xs text-slate-400 mt-1">{n.time}</div>
+                          <div className="text-xs text-green-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Click to view details →
+                          </div>
                         </div>
                       </div>
                     ))}
