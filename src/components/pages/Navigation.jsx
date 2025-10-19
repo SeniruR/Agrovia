@@ -16,13 +16,14 @@ import {
   ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import logo from '../../assets/images/agrovia.png';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
 import io from 'socket.io-client';
 import useForecastAccess from '../../hooks/useForecastAccess';
 import CartPopup from '../CartPopup';
 
 const Navigation = ({ onSidebarToggle }) => {
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [notificationCount, setNotificationCount] = useState(3);
@@ -303,12 +304,51 @@ const Navigation = ({ onSidebarToggle }) => {
                     {notifications.length === 0 ? (
                       <div className="p-6 text-center text-slate-400">No notifications yet.</div>
                     ) : notifications.map(n => (
-                      <div key={n.id} className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer">
+                      <div 
+                        key={n.id} 
+                        className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer"
+                        onClick={() => {
+                          // Try multiple possible field names for the alert ID
+                          const alertId = n.alertId || 
+                                         n.pest_alert_id || 
+                                         n.related_id ||
+                                         n.id ||
+                                         n.notification_id;
+                          
+                          console.log('🔔 Navigation notification clicked:', n);
+                          console.log('🆔 Extracted alert ID:', alertId);
+                          console.log('📝 Notification title:', n.title);
+                          console.log('💬 Notification message:', n.message);
+                          
+                          navigate('/pestalert/view', { 
+                            state: { 
+                              openAlertId: alertId,
+                              fromNotification: true,
+                              notificationData: n, // Pass full notification for debugging
+                              searchTerms: [n.title || '', n.message || ''].filter(Boolean)
+                            } 
+                          });
+                          // Remove this notification from the popup immediately so it doesn't remain blurred in the full page
+                          try {
+                            setNotifications(prev => prev.filter(x => (x.id || x.notification_id) !== (n.id || n.notification_id)));
+                            setNotificationCount(prev => Math.max(0, prev - 1));
+                            // Let other parts of the app (NotificationsPage) know this notification was opened/read
+                            window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId: n.id || n.notification_id } }));
+                          } catch (err) {
+                            console.warn('Failed to remove notification from popup state', err);
+                          }
+
+                          setShowNotificationPopup(false);
+                        }}
+                      >
                         <div className="flex-shrink-0 mt-1">{n.icon}</div>
                         <div className="flex-1">
                           <div className="font-semibold text-slate-800 group-hover:text-green-700 transition-colors">{n.title}</div>
                           <div className="text-sm text-slate-600 mt-0.5">{n.message}</div>
                           <div className="text-xs text-slate-400 mt-1">{n.time}</div>
+                          <div className="text-xs text-green-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Click to view details →
+                          </div>
                         </div>
                       </div>
                     ))}

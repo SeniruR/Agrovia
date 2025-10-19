@@ -1,11 +1,78 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { BellIcon } from '@heroicons/react/24/outline';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const socketRef = useRef(null);
+  const navigate = useNavigate();
+
+  // Function to handle clicking on a notification
+  const handleNotificationClick = (notification) => {
+    console.log('🔔 Full notification object:', notification);
+    
+    // Extract pest alert ID from notification with extensive debugging
+    let alertId = null;
+    
+    // Try all possible ID fields
+    const possibleIdFields = [
+      'alertId', 'pest_alert_id', 'related_id', 'reference_id', 
+      'id', 'notification_id', '_id', 'pestAlertId', 'alert_id'
+    ];
+    
+    for (const field of possibleIdFields) {
+      if (notification[field]) {
+        alertId = notification[field];
+        console.log(`🆔 Found alert ID in field '${field}':`, alertId);
+        break;
+      }
+    }
+    
+    // If no direct ID found, try to extract from message/title
+    if (!alertId) {
+      const title = notification.title || notification.notification_title || '';
+      const message = notification.message || notification.notification_message || '';
+      
+      // Look for patterns like "Alert ID: 123" or similar in the message
+      const idPattern = /(?:alert\s*id|id|#)[\s:]*(\d+)/i;
+      const titleMatch = title.match(idPattern);
+      const messageMatch = message.match(idPattern);
+      
+      if (titleMatch) {
+        alertId = titleMatch[1];
+        console.log('🆔 Extracted alert ID from title:', alertId);
+      } else if (messageMatch) {
+        alertId = messageMatch[1];
+        console.log('🆔 Extracted alert ID from message:', alertId);
+      }
+    }
+    
+    console.log('🎯 Final alert ID to search:', alertId);
+    console.log('📝 Notification title:', notification.title || notification.notification_title);
+    console.log('💬 Notification message:', notification.message || notification.notification_message);
+    
+    // Navigate with comprehensive debugging data
+    navigate('/pestalert/view', { 
+      state: { 
+        openAlertId: alertId,
+        fromNotification: true,
+        notificationData: notification,
+        searchTerms: [
+          notification.title || notification.notification_title || '',
+          notification.message || notification.notification_message || '',
+          // Extract pest name from common patterns
+          ...(notification.title || '').split(' ').filter(word => word.length > 3),
+          ...(notification.message || '').split(' ').filter(word => word.length > 3)
+        ].filter(Boolean),
+        debugInfo: {
+          notificationId: notification.id || notification.notification_id,
+          timestamp: new Date().toISOString(),
+          userClick: true
+        }
+      } 
+    });
+  };
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -91,8 +158,21 @@ const NotificationsPage = () => {
       }
     });
 
+    // Listen for notificationRead events from other parts of the app
+    const onNotificationRead = (e) => {
+      try {
+        const id = e?.detail?.notificationId;
+        if (!id) return;
+        setNotifications(prev => prev.filter(n => (n.id || n.notification_id) !== id));
+      } catch (err) {
+        console.warn('Failed to process notificationRead event', err);
+      }
+    };
+    window.addEventListener('notificationRead', onNotificationRead);
+
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
+      window.removeEventListener('notificationRead', onNotificationRead);
     };
   }, []);
 
@@ -107,11 +187,24 @@ const NotificationsPage = () => {
           {notifications.length === 0 ? (
             <div className="p-8 text-center text-slate-400">No pest alert notifications yet.</div>
           ) : notifications.map(n => (
-            <div key={n.id || n.notification_id} className="flex items-start gap-4 p-6 hover:bg-green-50/60 transition-all group">
+            <div 
+              key={n.id || n.notification_id} 
+              className="flex items-start gap-4 p-6 hover:bg-green-50/60 transition-all group cursor-pointer border-l-4 border-transparent hover:border-green-500"
+              onClick={() => handleNotificationClick(n)}
+            >
               <div className="flex-1">
-                <div className="font-semibold text-slate-800 group-hover:text-green-700 transition-colors text-lg">{n.title || n.notification_title || 'Pest Alert'}</div>
-                <div className="text-sm text-slate-600 mt-1">{n.message || n.notification_message || n.description}</div>
-                <div className="text-xs text-slate-400 mt-2">{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</div>
+                <div className="font-semibold text-slate-800 group-hover:text-green-700 transition-colors text-lg">
+                  {n.title || n.notification_title || 'Pest Alert'}
+                </div>
+                <div className="text-sm text-slate-600 mt-1">
+                  {n.message || n.notification_message || n.description}
+                </div>
+                <div className="text-xs text-slate-400 mt-2">
+                  {n.created_at ? new Date(n.created_at).toLocaleString() : ''}
+                </div>
+                <div className="text-xs text-green-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Click to view details →
+                </div>
               </div>
             </div>
           ))}
