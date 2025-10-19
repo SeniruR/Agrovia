@@ -104,18 +104,32 @@ const Navigation = ({ onSidebarToggle }) => {
       }
       
       const data = await res.json();
-      const formatted = (data || []).map((item) => ({
+      const notificationsPayload = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.notifications)
+          ? data.notifications
+          : [];
+
+      const mapped = notificationsPayload.map((item) => ({
         ...item,
         time: item.created_at ? new Date(item.created_at).toLocaleString() : ''
       }));
-      formatted.forEach(item => {
-        const alertMappingId = item.id || item.notification_id;
+
+      const unreadNotifications = mapped.filter((item) => !(item.is_read || item.readAt));
+
+      unreadNotifications.forEach((item) => {
+        const alertMappingId = item.recipientId || item.recipient_id || item.id || item.notification_id;
         if (alertMappingId && item.alertId) {
           createNotificationAlertMapping(alertMappingId, item.alertId);
         }
       });
-      setNotifications(formatted);
-      setNotificationCount(formatted.length ? formatted.length : 0);
+
+      const unreadCount = typeof data?.unreadCount === 'number'
+        ? data.unreadCount
+        : unreadNotifications.length;
+
+      setNotifications(unreadNotifications);
+      setNotificationCount(unreadCount);
     } catch (err) {
       // silent fail; keep UI usable
       console.error('Failed to fetch notifications', err);
@@ -192,13 +206,19 @@ const Navigation = ({ onSidebarToggle }) => {
             ...notification,
             time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
           };
-          const incomingId = notification.id || notification.notification_id;
-          if (!incomingId) {
+          const incomingKey = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
+          if (!incomingKey) {
             return [formatted, ...prev];
           }
-          const alreadyExists = prev.some(n => (n.id || n.notification_id) === incomingId);
+          const alreadyExists = prev.some(n => {
+            const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+            return existingKey === incomingKey;
+          });
           if (alreadyExists) {
-            return prev.map(n => ((n.id || n.notification_id) === incomingId ? formatted : n));
+            return prev.map(n => {
+              const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+              return existingKey === incomingKey ? formatted : n;
+            });
           }
           return [formatted, ...prev];
         });
@@ -209,6 +229,34 @@ const Navigation = ({ onSidebarToggle }) => {
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
+  }, []);
+
+  useEffect(() => {
+    const handleUnreadCountUpdated = (event) => {
+      const incomingCount = event?.detail?.unreadCount;
+      if (typeof incomingCount === 'number') {
+        setNotificationCount(Math.max(0, incomingCount));
+      }
+    };
+
+    window.addEventListener('notificationUnreadCountUpdated', handleUnreadCountUpdated);
+    return () => window.removeEventListener('notificationUnreadCountUpdated', handleUnreadCountUpdated);
+  }, []);
+
+  useEffect(() => {
+    const onNotificationRead = (event) => {
+      const identifier = event?.detail?.notificationId;
+      if (!identifier) {
+        return;
+      }
+      setNotifications(prev => prev.filter(notification => {
+        const key = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
+        return key !== identifier;
+      }));
+    };
+
+    window.addEventListener('notificationRead', onNotificationRead);
+    return () => window.removeEventListener('notificationRead', onNotificationRead);
   }, []);
 
   const handleLogout = () => {
@@ -353,12 +401,13 @@ const Navigation = ({ onSidebarToggle }) => {
                           console.log('💬 Notification message:', n.message);
                           
                           // Mark notification as read in the database
+                          let updatedUnreadCount = null;
                           try {
                             const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
                             const token = localStorage.getItem('authToken');
                             
                             if (token) {
-                              const notificationIdToMark = n.id || n.notification_id;
+                              const notificationIdToMark = n.recipientId || n.recipient_id || n.id || n.notification_id;
                               console.log('🔴 Marking notification as read:', notificationIdToMark);
                               
                               const markReadResponse = await fetch(`${base}/api/v1/notifications/mark-read/${notificationIdToMark}`, {
@@ -374,6 +423,9 @@ const Navigation = ({ onSidebarToggle }) => {
                                 console.log('✅ Notification marked as read successfully');
                                 if (result?.alertId) {
                                   createNotificationAlertMapping(result.notificationId || notificationIdToMark, result.alertId);
+                                }
+                                if (typeof result?.unreadCount === 'number') {
+                                  updatedUnreadCount = result.unreadCount;
                                 }
                               } else {
                                 console.warn('⚠️ Failed to mark notification as read:', markReadResponse.status);
@@ -393,9 +445,21 @@ const Navigation = ({ onSidebarToggle }) => {
                           });
                           // Remove this notification from the popup immediately so it doesn't remain blurred in the full page
                           try {
-                            const notificationIdToRemove = n.id || n.notification_id;
-                            setNotifications(prev => prev.filter(x => (x.id || x.notification_id) !== notificationIdToRemove));
-                            setNotificationCount(prev => Math.max(0, prev - 1));
+                            const notificationIdToRemove = n.recipientId || n.recipient_id || n.id || n.notification_id;
+                            setNotifications(prev => prev.filter(x => {
+                              const existingKey = x.recipientId || x.recipient_id || x.id || x.notification_id;
+                              return existingKey !== notificationIdToRemove;
+                            }));
+                            if (typeof updatedUnreadCount === 'number') {
+                              setNotificationCount(updatedUnreadCount);
+                              window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: updatedUnreadCount } }));
+                            } else {
+                              setNotificationCount(prev => {
+                                const nextCount = Math.max(0, prev - 1);
+                                window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: nextCount } }));
+                                return nextCount;
+                              });
+                            }
                             // Let other parts of the app know this notification was opened/read
                             window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId: notificationIdToRemove, alertId: alertId } }));
                           } catch (err) {

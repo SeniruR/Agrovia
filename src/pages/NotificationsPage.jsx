@@ -33,7 +33,7 @@ const NotificationsPage = () => {
   const markNotificationAsReadLocally = (notificationId) => {
     if (!notificationId) return;
     setNotifications(prev => prev.map(n => {
-      const currentId = n.id || n.notification_id;
+      const currentId = n.recipientId || n.recipient_id || n.id || n.notification_id;
       if (currentId === notificationId) {
         return { ...n, is_read: 1, readAt: n.readAt || new Date().toISOString() };
       }
@@ -46,12 +46,13 @@ const NotificationsPage = () => {
     console.log('🔔 Full notification object:', notification);
     
     // Mark notification as read in the database
+    let markReadResult = null;
     try {
       const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
       const token = localStorage.getItem('authToken');
       
       if (token) {
-        const notificationIdToMark = notification.id || notification.notification_id;
+        const notificationIdToMark = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
         console.log('🔴 Marking notification as read:', notificationIdToMark);
         
         const markReadResponse = await fetch(`${base}/api/v1/notifications/mark-read/${notificationIdToMark}`, {
@@ -71,12 +72,14 @@ const NotificationsPage = () => {
           }
 
           console.log('✅ Notification marked as read successfully');
+          markReadResult = result;
           
-          // Don't remove notification from the page - just update its read status visually
-          // The notification should remain visible on the notifications page
           markNotificationAsReadLocally(notificationIdToMark);
           if (result?.alertId) {
             createNotificationAlertMapping(result.notificationId || notificationIdToMark, result.alertId);
+          }
+          if (typeof result?.unreadCount === 'number') {
+            window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: result.unreadCount } }));
           }
         } else {
           console.warn('⚠️ Failed to mark notification as read:', markReadResponse.status);
@@ -88,7 +91,7 @@ const NotificationsPage = () => {
     
     // Extract pest alert ID from notification with extensive debugging
     let alertId = null;
-    const notificationId = notification.id || notification.notification_id;
+    const notificationId = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
     const storedMapping = getAlertIdFromMapping(notificationId);
     if (storedMapping) {
       alertId = storedMapping;
@@ -134,6 +137,11 @@ const NotificationsPage = () => {
     if (notificationId && alertId) {
       createNotificationAlertMapping(notificationId, alertId);
     }
+
+    if (notificationId) {
+      const derivedAlertId = alertId || markReadResult?.alertId || null;
+      window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId, alertId: derivedAlertId } }));
+    }
     
     // Navigate with comprehensive debugging data
     navigate('/pestalert/view', { 
@@ -149,7 +157,7 @@ const NotificationsPage = () => {
           ...(notification.message || '').split(' ').filter(word => word.length > 3)
         ].filter(Boolean),
         debugInfo: {
-          notificationId: notification.id || notification.notification_id,
+          notificationId: notification.recipientId || notification.recipient_id || notification.id || notification.notification_id,
           timestamp: new Date().toISOString(),
           userClick: true
         }
@@ -213,10 +221,17 @@ const NotificationsPage = () => {
         }
         
         const data = await res.json();
-        const formatted = (data || []).map(item => ({
+        const notificationsPayload = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.notifications)
+            ? data.notifications
+            : [];
+
+        const formatted = notificationsPayload.map(item => ({
           ...item,
           time: item.created_at ? new Date(item.created_at).toLocaleString() : ''
         }));
+
         setNotifications(formatted);
       } catch (err) {
         console.error('Failed to load notifications', err);
@@ -247,11 +262,17 @@ const NotificationsPage = () => {
             ...notification,
             time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
           };
-          const incomingId = notification.id || notification.notification_id;
-          if (!incomingId) return [formatted, ...prev];
-          const exists = prev.some(n => (n.id || n.notification_id) === incomingId);
+          const incomingKey = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
+          if (!incomingKey) return [formatted, ...prev];
+          const exists = prev.some(n => {
+            const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+            return existingKey === incomingKey;
+          });
           if (exists) {
-            return prev.map(n => ((n.id || n.notification_id) === incomingId ? formatted : n));
+            return prev.map(n => {
+              const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+              return existingKey === incomingKey ? formatted : n;
+            });
           }
           return [formatted, ...prev];
         });
@@ -263,7 +284,7 @@ const NotificationsPage = () => {
       try {
         const id = e?.detail?.notificationId;
         if (!id) return;
-        markNotificationAsReadLocally(id);
+  markNotificationAsReadLocally(id);
         const alertId = e?.detail?.alertId;
         if (alertId) {
           createNotificationAlertMapping(id, alertId);

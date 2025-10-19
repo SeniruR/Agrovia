@@ -62,10 +62,6 @@ const farmerMenuItems = [
 const farmerOrganizerMenuItems = [
   ...farmerMenuItems,
   { label: 'Organization Dashboard', icon: UserGroupIcon, path: '/verificationpanel' }, //use /organization
-  { label: 'Pest Alert Management', icon: ShieldExclamationIcon, subcategories: [
-    { name: 'View Pest Alerts', path: '/pestalert/view', icon: ExclamationTriangleIcon },
-    { name: 'Report Pest Alert', path: '/pestalert/upload', icon: PlusCircleIcon },
-  ] },
 ];
 
 const buyerMenuItems = [
