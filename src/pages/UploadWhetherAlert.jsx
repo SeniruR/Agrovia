@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { CloudRain, AlertTriangle, X, Plus, Minus, LogIn } from 'lucide-react';
+import { CloudRain, AlertTriangle, X, LogIn } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const UploadWeatherAlert = () => {
@@ -254,18 +254,20 @@ const UploadWeatherAlert = () => {
                           <button
                             type="button"
                             onClick={() => removeAffectedArea(index)}
-                            className="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors"
+                            className="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-lg font-bold hover:bg-red-200 transition-colors"
+                            aria-label="Remove affected area"
                           >
-                            <Minus className="w-4 h-4" />
+                            -
                           </button>
                         )}
                         {index === form.affectedAreas.length - 1 && (
                           <button
                             type="button"
                             onClick={addAffectedArea}
-                            className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-200 transition-colors"
+                            className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-lg font-bold hover:bg-blue-200 transition-colors"
+                            aria-label="Add affected area"
                           >
-                            <Plus className="w-4 h-4" />
+                            +
                           </button>
                         )}
                       </div>
