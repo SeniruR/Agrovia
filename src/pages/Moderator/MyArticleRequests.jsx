@@ -37,6 +37,48 @@ const getStoredUserId = () => {
   }
 };
 
+const buildExcerpt = (text, limit = 320) => {
+  if (!text) return "";
+  const normalized = text.toString().trim();
+  if (normalized.length <= limit) {
+    return normalized;
+  }
+  return `${normalized.slice(0, limit - 3).trimEnd()}...`;
+};
+
+const renderDescriptionContent = (text) => {
+  if (!text) return null;
+  const normalized = text.toString().replace(/\r/g, "");
+  const blocks = normalized.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+
+  if (blocks.length === 0) {
+    return (
+      <p className="text-sm leading-relaxed text-gray-600 whitespace-pre-line">{normalized.trim()}</p>
+    );
+  }
+
+  return blocks.map((block, index) => {
+    const lines = block.split(/\n/).map((line) => line.trim()).filter(Boolean);
+    const isList = lines.length > 1 && lines.every((line) => /^[-*•\u2022]\s+/.test(line));
+
+    if (isList) {
+      return (
+        <ul key={`desc-list-${index}`} className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-gray-600">
+          {lines.map((line, idx) => (
+            <li key={`desc-list-${index}-item-${idx}`}>{line.replace(/^[-*•\u2022]\s+/, "")}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    return (
+      <p key={`desc-paragraph-${index}`} className="text-sm leading-relaxed text-gray-600">
+        {block}
+      </p>
+    );
+  });
+};
+
 const useFilteredArticles = (articles, query, status, userId) =>
   useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -59,6 +101,7 @@ const MyArticleRequests = () => {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [expandedArticles, setExpandedArticles] = useState(() => new Set());
   const location = useLocation();
   const params = useParams();
   const [searchParams] = useSearchParams();
@@ -75,6 +118,17 @@ const MyArticleRequests = () => {
 
   const filtered = useFilteredArticles(articles, query, statusFilter, currentUserId);
   const isFocusedView = Boolean(focusArticleId);
+  const toggleExpanded = (articleId) => {
+    setExpandedArticles((prev) => {
+      const next = new Set(prev);
+      if (next.has(articleId)) {
+        next.delete(articleId);
+      } else {
+        next.add(articleId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -249,85 +303,177 @@ const MyArticleRequests = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                {filtered.map((article) => (
-                  <article
-                    key={article.articleId}
-                    className="group relative overflow-hidden rounded-3xl border border-emerald-100 bg-white/90 shadow-[0_10px_40px_-20px_rgba(16,185,129,0.4)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_-25px_rgba(16,185,129,0.35)]"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-50/60 to-transparent opacity-0 transition group-hover:opacity-100" />
-                    <div className="relative z-10 grid gap-8 p-8 md:grid-cols-[200px_1fr]">
-                      <div className="flex flex-col items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50/60 p-6 text-center text-sm text-emerald-700">
-                        <span className="text-xs uppercase tracking-[0.3em] text-emerald-500">Created</span>
-                        <strong className="mt-2 text-lg">{formatDate(article.createdAt)}</strong>
-                        <span className="mt-4 text-xs uppercase tracking-[0.3em] text-emerald-500">Last update</span>
-                        <span className="mt-2 text-sm">{formatDate(article.updatedAt)}</span>
-                      </div>
-                      <div className="space-y-6">
-                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                          <h2 className="text-2xl font-semibold text-emerald-800">{article.title}</h2>
-                          {renderStatusBadge(article.status)}
+                {filtered.map((article) => {
+                  const isExpanded = expandedArticles.has(article.articleId);
+                  const hasCoverImage = article.coverImage?.hasImage && article.coverImage?.data;
+                  return (
+                    <article
+                      key={article.articleId}
+                      className="group relative overflow-hidden rounded-3xl border border-emerald-100 bg-white/90 shadow-[0_10px_40px_-20px_rgba(16,185,129,0.4)] transition hover:-translate-y-1 hover:shadow-[0_30px_60px_-25px_rgba(16,185,129,0.35)]"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-emerald-50/60 to-transparent opacity-0 transition group-hover:opacity-100" />
+                      {isExpanded ? (
+                        <div className="relative z-10 flex flex-col gap-8 p-8 lg:flex-row">
+                          <div className="flex flex-shrink-0 flex-col justify-between gap-6 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-6 text-sm text-emerald-700 lg:w-72">
+                            <div className="space-y-3 text-center">
+                              <span className="text-xs uppercase tracking-[0.3em] text-emerald-500">Created</span>
+                              <strong className="text-lg">{formatDate(article.createdAt)}</strong>
+                            </div>
+                            <div className="space-y-3 text-center">
+                              <span className="text-xs uppercase tracking-[0.3em] text-emerald-500">Last update</span>
+                              <span className="text-sm">{formatDate(article.updatedAt)}</span>
+                            </div>
+                            <div className="flex justify-center">{renderStatusBadge(article.status)}</div>
+                          </div>
+                          <div className="flex min-w-0 flex-1 flex-col gap-6">
+                            <div className="space-y-3">
+                              <h2 className="break-words text-3xl font-semibold text-emerald-800">{article.title}</h2>
+                              <div className="space-y-4 max-h-60 overflow-y-auto pr-1">
+                                {renderDescriptionContent(article.description) || (
+                                  <p className="text-sm leading-relaxed text-gray-500">No description provided.</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-6 lg:flex-row">
+                              {hasCoverImage ? (
+                                <div className="group/cover relative flex-1 overflow-hidden rounded-3xl border border-emerald-100 bg-emerald-50/40 shadow-inner">
+                                  <img
+                                    className="h-64 w-full object-cover transition duration-500 group-hover/cover:scale-[1.03]"
+                                    src={`data:${article.coverImage.mimeType};base64,${article.coverImage.data}`}
+                                    alt={article.coverImage.filename || "Cover visual"}
+                                  />
+                                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-5 pb-4 pt-6 text-sm text-white">
+                                    <span className="block text-xs uppercase tracking-[0.4em] opacity-60">Cover image</span>
+                                    <span className="line-clamp-1 font-medium">{article.coverImage.filename || "Cover visual"}</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex h-64 flex-1 items-center justify-center rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/30 text-sm text-emerald-500">
+                                  No cover image uploaded
+                                </div>
+                              )}
+
+                              <div className="flex min-w-[220px] max-w-full flex-col gap-3 lg:w-64">
+                                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">
+                                  Visual references
+                                </span>
+                                {article.supportingImages && article.supportingImages.length > 0 ? (
+                                  <div className="flex gap-3 overflow-y-hidden overflow-x-auto pb-2">
+                                    {article.supportingImages.map((image) => (
+                                      <div
+                                        key={image.imageId}
+                                        className="group/support relative h-32 w-40 flex-shrink-0 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/60 shadow-inner"
+                                      >
+                                        {image.data ? (
+                                          <img
+                                            className="h-full w-full object-cover transition duration-300 group-hover/support:scale-105"
+                                            src={`data:${image.mimeType};base64,${image.data}`}
+                                            alt={image.filename || "Supporting visual"}
+                                          />
+                                        ) : (
+                                          <div className="flex h-full items-center justify-center text-xs text-emerald-600">
+                                            Image unavailable
+                                          </div>
+                                        )}
+                                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2 text-[11px] text-white">
+                                          <span className="line-clamp-1">{image.filename}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="flex h-32 items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/40 text-xs text-emerald-500">
+                                    No supporting visuals added
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-emerald-100 pt-6">
+                              <div className="text-sm text-emerald-700">
+                                {article.supportingImages?.length || 0} supporting visual
+                                {article.supportingImages?.length === 1 ? "" : "s"}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(article.articleId)}
+                                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-700"
+                              >
+                                Hide details
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={1.5}
+                                  className="h-4 w-4"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-sm leading-relaxed text-gray-600 line-clamp-4 md:line-clamp-3">
-                          {article.description}
-                        </p>
-                        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
-                          {article.coverImage?.hasImage && article.coverImage?.data ? (
-                            <div className="group/cover relative overflow-hidden rounded-3xl border border-emerald-100 bg-emerald-50/40 shadow-inner">
+                      ) : (
+                        <div className="relative z-10 flex flex-col gap-6 p-8 sm:flex-row">
+                          <div className="flex w-full flex-shrink-0 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/40 sm:w-56">
+                            {hasCoverImage ? (
                               <img
-                                className="h-64 w-full object-cover transition duration-500 group-hover/cover:scale-[1.03]"
+                                className="h-48 w-full object-cover"
                                 src={`data:${article.coverImage.mimeType};base64,${article.coverImage.data}`}
                                 alt={article.coverImage.filename || "Cover visual"}
                               />
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-5 pb-4 pt-6 text-sm text-white">
-                                <span className="block text-xs uppercase tracking-[0.4em] opacity-60">Cover image</span>
-                                <span className="line-clamp-1 font-medium">{article.coverImage.filename || "Cover visual"}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-emerald-200 bg-emerald-50/30 text-sm text-emerald-500">
-                              No cover image uploaded
-                            </div>
-                          )}
-
-                          <div className="space-y-3">
-                            <span className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">
-                              Visual references
-                            </span>
-                            {article.supportingImages && article.supportingImages.length > 0 ? (
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                {article.supportingImages.map((image) => (
-                                  <div
-                                    key={image.imageId}
-                                    className="group/support relative overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/60 shadow-inner"
-                                  >
-                                    {image.data ? (
-                                      <img
-                                        className="h-32 w-full object-cover transition duration-300 group-hover/support:scale-105"
-                                        src={`data:${image.mimeType};base64,${image.data}`}
-                                        alt={image.filename || "Supporting visual"}
-                                      />
-                                    ) : (
-                                      <div className="flex h-32 items-center justify-center text-xs text-emerald-600">
-                                        Image unavailable
-                                      </div>
-                                    )}
-                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2 text-[11px] text-white">
-                                      <span className="line-clamp-1">{image.filename}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
                             ) : (
-                              <div className="flex h-32 items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/40 text-xs text-emerald-500">
-                                No supporting visuals added
+                              <div className="flex h-48 w-full items-center justify-center text-sm text-emerald-500">
+                                No cover image
                               </div>
                             )}
                           </div>
+                          <div className="flex min-w-0 flex-1 flex-col gap-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <h2 className="break-words text-2xl font-semibold text-emerald-800">{article.title}</h2>
+                              {renderStatusBadge(article.status)}
+                            </div>
+                            <p className="text-sm leading-relaxed text-gray-600 line-clamp-2">
+                              {buildExcerpt(article.description, 220)}
+                            </p>
+                            <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-500">
+                              <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-600">
+                                Created {formatDate(article.createdAt)}
+                              </span>
+                              <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-600">
+                                Updated {formatDate(article.updatedAt)}
+                              </span>
+                              <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-600">
+                                {article.supportingImages?.length || 0} visuals
+                              </span>
+                            </div>
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(article.articleId)}
+                                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-700"
+                              >
+                                View details
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={1.5}
+                                  className="h-4 w-4"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>
