@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import FullScreenLoader from "../../components/ui/FullScreenLoader";
 import Select from "react-select";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -12,6 +13,20 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
+
+// Handle profile image change
+const handleImageChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      setError('Image size must be less than 5MB');
+      return;
+    }
+    
+    setProfile(prev => ({ ...prev, profileImage: file }));
+    setError(null);
+  }
+};
 
 // Map picker component for selecting location
 const LocationPicker = ({ show, onClose, onSelect, initialPosition }) => {
@@ -84,8 +99,6 @@ const initialProfile = {
   latitude: "",
   longitude: ""
 };
-
-import { useNavigate, useLocation } from "react-router-dom";
 
 const BuyerEditProfile = () => {
   const [profile, setProfile] = useState(initialProfile);
@@ -263,6 +276,60 @@ const BuyerEditProfile = () => {
     }
   };
 
+  // Handle password change separately
+  const handlePasswordChange = async (token, newPassword) => {
+    console.log('Initiating password change...');
+    
+    const passwordData = {
+      password: newPassword
+    };
+
+    let apiUrl = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/api/v1/users/change-password`
+      : (import.meta.env.DEV
+          ? 'http://localhost:5000/api/v1/users/change-password'
+          : '/api/v1/users/change-password');
+
+    const response = await fetch(apiUrl, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(passwordData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to change password');
+    }
+
+    return await response.json();
+  };
+
+  // Password validation functions
+  const isPasswordValid = (password) => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return passwordRegex.test(password);
+  };
+
+  const validatePassword = (password) => {
+    if (password && !isPasswordValid(password)) {
+      setError('Password must meet security requirements');
+    } else {
+      setError(null);
+    }
+  };
+
+  const validatePasswordMatch = (password, confirmPassword) => {
+    if (confirmPassword && password !== confirmPassword) {
+      setError('Passwords do not match');
+    } else {
+      setError(null);
+    }
+  };
+
   // Save profile handler
   const handleSaveProfile = async () => {
     setLoading(true);
@@ -273,6 +340,46 @@ const BuyerEditProfile = () => {
       if (!token) {
         navigate('/login');
         return;
+      }
+
+      // Handle password change first if needed
+      if (profile.password) {
+        // Validate password requirements
+        if (!isPasswordValid(profile.password)) {
+          setError('Password must meet security requirements');
+          setLoading(false);
+          return;
+        }
+        
+        // Validate password match
+        if (profile.password !== profile.confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+
+        try {
+          const passwordResult = await handlePasswordChange(token, profile.password);
+          console.log('Password change result:', passwordResult);
+
+          // Clear tokens and redirect to login after successful password change
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('authToken');
+          
+          navigate('/login', {
+            state: {
+              message: 'Password updated successfully. Please log in with your new credentials.'
+            }
+          });
+          return;
+        } catch (error) {
+          console.error('Password change error:', error);
+          setError(error.message || 'Failed to change password');
+          setLoading(false);
+          return;
+        }
       }
 
       const formData = new FormData();
@@ -295,15 +402,7 @@ const BuyerEditProfile = () => {
       formData.append('companyAddress', profile.companyAddress);
       formData.append('paymentOffer', profile.paymentOffer);
       
-      // Append password if provided
-      if (profile.password) {
-        if (profile.password !== profile.confirmPassword) {
-          setError('Passwords do not match');
-          setLoading(false);
-          return;
-        }
-        formData.append('password', profile.password);
-      }
+      // Remove this section as we now handle password changes earlier in the function
       
       // Append profile image if it's a new file
       if (profile.profileImage && typeof profile.profileImage !== 'string') {
@@ -580,16 +679,30 @@ const BuyerEditProfile = () => {
           {/* Security */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Change Password (Optional)</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
                 <input
                   type="password"
                   value={profile.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={(e) => {
+                    handleInputChange('password', e.target.value);
+                    validatePassword(e.target.value);
+                  }}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    profile.password && !isPasswordValid(profile.password) 
+                      ? 'border-red-300' 
+                      : 'border-gray-300'
+                  }`}
                   placeholder="Enter new password (leave empty to keep current)"
                 />
+                {profile.password && !isPasswordValid(profile.password) && (
+                  <p className="mt-2 text-sm text-red-600">
+                    Password must be at least 8 characters long and contain at least one uppercase letter, 
+                    one lowercase letter, one number, and one special character
+                  </p>
+                )}
               </div>
               
               <div>
@@ -597,10 +710,29 @@ const BuyerEditProfile = () => {
                 <input
                   type="password"
                   value={profile.confirmPassword}
-                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={(e) => {
+                    handleInputChange('confirmPassword', e.target.value);
+                    validatePasswordMatch(profile.password, e.target.value);
+                  }}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    profile.confirmPassword && profile.password !== profile.confirmPassword 
+                      ? 'border-red-300' 
+                      : 'border-gray-300'
+                  }`}
                   placeholder="Confirm new password"
                 />
+                {profile.confirmPassword && profile.password !== profile.confirmPassword && (
+                  <p className="mt-2 text-sm text-red-600">Passwords do not match</p>
+                )}
+              </div>
+
+              {profile.password && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800">
+                    Note: After changing your password, you will need to log in again with your new credentials.
+                  </p>
+                </div>
+              )}
               </div>
             </div>
           </div>
