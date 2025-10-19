@@ -77,7 +77,7 @@ const PublishedArticles = () => {
       setIsLoading(true);
       setError("");
       try {
-        const response = await articleService.fetchArticles();
+        const response = await articleService.fetchPublishedArticles();
         const payload = response?.data ?? response;
         const list = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
         if (!isMounted) return;

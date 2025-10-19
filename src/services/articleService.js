@@ -54,6 +54,12 @@ export const articleService = {
     return response.data;
   },
 
+  fetchPublishedArticles: async () => {
+    const response = await axios.get(`${API_BASE_URL}/knowledge-articles/public`);
+
+    return response.data;
+  },
+
   fetchArticleById: async (articleId) => {
     const response = await axios.get(`${API_BASE_URL}/knowledge-articles/${articleId}`, {
       headers: buildAuthHeaders(),
