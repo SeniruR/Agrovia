@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { CloudLightning, AlertTriangle, Eye, Calendar, ArrowLeft, Plus, Trash2, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const ViewWeatherAlerts = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
@@ -94,6 +95,24 @@ const ViewWeatherAlerts = () => {
   useEffect(() => {
     fetchAlerts();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!location.state?.fromNotification || !location.state?.openAlertId || alerts.length === 0) {
+      return;
+    }
+
+    const targetAlert = alerts.find((alert) => {
+      const alertId = alert.id || alert._id;
+      return alertId && String(alertId) === String(location.state.openAlertId);
+    });
+
+    if (targetAlert) {
+      setSelectedAlert(targetAlert);
+    }
+
+    // Clear location state so the modal doesn't re-open on re-render/navigation back
+    window.history.replaceState({}, document.title);
+  }, [alerts, location.state]);
 
   const getSeverityColor = (severity) => {
     switch (severity?.toLowerCase()) {
@@ -262,7 +281,7 @@ const ViewWeatherAlerts = () => {
                       <CloudLightning className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-3xl font-bold text-gray-900">{selectedAlert.title}</h2>
+                      <h2 className="text-3xl font-bold text-gray-900">{selectedAlert.title || selectedAlert.weatherType || 'Weather Alert'}</h2>
                       <p className="text-gray-600">Issued on {formatDate(selectedAlert.dateIssued || selectedAlert.createdAt)}</p>
                       <p className="text-gray-500 text-sm">By: {selectedAlert.authorName || 'Weather Department'}</p>
                     </div>
@@ -279,9 +298,62 @@ const ViewWeatherAlerts = () => {
 
                 <div className="space-y-8">
                   <div>
+                    <h4 className="font-semibold text-gray-800 mb-3 text-lg">Alert Summary</h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Weather Type</p>
+                        <p className="text-gray-900 font-semibold text-lg">
+                          {selectedAlert.weatherType || selectedAlert.title || 'Not specified'}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Severity Level</p>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${getSeverityColor(selectedAlert.severity)}`}
+                        >
+                          {selectedAlert.severity ? selectedAlert.severity.toUpperCase() : 'GENERAL'}
+                        </span>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Issued On</p>
+                        <p className="text-gray-900 font-medium">{formatDate(selectedAlert.dateIssued || selectedAlert.createdAt)}</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Issued By</p>
+                        <p className="text-gray-900 font-medium">{selectedAlert.authorName || 'Weather Department'}</p>
+                        {selectedAlert.authorEmail && (
+                          <p className="text-gray-500 text-sm mt-1">{selectedAlert.authorEmail}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-800 mb-3 text-lg">Affected Areas</h4>
+                    <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6">
+                      {selectedAlert.affectedAreas?.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedAlert.affectedAreas.map((area, index) => (
+                            <span
+                              key={`${area}-${index}`}
+                              className="px-3 py-1 rounded-full bg-white border border-blue-100 text-blue-700 text-sm font-medium shadow-sm"
+                            >
+                              {area}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-600">No specific areas listed for this alert.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
                     <h4 className="font-semibold text-gray-800 mb-3 text-lg">Alert Details</h4>
-                    <div className="bg-gray-50 p-6 rounded-2xl">
-                      <p className="text-gray-700 leading-relaxed">{selectedAlert.description}</p>
+                    <div className="bg-gray-50 border border-gray-100 p-6 rounded-2xl">
+                      <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                        {selectedAlert.description || 'No additional details provided.'}
+                      </p>
                     </div>
                   </div>
 
