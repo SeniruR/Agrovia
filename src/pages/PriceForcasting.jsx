@@ -2,13 +2,20 @@ import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { TrendingUp, TrendingDown, MapPin, AlertTriangle, Calendar, Filter, Search, Info } from 'lucide-react';
 import useForecastAccess from '../hooks/useForecastAccess';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const PriceForecastingInterface = () => {
   const { hasAccess, loading } = useForecastAccess();
   const [selectedCrop, setSelectedCrop] = useState('redrice');
   const [selectedLocation, setSelectedLocation] = useState('colombo');
   const [timeRange, setTimeRange] = useState('6months');
+  const [showDevModal, setShowDevModal] = useState(true);
+  const navigate = useNavigate();
+
+  const handleAcknowledge = () => {
+    setShowDevModal(false);
+    navigate('/dashboard/farmer');
+  };
 
   // Show loading state while checking access
   if (loading) {
@@ -215,8 +222,9 @@ const PriceForecastingInterface = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 p-4">
-      <div className="max-w-7xl mx-auto">
+    <>
+      <div className={`min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 p-4 transition duration-300 ${showDevModal ? 'filter blur-sm pointer-events-none select-none' : ''}`}>
+        <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-green-800 mb-2">
@@ -526,8 +534,42 @@ const PriceForecastingInterface = () => {
             </button>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+      {showDevModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 md:p-8">
+            <div className="flex items-start gap-3">
+              <Info className="w-8 h-8 text-amber-600" />
+              <div>
+                <h2 className="text-xl font-semibold text-amber-700 mb-2">Forecasting Engine in Development</h2>
+                <p className="text-sm md:text-base text-amber-700">
+                  We&apos;re still training and validating our AI pricing model. Because this page currently uses placeholder data, please rely on the official Daily Price Index from the Dambulla Dedicated Economic Centre for actionable market prices.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-col md:flex-row md:items-center gap-3">
+              <a
+                href="https://dambulladec.com/home-dailyprice"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors px-4 py-2 rounded-xl"
+              >
+                Visit Daily Price Index
+                <span aria-hidden="true">↗</span>
+              </a>
+              <button
+                type="button"
+                onClick={handleAcknowledge}
+                className="inline-flex items-center justify-center text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors px-4 py-2 rounded-xl"
+              >
+                I understand
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
