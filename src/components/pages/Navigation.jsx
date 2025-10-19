@@ -307,7 +307,7 @@ const Navigation = ({ onSidebarToggle }) => {
                       <div 
                         key={n.id} 
                         className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer"
-                        onClick={() => {
+                        onClick={async () => {
                           // Try multiple possible field names for the alert ID
                           const alertId = n.alertId || 
                                          n.pest_alert_id || 
@@ -319,6 +319,33 @@ const Navigation = ({ onSidebarToggle }) => {
                           console.log('🆔 Extracted alert ID:', alertId);
                           console.log('📝 Notification title:', n.title);
                           console.log('💬 Notification message:', n.message);
+                          
+                          // Mark notification as read in the database
+                          try {
+                            const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
+                            const token = localStorage.getItem('authToken');
+                            
+                            if (token) {
+                              const notificationIdToMark = n.id || n.notification_id;
+                              console.log('🔴 Marking notification as read:', notificationIdToMark);
+                              
+                              const markReadResponse = await fetch(`${base}/api/v1/notifications/mark-read/${notificationIdToMark}`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                }
+                              });
+                              
+                              if (markReadResponse.ok) {
+                                console.log('✅ Notification marked as read successfully');
+                              } else {
+                                console.warn('⚠️ Failed to mark notification as read:', markReadResponse.status);
+                              }
+                            }
+                          } catch (err) {
+                            console.warn('⚠️ Error marking notification as read:', err);
+                          }
                           
                           navigate('/pestalert/view', { 
                             state: { 

@@ -474,11 +474,7 @@ const ViewPestAlerts = () => {
                 <h1 className="text-2xl font-bold text-gray-900">Pest Alert Reports</h1>
                 <p className="text-gray-600">
                   View and manage community pest reports
-                  {unreadCount > 0 && (
-                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
-                      {unreadCount} new view{unreadCount !== 1 ? 's' : ''}
-                    </span>
-                  )}
+                  
                 </p>
               </div>
             </div>
@@ -640,20 +636,8 @@ const ViewPestAlerts = () => {
                       <h2 className="text-3xl font-bold text-gray-900">{selectedAlert.pestName}</h2>
                       {location.state?.fromNotification && (
                         <div className="space-y-2 mt-2">
-                          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium animate-pulse">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
-                            </svg>
-                            Opened from notification • View count +1
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Showing details for "{selectedAlert.pestName}" pest alert
-                            {selectedAlert._matchType && (
-                              <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
-                                Found by: {selectedAlert._matchType}
-                              </span>
-                            )}
-                          </div>
+                          
+                          
                           
                           {/* Debug information for troubleshooting */}
                           {location.state?.debugInfo && (

@@ -9,8 +9,44 @@ const NotificationsPage = () => {
   const navigate = useNavigate();
 
   // Function to handle clicking on a notification
-  const handleNotificationClick = (notification) => {
+  const handleNotificationClick = async (notification) => {
     console.log('🔔 Full notification object:', notification);
+    
+    // Mark notification as read in the database
+    try {
+      const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
+      const token = localStorage.getItem('authToken');
+      
+      if (token) {
+        const notificationIdToMark = notification.id || notification.notification_id;
+        console.log('🔴 Marking notification as read:', notificationIdToMark);
+        
+        const markReadResponse = await fetch(`${base}/api/v1/notifications/mark-read/${notificationIdToMark}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (markReadResponse.ok) {
+          console.log('✅ Notification marked as read successfully');
+          
+          // Don't remove notification from the page - just update its read status visually
+          // The notification should remain visible on the notifications page
+          setNotifications(prev => prev.map(n => {
+            if ((n.id || n.notification_id) === notificationIdToMark) {
+              return { ...n, is_read: 1, readAt: new Date().toISOString() };
+            }
+            return n;
+          }));
+        } else {
+          console.warn('⚠️ Failed to mark notification as read:', markReadResponse.status);
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Error marking notification as read:', err);
+    }
     
     // Extract pest alert ID from notification with extensive debugging
     let alertId = null;
@@ -85,9 +121,9 @@ const NotificationsPage = () => {
       try {
         // Default to backend port if no base URL is set
         const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
-        // Use the new secure route that doesn't require user ID in URL
-        const url = `${base}/api/v1/notifications/my-notifications`;
-        console.log('Fetching notifications from:', url);
+        // Use the new endpoint for ALL notifications (read and unread)
+        const url = `${base}/api/v1/notifications/all-my-notifications`;
+        console.log('Fetching ALL notifications from:', url);
         
         const headers = {
           'Content-Type': 'application/json',
@@ -189,18 +225,34 @@ const NotificationsPage = () => {
           ) : notifications.map(n => (
             <div 
               key={n.id || n.notification_id} 
-              className="flex items-start gap-4 p-6 hover:bg-green-50/60 transition-all group cursor-pointer border-l-4 border-transparent hover:border-green-500"
+              className={`flex items-start gap-4 p-6 hover:bg-green-50/60 transition-all group cursor-pointer border-l-4 border-transparent hover:border-green-500 ${
+                n.is_read || n.readAt ? 'opacity-70 bg-gray-50/30' : 'bg-white'
+              }`}
               onClick={() => handleNotificationClick(n)}
             >
               <div className="flex-1">
-                <div className="font-semibold text-slate-800 group-hover:text-green-700 transition-colors text-lg">
-                  {n.title || n.notification_title || 'Pest Alert'}
+                <div className="flex items-center gap-2">
+                  <div className={`font-semibold text-slate-800 group-hover:text-green-700 transition-colors text-lg ${
+                    n.is_read || n.readAt ? 'text-gray-600' : 'text-slate-800'
+                  }`}>
+                    {n.title || n.notification_title || 'Pest Alert'}
+                  </div>
+                  {!(n.is_read || n.readAt) && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      New
+                    </span>
+                  )}
                 </div>
-                <div className="text-sm text-slate-600 mt-1">
+                <div className={`text-sm mt-1 ${
+                  n.is_read || n.readAt ? 'text-gray-1000' : 'text-slate-600'
+                }`}>
                   {n.message || n.notification_message || n.description}
                 </div>
                 <div className="text-xs text-slate-400 mt-2">
                   {n.created_at ? new Date(n.created_at).toLocaleString() : ''}
+                  {(n.is_read || n.readAt) && (
+                    <span className="ml-2 text-green-600">✓ Read</span>
+                  )}
                 </div>
                 <div className="text-xs text-green-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   Click to view details →
