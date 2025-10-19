@@ -22,6 +22,7 @@ import ModeratorSignup from "./pages/ModeratorSignup";
 import LayoutAll from "./components/LayoutAll"
 import KnowledgeHubHome from "./pages/KnowledgeHubHome";
 import KHubCon from "./pages/KHubCon";
+import PublishedArticles from "./pages/PublishedArticles";
 import BulkPurchaseSystem from "./pages/farmer/BulkPurchaseSystem";
 import PaymentSuccess from './pages/PaymentSuccess';
 import BuyersMarketplace from "./pages/ByersMarketPlace";
@@ -45,7 +46,9 @@ import MyOrders from './pages/MyOrders';
 
 import CropPostForm from "./pages/farmer/CropPostForm";
 
-import CreateArticle from "./pages/Moderator/CreateArticle";
+import CreateArticle from "./pages/Moderator/CreateArticleNew";
+import MyArticleRequests from "./pages/Moderator/MyArticleRequests";
+import MainModeratorArticleReview from "./pages/Moderator/MainModeratorArticleReview";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
@@ -381,7 +384,13 @@ const App = () => {
 
        <Route path="/knowledge-hub" element={
           <Layout>
-            <KnowledgeHubHome/>
+            <PublishedArticles/>
+          </Layout>
+        }
+      />
+      <Route path="/knowledge-hub/published" element={
+          <Layout>
+            <PublishedArticles />
           </Layout>
         }
       />
@@ -495,13 +504,31 @@ const App = () => {
       />
         <Route path="/transportreviews" element={
           <Layout>
-            <TransportServicesReviews/>
+            <TransportServicesReviews />
+          </Layout>
+        }
+        />
+      <Route path="/createarticle" element={
+          <Layout>
+            <CreateArticle />
           </Layout>
         }
       />
-      <Route path="/createarticle" element={
+      <Route path="/moderation/article-requests" element={
           <Layout>
-            <CreateArticle/>
+            <MainModeratorArticleReview />
+          </Layout>
+        }
+      />
+      <Route path="/my-article-requests" element={
+          <Layout>
+            <MyArticleRequests />
+          </Layout>
+        }
+      />
+      <Route path="/my-article-requests/:articleId" element={
+          <Layout>
+            <MyArticleRequests />
           </Layout>
         }
       />
