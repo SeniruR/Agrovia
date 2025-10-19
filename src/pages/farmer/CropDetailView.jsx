@@ -644,6 +644,49 @@ const CropDetailView = () => {
     return Array.from(unique);
   };
 
+  const parseRatingValue = (value) => {
+    if (value === null || value === undefined) return null;
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? Math.min(Math.max(value, 0), 5) : null;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      const direct = Number(trimmed);
+      if (Number.isFinite(direct)) {
+        return Math.min(Math.max(direct, 0), 5);
+      }
+
+      const match = trimmed.match(/(\d+(?:\.\d+)?)/);
+      if (match) {
+        const parsed = Number(match[1]);
+        if (Number.isFinite(parsed)) {
+          return Math.min(Math.max(parsed, 0), 5);
+        }
+      }
+
+      const wordMap = {
+        one: 1,
+        two: 2,
+        three: 3,
+        four: 4,
+        five: 5
+      };
+
+      const lower = trimmed.toLowerCase();
+      for (const [word, numeric] of Object.entries(wordMap)) {
+        if (lower.includes(word)) {
+          return Math.min(Math.max(numeric, 0), 5);
+        }
+      }
+    }
+
+    return null;
+  };
+
   const normalizeReviewRecord = (review) => {
     if (!review) return null;
 
@@ -658,8 +701,7 @@ const CropDetailView = () => {
     ];
     const displayName = nameCandidates.find((value) => typeof value === 'string' && value.trim())?.trim() || 'Anonymous';
 
-    const ratingValue = Number(review.rating ?? review.average_rating);
-    const rating = Number.isFinite(ratingValue) ? ratingValue : null;
+  const rating = parseRatingValue(review.rating ?? review.average_rating);
     const rawAttachmentSources = review.attachment_blobs ?? review.attachment_urls ?? review.attachments ?? review.images ?? review.review_images;
     const attachments = parseAttachmentList(
       rawAttachmentSources,
@@ -685,7 +727,7 @@ const CropDetailView = () => {
   };
 
   const renderReviewStars = (value) => {
-    const numeric = Number(value);
+    const numeric = parseRatingValue(value);
     if (!Number.isFinite(numeric) || numeric <= 0) {
       return (
         <div className="flex text-gray-300" aria-hidden="true">
@@ -1136,9 +1178,11 @@ const CropDetailView = () => {
   // handleContactFarmer function removed
 
   const reviewCount = reviews.length;
-  const ratedReviews = reviews.filter(review => Number.isFinite(Number(review.rating)) && Number(review.rating) > 0);
-  const averageRating = ratedReviews.length > 0
-    ? parseFloat((ratedReviews.reduce((sum, review) => sum + Number(review.rating), 0) / ratedReviews.length).toFixed(1))
+  const ratingValues = reviews
+    .map((review) => parseRatingValue(review.rating))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const averageRating = ratingValues.length > 0
+    ? parseFloat((ratingValues.reduce((sum, value) => sum + value, 0) / ratingValues.length).toFixed(1))
     : null;
 
   // Fetch available transporters
@@ -2303,9 +2347,12 @@ const CropDetailView = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {reviews.map((review) => (
-                <div
-                  key={review.id}
+              {reviews.map((review) => {
+                const numericRating = parseRatingValue(review.rating);
+
+                return (
+                  <div
+                    key={review.id}
                   className="border border-green-100 bg-white rounded-xl p-5 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -2316,10 +2363,10 @@ const CropDetailView = () => {
                       <div>
                         <p className="font-semibold text-gray-800">{review.displayName}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          {renderReviewStars(review.rating)}
-                          {Number.isFinite(Number(review.rating)) && Number(review.rating) > 0 && (
+                          {renderReviewStars(numericRating)}
+                          {Number.isFinite(numericRating) && numericRating > 0 && (
                             <span className="text-xs text-gray-500">
-                              {Number(review.rating).toFixed(1)}
+                              {numericRating.toFixed(1)}
                             </span>
                           )}
                           <span className="text-xs text-gray-400">•</span>
@@ -2389,7 +2436,8 @@ const CropDetailView = () => {
                     </div>
                   )}
                 </div>
-              ))}
+              );
+            })}
             </div>
           )}
         </div>
