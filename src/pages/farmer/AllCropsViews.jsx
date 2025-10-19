@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "../../contexts/AuthContext";
-import StatsCards from "../../components/pages/Farmer/FarmStatsCard";
 import FilterBar from "../../components/pages/Farmer/FarmFilterBar";
 import CropCard from "../../components/pages/Farmer/FarmCropCard";
 import { cropService } from "../../services/cropService";
@@ -8,8 +7,52 @@ import { useMonthlyCropLimit } from "../../hooks/useMonthlyCropLimit";
 
 import { Package } from 'lucide-react';
 
+const parseRatingValue = (value) => {
+  if (value === null || value === undefined) return null;
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.min(Math.max(value, 0), 5) : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const direct = Number(trimmed);
+    if (Number.isFinite(direct)) {
+      return Math.min(Math.max(direct, 0), 5);
+    }
+
+    const match = trimmed.match(/(\d+(?:\.\d+)?)/);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed)) {
+        return Math.min(Math.max(parsed, 0), 5);
+      }
+    }
+
+    const wordMap = {
+      one: 1,
+      two: 2,
+      three: 3,
+      four: 4,
+      five: 5
+    };
+
+    const lower = trimmed.toLowerCase();
+    for (const [word, numeric] of Object.entries(wordMap)) {
+      if (lower.includes(word)) {
+        return Math.min(Math.max(numeric, 0), 5);
+      }
+    }
+  }
+
+  return null;
+};
+
 function AllCropsView() {
   const { user, getAuthHeaders, loading: authLoading } = useAuth();
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
   const [viewMode, setViewMode] = useState('grid');
   const [selectedType, setSelectedType] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -33,6 +76,57 @@ function AllCropsView() {
   useEffect(() => {
     if (authLoading) return;
 
+    let isCancelled = false;
+
+    const fetchReviewSummaries = async (items) => {
+      if (!items || items.length === 0) {
+        return [];
+      }
+
+      const results = [];
+      const chunkSize = 5;
+
+      for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize);
+        const summaries = await Promise.all(
+          chunk.map(async (crop) => {
+            try {
+              const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews?crop_id=${crop.id}`);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch reviews for crop ${crop.id}`);
+              }
+
+              const payload = await response.json();
+              const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+              const rated = reviews
+                .map((entry) => parseRatingValue(entry.rating))
+                .filter((value) => Number.isFinite(value));
+              const averageRating = rated.length > 0
+                ? parseFloat((rated.reduce((sum, current) => sum + current, 0) / rated.length).toFixed(1))
+                : null;
+
+              return {
+                cropId: crop.id,
+                averageRating,
+                reviewCount: reviews.length
+              };
+            } catch (err) {
+              console.error('Error fetching crop reviews:', err);
+              return {
+                cropId: crop.id,
+                averageRating: null,
+                reviewCount: 0
+              };
+            }
+          })
+        );
+
+        results.push(...summaries);
+      }
+
+      return results;
+    };
+
     // Sample crops as fallback
     const sampleCrops = [
       {
@@ -46,7 +140,8 @@ function AllCropsView() {
         postedDate: '2 days ago',
         status: 'available',
         image: 'https://i.pinimg.com/736x/72/03/25/720325c56313ca3277094c61092cff8b.jpg',
-        rating: 4.8,
+    rating: 4.8,
+    reviewCount: 12,
         description: 'High-quality premium basmati rice with excellent aroma and long grains. Perfect for export quality standards.',
         minimumQuantityBulk: 25,
         hasBulkMinimum: true,
@@ -88,16 +183,38 @@ function AllCropsView() {
             postedDate: new Date(crop.created_at).toLocaleDateString(),
             status: crop.status,
             images: crop.images || [],
-            rating: 4.5, // Default rating - can be enhanced later
+            rating: parseRatingValue(crop.average_rating ?? crop.rating),
             description: crop.description || 'Fresh quality produce',
             minimumQuantityBulk: crop.minimum_quantity_bulk,
             hasBulkMinimum: crop.minimum_quantity_bulk !== null,
             organicCertified: crop.organic_certified,
             pesticideFree: crop.pesticide_free,
             freshlyHarvested: crop.freshly_harvested,
-            farmer_id: crop.farmer_id // ensure farmer_id is present for filtering
+            farmer_id: crop.farmer_id,
+            reviewCount: Number.isFinite(Number(crop.review_count)) ? Number(crop.review_count) : 0
           }));
-          setCrops(mappedCrops);
+          if (!isCancelled) {
+            setCrops(mappedCrops);
+          }
+
+          const summaries = await fetchReviewSummaries(mappedCrops);
+          if (!isCancelled && summaries.length > 0) {
+            const summaryMap = new Map();
+            summaries.forEach((entry) => summaryMap.set(entry.cropId, entry));
+            setCrops((prev) => prev.map((crop) => {
+              const summary = summaryMap.get(crop.id);
+              if (!summary) {
+                return crop;
+              }
+
+              const resolvedRating = parseRatingValue(summary.averageRating ?? crop.rating);
+              return {
+                ...crop,
+                rating: resolvedRating,
+                reviewCount: summary.reviewCount
+              };
+            }));
+          }
         } else {
           setError(response.message || 'Failed to fetch crops');
           // Fallback to sample data
@@ -114,6 +231,9 @@ function AllCropsView() {
     };
 
     fetchCrops();
+    return () => {
+      isCancelled = true;
+    };
   }, [authLoading, user, getAuthHeaders]);
 
   const normalizedSelectedStatus = selectedStatus ? selectedStatus.toLowerCase() : '';
@@ -142,7 +262,11 @@ function AllCropsView() {
         case 'oldest': return a.id - b.id;
         case 'price-high': return b.price - a.price;
         case 'price-low': return b.price - a.price;
-        case 'rating': return b.rating - a.rating;
+        case 'rating': {
+          const aRating = Number.isFinite(a.rating) ? a.rating : -1;
+          const bRating = Number.isFinite(b.rating) ? b.rating : -1;
+          return bRating - aRating;
+        }
         default: return b.id - a.id;
       }
     });
@@ -154,8 +278,6 @@ function AllCropsView() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">My Crops</h1>
           <p className="text-gray-600 text-lg">Manage and track your posted crops</p>
         </div>
-
-        <StatsCards />
 
         <FilterBar
           viewMode={viewMode}

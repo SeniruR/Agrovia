@@ -15,6 +15,49 @@ const toCoordinate = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const parseRatingValue = (value) => {
+  if (value === null || value === undefined) return null;
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.min(Math.max(value, 0), 5) : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const direct = Number(trimmed);
+    if (Number.isFinite(direct)) {
+      return Math.min(Math.max(direct, 0), 5);
+    }
+
+    const match = trimmed.match(/(\d+(?:\.\d+)?)/);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed)) {
+        return Math.min(Math.max(parsed, 0), 5);
+      }
+    }
+
+    const wordMap = {
+      one: 1,
+      two: 2,
+      three: 3,
+      four: 4,
+      five: 5
+    };
+
+    const lower = trimmed.toLowerCase();
+    for (const [word, numeric] of Object.entries(wordMap)) {
+      if (lower.includes(word)) {
+        return Math.min(Math.max(numeric, 0), 5);
+      }
+    }
+  }
+
+  return null;
+};
+
 const ByersMarketplace = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
@@ -73,7 +116,7 @@ const ByersMarketplace = () => {
               const payload = await response.json();
               const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
               const rated = reviews
-                .map((entry) => Number(entry.rating))
+                .map((entry) => parseRatingValue(entry.rating))
                 .filter((value) => Number.isFinite(value));
               const averageRating = rated.length > 0
                 ? parseFloat((rated.reduce((sum, current) => sum + current, 0) / rated.length).toFixed(1))
@@ -81,7 +124,7 @@ const ByersMarketplace = () => {
               const reviewPreviews = reviews.slice(0, 2).map((entry) => ({
                 id: entry.id,
                 displayName: (entry.buyer_name || entry.user || entry.name || 'Anonymous').trim(),
-                rating: Number.isFinite(Number(entry.rating)) ? Number(entry.rating) : null,
+                rating: parseRatingValue(entry.rating),
                 comment: entry.comment || '',
                 createdAt: entry.created_at || entry.createdAt || null
               }));
@@ -123,7 +166,7 @@ const ByersMarketplace = () => {
           console.log(`✅ Successfully fetched ${response.data.length} crops`);
           // Map API response to marketplace format
           const mappedProducts = response.data.map(crop => {
-            const backendAverageRating = Number(crop.average_rating ?? crop.rating);
+            const backendAverageRating = parseRatingValue(crop.average_rating ?? crop.rating);
             const backendReviewCount = Number(crop.review_count ?? crop.reviews ?? 0);
             const totalQuantity = Number(crop.available_quantity ?? crop.quantity ?? crop.remaining_quantity ?? crop.stock_quantity);
             const hasTotalQuantity = Number.isFinite(totalQuantity) && totalQuantity > 0;
@@ -161,7 +204,7 @@ const ByersMarketplace = () => {
               ? crop.recent_reviews.slice(0, 2).map((entry) => ({
                   id: entry.id,
                   displayName: (entry.buyer_name || entry.user || entry.name || 'Anonymous').trim(),
-                  rating: Number.isFinite(Number(entry.rating)) ? Number(entry.rating) : null,
+                  rating: parseRatingValue(entry.rating),
                   comment: entry.comment || '',
                   createdAt: entry.created_at || entry.createdAt || null
                 }))
@@ -203,7 +246,7 @@ const ByersMarketplace = () => {
                     return product;
                   }
 
-                  const mergedRating = summary.averageRating ?? product.rating ?? null;
+                  const mergedRating = parseRatingValue(summary.averageRating ?? product.rating ?? null);
                   const mergedCount = summary.reviewCount ?? product.reviews ?? 0;
                   const mergedPreviews = summary.reviewPreviews.length > 0
                     ? summary.reviewPreviews
@@ -298,9 +341,11 @@ const ByersMarketplace = () => {
     .sort((a, b) => {
       if (sortBy === 'price') return a.price - b.price;
       if (sortBy === 'rating') {
-        const ratingA = Number.isFinite(Number(a.rating)) ? Number(a.rating) : -Infinity;
-        const ratingB = Number.isFinite(Number(b.rating)) ? Number(b.rating) : -Infinity;
-        return ratingB - ratingA;
+        const ratingA = parseRatingValue(a.rating);
+        const ratingB = parseRatingValue(b.rating);
+        const safeA = Number.isFinite(ratingA) ? ratingA : -Infinity;
+        const safeB = Number.isFinite(ratingB) ? ratingB : -Infinity;
+        return safeB - safeA;
       }
       if (sortBy === 'farmer') return a.farmer.localeCompare(b.farmer);
       if (sortBy === 'name') return a.name.localeCompare(b.name);
@@ -478,7 +523,8 @@ const ByersMarketplace = () => {
       }
     };
 
-  const hasRating = Number.isFinite(Number(product.rating));
+  const ratingValue = parseRatingValue(product.rating);
+  const hasRating = Number.isFinite(ratingValue) && ratingValue > 0;
 
   return (
   <div className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group hover:border-green-200 flex flex-col h-full">
@@ -552,7 +598,7 @@ const ByersMarketplace = () => {
           <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-full border border-yellow-200">
             <Star size={12} className="fill-yellow-400 text-yellow-400" />
             <span className="text-xs font-semibold text-yellow-700">
-              {reviewsLoading ? '…' : hasRating ? Number(product.rating).toFixed(1) : '—'}
+              {reviewsLoading ? '…' : hasRating ? ratingValue.toFixed(1) : '—'}
             </span>
           </div>
           <span className="text-xs text-gray-500">
