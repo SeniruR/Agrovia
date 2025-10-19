@@ -68,11 +68,27 @@ export const articleService = {
     return response.data;
   },
 
+  updateArticle: async (articleId, formData) => {
+    const response = await axios.put(`${API_BASE_URL}/knowledge-articles/${articleId}`, formData, {
+      headers: buildAuthHeaders(),
+    });
+
+    return response.data;
+  },
+
   updateArticleStatus: async (articleId, status) => {
     const payload = new FormData();
     payload.append("status", status);
 
     const response = await axios.put(`${API_BASE_URL}/knowledge-articles/${articleId}`, payload, {
+      headers: buildAuthHeaders(),
+    });
+
+    return response.data;
+  },
+
+  deleteArticle: async (articleId) => {
+    const response = await axios.delete(`${API_BASE_URL}/knowledge-articles/${articleId}`, {
       headers: buildAuthHeaders(),
     });
 

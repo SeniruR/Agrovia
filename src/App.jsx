@@ -53,6 +53,7 @@ import CropPostForm from "./pages/farmer/CropPostForm";
 import CreateArticle from "./pages/Moderator/CreateArticleNew";
 import MyArticleRequests from "./pages/Moderator/MyArticleRequests";
 import MainModeratorArticleReview from "./pages/Moderator/MainModeratorArticleReview";
+import EditArticleRequest from "./pages/Moderator/EditArticleRequest";
 
 import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
@@ -562,6 +563,12 @@ const App = () => {
       <Route path="/my-article-requests/:articleId" element={
           <Layout>
             <MyArticleRequests />
+          </Layout>
+        }
+      />
+      <Route path="/my-article-requests/:articleId/edit" element={
+          <Layout>
+            <EditArticleRequest />
           </Layout>
         }
       />

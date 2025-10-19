@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { articleService } from "../../services/articleService";
 
 const statusConfigs = {
@@ -96,15 +96,18 @@ const useFilteredArticles = (articles, query, status, userId) =>
   }, [articles, query, status, userId]);
 
 const MyArticleRequests = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams();
+  const [searchParams] = useSearchParams();
   const [articles, setArticles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedArticles, setExpandedArticles] = useState(() => new Set());
-  const location = useLocation();
-  const params = useParams();
-  const [searchParams] = useSearchParams();
+  const [feedbackMessage, setFeedbackMessage] = useState(location.state?.feedback ?? "");
+  const [deletingArticleId, setDeletingArticleId] = useState(null);
   const currentUserId = useMemo(() => getStoredUserId(), []);
   const parseArticleId = (value) => {
     if (value == null) return null;
@@ -128,6 +131,86 @@ const MyArticleRequests = () => {
       }
       return next;
     });
+  };
+
+  useEffect(() => {
+    if (location.state?.feedback) {
+      setFeedbackMessage(location.state.feedback);
+      const nextState = { ...(location.state || {}) };
+      delete nextState.feedback;
+      const cleanedState = Object.keys(nextState).length > 0 ? nextState : undefined;
+      navigate(location.pathname + location.search, { replace: true, state: cleanedState });
+    }
+  }, [location.pathname, location.search, location.state, navigate]);
+
+  const handleEdit = (articleId) => {
+    navigate(`/my-article-requests/${articleId}/edit`, { state: { articleId } });
+  };
+
+  const handleDelete = async (articleId) => {
+    if (deletingArticleId) {
+      return;
+    }
+
+    const confirmed = typeof window !== "undefined" ? window.confirm("Delete this article request?") : true;
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingArticleId(articleId);
+    setError("");
+    setFeedbackMessage("");
+
+    try {
+      const response = await articleService.deleteArticle(articleId);
+      const message = response?.message || "Article request deleted successfully.";
+      setArticles((prev) => prev.filter((item) => item.articleId !== articleId));
+      setExpandedArticles((prev) => {
+        const next = new Set(prev);
+        next.delete(articleId);
+        return next;
+      });
+      setFeedbackMessage(message);
+
+      if (isFocusedView) {
+        navigate("/my-article-requests", { replace: true, state: { feedback: message } });
+      }
+    } catch (err) {
+      const message = err?.response?.data?.message || "Unable to delete this article request.";
+      setError(message);
+    } finally {
+      setDeletingArticleId(null);
+    }
+  };
+
+  const renderActions = (article) => {
+    if (!currentUserId || article.status !== "pending" || Number(article.requestedBy) !== currentUserId) {
+      return null;
+    }
+
+    const isDeleting = deletingArticleId === article.articleId;
+
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => handleEdit(article.articleId)}
+          className="inline-flex items-center gap-2 rounded-full border border-emerald-200 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50"
+        >
+          Edit request
+        </button>
+        <button
+          type="button"
+          onClick={() => handleDelete(article.articleId)}
+          disabled={isDeleting}
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white shadow transition ${
+            isDeleting ? "bg-emerald-400 cursor-not-allowed" : "bg-rose-500 hover:bg-rose-600"
+          }`}
+        >
+          {isDeleting ? "Deleting..." : "Delete request"}
+        </button>
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -231,6 +314,12 @@ const MyArticleRequests = () => {
                   : "Track every article brief you have shared with the editorial team. Stay informed on where each request stands."}
               </p>
             </header>
+
+            {feedbackMessage && (
+              <div className="mb-8 rounded-3xl border border-emerald-100 bg-emerald-50 px-6 py-4 text-sm text-emerald-700 shadow-inner">
+                {feedbackMessage}
+              </div>
+            )}
 
             {isFocusedView && (
               <div className="mb-8 flex justify-center">
@@ -395,6 +484,7 @@ const MyArticleRequests = () => {
                                 {article.supportingImages?.length || 0} supporting visual
                                 {article.supportingImages?.length === 1 ? "" : "s"}
                               </div>
+                              {renderActions(article)}
                               <button
                                 type="button"
                                 onClick={() => toggleExpanded(article.articleId)}
@@ -449,7 +539,8 @@ const MyArticleRequests = () => {
                                 {article.supportingImages?.length || 0} visuals
                               </span>
                             </div>
-                            <div className="flex justify-end">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              {renderActions(article)}
                               <button
                                 type="button"
                                 onClick={() => toggleExpanded(article.articleId)}
