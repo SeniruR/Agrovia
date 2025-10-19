@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, CloudRain, Sun, Wind, Thermometer, Droplets, AlertTriangle, MapPin, Clock, Leaf, TrendingUp, Eye, Zap, Lock, Crown } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAlertAccess } from '../hooks/useAlertAccess';
 
 const WeatherNotifications = () => {
-  const [notifications, setNotifications] = useState([]);
+  const notifications = weatherAlerts;
   const [selectedLocation, setSelectedLocation] = useState('Colombo');
   const [activeFilter, setActiveFilter] = useState('all');
+  const location = useLocation();
 
   // Check if user has access to weather alerts (option_id = 32)
-  const { hasAccess, loading: accessLoading, subscriptionData } = useAlertAccess();
+  const { hasAccess, loading: accessLoading } = useAlertAccess();
 
   const sriLankanLocations = [
     'Colombo', 'Kandy', 'Galle', 'Jaffna', 'Anuradhapura', 'Kurunegala', 
@@ -99,12 +100,27 @@ const WeatherNotifications = () => {
   };
 
   useEffect(() => {
-    setNotifications(weatherAlerts);
-  }, []);
+    if (location.state?.fromNotification && location.state?.openAlertId && notifications.length) {
+      const openId = location.state.openAlertId;
+      const target = notifications.find((notification) => {
+        const notificationId = notification.id || notification._id;
+        return notificationId === openId || String(notificationId) === String(openId);
+      });
 
-  const getAlertTypeStyles = (type, severity) => {
-    const baseIntensity = Math.min(Math.max(severity, 1), 10);
-    
+      if (target) {
+        // Highlight by selecting city filter and severity if relevant
+        if (target.location) {
+          setSelectedLocation(target.location);
+        }
+        setActiveFilter(target.type || 'all');
+      }
+
+      // Clear navigation state to avoid re-triggering on re-render
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, notifications]);
+
+  const getAlertTypeStyles = (type) => {
     switch (type) {
       case 'critical':
         return {
@@ -350,7 +366,7 @@ const WeatherNotifications = () => {
         <div className="space-y-6">
           {filteredNotifications.map((notification) => {
             const IconComponent = notification.icon;
-            const styles = getAlertTypeStyles(notification.type, notification.severity);
+            const styles = getAlertTypeStyles(notification.type);
             
             return (
               <div

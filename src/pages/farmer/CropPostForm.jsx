@@ -436,9 +436,13 @@ const CropPostForm = () => {
       console.log('✅ Crop post created successfully:', response.data);
       
       setSubmitSuccess(true);
-      alert('🎉 Crop post submitted successfully! Your crop is now listed on the marketplace.');
 
-      navigate('/farmviewAllCrops');
+      navigate('/farmviewAllCrops', {
+        state: {
+          cropPostSuccess: true,
+          successMessage: 'Your crop post has been published successfully.'
+        }
+      });
       
       // Reset form after successful submission
       setFormData({

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import EmailIcon from '@mui/icons-material/EmailOutlined';
 import { 
   Bars3Icon, 
-  UserCircleIcon, 
   BellIcon, 
   HomeIcon,
   ChatBubbleLeftRightIcon,
@@ -16,56 +15,167 @@ import {
   ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import logo from '../../assets/images/agrovia.png';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
+import { useAuth } from '../../contexts/AuthContext';
+import io from 'socket.io-client';
 import useForecastAccess from '../../hooks/useForecastAccess';
 import CartPopup from '../CartPopup';
 
 const Navigation = ({ onSidebarToggle }) => {
+  const navigate = useNavigate();
+  const { logout: authLogout } = useAuth();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [notificationCount, setNotificationCount] = useState(3);
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
-
-  // Example notifications (replace with real data from backend if available)
-  const notifications = [
-    {
-      id: 1,
-      type: 'order',
-      title: 'Order Delivered',
-      message: 'Your order #12345 has been delivered successfully.',
-      time: '2 hours ago',
-      icon: <HomeIcon className="w-5 h-5 text-green-500" />
-    },
-    {
-      id: 2,
-      type: 'payment',
-      title: 'Payment Successful',
-      message: 'Your payment for order #12345 was successful.',
-      time: '3 hours ago',
-      icon: <CurrencyDollarIcon className="w-5 h-5 text-emerald-500" />
-    },
-    {
-      id: 3,
-      type: 'payment',
-      title: 'Payment Unsuccessful',
-      message: 'Your payment for order #12346 failed. Please try again.',
-      time: '5 hours ago',
-      icon: <CurrencyDollarIcon className="w-5 h-5 text-red-500" />
-    },
-    {
-      id: 4,
-      type: 'crop',
-      title: 'New Crop Added',
-      message: 'Fresh Tomatoes are now available in the marketplace.',
-      time: '1 day ago',
-      icon: <BookOpenIcon className="w-5 h-5 text-yellow-500" />
-    }
-  ];
+  const [notifications, setNotifications] = useState([]);
+  const [hasPestAlertAccess, setHasPestAlertAccess] = useState(true);
+  const [pestAccessMessage, setPestAccessMessage] = useState('');
+  const socketRef = useRef(null);
+  const hasPestAlertAccessRef = useRef(true);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showCartPopup, setShowCartPopup] = useState(false);
   const { getCartItemCount } = useCart();
   const { hasAccess: hasForecastAccess } = useForecastAccess();
+
+  const createNotificationAlertMapping = useCallback((notificationId, alertId) => {
+    if (!notificationId || !alertId) return;
+    try {
+      const mappings = JSON.parse(localStorage.getItem('notificationAlertMappings') || '{}');
+      mappings[notificationId] = alertId;
+      localStorage.setItem('notificationAlertMappings', JSON.stringify(mappings));
+    } catch (err) {
+      console.warn('Navigation: failed to persist notification mapping', err);
+    }
+  }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      // Default to backend port if no base URL is set
+      const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
+      // Use the new secure route that doesn't require user ID in URL
+      const url = `${base}/api/v1/notifications/my-notifications`;
+      console.log('Fetching notifications from:', url);
+      
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Get token from localStorage (stored separately as 'authToken')
+      const userStr = localStorage.getItem('user');
+      const token = localStorage.getItem('authToken');
+      
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          console.log('Navigation: User object from localStorage:', userObj);
+          console.log('Navigation: Token from authToken localStorage:', token ? token.substring(0, 20) + '...' : 'No token');
+          
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+            console.log('Navigation: Authorization header:', headers['Authorization'].substring(0, 30) + '...');
+          } else {
+            console.log('Navigation: No token found in localStorage');
+            setHasPestAlertAccess(true);
+            setPestAccessMessage('');
+            return; // Don't make the request if no token
+          }
+        } catch (e) {
+          console.error('Error parsing user from localStorage:', e);
+          setHasPestAlertAccess(true);
+          setPestAccessMessage('');
+          return;
+        }
+      } else {
+        console.log('Navigation: No user found in localStorage');
+        setHasPestAlertAccess(true);
+        setPestAccessMessage('');
+        return;
+      }
+      
+      console.log('Navigation: Final headers being sent:', headers);
+      
+      const res = await fetch(url, { headers });
+      console.log('Response status:', res.status, res.statusText);
+      
+      if (!res.ok) {
+        if (res.status === 403) {
+          let errorPayload = {};
+          try {
+            errorPayload = await res.json();
+          } catch (jsonErr) {
+            console.warn('Navigation: failed to parse subscription error payload', jsonErr);
+          }
+          setHasPestAlertAccess(false);
+          setPestAccessMessage(errorPayload?.message || 'Pest alerts are available with an active premium subscription.');
+          setNotifications([]);
+          setNotificationCount(0);
+          return;
+        }
+        console.error('API response not ok:', res.status, res.statusText);
+        const errorText = await res.text();
+        console.error('Error response body:', errorText);
+        return;
+      }
+      
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Response is not JSON:', contentType);
+        const text = await res.text();
+        console.error('Response body:', text.substring(0, 200));
+        return;
+      }
+      
+      const data = await res.json();
+      const hasAccess = data?.hasAccess !== false;
+      setHasPestAlertAccess(hasAccess);
+
+      if (!hasAccess) {
+        setPestAccessMessage(data?.message || 'Pest alerts are available with an active premium subscription.');
+        setNotifications([]);
+        setNotificationCount(0);
+        return;
+      }
+
+      setPestAccessMessage('');
+      const notificationsPayload = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.notifications)
+          ? data.notifications
+          : [];
+
+      const mapped = notificationsPayload.map((item) => ({
+        ...item,
+        time: item.created_at ? new Date(item.created_at).toLocaleString() : ''
+      }));
+
+      const unreadNotifications = mapped.filter((item) => !(item.is_read || item.readAt));
+
+      unreadNotifications.forEach((item) => {
+        const alertMappingId = item.recipientId || item.recipient_id || item.id || item.notification_id;
+        if (alertMappingId && item.alertId) {
+          createNotificationAlertMapping(alertMappingId, item.alertId);
+        }
+      });
+
+      const unreadCount = typeof data?.unreadCount === 'number'
+        ? data.unreadCount
+        : unreadNotifications.length;
+
+      setNotifications(unreadNotifications);
+      setNotificationCount(unreadCount);
+    } catch (err) {
+      // silent fail; keep UI usable
+      console.error('Failed to fetch notifications', err);
+      setHasPestAlertAccess(true);
+      setPestAccessMessage('');
+    }
+  }, [createNotificationAlertMapping]);
+
+  useEffect(() => {
+    hasPestAlertAccessRef.current = hasPestAlertAccess;
+  }, [hasPestAlertAccess]);
 
   // Handle scroll effect for navbar
   useEffect(() => {
@@ -86,28 +196,144 @@ const Navigation = ({ onSidebarToggle }) => {
         try {
           const userObj = JSON.parse(userStr);
           setUserEmail(userObj.email || "");
+          // load notifications for logged in user
+          fetchNotifications();
         } catch {
           setUserEmail("");
         }
-        setNotificationCount(5);
+        setHasPestAlertAccess(true);
+        setPestAccessMessage('');
+        setNotificationCount(0);
       } else {
         setIsLoggedIn(false);
         setUserEmail("");
-        setNotificationCount(2);
+        setHasPestAlertAccess(true);
+        setPestAccessMessage('');
+        setNotificationCount(0);
       }
     };
     checkUser();
     window.addEventListener('userChanged', checkUser);
     return () => window.removeEventListener('userChanged', checkUser);
+  }, [fetchNotifications]);
+
+  // Initialize socket connection once
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    let userObj;
+    try { userObj = JSON.parse(userStr); } catch { return; }
+
+    // connect socket
+    // front-end env can be provided via a runtime window.__ENV__ shim. Fallback to backend port.
+    const SOCKET_URL = (window.__ENV__ && window.__ENV__.REACT_APP_SOCKET_URL) || 'http://localhost:5000';
+    
+    // Check if we have a valid token before connecting
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      console.log('No auth token found, skipping socket connection');
+      return;
+    }
+    
+    socketRef.current = io(SOCKET_URL, { transports: ['websocket', 'polling'], auth: { token } });
+
+    socketRef.current.on('connect', () => {
+      // register this client so server can target by user id
+      socketRef.current.emit('register', { userId: userObj.id, userType: userObj.user_type, premium: !!userObj.premium });
+    });
+
+    const handleIncomingNotification = (notification) => {
+      if (!notification || !hasPestAlertAccessRef.current) {
+        return;
+      }
+
+      const type = notification.type || notification.alertType;
+      if (type !== 'pest_alert' && type !== 'weather_alert') {
+        return;
+      }
+
+      setNotifications(prev => {
+        const formatted = {
+          ...notification,
+          type,
+          alertCategory: type === 'weather_alert' ? 'weather' : 'pest',
+          time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
+        };
+        const incomingKey = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
+        if (!incomingKey) {
+          return [formatted, ...prev];
+        }
+        const alreadyExists = prev.some(n => {
+          const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+          return existingKey === incomingKey;
+        });
+        if (alreadyExists) {
+          return prev.map(n => {
+            const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+            return existingKey === incomingKey ? formatted : n;
+          });
+        }
+        return [formatted, ...prev];
+      });
+
+      setNotificationCount(c => c + 1);
+    };
+
+    socketRef.current.on('new_pest_alert', handleIncomingNotification);
+    socketRef.current.on('new_weather_alert', handleIncomingNotification);
+    socketRef.current.on('new_notification', handleIncomingNotification);
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('new_pest_alert', handleIncomingNotification);
+        socketRef.current.off('new_weather_alert', handleIncomingNotification);
+        socketRef.current.off('new_notification', handleIncomingNotification);
+        socketRef.current.disconnect();
+      }
+    };
   }, []);
 
+  useEffect(() => {
+    const handleUnreadCountUpdated = (event) => {
+      if (!hasPestAlertAccess) {
+        return;
+      }
+      const incomingCount = event?.detail?.unreadCount;
+      if (typeof incomingCount === 'number') {
+        setNotificationCount(Math.max(0, incomingCount));
+      }
+    };
+
+    window.addEventListener('notificationUnreadCountUpdated', handleUnreadCountUpdated);
+    return () => window.removeEventListener('notificationUnreadCountUpdated', handleUnreadCountUpdated);
+  }, [hasPestAlertAccess]);
+
+  useEffect(() => {
+    const onNotificationRead = (event) => {
+      if (!hasPestAlertAccess) {
+        return;
+      }
+      const identifier = event?.detail?.notificationId;
+      if (!identifier) {
+        return;
+      }
+      setNotifications(prev => prev.filter(notification => {
+        const key = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
+        return key !== identifier;
+      }));
+    };
+
+    window.addEventListener('notificationRead', onNotificationRead);
+    return () => window.removeEventListener('notificationRead', onNotificationRead);
+  }, [hasPestAlertAccess]);
+
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('authToken'); // for cleanup if present
+    authLogout();
     setIsLoggedIn(false);
     setUserEmail("");
-    window.dispatchEvent(new Event('userChanged'));
-    window.location.href = "/"; // redirect to home after logout
+    setNotifications([]);
+    setNotificationCount(0);
+    navigate('/login');
   };
 
   return (
@@ -223,27 +449,180 @@ const Navigation = ({ onSidebarToggle }) => {
                     </button>
                   </div>
                   <div className="max-h-80 overflow-y-auto divide-y divide-green-50">
-                    {notifications.length === 0 ? (
+                    {!hasPestAlertAccess ? (
+                      <div className="p-6 text-center text-slate-600">
+                        <p className="text-sm font-medium text-green-800 mb-3">
+                          {pestAccessMessage || 'Pest alerts are available with an active premium subscription.'}
+                        </p>
+                        <Link
+                          to="/subscription-management"
+                          className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-green-600 text-white font-semibold shadow hover:bg-green-700 transition-colors"
+                        >
+                          Explore Subscription Plans
+                        </Link>
+                      </div>
+                    ) : notifications.length === 0 ? (
                       <div className="p-6 text-center text-slate-400">No notifications yet.</div>
                     ) : notifications.map(n => (
-                      <div key={n.id} className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer">
-                        <div className="flex-shrink-0 mt-1">{n.icon}</div>
+                      <div 
+                        key={n.recipientId || n.recipient_id || n.id || n.notification_id} 
+                        className="flex items-start gap-3 p-4 hover:bg-green-50/60 transition-all group cursor-pointer"
+                        onClick={async () => {
+                          const initialAlertId = n.alertId ||
+                            n.pest_alert_id ||
+                            n.weather_alert_id ||
+                            n.related_id ||
+                            n.id ||
+                            n.notification_id;
+                          const alertCategory = n.alertCategory || (n.type === 'weather_alert' ? 'weather' : n.type === 'pest_alert' ? 'pest' : undefined);
+
+                          console.log('🔔 Navigation notification clicked:', n);
+                          console.log('🆔 Extracted alert ID:', initialAlertId);
+                          console.log('📝 Notification title:', n.title);
+                          console.log('💬 Notification message:', n.message);
+                          
+                          // Mark notification as read in the database
+                          let updatedUnreadCount = null;
+                          let resolvedAlertId = initialAlertId;
+                          let resolvedCategory = alertCategory;
+                          try {
+                            const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
+                            const token = localStorage.getItem('authToken');
+                            
+                            if (token) {
+                              const notificationIdToMark = n.recipientId || n.recipient_id || n.id || n.notification_id;
+                              console.log('🔴 Marking notification as read:', notificationIdToMark);
+                              
+                              const markReadResponse = await fetch(`${base}/api/v1/notifications/mark-read/${notificationIdToMark}`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                }
+                              });
+                              
+                              if (markReadResponse.status === 403) {
+                                let forbiddenPayload = {};
+                                try {
+                                  forbiddenPayload = await markReadResponse.json();
+                                } catch (jsonErr) {
+                                  console.warn('Navigation: failed to parse mark-read access payload', jsonErr);
+                                }
+                                setHasPestAlertAccess(false);
+                                setPestAccessMessage(forbiddenPayload?.message || 'Pest alerts are available with an active premium subscription.');
+                                setNotifications([]);
+                                setNotificationCount(0);
+                                window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: 0 } }));
+                                return;
+                              }
+
+                              if (markReadResponse.ok) {
+                                const result = await markReadResponse.json();
+                                console.log('✅ Notification marked as read successfully');
+                                const mappedAlertId = result?.alertId || result?.pestAlertId || result?.weatherAlertId;
+                                if (result?.alertCategory) {
+                                  resolvedCategory = result.alertCategory;
+                                }
+                                if (mappedAlertId) {
+                                  resolvedAlertId = mappedAlertId;
+                                  createNotificationAlertMapping(result.notificationId || notificationIdToMark, mappedAlertId);
+                                }
+                                if (typeof result?.unreadCount === 'number') {
+                                  updatedUnreadCount = result.unreadCount;
+                                }
+                                if (result?.hasAccess === false) {
+                                  setHasPestAlertAccess(false);
+                                  setPestAccessMessage(result.message || 'Pest alerts are available with an active premium subscription.');
+                                  setNotifications([]);
+                                  setNotificationCount(0);
+                                  window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: 0 } }));
+                                  return;
+                                }
+                              } else {
+                                console.warn('⚠️ Failed to mark notification as read:', markReadResponse.status);
+                              }
+                            }
+                          } catch (err) {
+                            console.warn('⚠️ Error marking notification as read:', err);
+                          }
+                          
+                          const finalAlertId = resolvedAlertId;
+                          const finalCategory = resolvedCategory || 'pest';
+                          const destination = finalCategory === 'weather' ? '/weatheralerts' : '/pestalert/view';
+                          const searchTerms = [
+                            n.title || '',
+                            n.message || '',
+                            typeof n.weatherType === 'string' ? n.weatherType : '',
+                            typeof n.weatherAlert?.weatherType === 'string' ? n.weatherAlert.weatherType : '',
+                            typeof n.pestName === 'string' ? n.pestName : '',
+                            typeof n.pestAlert?.pestName === 'string' ? n.pestAlert.pestName : ''
+                          ].filter(Boolean);
+
+                          navigate(destination, {
+                            state: {
+                              openAlertId: finalAlertId,
+                              fromNotification: true,
+                              alertCategory: finalCategory,
+                              notificationData: n,
+                              searchTerms
+                            }
+                          });
+                          // Remove this notification from the popup immediately so it doesn't remain blurred in the full page
+                          try {
+                            const notificationIdToRemove = n.recipientId || n.recipient_id || n.id || n.notification_id;
+                            setNotifications(prev => prev.filter(x => {
+                              const existingKey = x.recipientId || x.recipient_id || x.id || x.notification_id;
+                              return existingKey !== notificationIdToRemove;
+                            }));
+                            if (typeof updatedUnreadCount === 'number') {
+                              setNotificationCount(updatedUnreadCount);
+                              window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: updatedUnreadCount } }));
+                            } else {
+                              setNotificationCount(prev => {
+                                const nextCount = Math.max(0, prev - 1);
+                                window.dispatchEvent(new CustomEvent('notificationUnreadCountUpdated', { detail: { unreadCount: nextCount } }));
+                                return nextCount;
+                              });
+                            }
+                            // Let other parts of the app know this notification was opened/read
+                            window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId: notificationIdToRemove, alertId: finalAlertId } }));
+                          } catch (err) {
+                            console.warn('Failed to remove notification from popup state', err);
+                          }
+
+                          setShowNotificationPopup(false);
+                        }}
+                      >
+                        <div className="flex-shrink-0 mt-1">{n.icon || <BellIcon className="w-5 h-5 text-green-500" />}</div>
                         <div className="flex-1">
                           <div className="font-semibold text-slate-800 group-hover:text-green-700 transition-colors">{n.title}</div>
                           <div className="text-sm text-slate-600 mt-0.5">{n.message}</div>
                           <div className="text-xs text-slate-400 mt-1">{n.time}</div>
+                          <div className="text-xs text-green-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Click to view details →
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
                   <div className="p-3 text-center border-t border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 rounded-b-2xl">
-                    <Link
-                      to="/notifications"
-                      className="text-green-700 font-semibold hover:underline"
-                      onClick={() => setShowNotificationPopup(false)}
-                    >
-                      View all notifications
-                    </Link>
+                    {hasPestAlertAccess ? (
+                      <Link
+                        to="/notifications"
+                        className="text-green-700 font-semibold hover:underline"
+                        onClick={() => setShowNotificationPopup(false)}
+                      >
+                        View all notifications
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/subscription-management"
+                        className="text-green-700 font-semibold hover:underline"
+                        onClick={() => setShowNotificationPopup(false)}
+                      >
+                        Upgrade subscription
+                      </Link>
+                    )}
                   </div>
                 </div>
               )}
@@ -392,14 +771,6 @@ const Navigation = ({ onSidebarToggle }) => {
                     <Link to="/profile" className="flex items-center gap-3 px-4 py-3 text-sm text-green-700 hover:text-green-800 hover:bg-green-50 transition-all duration-200">
                       <PersonOutlined className="!w-4 !h-4" />
                       My Profile
-                    </Link>
-                    <Link to="/emailalerts" className="flex items-center gap-3 px-4 py-3 text-sm text-green-700 hover:text-green-800 hover:bg-green-50 transition-all duration-200">
-                      <EmailIcon className="!w-4 !h-4" />
-                      Email Alerts
-                    </Link>
-                    <Link to="/settings" className="flex items-center gap-3 px-4 py-3 text-sm text-green-700 hover:text-green-800 hover:bg-green-50 transition-all duration-200">
-                      <GlobeAltIcon className="w-4 h-4" />
-                      Settings
                     </Link>
                     <hr className="my-2 border-green-200" />
                     <button

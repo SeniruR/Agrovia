@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Bug, AlertTriangle, X, Plus, Minus, LogIn } from 'lucide-react';
+import { Bug, AlertTriangle, X, LogIn } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext'; // Corrected Import Path
 
 const UploadPestAlert = () => {
@@ -289,18 +289,20 @@ const UploadPestAlert = () => {
                         <button
                           type="button"
                           onClick={() => removeRecommendation(index)}
-                          className="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors"
+                          className="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-lg font-bold hover:bg-red-200 transition-colors"
+                          aria-label="Remove recommendation"
                         >
-                          <Minus className="w-4 h-4" />
+                          -
                         </button>
                       )}
                       {index === form.recommendations.length - 1 && (
                         <button
                           type="button"
                           onClick={addRecommendation}
-                          className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center hover:bg-green-200 transition-colors"
+                          className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-lg font-bold hover:bg-green-200 transition-colors"
+                          aria-label="Add recommendation"
                         >
-                          <Plus className="w-4 h-4" />
+                          +
                         </button>
                       )}
                     </div>
