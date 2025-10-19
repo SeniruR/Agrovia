@@ -583,7 +583,7 @@ const App = () => {
       />
  <Route path="/conapproval" element={
         <Layout>
-          <ContentApprovalDashboard />
+      <PublishedArticles/>
         </Layout>
       }
       />
