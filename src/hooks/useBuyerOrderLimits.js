@@ -86,19 +86,34 @@ export const useBuyerOrderLimits = () => {
 
   // Calculate remaining orders
   const getRemainingOrders = () => {
-    if (!orderLimits || !currentUsage) return 0;
+    if (!orderLimits || !currentUsage || !user?.id) {
+      return null;
+    }
+
     return Math.max(0, orderLimits.monthlyLimit - currentUsage.ordersThisMonth);
   };
 
   // Check if user can place more orders
   const canPlaceOrder = () => {
     const remaining = getRemainingOrders();
+    if (remaining === null) {
+      return false;
+    }
+
     return remaining > 0;
   };
 
   // Get notification message based on remaining orders
   const getNotificationMessage = () => {
+    if (!user?.id) {
+      return null;
+    }
+
     const remaining = getRemainingOrders();
+    if (remaining === null) {
+      return null;
+    }
+
     const used = currentUsage?.ordersThisMonth || 0;
     const limit = orderLimits?.monthlyLimit || 10;
     
