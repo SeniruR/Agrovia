@@ -8,7 +8,6 @@ const CropRecommendationSystem = () => {
   const { hasAccess, loading: accessLoading, subscriptionData } = useSubscriptionAccess('1');
   
   const [formData, setFormData] = useState({
-    region: '',
     soilType: '',
     rainfall: '',
     temperature: '',
@@ -21,7 +20,6 @@ const CropRecommendationSystem = () => {
   const [recommendations, setRecommendations] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const regions = ['North', 'East', 'South', 'West'];
   const soilTypes = ['Clay', 'Sandy', 'Loam', 'Silt', 'Peaty', 'Chalky'];
   const weatherConditions = ['Sunny', 'Rainy', 'Cloudy'];
 
@@ -55,10 +53,15 @@ const CropRecommendationSystem = () => {
   const analyzeCrops = async () => {
     setIsLoading(true);
     try {
+      const payload = {
+        ...formData,
+        region: 'South Asia'
+      };
+
       const response = await fetch('http://127.0.0.1:5000/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
       console.log('Received data:', data); // Debug log
@@ -175,6 +178,15 @@ const CropRecommendationSystem = () => {
             </div>
           </div>
 
+          <div className="max-w-6xl mx-auto px-4 md:px-6 mt-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start space-x-3">
+              <AlertCircle className="w-6 h-6 text-amber-500 mt-0.5" />
+              <p className="text-sm md:text-base text-amber-700">
+                These recommendations are generated using South Asian regional agronomic datasets. Please adapt the guidance if your farm conditions differ significantly.
+              </p>
+            </div>
+          </div>
+
       <div className="max-w-6xl mx-auto p-4 md:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Form Section */}
@@ -187,25 +199,6 @@ const CropRecommendationSystem = () => {
             </div>
 
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Region
-                  </label>
-                  <select
-                    name="region"
-                    value={formData.region}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                    required
-                  >
-                    <option value="">Select region</option>
-                    {regions.map(region => (
-                      <option key={region} value={region}>{region}</option>
-                    ))}
-                  </select>
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Soil Type
@@ -223,7 +216,6 @@ const CropRecommendationSystem = () => {
                     ))}
                   </select>
                 </div>
-              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -355,7 +347,6 @@ const CropRecommendationSystem = () => {
                 <button
                   type="button"
                   onClick={() => setFormData({
-                    region: '',
                     soilType: '',
                     rainfall: '',
                     temperature: '',
