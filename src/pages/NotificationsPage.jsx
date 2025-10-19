@@ -47,6 +47,25 @@ const NotificationsPage = () => {
   // Function to handle clicking on a notification
   const handleNotificationClick = async (notification) => {
     console.log('🔔 Full notification object:', notification);
+    const notificationType = notification.type || notification.alertType;
+    const alertCategory = notification.alertCategory || (notificationType === 'weather_alert'
+      ? 'weather'
+      : notificationType === 'pest_alert'
+        ? 'pest'
+        : null);
+    const isWeatherAlert = alertCategory === 'weather';
+    let metaObject = null;
+    if (notification.meta) {
+      if (typeof notification.meta === 'string') {
+        try {
+          metaObject = JSON.parse(notification.meta);
+        } catch (metaParseErr) {
+          console.warn('⚠️ Failed to parse notification meta JSON', metaParseErr);
+        }
+      } else if (typeof notification.meta === 'object') {
+        metaObject = notification.meta;
+      }
+    }
     
     // Mark notification as read in the database
     let markReadResult = null;
@@ -124,8 +143,8 @@ const NotificationsPage = () => {
     
     // Try all possible ID fields
     const possibleIdFields = [
-      'alertId', 'pest_alert_id', 'related_id', 'reference_id', 
-      'id', 'notification_id', '_id', 'pestAlertId', 'alert_id'
+      'alertId', 'pest_alert_id', 'weather_alert_id', 'related_id', 'reference_id', 
+      'id', 'notification_id', '_id', 'pestAlertId', 'weatherAlertId', 'alert_id'
     ];
     
     for (const field of possibleIdFields) {
@@ -164,11 +183,19 @@ const NotificationsPage = () => {
 
     if (notificationId) {
       const derivedAlertId = alertId || markReadResult?.alertId || null;
-      window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId, alertId: derivedAlertId } }));
+      window.dispatchEvent(new CustomEvent('notificationRead', { detail: { notificationId, alertId: derivedAlertId, alertCategory } }));
     }
     
+    const metaTerms = [];
+    if (metaObject) {
+      if (metaObject.pestName) metaTerms.push(metaObject.pestName);
+      if (metaObject.weatherType) metaTerms.push(metaObject.weatherType);
+    }
+
     // Navigate with comprehensive debugging data
-    navigate('/pestalert/view', { 
+  const targetRoute = isWeatherAlert ? '/weatheralerts' : '/pestalert/view';
+
+    navigate(targetRoute, { 
       state: { 
         openAlertId: alertId,
         fromNotification: true,
@@ -178,13 +205,16 @@ const NotificationsPage = () => {
           notification.message || notification.notification_message || '',
           // Extract pest name from common patterns
           ...(notification.title || '').split(' ').filter(word => word.length > 3),
-          ...(notification.message || '').split(' ').filter(word => word.length > 3)
+          ...(notification.message || '').split(' ').filter(word => word.length > 3),
+          ...metaTerms
         ].filter(Boolean),
         debugInfo: {
           notificationId: notification.recipientId || notification.recipient_id || notification.id || notification.notification_id,
           timestamp: new Date().toISOString(),
-          userClick: true
-        }
+          userClick: true,
+          alertCategory
+        },
+        alertCategory
       } 
     });
   };
@@ -306,32 +336,42 @@ const NotificationsPage = () => {
       socketRef.current.emit('register', { userId: userObj.id, userType: userObj.user_type, premium: !!userObj.premium });
     });
 
-    socketRef.current.on('new_pest_alert', (notification) => {
-      if (notification && notification.type === 'pest_alert') {
-        setNotifications(prev => {
-          if (!hasPestAlertAccessRef.current) {
-            return prev;
-          }
-          const formatted = {
-            ...notification,
-            time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
-          };
-          const incomingKey = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
-          if (!incomingKey) return [formatted, ...prev];
-          const exists = prev.some(n => {
-            const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
-            return existingKey === incomingKey;
-          });
-          if (exists) {
-            return prev.map(n => {
-              const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
-              return existingKey === incomingKey ? formatted : n;
-            });
-          }
-          return [formatted, ...prev];
-        });
+    const handleIncomingNotification = (notification) => {
+      if (!notification || !hasPestAlertAccessRef.current) {
+        return;
       }
-    });
+
+      const type = notification.type || notification.alertType;
+      if (type !== 'pest_alert' && type !== 'weather_alert') {
+        return;
+      }
+
+      setNotifications(prev => {
+        const formatted = {
+          ...notification,
+          type,
+          alertCategory: type === 'weather_alert' ? 'weather' : 'pest',
+          time: notification.created_at ? new Date(notification.created_at).toLocaleString() : ''
+        };
+        const incomingKey = notification.recipientId || notification.recipient_id || notification.id || notification.notification_id;
+        if (!incomingKey) return [formatted, ...prev];
+        const exists = prev.some(n => {
+          const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+          return existingKey === incomingKey;
+        });
+        if (exists) {
+          return prev.map(n => {
+            const existingKey = n.recipientId || n.recipient_id || n.id || n.notification_id;
+            return existingKey === incomingKey ? formatted : n;
+          });
+        }
+        return [formatted, ...prev];
+      });
+    };
+
+    socketRef.current.on('new_pest_alert', handleIncomingNotification);
+    socketRef.current.on('new_weather_alert', handleIncomingNotification);
+    socketRef.current.on('new_notification', handleIncomingNotification);
 
     // Listen for notificationRead events from other parts of the app
     const onNotificationRead = (e) => {
@@ -350,7 +390,12 @@ const NotificationsPage = () => {
     window.addEventListener('notificationRead', onNotificationRead);
 
     return () => {
-      if (socketRef.current) socketRef.current.disconnect();
+      if (socketRef.current) {
+        socketRef.current.off('new_pest_alert', handleIncomingNotification);
+        socketRef.current.off('new_weather_alert', handleIncomingNotification);
+        socketRef.current.off('new_notification', handleIncomingNotification);
+        socketRef.current.disconnect();
+      }
       window.removeEventListener('notificationRead', onNotificationRead);
     };
   }, []);
@@ -384,11 +429,11 @@ const NotificationsPage = () => {
       <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl border border-green-100 p-8">
         <div className="flex items-center gap-3 mb-8">
           <BellIcon className="w-8 h-8 text-green-500" />
-          <h1 className="text-3xl font-bold text-green-800">Pest Alert Notifications</h1>
+          <h1 className="text-3xl font-bold text-green-800">Alert Notifications</h1>
         </div>
         <div className="divide-y divide-green-50 max-h-[480px] overflow-y-auto scrollbar-thin scrollbar-thumb-green-200 scrollbar-track-green-50">
           {notifications.length === 0 ? (
-            <div className="p-8 text-center text-slate-400">No pest alert notifications yet.</div>
+            <div className="p-8 text-center text-slate-400">No alert notifications yet.</div>
           ) : notifications.map(n => (
             <div 
               key={n.id || n.notification_id} 
@@ -400,10 +445,17 @@ const NotificationsPage = () => {
               <div className="flex-shrink-0 mt-1"><BellIcon className="w-5 h-5 text-green-500" /></div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                    (n.alertCategory || n.type) === 'weather' || n.type === 'weather_alert'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-green-100 text-green-700'
+                  }`}>
+                    {(n.alertCategory || n.type) === 'weather' || n.type === 'weather_alert' ? 'Weather' : 'Pest'}
+                  </span>
                   <div className={`font-semibold text-slate-800 group-hover:text-green-700 transition-colors text-lg ${
                     n.is_read || n.readAt ? 'text-gray-600' : 'text-slate-800'
                   }`}>
-                    {n.title || n.notification_title || 'Pest Alert'}
+                    {n.title || n.notification_title || ((n.alertCategory || n.type) === 'weather' || n.type === 'weather_alert' ? 'Weather Alert' : 'Pest Alert')}
                   </div>
                   {!(n.is_read || n.readAt) && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
