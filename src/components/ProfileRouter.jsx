@@ -47,7 +47,7 @@ const ProfileRouter = () => {
   // Redirect to the appropriate profile page based on user role
   switch (userRole) {
     case 'admin':
-      return <Navigate to="/admin/dashboard" replace />;
+  return <Navigate to="/profile/admin" replace />;
     case 'farmer':
       // Both regular farmers and organizer farmers go to the farmer profile
       return <Navigate to="/profile/farmer" replace />;
