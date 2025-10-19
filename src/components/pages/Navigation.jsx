@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -18,6 +18,7 @@ import {
 import logo from '../../assets/images/agrovia.png';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
+import io from 'socket.io-client';
 import useForecastAccess from '../../hooks/useForecastAccess';
 import CartPopup from '../CartPopup';
 
@@ -27,41 +28,8 @@ const Navigation = ({ onSidebarToggle }) => {
   const [notificationCount, setNotificationCount] = useState(3);
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
 
-  // Example notifications (replace with real data from backend if available)
-  const notifications = [
-    {
-      id: 1,
-      type: 'order',
-      title: 'Order Delivered',
-      message: 'Your order #12345 has been delivered successfully.',
-      time: '2 hours ago',
-      icon: <HomeIcon className="w-5 h-5 text-green-500" />
-    },
-    {
-      id: 2,
-      type: 'payment',
-      title: 'Payment Successful',
-      message: 'Your payment for order #12345 was successful.',
-      time: '3 hours ago',
-      icon: <CurrencyDollarIcon className="w-5 h-5 text-emerald-500" />
-    },
-    {
-      id: 3,
-      type: 'payment',
-      title: 'Payment Unsuccessful',
-      message: 'Your payment for order #12346 failed. Please try again.',
-      time: '5 hours ago',
-      icon: <CurrencyDollarIcon className="w-5 h-5 text-red-500" />
-    },
-    {
-      id: 4,
-      type: 'crop',
-      title: 'New Crop Added',
-      message: 'Fresh Tomatoes are now available in the marketplace.',
-      time: '1 day ago',
-      icon: <BookOpenIcon className="w-5 h-5 text-yellow-500" />
-    }
-  ];
+  const [notifications, setNotifications] = useState([]);
+  const socketRef = useRef(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showCartPopup, setShowCartPopup] = useState(false);
   const { getCartItemCount } = useCart();
@@ -86,6 +54,8 @@ const Navigation = ({ onSidebarToggle }) => {
         try {
           const userObj = JSON.parse(userStr);
           setUserEmail(userObj.email || "");
+          // load notifications for logged in user
+          fetchNotifications();
         } catch {
           setUserEmail("");
         }
@@ -100,6 +70,113 @@ const Navigation = ({ onSidebarToggle }) => {
     window.addEventListener('userChanged', checkUser);
     return () => window.removeEventListener('userChanged', checkUser);
   }, []);
+
+  // Initialize socket connection once
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    let userObj;
+    try { userObj = JSON.parse(userStr); } catch { return; }
+
+    // connect socket
+    // front-end env can be provided via a runtime window.__ENV__ shim. Fallback to backend port.
+    const SOCKET_URL = (window.__ENV__ && window.__ENV__.REACT_APP_SOCKET_URL) || 'http://localhost:5000';
+    
+    // Check if we have a valid token before connecting
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      console.log('No auth token found, skipping socket connection');
+      return;
+    }
+    
+    socketRef.current = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+
+    socketRef.current.on('connect', () => {
+      // register this client so server can target by user id
+      socketRef.current.emit('register', { userId: userObj.id, userType: userObj.user_type, premium: !!userObj.premium });
+    });
+
+    // listen for pest alert notifications
+    socketRef.current.on('new_pest_alert', (notification) => {
+      // ensure we only add pest alert notifications
+      if (notification && notification.type === 'pest_alert') {
+        setNotifications(prev => [notification, ...prev]);
+        setNotificationCount(c => c + 1);
+      }
+    });
+
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      // Default to backend port if no base URL is set
+      const base = (window.__ENV__ && window.__ENV__.REACT_APP_API_URL) || 'http://localhost:5000';
+      // Use the new secure route that doesn't require user ID in URL
+      const url = `${base}/api/v1/notifications/my-notifications`;
+      console.log('Fetching notifications from:', url);
+      
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Get token from localStorage (stored separately as 'authToken')
+      const userStr = localStorage.getItem('user');
+      const token = localStorage.getItem('authToken');
+      
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          console.log('Navigation: User object from localStorage:', userObj);
+          console.log('Navigation: Token from authToken localStorage:', token ? token.substring(0, 20) + '...' : 'No token');
+          
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+            console.log('Navigation: Authorization header:', headers['Authorization'].substring(0, 30) + '...');
+          } else {
+            console.log('Navigation: No token found in localStorage');
+            return; // Don't make the request if no token
+          }
+        } catch (e) {
+          console.error('Error parsing user from localStorage:', e);
+          return;
+        }
+      } else {
+        console.log('Navigation: No user found in localStorage');
+        return;
+      }
+      
+      console.log('Navigation: Final headers being sent:', headers);
+      
+      const res = await fetch(url, { headers });
+      console.log('Response status:', res.status, res.statusText);
+      
+      if (!res.ok) {
+        console.error('API response not ok:', res.status, res.statusText);
+        const errorText = await res.text();
+        console.error('Error response body:', errorText);
+        return;
+      }
+      
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Response is not JSON:', contentType);
+        const text = await res.text();
+        console.error('Response body:', text.substring(0, 200));
+        return;
+      }
+      
+      const data = await res.json();
+      // expect array of notifications
+      setNotifications(data || []);
+      setNotificationCount((data && data.length) ? data.length : 0);
+    } catch (err) {
+      // silent fail; keep UI usable
+      console.error('Failed to fetch notifications', err);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
