@@ -9,6 +9,7 @@ const SupportForm = () => {
     });
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const issueOptions = [
         "Account Problems",
@@ -32,8 +33,36 @@ const SupportForm = () => {
             setError("Please fill in all fields.");
             return;
         }
-        setSuccess("Your message has been sent. We'll get back to you soon!");
-        setForm({ name: "", email: "", issueType: "", message: "" });
+        setError("");
+        setSuccess("");
+        setIsSubmitting(true);
+
+        fetch('/api/v1/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'support',
+                message,
+                name,
+                email,
+                category: issueType,
+                anonymous: false,
+                source: 'web'
+            })
+        }).then(async (res) => {
+            setIsSubmitting(false);
+            if (!res.ok) {
+                const payload = await res.json().catch(() => ({}));
+                setError(payload.message || 'Failed to send message');
+                return;
+            }
+            setSuccess("Your message has been sent. We'll get back to you soon!");
+            setForm({ name: "", email: "", issueType: "", message: "" });
+        }).catch((err) => {
+            setIsSubmitting(false);
+            setError('Network error — unable to send message');
+            console.error('Support submit error', err);
+        });
     };
 
     return (
@@ -92,8 +121,9 @@ const SupportForm = () => {
                         type="submit"
                         className="w-full bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition"
                         style={{ marginTop: '10px' }}
+                        disabled={isSubmitting}
                     >
-                        Send Message
+                        {isSubmitting ? 'Sending...' : 'Send Message'}
                     </button>
                 </form>
             </div>
