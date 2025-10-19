@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import FilterBar from "../../components/pages/Farmer/FarmFilterBar";
 import CropCard from "../../components/pages/Farmer/FarmCropCard";
 import { cropService } from "../../services/cropService";
 import { useMonthlyCropLimit } from "../../hooks/useMonthlyCropLimit";
 
-import { Package } from 'lucide-react';
+import { Package, CheckCircle, X } from 'lucide-react';
 
 const parseRatingValue = (value) => {
   if (value === null || value === undefined) return null;
@@ -51,6 +52,8 @@ const parseRatingValue = (value) => {
 };
 
 function AllCropsView() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user, getAuthHeaders, loading: authLoading } = useAuth();
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
   const [viewMode, setViewMode] = useState('grid');
@@ -61,6 +64,27 @@ function AllCropsView() {
   const [crops, setCrops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successBannerVisible, setSuccessBannerVisible] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    if (!location.state?.cropPostSuccess) {
+      return;
+    }
+
+    setSuccessBannerVisible(true);
+    setSuccessMessage(location.state?.successMessage || 'Your crop post is now live on the marketplace.');
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location, navigate]);
+
+  useEffect(() => {
+    if (!successBannerVisible) {
+      return;
+    }
+
+    const timer = setTimeout(() => setSuccessBannerVisible(false), 6000);
+    return () => clearTimeout(timer);
+  }, [successBannerVisible]);
 
   // Check monthly crop limit (default 5, but will be overridden by subscription)
   const {
@@ -278,6 +302,28 @@ function AllCropsView() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">My Crops</h1>
           <p className="text-gray-600 text-lg">Manage and track your posted crops</p>
         </div>
+
+        {successBannerVisible && (
+          <div className="mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-green-50 border border-green-200 rounded-lg p-4 shadow-sm">
+              <div className="flex items-start">
+                <CheckCircle className="w-6 h-6 text-green-600 mr-3 mt-0.5" />
+                <div>
+                  <p className="text-lg font-semibold text-green-800">Crop Post Published</p>
+                  <p className="text-sm text-green-700">{successMessage}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSuccessBannerVisible(false)}
+                className="mt-3 sm:mt-0 inline-flex items-center text-green-700 hover:text-green-900"
+              >
+                <span className="sr-only">Dismiss success message</span>
+                <X className="w-5 h-5" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        )}
 
         <FilterBar
           viewMode={viewMode}
