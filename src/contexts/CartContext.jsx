@@ -5,6 +5,55 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api/v1'; // Adjust this to match your API URL
 
+const toCoordinate = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const normalizeCartItem = (rawItem = {}) => {
+  const inferredDistrict = (rawItem.district ?? rawItem.location ?? '').toString().trim();
+  const location = rawItem.location ?? inferredDistrict ?? '';
+  const normalizedLatitude = toCoordinate(
+    rawItem.latitude ??
+    rawItem.lat ??
+    rawItem.item_latitude ??
+    rawItem.farmer_latitude ??
+    rawItem.productLatitude ??
+    rawItem.product_latitude ??
+    rawItem.shop_latitude ??
+    rawItem.buyer_latitude ??
+    rawItem.itemLatitude
+  );
+  const normalizedLongitude = toCoordinate(
+    rawItem.longitude ??
+    rawItem.lon ??
+    rawItem.item_longitude ??
+    rawItem.farmer_longitude ??
+    rawItem.productLongitude ??
+    rawItem.product_longitude ??
+    rawItem.shop_longitude ??
+    rawItem.buyer_longitude ??
+    rawItem.itemLongitude
+  );
+
+  return {
+    ...rawItem,
+    district: inferredDistrict || null,
+    location,
+    latitude: normalizedLatitude,
+    longitude: normalizedLongitude
+  };
+};
+
+const parseRateValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return null;
+  return numeric;
+};
+
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -24,19 +73,25 @@ export const CartProvider = ({ children }) => {
       
       if (response.data.success) {
         // Map API cart items to local shape
-        let mappedItems = response.data.data.map(item => ({
-          id: item.productId,
-          cartItemId: item.id,
-          name: item.productName,
-          price: Number(item.priceAtAddTime),
-          unit: item.productUnit,
-          farmer: item.farmerName,
-          location: item.district || item.location, // Use district if available, fallback to location
-          image: item.productImage,
-          quantity: item.quantity,
-          addedAt: item.createdAt,
-          productType: item.productType || 'crop' // Include productType from database
-        }));
+        let mappedItems = response.data.data.map(item => {
+          const baseItem = {
+            ...item,
+            id: item.productId,
+            cartItemId: item.id,
+            name: item.productName,
+            price: Number(item.priceAtAddTime),
+            unit: item.productUnit,
+            farmer: item.farmerName,
+            location: item.district || item.location,
+            district: item.district || item.location,
+            image: item.productImage,
+            quantity: item.quantity,
+            addedAt: item.createdAt,
+            productType: item.productType || 'crop'
+          };
+
+          return normalizeCartItem(baseItem);
+        });
 
         // Try to fetch transport allocations and merge into cart items so selections persist after refresh
         try {
@@ -54,8 +109,8 @@ export const CartProvider = ({ children }) => {
               const vehicleNumber = alloc.vehicle_number ?? alloc.vehicle_no ?? alloc.vehicleNumber ?? null;
               // Prefer DB phone_no if present, otherwise fall back to common variants
               const phone = alloc.phone_no ?? alloc.phone_number ?? alloc.phone ?? alloc.phoneNumber ?? null;
-              const baseRate = Number(alloc.base_rate ?? alloc.baseRate ?? alloc.baseRateValue ?? 500);
-              const perKmRate = Number(alloc.per_km_rate ?? alloc.perKmRate ?? alloc.perKmRateValue ?? 25);
+              const baseRate = parseRateValue(alloc.base_rate ?? alloc.baseRate ?? alloc.baseRateValue);
+              const perKmRate = parseRateValue(alloc.per_km_rate ?? alloc.perKmRate ?? alloc.perKmRateValue);
               const distance = Number(alloc.calculated_distance ?? alloc.distance ?? 0) || 0;
               const cost = Number(alloc.transport_cost ?? alloc.cost ?? 0) || 0;
 
@@ -112,7 +167,8 @@ export const CartProvider = ({ children }) => {
       const savedCart = localStorage.getItem('agrovia-cart');
       if (savedCart) {
         try {
-          setCartItems(JSON.parse(savedCart));
+          const parsed = JSON.parse(savedCart);
+          setCartItems(Array.isArray(parsed) ? parsed.map(normalizeCartItem) : []);
         } catch (error) {
           console.error('Error loading cart from localStorage:', error);
         }
@@ -131,7 +187,8 @@ export const CartProvider = ({ children }) => {
       const savedCart = localStorage.getItem('agrovia-cart');
       if (savedCart) {
         try {
-          setCartItems(JSON.parse(savedCart));
+          const parsed = JSON.parse(savedCart);
+          setCartItems(Array.isArray(parsed) ? parsed.map(normalizeCartItem) : []);
         } catch (error) {
           console.error('Error loading cart from localStorage:', error);
         }
@@ -146,21 +203,30 @@ export const CartProvider = ({ children }) => {
   
   const addToCart = async (product, quantity = 1) => {
     console.log('📦 Adding to cart:', { product, quantity, user: !!user });
+    const normalizedProduct = normalizeCartItem(product);
+    const cartProductId = normalizedProduct.id ?? product.id;
+    const cartDistrict = normalizedProduct.district || normalizedProduct.location;
+    const cartLatitude = normalizedProduct.latitude;
+    const cartLongitude = normalizedProduct.longitude;
+    const cartProductType = normalizedProduct.productType || product.productType || 'crop';
+
     try {
       if (user) {
         // Add to database if user is logged in
         console.log('🔐 User logged in, saving to database...');
         const cartData = {
-          productId: product.id,
+          productId: cartProductId,
           quantity,
-          productName: product.name,
-          priceAtAddTime: product.price,
-          productUnit: product.unit,
-          farmerName: product.farmer,
-          location: product.district || product.location, // Use district if available, fallback to location
-          district: product.district || product.location, // Also send district field separately
-          productImage: product.image,
-          productType: product.productType || 'crop' // Default to 'crop' if not specified
+          productName: normalizedProduct.name ?? product.name,
+          priceAtAddTime: normalizedProduct.price ?? product.price,
+          productUnit: normalizedProduct.unit ?? product.unit,
+          farmerName: normalizedProduct.farmer ?? product.farmer,
+          location: cartDistrict,
+          district: cartDistrict,
+          productImage: normalizedProduct.image ?? product.image,
+          productType: cartProductType,
+          latitude: cartLatitude,
+          longitude: cartLongitude
         };
         console.log('📊 Cart data being sent:', cartData);
         
@@ -179,28 +245,38 @@ export const CartProvider = ({ children }) => {
         console.log('👤 User not logged in, saving to localStorage only');
         // Add to local state if user is not logged in
         setCartItems(prevItems => {
-          const existingItem = prevItems.find(item => item.id === product.id);
+          const existingItem = prevItems.find(item => (
+            item.id === cartProductId &&
+            (item.productType || 'crop') === cartProductType
+          ));
           
           if (existingItem) {
             // Update quantity if item already exists
             return prevItems.map(item =>
-              item.id === product.id
-                ? { ...item, quantity: item.quantity + quantity }
+              item.id === cartProductId && (item.productType || 'crop') === cartProductType
+                ? {
+                    ...item,
+                    quantity: item.quantity + quantity,
+                    latitude: item.latitude ?? cartLatitude,
+                    longitude: item.longitude ?? cartLongitude,
+                    district: item.district || cartDistrict,
+                    location: item.location || cartDistrict
+                  }
                 : item
             );
           } else {
             // Add new item to cart
-            return [...prevItems, {
-              id: product.id,
-              name: product.name,
-              price: product.price,
-              unit: product.unit,
-              farmer: product.farmer,
-              location: product.district || product.location, // Use district if available, fallback to location
-              image: product.image,
+            return [...prevItems, normalizeCartItem({
+              ...normalizedProduct,
+              id: cartProductId,
+              productType: cartProductType,
+              district: cartDistrict,
+              location: cartDistrict,
+              latitude: cartLatitude,
+              longitude: cartLongitude,
               quantity: quantity,
               addedAt: new Date().toISOString()
-            }];
+            })];
           }
         });
       }
@@ -219,26 +295,36 @@ export const CartProvider = ({ children }) => {
       console.log('⚠️ Falling back to local storage due to API error');
       // Add to local state as fallback if API call fails
       setCartItems(prevItems => {
-        const existingItem = prevItems.find(item => item.id === product.id);
+        const existingItem = prevItems.find(item => (
+          item.id === cartProductId &&
+          (item.productType || 'crop') === cartProductType
+        ));
         
         if (existingItem) {
           return prevItems.map(item =>
-            item.id === product.id
-              ? { ...item, quantity: item.quantity + quantity }
+            item.id === cartProductId && (item.productType || 'crop') === cartProductType
+              ? {
+                  ...item,
+                  quantity: item.quantity + quantity,
+                  latitude: item.latitude ?? cartLatitude,
+                  longitude: item.longitude ?? cartLongitude,
+                  district: item.district || cartDistrict,
+                  location: item.location || cartDistrict
+                }
               : item
           );
         } else {
-          return [...prevItems, {
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            unit: product.unit,
-            farmer: product.farmer,
-            district: product.district || product.location,
-            image: product.image,
+          return [...prevItems, normalizeCartItem({
+            ...normalizedProduct,
+            id: cartProductId,
+            productType: cartProductType,
+            district: cartDistrict,
+            location: cartDistrict,
+            latitude: cartLatitude,
+            longitude: cartLongitude,
             quantity: quantity,
             addedAt: new Date().toISOString()
-          }];
+          })];
         }
       });
     }
@@ -360,15 +446,21 @@ export const CartProvider = ({ children }) => {
         
         // Add each local cart item to the database
         for (const item of localCartItems) {
+          const normalizedItem = normalizeCartItem(item);
+          const syncDistrict = normalizedItem.district || normalizedItem.location;
           await axios.post(`${API_URL}/cart`, {
-            productId: item.id,
-            quantity: item.quantity,
-            productName: item.name,
-            priceAtAddTime: item.price,
-            productUnit: item.unit,
-            farmerName: item.farmer,
-            district: item.district || item.location,
-            productImage: item.image
+            productId: normalizedItem.id ?? item.id,
+            quantity: normalizedItem.quantity ?? item.quantity,
+            productName: normalizedItem.name ?? item.name,
+            priceAtAddTime: normalizedItem.price ?? item.price,
+            productUnit: normalizedItem.unit ?? item.unit,
+            farmerName: normalizedItem.farmer ?? item.farmer,
+            location: syncDistrict,
+            district: syncDistrict,
+            productImage: normalizedItem.image ?? item.image,
+            productType: normalizedItem.productType || item.productType || 'crop',
+            latitude: normalizedItem.latitude,
+            longitude: normalizedItem.longitude
           }, {
             headers: getAuthHeaders()
           });
@@ -421,8 +513,8 @@ export const CartProvider = ({ children }) => {
   // Calculate transport cost using the provided formula
   const calculateTransportCost = (distance, weight, transporter) => {
     // Default rates if not provided by transporter
-    const baseRate = transporter.baseRate || 500; // LKR
-    const perKmRate = transporter.perKmRate || 25; // LKR per km
+    const baseRate = transporter.baseRate ?? 500; // LKR
+    const perKmRate = transporter.perKmRate ?? 25; // LKR per km
     const weightMultiplier = Math.max(1, weight / 100); // Scale weight factor (per 100kg)
     
     const deliveryFee = (baseRate + (distance * perKmRate)) * weightMultiplier;
@@ -434,7 +526,7 @@ export const CartProvider = ({ children }) => {
     setCartItems(prevItems =>
       prevItems.map(item => {
         if (item.id === itemId) {
-          let transportCost = transporter.baseRate || 500; // Default base rate
+          let transportCost = transporter.baseRate ?? null;
           let distance = 0;
           
           // Calculate distance and cost if coordinates are available and valid
@@ -456,6 +548,10 @@ export const CartProvider = ({ children }) => {
               transportCost = calculateTransportCost(distance, estimatedWeight, transporter);
             }
           }
+
+          if (transportCost == null) {
+            transportCost = transporter.baseRate ?? 500;
+          }
           
           // Resolve phone values preferring DB phone_no
           const resolvedPhone = transporter.phone_no ?? transporter.phone_number ?? transporter.phone ?? transporter.phoneNumber ?? null;
@@ -472,8 +568,8 @@ export const CartProvider = ({ children }) => {
               district: transporter.district,
               distance: distance,
               cost: transportCost,
-              baseRate: transporter.baseRate || 500,
-              perKmRate: transporter.perKmRate || 25
+              baseRate: transporter.baseRate ?? null,
+              perKmRate: transporter.perKmRate ?? null
             }
           };
         }

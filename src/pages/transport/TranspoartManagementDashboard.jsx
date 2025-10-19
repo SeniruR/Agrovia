@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { 
   Truck, 
   MapPin, 
@@ -20,13 +20,24 @@ import {
   Eye,
   ArrowRight,
   MessageCircle,
-  Shield
+  Shield,
+  X
 } from 'lucide-react';
+import transportService from '../../services/transportService';
 
 const TransportDashboard = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [pricingModalOpen, setPricingModalOpen] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingSaving, setPricingSaving] = useState(false);
+  const [pricingError, setPricingError] = useState('');
+  const [pricingSuccess, setPricingSuccess] = useState('');
+  const [transporters, setTransporters] = useState([]);
+  const [selectedTransporterId, setSelectedTransporterId] = useState('');
+  const [baseRateValue, setBaseRateValue] = useState('');
+  const [perKmRateValue, setPerKmRateValue] = useState('');
 
   // Sample delivery data
   const deliveries = [
@@ -136,6 +147,139 @@ const TransportDashboard = () => {
     earnings: deliveries.filter(d => d.status === 'completed').reduce((sum, d) => sum + parseInt(d.estimatedEarnings.replace(/[^\d]/g, '')), 0)
   };
 
+  const formatRateForInput = useCallback((value) => {
+    if (value === null || value === undefined || value === '') {
+      return '';
+    }
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) {
+      return String(value);
+    }
+    return numeric.toString();
+  }, []);
+
+  const loadTransporters = useCallback(async () => {
+    setPricingLoading(true);
+    setPricingError('');
+    setPricingSuccess('');
+
+    try {
+      const response = await transportService.getAllTransporters();
+      let list = [];
+      if (response?.success && Array.isArray(response.data)) {
+        list = response.data;
+      } else if (Array.isArray(response?.data)) {
+        list = response.data;
+      } else if (Array.isArray(response)) {
+        list = response;
+      }
+
+      setTransporters(list);
+
+      if (list.length === 0) {
+        setSelectedTransporterId('');
+        setBaseRateValue('');
+        setPerKmRateValue('');
+        return;
+      }
+
+      const currentId = list.some(t => String(t.id) === String(selectedTransporterId))
+        ? String(selectedTransporterId)
+        : String(list[0].id);
+      const activeTransporter = list.find(t => String(t.id) === currentId);
+
+      setSelectedTransporterId(currentId);
+      setBaseRateValue(formatRateForInput(activeTransporter?.base_rate ?? activeTransporter?.baseRate));
+      setPerKmRateValue(formatRateForInput(activeTransporter?.per_km_rate ?? activeTransporter?.perKmRate));
+    } catch (error) {
+      console.error('Failed to load transporters for pricing:', error);
+      setPricingError(error?.message || 'Failed to load transporters');
+    } finally {
+      setPricingLoading(false);
+    }
+  }, [selectedTransporterId, formatRateForInput]);
+
+  useEffect(() => {
+    if (pricingModalOpen) {
+      loadTransporters();
+    } else {
+      setPricingError('');
+      setPricingSuccess('');
+    }
+  }, [pricingModalOpen, loadTransporters]);
+
+  const handleTransporterSelection = (event) => {
+    const id = event.target.value;
+    setSelectedTransporterId(id);
+    const transporter = transporters.find(t => String(t.id) === String(id));
+    setBaseRateValue(formatRateForInput(transporter?.base_rate ?? transporter?.baseRate));
+    setPerKmRateValue(formatRateForInput(transporter?.per_km_rate ?? transporter?.perKmRate));
+    setPricingSuccess('');
+    setPricingError('');
+  };
+
+  const handlePricingSubmit = async (event) => {
+    event.preventDefault();
+    if (!selectedTransporterId) {
+      setPricingError('Please select a transporter');
+      return;
+    }
+
+    const trimmedBase = baseRateValue.trim();
+    const trimmedPer = perKmRateValue.trim();
+
+    if (trimmedBase !== '' && (Number.isNaN(Number(trimmedBase)) || Number(trimmedBase) < 0)) {
+      setPricingError('Base rate must be a non-negative number');
+      return;
+    }
+
+    if (trimmedPer !== '' && (Number.isNaN(Number(trimmedPer)) || Number(trimmedPer) < 0)) {
+      setPricingError('Per km rate must be a non-negative number');
+      return;
+    }
+
+    setPricingSaving(true);
+    setPricingError('');
+    setPricingSuccess('');
+
+    const payload = {};
+    if (trimmedBase !== '') {
+      payload.base_rate = Number(trimmedBase);
+    } else {
+      payload.base_rate = '';
+    }
+
+    if (trimmedPer !== '') {
+      payload.per_km_rate = Number(trimmedPer);
+    } else {
+      payload.per_km_rate = '';
+    }
+
+    try {
+      const response = await transportService.updateTransporterPricing(selectedTransporterId, payload);
+      if (!response?.success) {
+        throw new Error(response?.message || 'Failed to update transporter pricing');
+      }
+
+      const updated = response?.data;
+      if (updated) {
+        setTransporters(prev => prev.map(t => String(t.id) === String(updated.id) ? { ...t, ...updated } : t));
+        setBaseRateValue(formatRateForInput(updated.base_rate ?? updated.baseRate));
+        setPerKmRateValue(formatRateForInput(updated.per_km_rate ?? updated.perKmRate));
+      } else {
+        await loadTransporters();
+      }
+
+      setPricingSuccess('Pricing updated successfully');
+      setTimeout(() => setPricingSuccess(''), 4000);
+    } catch (error) {
+      console.error('Failed to update transporter pricing:', error);
+      setPricingError(error?.message || 'Failed to update transporter pricing');
+    } finally {
+      setPricingSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       {/* Enhanced Header */}
@@ -188,6 +332,17 @@ const TransportDashboard = () => {
                 <Leaf className="w-5 h-5 text-green-200" />
                 <span className="text-green-100 font-medium">Eco-Friendly</span>
               </div>
+              <button
+                onClick={() => setPricingModalOpen(true)}
+                className="flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.25) 100%)',
+                  border: '1px solid rgba(255, 255, 255, 0.4)'
+                }}
+              >
+                <DollarSign className="w-5 h-5 text-white" />
+                <span>Manage Pricing</span>
+              </button>
             </div>
           </div>
 
@@ -406,6 +561,15 @@ const TransportDashboard = () => {
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span>Chat Support</span>
+                </button>
+
+                <button
+                  className="flex items-center space-x-2 px-4 py-3 rounded-xl font-medium text-green-700
+                             bg-white/90 border border-green-200 shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105"
+                  onClick={() => setPricingModalOpen(true)}
+                >
+                  <DollarSign className="w-4 h-4" />
+                  <span>Manage Pricing</span>
                 </button>
               </div>
             </div>
@@ -785,6 +949,116 @@ const TransportDashboard = () => {
           </div>
         )}
       </div>
+
+      {pricingModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 border border-green-100 relative">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Manage Transport Pricing</h3>
+                <p className="text-sm text-slate-500 mt-1">Update base rate and per kilometre rate for verified transporters.</p>
+              </div>
+              <button
+                className="text-slate-400 hover:text-slate-600"
+                onClick={() => setPricingModalOpen(false)}
+                aria-label="Close pricing modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {pricingError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700">
+                {pricingError}
+              </div>
+            )}
+
+            {pricingSuccess && (
+              <div className="mb-4 p-3 rounded-xl bg-green-50 border border-green-100 text-sm text-green-700">
+                {pricingSuccess}
+              </div>
+            )}
+
+            {pricingLoading ? (
+              <div className="py-12 text-center">
+                <div className="mx-auto mb-3 h-12 w-12 animate-spin rounded-full border-4 border-green-200 border-t-green-500"></div>
+                <p className="text-sm text-slate-500">Loading transporters…</p>
+              </div>
+            ) : transporters.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-slate-600">No transporters found. Once transporters are registered, you can manage their pricing here.</p>
+              </div>
+            ) : (
+              <form onSubmit={handlePricingSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Select Transporter</label>
+                  <select
+                    value={selectedTransporterId}
+                    onChange={handleTransporterSelection}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    {transporters.map(transporter => {
+                      const labelName = transporter.full_name || transporter.name || `Transporter ${transporter.id}`;
+                      const district = transporter.district ? ` • ${transporter.district}` : '';
+                      return (
+                        <option key={transporter.id} value={transporter.id}>
+                          {labelName}{district}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Base Rate (LKR)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={baseRateValue}
+                      onChange={(e) => setBaseRateValue(e.target.value)}
+                      placeholder="e.g. 500"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Per KM Rate (LKR)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={perKmRateValue}
+                      onChange={(e) => setPerKmRateValue(e.target.value)}
+                      placeholder="e.g. 25"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-500">Leave a field blank if you want to clear the saved value.</p>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    onClick={() => setPricingModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={pricingSaving}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold shadow hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {pricingSaving ? 'Saving…' : 'Save Pricing'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

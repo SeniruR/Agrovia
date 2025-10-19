@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 
-import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload, Pencil, Trash2 } from 'lucide-react';
+import { Search, Filter, Star, MapPin, ShoppingCart, Leaf, Package, Beaker, Grid, List, TrendingUp, Award, Clock, Phone, ChevronLeft, ChevronRight, Upload, Pencil, Trash2, Plus, Minus, X, Check } from 'lucide-react';
 import { useCart } from '../../hooks/useCart';
 
 import { useAuth } from '../../contexts/AuthContext';
-// Add this component at the top of your file
+
 const ImageWithFallback = ({ src, alt, className }) => {
   const [imgSrc, setImgSrc] = useState(src);
   const [loading, setLoading] = useState(true);
@@ -37,9 +37,9 @@ const MAX_REVIEW_ATTACHMENTS = 1;
 const stripBackendPrefix = (value) => {
   if (!value) return value;
   if (value.startsWith(BACKEND_URL)) {
-    return value.slice(BACKEND_URL.length).replace(/^\/+/, '');
+    return value.slice(BACKEND_URL.length).replace(/^\/\/+/, '');
   }
-  return value.replace(/^\/+/, '');
+  return value.replace(/^\/\/+/, '');
 };
 
 const ensureDataUrl = (mimetype, data) => {
@@ -227,6 +227,70 @@ const ShopItemsListing = ({ onItemClick, onViewCart, initialReviewRequest }) => 
   const [deletingReview, setDeletingReview] = useState(false);
   // Quantity for selected product in modal
   const [modalQuantity, setModalQuantity] = useState(1);
+  const { minOrderQty: modalMinOrderQty, maxOrderQty: modalMaxOrderQty, available: modalAvailable } = useMemo(() => {
+    if (!selectedProduct) {
+      return { minOrderQty: 1, maxOrderQty: null, available: null };
+    }
+
+    const numericMin = Number(selectedProduct.minOrderQuantity);
+    const minOrder = Number.isFinite(numericMin) && numericMin > 0 ? Math.floor(numericMin) : 1;
+
+    const numericMax = Number(selectedProduct.maxOrderQuantity);
+    let maxOrder = Number.isFinite(numericMax) && numericMax > 0 ? Math.floor(numericMax) : null;
+
+    const rawAvailable = Number(selectedProduct.available_quantity ?? selectedProduct.quantity);
+    const hasAvailable = Number.isFinite(rawAvailable) && rawAvailable > 0;
+    const available = hasAvailable ? Math.floor(rawAvailable) : null;
+
+    if (hasAvailable) {
+      maxOrder = maxOrder !== null ? Math.min(maxOrder, available) : available;
+    }
+
+    if (maxOrder !== null && maxOrder < minOrder) {
+      maxOrder = minOrder;
+    }
+
+    return { minOrderQty: minOrder, maxOrderQty: maxOrder, available };
+  }, [selectedProduct]);
+
+  const modalUnitLabel = (selectedProduct?.unit || 'unit').toString().trim() || 'unit';
+  const modalUpperBound = modalMaxOrderQty ?? modalAvailable ?? null;
+
+  const clampModalQuantity = useCallback((value) => {
+    let next = Number(value);
+    if (!Number.isFinite(next) || next <= 0) {
+      next = modalMinOrderQty;
+    }
+    next = Math.floor(next);
+    next = Math.max(modalMinOrderQty, next);
+    if (modalUpperBound !== null) {
+      next = Math.min(modalUpperBound, next);
+    }
+    return next;
+  }, [modalMinOrderQty, modalUpperBound]);
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setModalQuantity(clampModalQuantity(modalMinOrderQty));
+    }
+  }, [selectedProduct, modalMinOrderQty, clampModalQuantity]);
+
+  const formatModalQuantityUnit = useCallback((value) => `${value} ${modalUnitLabel}`.trim(), [modalUnitLabel]);
+
+  const modalQuantitySummaryParts = useMemo(() => {
+    const parts = [`Min ${formatModalQuantityUnit(modalMinOrderQty)}`];
+    if (modalMaxOrderQty !== null) {
+      parts.push(`Max ${formatModalQuantityUnit(modalMaxOrderQty)}`);
+    } else if (modalAvailable !== null) {
+      parts.push(`Available ${formatModalQuantityUnit(modalAvailable)}`);
+    }
+    return parts;
+  }, [formatModalQuantityUnit, modalMinOrderQty, modalMaxOrderQty, modalAvailable]);
+
+  const modalAvailabilityDisplay = modalAvailable !== null
+    ? `${formatModalQuantityUnit(modalAvailable)} available`
+    : 'Availability updating';
+
   const fileInputRef = useRef(null);
   const { user, getAuthHeaders } = useAuth();
   // Fetch current user's orders once to determine which products they purchased
@@ -788,22 +852,88 @@ useEffect(() => {
          review_count: item.review_count
        });
 
-       const numericRating = Number(item.average_rating ?? item.rating);
-       const rating = Number.isFinite(numericRating) ? numericRating : null;
-       const reviewCountRaw = Number(item.review_count ?? item.reviewCount);
-       const reviewCount = Number.isFinite(reviewCountRaw) && reviewCountRaw > 0 ? reviewCountRaw : 0;
+  const numericRating = Number(item.average_rating ?? item.rating);
+  const rating = Number.isFinite(numericRating) ? numericRating : null;
+  const reviewCountRaw = Number(item.review_count ?? item.reviewCount);
+  const reviewCount = Number.isFinite(reviewCountRaw) && reviewCountRaw > 0 ? reviewCountRaw : 0;
+  const cityOrDistrict = (item.city || item.district || item.location || '').toString().trim();
+  const availabilityCandidate = Number(item.available_quantity ?? item.quantity ?? item.stock_quantity ?? item.inventory_quantity);
+  const hasAvailability = Number.isFinite(availabilityCandidate) && availabilityCandidate > 0;
+  const availableUnits = hasAvailability ? Math.max(1, Math.floor(availabilityCandidate)) : null;
+
+       const minCandidates = [
+         item.minimum_order_quantity,
+         item.minimumOrderQuantity,
+         item.min_order_quantity,
+         item.minOrderQuantity,
+         item.minimum_quantity,
+         item.minimumQuantity,
+         item.minimum_quantity_bulk,
+         item.min_order,
+         item.minQuantity
+       ]
+         .map(candidate => Number(candidate))
+         .filter(candidate => Number.isFinite(candidate) && candidate > 0);
+
+       const rawMinOrderQuantity = minCandidates.length > 0 ? Math.min(...minCandidates) : null;
+       let minOrderQuantity = rawMinOrderQuantity ?? 1;
+       if (!Number.isFinite(minOrderQuantity) || minOrderQuantity <= 0) {
+         minOrderQuantity = 1;
+       }
+       minOrderQuantity = Math.floor(minOrderQuantity);
+       if (availableUnits !== null) {
+         minOrderQuantity = Math.min(minOrderQuantity, availableUnits);
+       }
+       minOrderQuantity = Math.max(1, minOrderQuantity);
+
+       const maxCandidates = [
+         item.maximum_order_quantity,
+         item.maximumOrderQuantity,
+         item.max_order_quantity,
+         item.maxOrderQuantity,
+         item.maximum_quantity,
+         item.max_quantity,
+         item.max_order,
+         item.order_limit,
+         item.bulk_order_limit,
+         item.available_quantity,
+         item.quantity
+       ]
+         .map(candidate => Number(candidate))
+         .filter(candidate => Number.isFinite(candidate) && candidate > 0);
+
+       let maxOrderQuantity = maxCandidates.length > 0 ? Math.max(...maxCandidates) : null;
+       if (maxOrderQuantity !== null) {
+         maxOrderQuantity = Math.floor(maxOrderQuantity);
+       }
+       if (availableUnits !== null) {
+         if (maxOrderQuantity !== null) {
+           maxOrderQuantity = Math.min(availableUnits, maxOrderQuantity);
+         } else {
+           maxOrderQuantity = availableUnits;
+         }
+       }
+       if (maxOrderQuantity !== null) {
+         maxOrderQuantity = Math.max(minOrderQuantity, maxOrderQuantity);
+       }
+
+       const resolvedAvailability = availableUnits ?? 0;
 
        return {
          ...item,
+         city: cityOrDistrict || item.city || null,
+         district: cityOrDistrict || item.district || null,
          organicCertified: Boolean(item.organic_certified),
          termsAccepted: Boolean(item.terms_accepted),
          productType: inferProductType(item),
          productName: item.product_name,
-         inStock: item.available_quantity > 0,
+         inStock: resolvedAvailability > 0,
          rating,
          reviewCount,
-         quantity: Number(item.available_quantity),
-         available_quantity: Number(item.available_quantity), // Ensure this is properly set as a number
+         quantity: resolvedAvailability,
+         available_quantity: resolvedAvailability,
+         minOrderQuantity,
+         maxOrderQuantity,
          unit: item.unit,
          description: item.product_description,
          usage: item.usage_history,
@@ -862,48 +992,86 @@ useEffect(() => {
 
   const handleAddToCart = (item, e, qty = 1) => {
     e.stopPropagation();
-    if (item.inStock) {
-      const available = Number(item.available_quantity) || 0;
-      const clampedQty = Math.max(1, Math.min(qty, available));
-      // Normalize shop item to CartContext's expected product shape
-      const primaryImage = Array.isArray(item.images) ? (item.images[0] || null) : (item.images || null);
-      const name = item.product_name || item.productName || item.name || 'Product';
-      const unit = item.unit || item.product_unit || 'unit';
-      const price = Number(item.price) || Number(item.priceAtAddTime) || 0;
-      const shopName = item.shop_name || item.shopName || item.brand || '';
-      const cityOrDistrict = item.city || item.district || item.location || '';
-
-      const productForCart = {
-        id: item.id,
-        name,
-        price,
-        unit,
-        // Use shop name in farmer field to reuse existing UI labels
-        farmer: shopName,
-        district: cityOrDistrict,
-        location: cityOrDistrict,
-        image: primaryImage,
-        productType: 'shop' // Explicitly mark as shop item
-      };
-
-      addToCart(productForCart, clampedQty);
-      // Show success message
-      const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
-      toast.innerHTML = `
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-          </svg>
-          Added ${clampedQty} to cart!
-        </div>
-      `;
-      document.body.appendChild(toast);
-      setTimeout(() => {
-        toast.style.transform = 'translateX(100%)';
-        setTimeout(() => document.body.removeChild(toast), 300);
-      }, 2000);
+    if (!item || !item.inStock) {
+      return;
     }
+
+    const availableRaw = Number(item.available_quantity ?? item.quantity);
+    const hasAvailable = Number.isFinite(availableRaw) && availableRaw > 0;
+
+    const minOrder = (() => {
+      const candidate = Number(item.minOrderQuantity);
+      if (Number.isFinite(candidate) && candidate > 0) {
+        return Math.floor(candidate);
+      }
+      return 1;
+    })();
+
+    const maxOrderCandidate = Number(item.maxOrderQuantity);
+    let effectiveMax = Number.isFinite(maxOrderCandidate) && maxOrderCandidate > 0
+      ? Math.floor(maxOrderCandidate)
+      : null;
+
+    if (hasAvailable) {
+      const flooredAvailable = Math.floor(availableRaw);
+      effectiveMax = effectiveMax !== null
+        ? Math.min(effectiveMax, flooredAvailable)
+        : flooredAvailable;
+    }
+
+    const clampQuantity = (value) => {
+      let nextValue = Number(value);
+      if (!Number.isFinite(nextValue) || nextValue <= 0) {
+        nextValue = minOrder;
+      }
+      nextValue = Math.floor(nextValue);
+      nextValue = Math.max(minOrder, nextValue);
+      if (effectiveMax !== null) {
+        nextValue = Math.min(effectiveMax, nextValue);
+      }
+      return nextValue;
+    };
+
+    const clampedQty = clampQuantity(qty);
+
+    // Normalize shop item to CartContext's expected product shape
+    const primaryImage = Array.isArray(item.images) ? (item.images[0] || null) : (item.images || null);
+    const name = item.product_name || item.productName || item.name || 'Product';
+    const unit = item.unit || item.product_unit || 'unit';
+    const price = Number(item.price) || Number(item.priceAtAddTime) || 0;
+    const shopName = item.shop_name || item.shopName || item.brand || '';
+    const cityOrDistrict = item.city || item.district || item.location || '';
+
+    const productForCart = {
+      id: item.id,
+      name,
+      price,
+      unit,
+      // Use shop name in farmer field to reuse existing UI labels
+      farmer: shopName,
+      district: cityOrDistrict,
+      location: cityOrDistrict,
+      image: primaryImage,
+      productType: 'shop'
+    };
+
+    addToCart(productForCart, clampedQty);
+
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300';
+    toast.innerHTML = `
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+        </svg>
+        Added ${clampedQty} to cart!
+      </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.style.transform = 'translateX(100%)';
+      setTimeout(() => document.body.removeChild(toast), 300);
+    }, 2000);
   };
 
   const handleViewMore = (item, e) => {
@@ -922,7 +1090,6 @@ useEffect(() => {
     });
     setSelectedProduct(item);
     setCurrentImageIndex(0); // Reset to first image when opening popup
-    setModalQuantity(1);
   };
 
   const closePopup = () => {
@@ -958,178 +1125,504 @@ useEffect(() => {
     }
   };
 
-  const ProductCard = ({ item }) => (
-    <div 
-      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer group border border-emerald-100 hover:border-emerald-300 transform hover:-translate-y-2 w-full min-h-[420px] max-h-[540px] flex flex-col mx-auto"
-      style={{ minWidth: 0, maxWidth: 340 }} // Responsive card width
-      onClick={() => handleItemClick(item)}
-    >
-      <div className="relative overflow-hidden h-64">
-        <ImageWithFallback
-          src={item.images[0]}
-          alt={item.productName}
-          className="group-hover:scale-110 transition-transform duration-700 h-full"
-        />
+  const ProductCard = ({ item }) => {
+    const numericMinOrder = Number(item.minOrderQuantity);
+    const minOrderQty = Number.isFinite(numericMinOrder) && numericMinOrder > 0 ? Math.floor(numericMinOrder) : 1;
+    const numericMaxOrder = Number(item.maxOrderQuantity);
+    let maxOrderQty = Number.isFinite(numericMaxOrder) && numericMaxOrder > 0 ? Math.floor(numericMaxOrder) : null;
+    const rawAvailable = Number(item.available_quantity ?? item.quantity);
+    const hasAvailable = Number.isFinite(rawAvailable) && rawAvailable > 0;
+    if (hasAvailable) {
+      const flooredAvailable = Math.floor(rawAvailable);
+      maxOrderQty = maxOrderQty !== null ? Math.min(maxOrderQty, flooredAvailable) : flooredAvailable;
+    }
+    if (maxOrderQty !== null && maxOrderQty < minOrderQty) {
+      maxOrderQty = minOrderQty;
+    }
+    const availableForDisplay = hasAvailable ? Math.floor(rawAvailable) : null;
+    const unitLabel = item.unit || 'unit';
+    const formatQuantityUnit = (value) => `${value} ${unitLabel}`.trim();
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        
-        {/* Badges */}
-        <div className="absolute top-4 left-4 flex flex-col gap-2">
-          {item.organic_certified && (
-            <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
-              <Leaf className="w-3 h-3" />
-              Organic
-            </div>
-          )}
-          {item.trending && (
-            <div className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
-              <TrendingUp className="w-3 h-3" />
-              Trending
-            </div>
-          )}
-        </div>
+    const [quantity, setQuantity] = useState(() => minOrderQty);
+    const [showQuantitySelector, setShowQuantitySelector] = useState(false);
 
-        <div className="absolute top-4 right-4">
-          {!item.inStock ? (
-            <div className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-              Out of Stock
-            </div>
-          ) : (
-            <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-              In Stock
-            </div>
-          )}
-        </div>
-      </div>
-      
-      <div className="p-8 flex flex-col flex-1">
-        <div>
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
-              <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors line-clamp-2 mb-1">
-                {item.product_name}
-              </h3>
-              <p className="text-emerald-600 font-semibold text-sm">{item.brand}</p>
-            </div>
-          </div>
-          <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.product_description}</p>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-bold text-gray-700">{Number.isFinite(item.rating) ? item.rating.toFixed(1) : '—'}</span>
-                <span className="text-sm text-gray-500">({item.reviewCount || 0})</span>
-              </div>
-            </div>
-          </div>
-          <div className="bg-emerald-50 rounded-xl p-4 mb-4">
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-2xl font-bold text-emerald-600">LKR {item.price.toLocaleString('en-LK')}</span>
-              <span className="text-sm text-gray-600">per {item.unit}</span>
-            </div>
-            <p className="text-emerald-700 text-sm font-medium">{item.available_quantity} {item.unit}s available</p>
-          </div>
-        </div>
-        {/* Action Buttons Bottom-Aligned */}
-        <div className="mt-auto flex items-center justify-end gap-2 pt-4 pr-2">
-          <button 
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap min-w-[120px] flex-shrink-0 ${
-              item.inStock 
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-            onClick={(e) => handleAddToCart(item, e)}
-            disabled={!item.inStock}
-          >
-            <ShoppingCart className="w-4 h-4" />
-            {item.inStock ? 'Add to Cart' : 'Out of Stock'}
-          </button>
-          {/* View More button removed as requested */}
-          <button
-            className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-900 transition flex-shrink-0"
-            onClick={(e) => handleCallClick(item.phone_no, e)}
-            title="Call Seller"
-          >
-            <Phone className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    const clampQuantity = (value) => {
+      let nextValue = Number(value);
+      if (!Number.isFinite(nextValue) || nextValue <= 0) {
+        nextValue = minOrderQty;
+      }
+      nextValue = Math.floor(nextValue);
+      nextValue = Math.max(minOrderQty, nextValue);
+      if (maxOrderQty !== null) {
+        nextValue = Math.min(maxOrderQty, nextValue);
+      }
+      return nextValue;
+    };
 
-  const ProductListItem = ({ item }) => (
-    <div 
-      className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer border border-emerald-100 hover:border-emerald-300"
-      onClick={() => handleItemClick(item)}
-    >
-      <div className="flex items-stretch">
-        <div className="w-64 h-40 flex-shrink-0 relative overflow-hidden flex items-stretch">
+    useEffect(() => {
+      setQuantity((current) => clampQuantity(current));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [minOrderQty, maxOrderQty]);
+
+    const handleDecrease = (event) => {
+      event.stopPropagation();
+      setQuantity((current) => clampQuantity(current - 1));
+    };
+
+    const handleIncrease = (event) => {
+      event.stopPropagation();
+      setQuantity((current) => clampQuantity(current + 1));
+    };
+
+    const handleQuantityInputChange = (event) => {
+      event.stopPropagation();
+      const rawValue = Number(event.target.value);
+      if (Number.isFinite(rawValue)) {
+        setQuantity(clampQuantity(rawValue));
+      } else if (event.target.value === '') {
+        setQuantity(minOrderQty);
+      }
+    };
+
+    const handleOpenSelector = (event) => {
+      event.stopPropagation();
+      if (!item.inStock) return;
+      setQuantity(minOrderQty);
+      setShowQuantitySelector(true);
+    };
+
+    const handleConfirmQuantity = (event) => {
+      handleAddToCart(item, event, quantity);
+      setShowQuantitySelector(false);
+      setQuantity(minOrderQty);
+    };
+
+    const handleCancelQuantity = (event) => {
+      event.stopPropagation();
+      setShowQuantitySelector(false);
+      setQuantity(minOrderQty);
+    };
+
+    const canDecrease = quantity > minOrderQty;
+    const canIncrease = maxOrderQty === null ? true : quantity < maxOrderQty;
+
+    const selectorLabelParts = [`Min ${formatQuantityUnit(minOrderQty)}`];
+    if (maxOrderQty !== null) {
+      selectorLabelParts.push(`Max ${formatQuantityUnit(maxOrderQty)}`);
+    } else if (availableForDisplay !== null) {
+      selectorLabelParts.push(`Available ${formatQuantityUnit(availableForDisplay)}`);
+    }
+
+    const availabilityDisplay = availableForDisplay !== null
+      ? `${formatQuantityUnit(availableForDisplay)} available`
+      : 'Availability updating';
+
+    return (
+      <div 
+        className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer group border border-emerald-100 hover:border-emerald-300 transform hover:-translate-y-2 w-full min-h-[420px] max-h-[540px] flex flex-col mx-auto"
+        style={{ minWidth: 0, maxWidth: 340 }}
+        onClick={() => handleItemClick(item)}
+      >
+        <div className="relative overflow-hidden h-64">
           <ImageWithFallback
             src={item.images[0]}
-            alt={item.product_name}
-            className="h-full w-full object-cover hover:scale-105 transition-transform duration-300"
+            alt={item.productName}
+            className="group-hover:scale-110 transition-transform duration-700 h-full"
           />
-          {item.organicCertified && (
-            <div className="absolute top-3 left-3 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-              <Leaf className="w-3 h-3" />
-              Organic
-            </div>
-          )}
-        </div>
-        {/* Make the right side a flex-col with justify-between so button is always at the bottom */}
-        <div className="flex-1 p-6 flex flex-col min-h-[180px] justify-between">
-          {/* Row 1: name, brand, price, trending badge */}
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1">
-              <h3 className="font-bold text-gray-900 text-xl hover:text-emerald-700 transition-colors mb-1">
-                {item.product_name}
-              </h3>
-              <p className="text-emerald-600 font-semibold">{item.brand}</p>
-            </div>
-            <div className="text-right ml-4">
-              <div className="text-emerald-600 font-bold text-2xl">
-                LKR {item.price.toLocaleString('en-LK')}
-                <span className="text-sm text-gray-500 font-normal">/{item.unit}</span>
+
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          
+          {/* Badges */}
+          <div className="absolute top-4 left-4 flex flex-col gap-2">
+            {item.organic_certified && (
+              <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                <Leaf className="w-3 h-3" />
+                Organic
               </div>
-              {item.trending && (
-                <div className="inline-flex items-center gap-1 bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-bold mt-1">
-                  <TrendingUp className="w-3 h-3" />
-                  Trending
+            )}
+            {item.trending && (
+              <div className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                <TrendingUp className="w-3 h-3" />
+                Trending
+              </div>
+            )}
+          </div>
+
+          <div className="absolute top-4 right-4">
+            {!item.inStock ? (
+              <div className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                Out of Stock
+              </div>
+            ) : (
+              <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                In Stock
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="p-8 flex flex-col flex-1">
+          <div>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors line-clamp-2 mb-1">
+                  {item.product_name}
+                </h3>
+                <p className="text-emerald-600 font-semibold text-sm">{item.brand}</p>
+              </div>
+            </div>
+            <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.product_description}</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm font-bold text-gray-700">{Number.isFinite(item.rating) ? item.rating.toFixed(1) : '—'}</span>
+                  <span className="text-sm text-gray-500">({item.reviewCount || 0})</span>
                 </div>
-              )}
+              </div>
+            </div>
+            <div className="bg-emerald-50 rounded-xl p-4 mb-4">
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-2xl font-bold text-emerald-600">LKR {item.price.toLocaleString('en-LK')}</span>
+                <span className="text-sm text-gray-600">per {item.unit}</span>
+              </div>
+              <p className="text-emerald-700 text-sm font-medium">{availabilityDisplay}</p>
             </div>
           </div>
-          {/* Row 2: description and shop name */}
-          <div className="flex items-center gap-4 mb-2">
-            <p className="text-gray-600 leading-relaxed line-clamp-2 max-w-[220px] overflow-hidden m-0">{item.product_description}</p>
-            <span className="text-sm font-semibold text-gray-700 truncate max-w-[120px]">{item.shop_name}</span>
-          </div>
-          {/* Row 3: rating, location, Add to Cart button */}
-          <div className="flex items-center gap-6 w-full">
-            <div className="flex items-center gap-1">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm font-bold text-gray-700">{Number.isFinite(item.rating) ? item.rating.toFixed(1) : '—'}</span>
-              <span className="text-sm text-gray-500">({item.reviewCount || 0})</span>
-            </div>
-            <div className="flex justify-end items-end flex-1">
-              <button 
-                className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl min-w-[140px] whitespace-nowrap ${
-                  item.inStock 
-                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-                onClick={(e) => handleAddToCart(item, e)}
-                disabled={!item.inStock}
+          <div className="mt-auto flex flex-col gap-3 pt-4">
+            {showQuantitySelector && item.inStock && (
+              <div
+                className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3"
+                onClick={(e) => e.stopPropagation()}
               >
-                <ShoppingCart className="w-4 h-4" />
-                {item.inStock ? 'Add to Cart' : 'Out of Stock'}
+                <div className="flex items-center justify-between text-sm font-semibold text-emerald-700">
+                  <span>Select quantity</span>
+                  <span className="text-emerald-600">{selectorLabelParts.join(' · ')}</span>
+                </div>
+                <div className="flex items-center rounded-lg border border-emerald-200 overflow-hidden bg-white">
+                  <button
+                    type="button"
+                    onClick={handleDecrease}
+                    disabled={!canDecrease}
+                    className={`px-3 py-2 transition ${canDecrease ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="number"
+                    value={quantity}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={handleQuantityInputChange}
+                    className="w-full max-w-[120px] text-center py-2 text-sm font-semibold text-gray-700 focus:outline-none border-x border-emerald-200"
+                    min={minOrderQty}
+                    max={maxOrderQty ?? undefined}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleIncrease}
+                    disabled={!canIncrease}
+                    className={`px-3 py-2 transition ${canIncrease ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2 pr-2">
+              {item.inStock ? (
+                showQuantitySelector ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleConfirmQuantity}
+                      className="px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 transition"
+                    >
+                      <Check className="w-4 h-4" />
+                      Confirm {formatQuantityUnit(quantity)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelQuantity}
+                      className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition flex-shrink-0"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    type="button"
+                    className="px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap min-w-[140px] bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white"
+                    onClick={handleOpenSelector}
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    Add to Cart
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-gray-300 text-gray-500 cursor-not-allowed min-w-[140px]"
+                  onClick={(e) => e.stopPropagation()}
+                  disabled
+                >
+                  Out of Stock
+                </button>
+              )}
+              <button
+                type="button"
+                className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-900 transition flex-shrink-0"
+                onClick={(e) => handleCallClick(item.phone_no, e)}
+                title="Call Seller"
+              >
+                <Phone className="w-5 h-5" />
               </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const ProductListItem = ({ item }) => {
+    const numericMinOrder = Number(item.minOrderQuantity);
+    const minOrderQty = Number.isFinite(numericMinOrder) && numericMinOrder > 0 ? Math.floor(numericMinOrder) : 1;
+    const numericMaxOrder = Number(item.maxOrderQuantity);
+    let maxOrderQty = Number.isFinite(numericMaxOrder) && numericMaxOrder > 0 ? Math.floor(numericMaxOrder) : null;
+    const rawAvailable = Number(item.available_quantity ?? item.quantity);
+    const hasAvailable = Number.isFinite(rawAvailable) && rawAvailable > 0;
+    if (hasAvailable) {
+      const flooredAvailable = Math.floor(rawAvailable);
+      maxOrderQty = maxOrderQty !== null ? Math.min(maxOrderQty, flooredAvailable) : flooredAvailable;
+    }
+    if (maxOrderQty !== null && maxOrderQty < minOrderQty) {
+      maxOrderQty = minOrderQty;
+    }
+    const availableForDisplay = hasAvailable ? Math.floor(rawAvailable) : null;
+    const unitLabel = item.unit || 'unit';
+    const formatQuantityUnit = (value) => `${value} ${unitLabel}`.trim();
+
+    const [quantity, setQuantity] = useState(() => minOrderQty);
+    const [showQuantitySelector, setShowQuantitySelector] = useState(false);
+
+    const clampQuantity = (value) => {
+      let nextValue = Number(value);
+      if (!Number.isFinite(nextValue) || nextValue <= 0) {
+        nextValue = minOrderQty;
+      }
+      nextValue = Math.floor(nextValue);
+      nextValue = Math.max(minOrderQty, nextValue);
+      if (maxOrderQty !== null) {
+        nextValue = Math.min(maxOrderQty, nextValue);
+      }
+      return nextValue;
+    };
+
+    useEffect(() => {
+      setQuantity((current) => clampQuantity(current));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [minOrderQty, maxOrderQty]);
+
+    const handleDecrease = (event) => {
+      event.stopPropagation();
+      setQuantity((current) => clampQuantity(current - 1));
+    };
+
+    const handleIncrease = (event) => {
+      event.stopPropagation();
+      setQuantity((current) => clampQuantity(current + 1));
+    };
+
+    const handleQuantityInputChange = (event) => {
+      event.stopPropagation();
+      const rawValue = Number(event.target.value);
+      if (Number.isFinite(rawValue)) {
+        setQuantity(clampQuantity(rawValue));
+      } else if (event.target.value === '') {
+        setQuantity(minOrderQty);
+      }
+    };
+
+    const handleOpenSelector = (event) => {
+      event.stopPropagation();
+      if (!item.inStock) return;
+      setQuantity(minOrderQty);
+      setShowQuantitySelector(true);
+    };
+
+    const handleConfirmQuantity = (event) => {
+      handleAddToCart(item, event, quantity);
+      setShowQuantitySelector(false);
+      setQuantity(minOrderQty);
+    };
+
+    const handleCancelQuantity = (event) => {
+      event.stopPropagation();
+      setShowQuantitySelector(false);
+      setQuantity(minOrderQty);
+    };
+
+    const canDecrease = quantity > minOrderQty;
+    const canIncrease = maxOrderQty === null ? true : quantity < maxOrderQty;
+
+    const selectorLabelParts = [`Min ${formatQuantityUnit(minOrderQty)}`];
+    if (maxOrderQty !== null) {
+      selectorLabelParts.push(`Max ${formatQuantityUnit(maxOrderQty)}`);
+    } else if (availableForDisplay !== null) {
+      selectorLabelParts.push(`Available ${formatQuantityUnit(availableForDisplay)}`);
+    }
+
+    const availabilityDisplay = availableForDisplay !== null
+      ? `${formatQuantityUnit(availableForDisplay)} available`
+      : 'Availability updating';
+
+    return (
+      <div 
+        className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer border border-emerald-100 hover:border-emerald-300"
+        onClick={() => handleItemClick(item)}
+      >
+        <div className="flex items-stretch">
+          <div className="w-64 h-40 flex-shrink-0 relative overflow-hidden flex items-stretch">
+            <ImageWithFallback
+              src={item.images[0]}
+              alt={item.product_name}
+              className="h-full w-full object-cover hover:scale-105 transition-transform duration-300"
+            />
+            {item.organicCertified && (
+              <div className="absolute top-3 left-3 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                <Leaf className="w-3 h-3" />
+                Organic
+              </div>
+            )}
+          </div>
+          <div className="flex-1 p-6 flex flex-col min-h-[200px]">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-900 text-xl hover:text-emerald-700 transition-colors mb-1">
+                  {item.product_name}
+                </h3>
+                <p className="text-emerald-600 font-semibold">{item.brand}</p>
+              </div>
+              <div className="text-right ml-4">
+                <div className="text-emerald-600 font-bold text-2xl">
+                  LKR {item.price.toLocaleString('en-LK')}
+                  <span className="text-sm text-gray-500 font-normal">/{item.unit}</span>
+                </div>
+                {item.trending && (
+                  <div className="inline-flex items-center gap-1 bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-bold mt-1">
+                    <TrendingUp className="w-3 h-3" />
+                    Trending
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-4 mb-3">
+              <p className="text-gray-600 leading-relaxed line-clamp-2 max-w-[240px] overflow-hidden m-0">{item.product_description}</p>
+              <div className="flex flex-col items-end gap-1 text-right">
+                <span className="text-sm font-semibold text-gray-700 truncate max-w-[160px]">{item.shop_name}</span>
+                <span className="text-xs font-semibold text-emerald-600">{availabilityDisplay}</span>
+              </div>
+            </div>
+            <div className="mt-auto flex flex-col gap-3">
+              {showQuantitySelector && item.inStock && (
+                <div
+                  className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 w-full max-w-md self-end space-y-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between text-sm font-semibold text-emerald-700">
+                    <span>Select quantity</span>
+                    <span className="text-emerald-600">{selectorLabelParts.join(' · ')}</span>
+                  </div>
+                  <div className="flex items-center rounded-lg border border-emerald-200 overflow-hidden bg-white">
+                    <button
+                      type="button"
+                      onClick={handleDecrease}
+                      disabled={!canDecrease}
+                      className={`px-3 py-2 transition ${canDecrease ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={handleQuantityInputChange}
+                      className="w-full max-w-[120px] text-center py-2 text-sm font-semibold text-gray-700 focus:outline-none border-x border-emerald-200"
+                      min={minOrderQty}
+                      max={maxOrderQty ?? undefined}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleIncrease}
+                      disabled={!canIncrease}
+                      className={`px-3 py-2 transition ${canIncrease ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-1">
+                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm font-bold text-gray-700">{Number.isFinite(item.rating) ? item.rating.toFixed(1) : '—'}</span>
+                  <span className="text-sm text-gray-500">({item.reviewCount || 0})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {item.inStock ? (
+                    showQuantitySelector ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleConfirmQuantity}
+                          className="px-6 py-2 rounded-xl font-semibold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white flex items-center gap-2 shadow-lg hover:shadow-xl transition"
+                        >
+                          <Check className="w-4 h-4" />
+                          Confirm {formatQuantityUnit(quantity)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelQuantity}
+                          className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl min-w-[150px] whitespace-nowrap bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white"
+                        onClick={handleOpenSelector}
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Add to Cart
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      className="px-6 py-3 rounded-xl font-bold bg-gray-300 text-gray-500 cursor-not-allowed min-w-[150px]"
+                      onClick={(e) => e.stopPropagation()}
+                      disabled
+                    >
+                      Out of Stock
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-900 transition"
+                    onClick={(e) => handleCallClick(item.phone_no, e)}
+                    title="Call Seller"
+                  >
+                    <Phone className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -1440,10 +1933,10 @@ useEffect(() => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setModalQuantity((q) => Math.max(1, q - 1));
+                          setModalQuantity((current) => clampModalQuantity(current - 1));
                         }}
                         className="px-4 py-3 hover:bg-emerald-50 transition-colors text-lg font-bold text-emerald-600 rounded-l-xl"
-                        disabled={modalQuantity <= 1}
+                        disabled={modalQuantity <= modalMinOrderQty}
                       >
                         -
                       </button>
@@ -1452,30 +1945,35 @@ useEffect(() => {
                         value={modalQuantity}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => {
-                          const available = Number(selectedProduct?.available_quantity) || 0;
-                          let val = parseInt(e.target.value) || 1;
-                          val = Math.max(1, Math.min(val, available));
-                          setModalQuantity(val);
+                          const rawValue = e.target.value;
+                          if (rawValue === '') {
+                            setModalQuantity(modalMinOrderQty);
+                            return;
+                          }
+                          const nextValue = clampModalQuantity(Number(rawValue));
+                          setModalQuantity(nextValue);
                         }}
                         className="flex-1 py-3 text-center border-x-2 border-emerald-300 focus:outline-none focus:bg-emerald-50 text-lg font-bold text-gray-800"
-                        min={1}
-                        max={selectedProduct?.available_quantity || 1}
+                        min={modalMinOrderQty}
+                        max={modalUpperBound ?? undefined}
                         step={1}
                       />
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const available = Number(selectedProduct?.available_quantity) || 0;
-                          setModalQuantity((q) => Math.min(available, q + 1));
+                          setModalQuantity((current) => clampModalQuantity(current + 1));
                         }}
                         className="px-4 py-3 hover:bg-emerald-50 transition-colors text-lg font-bold text-emerald-600 rounded-r-xl"
-                        disabled={modalQuantity >= (Number(selectedProduct?.available_quantity) || 0)}
+                        disabled={modalUpperBound !== null && modalQuantity >= modalUpperBound}
                       >
                         +
                       </button>
                     </div>
                     <div className="text-sm text-gray-600 mt-2 text-center font-medium">
-                      {Number(selectedProduct?.available_quantity) || 0} {selectedProduct?.unit}s available
+                      {modalQuantitySummaryParts.join(' · ')}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 text-center">
+                      {modalAvailabilityDisplay}
                     </div>
                   </div>
                   <div className="flex justify-center">

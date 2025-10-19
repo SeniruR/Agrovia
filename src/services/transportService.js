@@ -67,6 +67,23 @@ export const transportService = {
     }
   },
 
+  // Update transporter pricing
+  updateTransporterPricing: async (transporterId, pricing) => {
+    try {
+      const response = await axios.patch(`${API_BASE_URL}/transporters/${transporterId}/pricing`, pricing);
+      console.log('🚛 Transport Service - updateTransporterPricing response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Transport Service - Error updating transporter pricing:', error);
+      const message = error.response?.data?.message || 'Failed to update transporter pricing';
+      return {
+        success: false,
+        message,
+        data: null
+      };
+    }
+  },
+
   // Create transport request
   createTransportRequest: async (requestData) => {
     try {

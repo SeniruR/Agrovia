@@ -407,6 +407,25 @@ const MyOrders = () => {
         ? new Date(existingTransportReview.updated_at).toLocaleDateString()
         : null;
 
+      const rawProductType = (product.productType || product.product_type || '').toString().toLowerCase();
+      const isShopItem = rawProductType === 'shop';
+      const pickupContactLabel = isShopItem ? 'Shop details' : 'Farmer details';
+      const pickupContactName = isShopItem
+        ? (product.productShopName || product.productFarmerName || '—')
+        : (product.productFarmerName || product.productShopName || '—');
+      const pickupContactPhone = isShopItem
+        ? (product.productShopPhone || product.productFarmerPhone || null)
+        : (product.productFarmerPhone || product.productShopPhone || null);
+      const pickupLocationText = isShopItem
+        ? (product.productShopAddress || product.productLocation || product.productShopDeliveryAreas || '')
+        : (product.productLocation || product.productShopAddress || '');
+      const pickupDistrictText = isShopItem
+        ? (product.productShopDeliveryAreas || product.productDistrict || null)
+        : (product.productDistrict || null);
+      const callContactLabel = isShopItem ? 'Call shop' : 'Call farmer';
+      const hasContactName = pickupContactName && pickupContactName !== '—';
+      const hasContactInfo = hasContactName || pickupContactPhone || pickupLocationText;
+
       return (
         <li key={product.id} className="mb-2 w-full">
           <div className="flex items-start w-full">
@@ -450,21 +469,20 @@ const MyOrders = () => {
                           {existingTransportReviewDate ? ` on ${existingTransportReviewDate}` : ''}
                         </div>
                       )}
-                      {product.productFarmerName || product.productFarmerPhone || product.productLocation ? (
+                      {hasContactInfo ? (
                         <div className="mt-3 bg-white border-l-4 border-gray-200 rounded-md p-3 shadow-sm">
-                          <div className="text-xs text-gray-500">Farmer details</div>
+                          <div className="text-xs text-gray-500">{pickupContactLabel}</div>
                           <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
-                            <div>Name: <span className="font-medium">{product.productFarmerName || '—'}</span></div>
-                            <div>Phone: {product.productFarmerPhone ? (<a className="text-blue-700 font-medium" href={`tel:${product.productFarmerPhone}`}>{product.productFarmerPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
-                            {product.productLocation ? (<div className="col-span-2 text-sm text-gray-700">Location: <span className="font-medium">{product.productLocation}</span></div>) : null}
-                            {product.productDistrict ? (<div className="col-span-2 text-xs text-gray-600">District: {product.productDistrict}</div>) : null}
+                            <div>Name: <span className="font-medium">{hasContactName ? pickupContactName : '—'}</span></div>
+                            <div>Phone: {pickupContactPhone ? (<a className="text-blue-700 font-medium" href={`tel:${pickupContactPhone}`}>{pickupContactPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                            {pickupLocationText ? (<div className="col-span-2 text-sm text-gray-700">Location: <span className="font-medium">{pickupLocationText}</span></div>) : null}
+                            {pickupDistrictText ? (<div className="col-span-2 text-xs text-gray-600">District: {pickupDistrictText}</div>) : null}
                           </div>
-                          {/* quick call action for farmer */}
-                          {product.productFarmerPhone ? (
+                          {pickupContactPhone ? (
                             <div className="mt-3">
-                              <a href={`tel:${product.productFarmerPhone}`} className="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm">
+                              <a href={`tel:${pickupContactPhone}`} className="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm">
                                 <Phone className="w-4 h-4 mr-2" />
-                                Call farmer
+                                {callContactLabel}
                               </a>
                             </div>
                           ) : null}
@@ -481,25 +499,25 @@ const MyOrders = () => {
                     <div className="flex-1">
                       <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getTransportStatusColor(tstatus)} mb-2`}>{getTransportStatusLabel(tstatus)}</div>
                       <div className="font-semibold text-green-800">Pickup details</div>
-                      {product.productFarmerName || product.productFarmerPhone || product.productLocation ? (
+                      {hasContactInfo ? (
                         <div className="mt-2 bg-white border-l-4 border-green-400 rounded-md p-3 shadow-sm">
-                          <div className="text-xs text-gray-500">Farmer details</div>
+                          <div className="text-xs text-gray-500">{pickupContactLabel}</div>
                           <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-800">
-                            <div>Name: <span className="font-medium">{product.productFarmerName || '—'}</span></div>
-                            <div>Phone: {product.productFarmerPhone ? (<a className="text-green-700 font-medium" href={`tel:${product.productFarmerPhone}`}>{product.productFarmerPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
-                            {product.productLocation ? (<div className="col-span-2 text-sm text-gray-700">Location: <span className="font-medium">{product.productLocation}</span></div>) : null}
-                            {product.productDistrict ? (<div className="col-span-2 text-xs text-gray-600">District: {product.productDistrict}</div>) : null}
+                            <div>Name: <span className="font-medium">{hasContactName ? pickupContactName : '—'}</span></div>
+                            <div>Phone: {pickupContactPhone ? (<a className="text-green-700 font-medium" href={`tel:${pickupContactPhone}`}>{pickupContactPhone}</a>) : (<span className="text-gray-500">—</span>)}</div>
+                            {pickupLocationText ? (<div className="col-span-2 text-sm text-gray-700">Location: <span className="font-medium">{pickupLocationText}</span></div>) : null}
+                            {pickupDistrictText ? (<div className="col-span-2 text-xs text-gray-600">District: {pickupDistrictText}</div>) : null}
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-1 text-sm text-green-700">{product.productLocation || product.location || product.farmerName || 'Seller location'}</div>
+                        <div className="mt-1 text-sm text-green-700">{pickupLocationText || product.productLocation || product.location || product.farmerName || 'Pickup location not available'}</div>
                       )}
                       <div className="text-sm text-gray-700 mt-2">Amount: {product.quantity} {product.productUnit || product.unit || product.productUnitName || ''}</div>
                       <div className="mt-3 flex flex-wrap items-center gap-3">
-                        {product.productFarmerPhone ? (
-                          <a href={`tel:${product.productFarmerPhone}`} className="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm">
+                        {pickupContactPhone ? (
+                          <a href={`tel:${pickupContactPhone}`} className="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm">
                             <Phone className="w-4 h-4 mr-2" />
-                            Call farmer
+                            {callContactLabel}
                           </a>
                         ) : null}
                         <button
