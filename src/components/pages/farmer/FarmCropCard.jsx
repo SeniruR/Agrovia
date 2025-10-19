@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 
 const FarmCropCard = ({ crop, viewMode }) => {
   const navigate = useNavigate();
+  const normalizedRating = Number.isFinite(crop?.rating) ? Number(crop.rating) : null;
+  const reviewCount = Number.isFinite(Number(crop?.reviewCount)) ? Number(crop.reviewCount) : 0;
   
   const getStatusColor = (status) => {
     switch (status) {
@@ -75,9 +77,16 @@ const FarmCropCard = ({ crop, viewMode }) => {
                 {crop.quantity} {crop.unit}
               </div>
               <div className="flex items-center justify-end mt-2">
-                <div className="flex items-center mr-3">
+                <div className="flex items-center mr-3 text-sm text-gray-600">
                   <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                  <span className="text-sm text-gray-600 ml-1">{crop.rating}</span>
+                  <span className="ml-1">
+                    {normalizedRating !== null ? normalizedRating.toFixed(1) : 'No reviews yet'}
+                  </span>
+                  {normalizedRating !== null && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      {reviewCount === 1 ? '1 review' : `${reviewCount} reviews`}
+                    </span>
+                  )}
                 </div>
                 <div className="flex space-x-1">
                   <button 
@@ -128,7 +137,9 @@ const FarmCropCard = ({ crop, viewMode }) => {
         </div>
         <div className="absolute top-3 right-3 flex items-center bg-white bg-opacity-90 rounded-full px-2 py-1">
           <Star className="w-4 h-4 text-yellow-400 fill-current" />
-          <span className="text-sm font-medium ml-1">{crop.rating}</span>
+          <span className="text-sm font-medium ml-1">
+            {normalizedRating !== null ? normalizedRating.toFixed(1) : 'No reviews'}
+          </span>
         </div>
       </div>
       
@@ -167,9 +178,12 @@ const FarmCropCard = ({ crop, viewMode }) => {
             <Eye className="w-4 h-4 mr-2" />
             View Details
           </button>
-          <div className="flex space-x-1">
-            
-          
+          <div className="text-xs text-gray-500 flex items-center space-x-1">
+            {normalizedRating !== null ? (
+              <span>{reviewCount === 1 ? '1 review' : `${reviewCount} reviews`}</span>
+            ) : (
+              <span>No reviews yet</span>
+            )}
           </div>
         </div>
       </div>

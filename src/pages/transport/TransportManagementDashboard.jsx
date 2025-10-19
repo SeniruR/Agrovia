@@ -20,10 +20,12 @@ import {
   MessageCircle,
   RefreshCcw,
   Shield,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import FullScreenLoader from '../../components/ui/FullScreenLoader';
+import transportService from '../../services/transportService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const ACTIVE_STATUSES = new Set(['pending', 'collecting', 'in-progress', 'scheduled']);
@@ -55,6 +57,16 @@ const parseNumber = (value) => {
 const formatCurrency = (value) => {
   if (!Number.isFinite(value) || value <= 0) return 'Rs. 0';
   return `Rs. ${value.toLocaleString('en-LK', { maximumFractionDigits: 0 })}`;
+};
+
+const formatRateDisplay = (value, suffix = '') => {
+  const numeric = parseNumber(value);
+  if (numeric === null) return 'Not set';
+  const formatted = `Rs. ${numeric.toLocaleString('en-LK', {
+    minimumFractionDigits: numeric % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+  return suffix ? `${formatted} ${suffix}` : formatted;
 };
 
 const formatDistance = (value) => {
@@ -190,6 +202,25 @@ const TransportDashboard = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [pricingModalOpen, setPricingModalOpen] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingSaving, setPricingSaving] = useState(false);
+  const [pricingError, setPricingError] = useState('');
+  const [pricingSuccess, setPricingSuccess] = useState('');
+  const [pricingTransporter, setPricingTransporter] = useState(null);
+  const [baseRateValue, setBaseRateValue] = useState('');
+  const [perKmRateValue, setPerKmRateValue] = useState('');
+
+  const formatRateForInput = useCallback((value) => {
+    if (value === null || value === undefined || value === '') {
+      return '';
+    }
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) {
+      return String(value);
+    }
+    return numeric.toString();
+  }, []);
 
   const transporterDetailId = useMemo(() => {
     const userCandidates = [
@@ -323,6 +354,189 @@ const TransportDashboard = () => {
     }
   }, [getAuthHeaders, normalizeDelivery, user]);
 
+  const resolveTransporterData = useCallback(
+    (payload) => {
+      if (!payload) return null;
+
+      const candidates = [];
+      const seen = new WeakSet();
+      const keysToExplore = new Set([
+        'data',
+        'result',
+        'payload',
+        'content',
+        'transporter',
+        'transporterData',
+        'transporter_details',
+        'transporterDetails',
+      ]);
+
+      const visit = (value) => {
+        if (!value || typeof value !== 'object') return;
+        if (seen.has(value)) return;
+        seen.add(value);
+
+        if (Array.isArray(value)) {
+          value.forEach((item) => visit(item));
+          return;
+        }
+
+        candidates.push(value);
+
+        Object.entries(value).forEach(([key, nested]) => {
+          if (keysToExplore.has(key)) {
+            visit(nested);
+          }
+        });
+      };
+
+      visit(payload);
+
+      const matchesTransporterId = (candidate) => {
+        const possibleIds = [
+          parseNumber(candidate?.id),
+          parseNumber(candidate?.transporter_detail_id),
+          parseNumber(candidate?.transporterDetailId),
+          parseNumber(candidate?.transporter_id),
+          parseNumber(candidate?.transporterId),
+          parseNumber(candidate?.user_id),
+          parseNumber(candidate?.userId),
+        ];
+
+        return possibleIds.some((candidateId) => candidateId !== null && candidateId === transporterDetailId);
+      };
+
+      let selected = candidates.find((candidate) => matchesTransporterId(candidate));
+
+      if (!selected && candidates.length === 1) {
+        selected = candidates[0];
+      }
+
+      if (!selected) {
+        selected = candidates.find(
+          (candidate) =>
+            candidate &&
+            typeof candidate === 'object' &&
+            (Object.prototype.hasOwnProperty.call(candidate, 'base_rate') ||
+              Object.prototype.hasOwnProperty.call(candidate, 'per_km_rate') ||
+              Object.prototype.hasOwnProperty.call(candidate, 'baseRate') ||
+              Object.prototype.hasOwnProperty.call(candidate, 'perKmRate'))
+        );
+      }
+
+      if (!selected) return null;
+
+      const baseRate = selected?.base_rate ?? selected?.baseRate ?? null;
+      const perKmRate = selected?.per_km_rate ?? selected?.perKmRate ?? null;
+
+      return {
+        ...selected,
+        base_rate: baseRate,
+        baseRate,
+        per_km_rate: perKmRate,
+        perKmRate,
+      };
+    },
+    [transporterDetailId]
+  );
+
+  const loadTransporterPricing = useCallback(async () => {
+    if (!transporterDetailId) {
+      setPricingTransporter(null);
+      setPricingError('Transporter profile not found for your account.');
+      return;
+    }
+
+    setPricingLoading(true);
+    setPricingError('');
+    setPricingSuccess('');
+
+    try {
+      const response = await transportService.getTransporterById(transporterDetailId);
+      const transporterData = resolveTransporterData(response);
+
+      if (!transporterData) {
+        throw new Error('Transporter details could not be loaded');
+      }
+
+      setPricingTransporter(transporterData);
+      setBaseRateValue(formatRateForInput(transporterData.base_rate));
+      setPerKmRateValue(formatRateForInput(transporterData.per_km_rate));
+    } catch (error) {
+      console.error('Failed to load transporter pricing:', error);
+      setPricingTransporter(null);
+      setBaseRateValue('');
+      setPerKmRateValue('');
+      setPricingError(error?.message || 'Failed to load pricing details');
+    } finally {
+      setPricingLoading(false);
+    }
+  }, [transporterDetailId, formatRateForInput, resolveTransporterData]);
+
+  const handlePricingSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      const transporterId = pricingTransporter?.id ?? transporterDetailId;
+      if (!transporterId) {
+        setPricingError('Unable to determine your transporter profile.');
+        return;
+      }
+
+      const trimmedBase = baseRateValue.trim();
+      const trimmedPer = perKmRateValue.trim();
+
+      if (trimmedBase !== '' && (Number.isNaN(Number(trimmedBase)) || Number(trimmedBase) < 0)) {
+        setPricingError('Base rate must be a non-negative number');
+        return;
+      }
+
+      if (trimmedPer !== '' && (Number.isNaN(Number(trimmedPer)) || Number(trimmedPer) < 0)) {
+        setPricingError('Per km rate must be a non-negative number');
+        return;
+      }
+
+      setPricingSaving(true);
+      setPricingError('');
+      setPricingSuccess('');
+
+      const payload = {};
+      payload.base_rate = trimmedBase !== '' ? Number(trimmedBase) : '';
+      payload.per_km_rate = trimmedPer !== '' ? Number(trimmedPer) : '';
+
+      try {
+        const response = await transportService.updateTransporterPricing(transporterId, payload);
+        if (!response?.success) {
+          throw new Error(response?.message || 'Failed to update transporter pricing');
+        }
+
+        const updated = response?.data;
+        if (updated) {
+          const normalizedUpdated = {
+            ...updated,
+            base_rate: updated?.base_rate ?? updated?.baseRate ?? null,
+            baseRate: updated?.base_rate ?? updated?.baseRate ?? null,
+            per_km_rate: updated?.per_km_rate ?? updated?.perKmRate ?? null,
+            perKmRate: updated?.per_km_rate ?? updated?.perKmRate ?? null,
+          };
+          setPricingTransporter((prev) => ({ ...prev, ...normalizedUpdated }));
+          setBaseRateValue(formatRateForInput(normalizedUpdated.base_rate));
+          setPerKmRateValue(formatRateForInput(normalizedUpdated.per_km_rate));
+        } else {
+          await loadTransporterPricing();
+        }
+
+        setPricingSuccess('Pricing updated successfully');
+        setTimeout(() => setPricingSuccess(''), 4000);
+      } catch (error) {
+        console.error('Failed to update transporter pricing:', error);
+        setPricingError(error?.message || 'Failed to update transporter pricing');
+      } finally {
+        setPricingSaving(false);
+      }
+    },
+    [pricingTransporter, transporterDetailId, baseRateValue, perKmRateValue, formatRateForInput, loadTransporterPricing]
+  );
+
   const fetchReviewData = useCallback(
     async (transporterId) => {
       if (!transporterId) {
@@ -385,6 +599,15 @@ const TransportDashboard = () => {
     },
     [getAuthHeaders]
   );
+
+  useEffect(() => {
+    if (pricingModalOpen) {
+      loadTransporterPricing();
+    } else {
+      setPricingError('');
+      setPricingSuccess('');
+    }
+  }, [pricingModalOpen, loadTransporterPricing]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -676,6 +899,17 @@ const TransportDashboard = () => {
                   <Leaf className="w-5 h-5 text-green-200" />
                   <span className="text-green-100 font-medium">Eco-Friendly</span>
                 </div>
+                <button
+                  onClick={() => setPricingModalOpen(true)}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.25) 100%)',
+                    border: '1px solid rgba(255, 255, 255, 0.4)',
+                  }}
+                >
+                  <DollarSign className="w-5 h-5 text-white" />
+                  <span>Manage Pricing</span>
+                </button>
               </div>
             </div>
 
@@ -1461,6 +1695,123 @@ const TransportDashboard = () => {
               >
                 <RefreshCcw className="w-5 h-5 mr-2" /> Refresh deliveries
               </button>
+            </div>
+          )}
+
+          {pricingModalOpen && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 border border-green-100 relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Manage Transport Pricing</h3>
+                    <p className="text-sm text-slate-500 mt-1">Update base rate and per kilometre rate for verified transporters.</p>
+                  </div>
+                  <button
+                    className="text-slate-400 hover:text-slate-600"
+                    onClick={() => setPricingModalOpen(false)}
+                    aria-label="Close pricing modal"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {pricingError && (
+                  <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700">
+                    {pricingError}
+                  </div>
+                )}
+
+                {pricingSuccess && (
+                  <div className="mb-4 p-3 rounded-xl bg-green-50 border border-green-100 text-sm text-green-700">
+                    {pricingSuccess}
+                  </div>
+                )}
+
+                {pricingLoading ? (
+                  <div className="py-12 text-center">
+                    <div className="mx-auto mb-3 h-12 w-12 animate-spin rounded-full border-4 border-green-200 border-t-green-500"></div>
+                    <p className="text-sm text-slate-500">Loading pricing details…</p>
+                  </div>
+                ) : !pricingTransporter ? (
+                  <div className="py-10 text-center">
+                    <p className="text-slate-600">
+                      We couldn't find a transporter profile linked to your account. Please contact support if this persists.
+                    </p>
+                  </div>
+                ) : (
+                  <form onSubmit={handlePricingSubmit} className="space-y-6">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-700">Transporter</p>
+                      <div className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-medium flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <span>
+                          {pricingTransporter.full_name || pricingTransporter.name || 'Transporter'}
+                        </span>
+                        <span className="text-sm text-slate-500">
+                          {pricingTransporter.district || pricingTransporter.location || 'District not set'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="font-semibold">Current Rates</div>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-emerald-700">
+                        <span>
+                          Base rate: <span className="font-semibold">{formatRateDisplay(pricingTransporter.base_rate ?? pricingTransporter.baseRate)}</span>
+                        </span>
+                        <span>
+                          Per km: <span className="font-semibold">{formatRateDisplay(pricingTransporter.per_km_rate ?? pricingTransporter.perKmRate, 'per km')}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700">Base Rate (LKR)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={baseRateValue}
+                          onChange={(e) => setBaseRateValue(e.target.value)}
+                          placeholder="e.g. 500"
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700">Per KM Rate (LKR)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={perKmRateValue}
+                          onChange={(e) => setPerKmRateValue(e.target.value)}
+                          placeholder="e.g. 25"
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-500">Leave a field blank if you want to clear the saved value.</p>
+
+                    <div className="flex justify-end gap-3">
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        onClick={() => setPricingModalOpen(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={pricingSaving}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold shadow hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {pricingSaving ? 'Saving…' : 'Save Pricing'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             </div>
           )}
         </div>

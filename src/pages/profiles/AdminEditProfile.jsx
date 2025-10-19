@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import FullScreenLoader from "../../components/ui/FullScreenLoader";
 import Select from "react-select";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -13,20 +12,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
-
-// Handle profile image change
-const handleImageChange = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      setError('Image size must be less than 5MB');
-      return;
-    }
-    
-    setProfile(prev => ({ ...prev, profileImage: file }));
-    setError(null);
-  }
-};
 
 // Map picker component for selecting location
 const LocationPicker = ({ show, onClose, onSelect, initialPosition }) => {
@@ -70,18 +55,6 @@ const districts = [
   'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
 ];
 
-const companyTypes = [
-  'Restaurant',
-  'Supermarket',
-  'Wholesale',
-  'Food Processing',
-  'Export Company',
-  'Retail Store',
-  'Hotel/Resort',
-  'Catering Service',
-  'Other'
-];
-
 const initialProfile = {
   name: "",
   email: "",
@@ -92,15 +65,13 @@ const initialProfile = {
   profileImage: null,
   password: "",
   confirmPassword: "",
-  companyName: "",
-  companyType: "",
-  companyAddress: "",
-  paymentOffer: "",
   latitude: "",
   longitude: ""
 };
 
-const BuyerEditProfile = () => {
+import { useNavigate, useLocation } from "react-router-dom";
+
+const AdminEditProfile = () => {
   const [profile, setProfile] = useState(initialProfile);
   const [originalProfile, setOriginalProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(true);
@@ -114,7 +85,6 @@ const BuyerEditProfile = () => {
   // Helper: map backend data to form fields
   const mapBackendToProfile = (data) => {
     const user = data.user || {};
-    const details = user.buyer_details || {};
     // Construct profile image URL if user has a profile image
     const profileImageUrl = user.profile_image ? 
       `/api/v1/users/${user.id}/profile-image?t=${Date.now()}` : null;
@@ -128,10 +98,6 @@ const BuyerEditProfile = () => {
       profileImage: profileImageUrl,
       password: "",
       confirmPassword: "",
-      companyName: details.company_name || "",
-      companyType: details.company_type || "",
-      companyAddress: details.company_address || "",
-      paymentOffer: details.payment_offer || "",
       latitude: user.latitude || "",
       longitude: user.longitude || ""
     };
@@ -202,11 +168,35 @@ const BuyerEditProfile = () => {
     setSaveEnabled(hasChanges);
   }, [profile, originalProfile]);
 
+  // Password validation functions
+  const isPasswordValid = (password) => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return passwordRegex.test(password);
+  };
+
+  const validatePassword = (password) => {
+    if (password && !isPasswordValid(password)) {
+      setError('Password must meet security requirements');
+    } else {
+      setError(null);
+    }
+  };
+
+  const validatePasswordMatch = (password, confirmPassword) => {
+    if (confirmPassword && password !== confirmPassword) {
+      setError('Passwords do not match');
+    } else {
+      setError(null);
+    }
+  };
+
   // Handle input changes
   const handleInputChange = (key, value) => {
     setProfile(prev => ({ ...prev, [key]: value }));
     
-    if (error) setError(null);
+    if (error && key !== 'password' && key !== 'confirmPassword') {
+      setError(null);
+    }
   };
 
   // Map selection handler
@@ -308,28 +298,6 @@ const BuyerEditProfile = () => {
     return await response.json();
   };
 
-  // Password validation functions
-  const isPasswordValid = (password) => {
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    return passwordRegex.test(password);
-  };
-
-  const validatePassword = (password) => {
-    if (password && !isPasswordValid(password)) {
-      setError('Password must meet security requirements');
-    } else {
-      setError(null);
-    }
-  };
-
-  const validatePasswordMatch = (password, confirmPassword) => {
-    if (confirmPassword && password !== confirmPassword) {
-      setError('Passwords do not match');
-    } else {
-      setError(null);
-    }
-  };
-
   // Save profile handler
   const handleSaveProfile = async () => {
     setLoading(true);
@@ -396,14 +364,6 @@ const BuyerEditProfile = () => {
       if (profile.latitude) formData.append('latitude', profile.latitude);
       if (profile.longitude) formData.append('longitude', profile.longitude);
       
-      // Append buyer-specific data
-      formData.append('companyName', profile.companyName);
-      formData.append('companyType', profile.companyType);
-      formData.append('companyAddress', profile.companyAddress);
-      formData.append('paymentOffer', profile.paymentOffer);
-      
-      // Remove this section as we now handle password changes earlier in the function
-      
       // Append profile image if it's a new file
       if (profile.profileImage && typeof profile.profileImage !== 'string') {
         formData.append('profileImage', profile.profileImage);
@@ -446,8 +406,28 @@ const BuyerEditProfile = () => {
       
       setLoading(false);
       
-      // Navigate back to buyer profile immediately with success message
-      navigate('/profile/buyer', { 
+      // If password was changed, log out and redirect to login
+      if (profile.password) {
+        try {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('authToken');
+          
+          // Redirect to login with message
+          navigate('/login', {
+            state: {
+              message: 'Password updated successfully. Please log in with your new credentials.'
+            }
+          });
+          return;
+        } catch (e) {
+          console.error('Error clearing tokens:', e);
+        }
+      }
+      
+      // If no password change, navigate back to admin profile
+      navigate('/profile/admin', { 
         state: { message: 'Profile updated successfully!' } 
       });
       
@@ -473,13 +453,13 @@ const BuyerEditProfile = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/profile/buyer')}
+            onClick={() => navigate('/profile/admin')}
             className="mb-4 text-green-600 hover:text-green-700 font-medium flex items-center gap-2"
           >
             ← Back to Profile
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-          <p className="text-gray-600 mt-2">Update your business information and preferences</p>
+          <p className="text-gray-600 mt-2">Update your profile information and preferences</p>
         </div>
 
         {/* Messages */}
@@ -625,63 +605,13 @@ const BuyerEditProfile = () => {
             </div>
           </div>
 
-          {/* Business Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Business Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                <input
-                  type="text"
-                  value={profile.companyName}
-                  onChange={(e) => handleInputChange('companyName', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Type</label>
-                <Select
-                  value={profile.companyType ? { value: profile.companyType, label: profile.companyType } : null}
-                  onChange={(option) => handleInputChange('companyType', option?.value || '')}
-                  options={companyTypes.map(type => ({ value: type, label: type }))}
-                  placeholder="Select company type"
-                  className="react-select"
-                  classNamePrefix="react-select"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
-                <textarea
-                  value={profile.companyAddress}
-                  onChange={(e) => handleInputChange('companyAddress', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter your company address"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Offer</label>
-                <textarea
-                  value={profile.paymentOffer}
-                  onChange={(e) => handleInputChange('paymentOffer', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Describe your payment terms and offers"
-                />
-              </div>
-            </div>
-          </div>
+          {/* Business Information removed for admin edit */}
 
           {/* Security */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Change Password (Optional)</h2>
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
                 <input
                   type="password"
@@ -733,7 +663,6 @@ const BuyerEditProfile = () => {
                   </p>
                 </div>
               )}
-              </div>
             </div>
           </div>
 
@@ -741,7 +670,7 @@ const BuyerEditProfile = () => {
           <div className="flex justify-end gap-4">
             <button
               type="button"
-              onClick={() => navigate('/profile/buyer')}
+              onClick={() => navigate('/profile/admin')}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
@@ -765,4 +694,4 @@ const BuyerEditProfile = () => {
   );
 };
 
-export default BuyerEditProfile;
+export default AdminEditProfile;

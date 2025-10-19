@@ -10,6 +10,7 @@ const FeedbackForm = () => {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const feedbackOptions = [
     "Platform Experience",
@@ -33,8 +34,37 @@ const FeedbackForm = () => {
       setError("Please fill in all required fields.");
       return;
     }
-    setSuccess("Thank you for your feedback! It will be reviewed and may be shared on the platform.");
-    setForm({ name: "", email: "", feedbackType: "", message: "", anonymous: false });
+    setError("");
+    setSuccess("");
+    setIsSubmitting(true);
+
+    // Submit to backend
+    fetch('/api/v1/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'feedback',
+        message,
+        name: form.anonymous ? null : name,
+        email: form.anonymous ? null : email,
+        category: feedbackType,
+        anonymous: form.anonymous,
+        source: 'web'
+      })
+    }).then(async (res) => {
+      setIsSubmitting(false);
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        setError(payload.message || 'Failed to submit feedback');
+        return;
+      }
+      setSuccess('Thank you for your feedback! It will be reviewed and may be shared on the platform.');
+      setForm({ name: "", email: "", feedbackType: "", message: "", anonymous: false });
+    }).catch((err) => {
+      setIsSubmitting(false);
+      setError('Network error — unable to submit feedback');
+      console.error('Feedback submit error', err);
+    });
   };
 
   return (
@@ -106,8 +136,9 @@ const FeedbackForm = () => {
             type="submit"
             className="w-full bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition"
             style={{ marginTop: '10px' }}
+            disabled={isSubmitting}
           >
-            Submit Feedback
+            {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
           </button>
         </form>
       </div>

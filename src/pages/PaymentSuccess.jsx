@@ -17,6 +17,10 @@ const PaymentSuccess = () => {
   // Try to get order/cart and delivery details from localStorage (set before redirect)
   const [orderDetails, setOrderDetails] = useState(null);
   const [delivery, setDelivery] = useState(null);
+  const [orderDataLoaded, setOrderDataLoaded] = useState(false);
+  const [orderSummary, setOrderSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
   const [orderSaved, setOrderSaved] = useState(false);
   const { clearCart } = useCart();
   const [orderSaveError, setOrderSaveError] = useState("");
@@ -31,6 +35,8 @@ const PaymentSuccess = () => {
     } catch {
       setOrderDetails(null);
       setDelivery(null);
+    } finally {
+      setOrderDataLoaded(true);
     }
   }, []);
 
@@ -82,6 +88,71 @@ const PaymentSuccess = () => {
     // eslint-disable-next-line
   }, [orderDetails, delivery, orderId, amount]);
 
+  // Fetch persisted order summary from backend once the order has been saved (or attempted)
+  useEffect(() => {
+    if (!orderId) return;
+    if (orderSummary || summaryLoading) return;
+    // Avoid firing before we've tried to save or load local data
+    if (!orderDataLoaded) return;
+    if (!(orderSaved || orderSaveError || (Array.isArray(orderDetails) && orderDetails.length > 0))) return;
+
+    const fetchOrderSummary = async () => {
+      setSummaryLoading(true);
+      setSummaryError('');
+      try {
+        const response = await fetch('http://localhost:5000/api/v1/orders', {
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to load saved order from server');
+        const payload = await response.json();
+        const orders = Array.isArray(payload?.data) ? payload.data : [];
+        const match = orders.find(o => {
+          const externalId = o.externalOrderId || o.orderId || o.id;
+          return externalId && String(externalId) === String(orderId);
+        });
+        if (match) {
+          setOrderSummary(match);
+        } else {
+          setSummaryError('Order was saved but the detailed record is still syncing. Please refresh in a few seconds.');
+        }
+      } catch (err) {
+        setSummaryError(err.message || 'Failed to load order details');
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+
+    fetchOrderSummary();
+  }, [orderId, orderSummary, summaryLoading, orderSaved, orderSaveError, orderDetails, getAuthHeaders, orderDataLoaded]);
+
+  const summaryItems = Array.isArray(orderSummary?.products) ? orderSummary.products : [];
+  const hasLocalItems = Array.isArray(orderDetails) && orderDetails.length > 0;
+  const itemsToDisplay = hasLocalItems ? orderDetails : summaryItems;
+  const itemsLoading = (!orderDataLoaded && !hasLocalItems) || summaryLoading;
+
+  const summaryDelivery = orderSummary ? {
+    full_name: orderSummary.deliveryName,
+    phone_number: orderSummary.deliveryPhone,
+    address: orderSummary.deliveryAddress,
+    district: orderSummary.deliveryDistrict,
+    country: orderSummary.deliveryCountry
+  } : null;
+  const deliveryToDisplay = delivery || summaryDelivery;
+
+  const resolveItemName = (item) => item?.name || item?.productName || item?.product_name || 'Product';
+  const resolveItemQuantity = (item) => Number(item?.quantity ?? 0) || 0;
+  const resolveItemUnitPrice = (item) => {
+    const raw = item?.price ?? item?.priceAtAddTime ?? item?.unitPrice ?? item?.unit_price ?? 0;
+    const numeric = Number(raw);
+    return Number.isFinite(numeric) ? numeric : 0;
+  };
+  const formatCurrency = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 'LKR 0.00';
+    return `LKR ${numeric.toFixed(2)}`;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="bg-white rounded-2xl shadow-xl p-10 max-w-2xl w-full text-center border border-green-200">
@@ -94,6 +165,9 @@ const PaymentSuccess = () => {
         {orderSaved && (
           <div className="mb-4 text-green-700 text-sm font-semibold">Order saved to your account!</div>
         )}
+        {summaryError && (
+          <div className="mb-4 text-amber-600 text-sm font-semibold">{summaryError}</div>
+        )}
         <div className="bg-green-50 rounded-xl p-4 mb-6 text-left">
           <h2 className="text-lg font-semibold text-green-800 mb-2">Order Details</h2>
           <div className="space-y-1 text-gray-700">
@@ -101,20 +175,30 @@ const PaymentSuccess = () => {
             {paymentId && <div><span className="font-medium">Payment ID:</span> {paymentId}</div>}
             {status && <div><span className="font-medium">Status:</span> {status}</div>}
             {amount && <div><span className="font-medium">Amount:</span> {amount} {currency || ''}</div>}
+            {!amount && orderSummary?.totalAmount && (
+              <div><span className="font-medium">Amount:</span> {formatCurrency(orderSummary.totalAmount)} {orderSummary.currency || ''}</div>
+            )}
             {method && <div><span className="font-medium">Payment Method:</span> {method}</div>}
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-left">
           <div className="bg-white rounded-xl p-4 border border-green-100">
             <h3 className="font-semibold text-green-700 mb-2 flex items-center gap-2"><ShoppingCart className="w-5 h-5" /> Items Ordered</h3>
-            {orderDetails && orderDetails.length > 0 ? (
+            {itemsLoading ? (
+              <p className="text-gray-500 text-sm">Loading order items…</p>
+            ) : itemsToDisplay && itemsToDisplay.length > 0 ? (
               <ul className="divide-y divide-green-50">
-                {orderDetails.map((item, idx) => (
-                  <li key={idx} className="py-2 flex justify-between items-center">
-                    <span>{item.name || item.productName} <span className="text-gray-500 text-xs">x{item.quantity}</span></span>
-                    <span className="font-semibold">LKR {(item.price || item.priceAtAddTime) * item.quantity}</span>
-                  </li>
-                ))}
+                {itemsToDisplay.map((item, idx) => {
+                  const quantity = resolveItemQuantity(item);
+                  const unitPrice = resolveItemUnitPrice(item);
+                  const lineTotal = unitPrice * quantity;
+                  return (
+                    <li key={idx} className="py-2 flex justify-between items-center">
+                      <span>{resolveItemName(item)} <span className="text-gray-500 text-xs">x{quantity}</span></span>
+                      <span className="font-semibold">{formatCurrency(lineTotal)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-gray-500 text-sm">No order items found.</p>
@@ -122,12 +206,14 @@ const PaymentSuccess = () => {
           </div>
           <div className="bg-white rounded-xl p-4 border border-green-100">
             <h3 className="font-semibold text-green-700 mb-2">Delivery Details</h3>
-            {delivery ? (
+            {deliveryToDisplay ? (
               <>
-                <div className="mb-1"><span className="font-medium">Name:</span> {delivery.full_name}</div>
-                <div className="mb-1"><span className="font-medium">Phone:</span> {delivery.phone_number}</div>
-                <div className="mb-1"><span className="font-medium">Address:</span> {delivery.address}{delivery.district ? `, ${delivery.district}` : ''}{delivery.country ? `, ${delivery.country}` : ''}</div>
+                <div className="mb-1"><span className="font-medium">Name:</span> {deliveryToDisplay.full_name || 'N/A'}</div>
+                <div className="mb-1"><span className="font-medium">Phone:</span> {deliveryToDisplay.phone_number || 'N/A'}</div>
+                <div className="mb-1"><span className="font-medium">Address:</span> {deliveryToDisplay.address || 'N/A'}{deliveryToDisplay.district ? `, ${deliveryToDisplay.district}` : ''}{deliveryToDisplay.country ? `, ${deliveryToDisplay.country}` : ''}</div>
               </>
+            ) : summaryLoading ? (
+              <p className="text-gray-500 text-sm">Loading delivery details…</p>
             ) : (
               <p className="text-gray-500 text-sm">No delivery details found.</p>
             )}
