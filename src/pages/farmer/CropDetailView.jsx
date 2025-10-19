@@ -1473,21 +1473,21 @@ const CropDetailView = () => {
                   </button>
                 )}
                 {/* Contact button removed */}
-          {user && crop && user.id !== crop.farmer_Id && (      
-          <button
-            onClick={() => {
-              // Reset form fields when opening the review modal
-              setNewRating(0);
-              setNewComment('');
-              setReviewImages([]);
-              setShowReviewModal(true);
-            }}
-            className="flex items-center justify-center px-4 py-2 border border-yellow-500 text-yellow-700 rounded-lg hover:bg-yellow-50 transition-colors text-sm font-medium"
-          >
-            <Star className="w-4 h-4 mr-1" />
-            Add Review & Rating
-          </button>
-          )}
+                {canSubmitReview && (
+                  <button
+                    onClick={() => {
+                      // Reset form fields when opening the review modal
+                      setNewRating(0);
+                      setNewComment('');
+                      setReviewImages([]);
+                      setShowReviewModal(true);
+                    }}
+                    className="flex items-center justify-center px-4 py-2 border border-yellow-500 text-yellow-700 rounded-lg hover:bg-yellow-50 transition-colors text-sm font-medium"
+                  >
+                    <Star className="w-4 h-4 mr-1" />
+                    Add Review & Rating
+                  </button>
+                )}
                 {user && crop && user.id === crop.farmer_Id && (
                   <>
                   <button
