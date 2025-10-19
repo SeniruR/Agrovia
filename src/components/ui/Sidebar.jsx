@@ -22,7 +22,9 @@ import {
   ChatBubbleLeftRightIcon,
   ArrowRightOnRectangleIcon,
   ArrowLeftOnRectangleIcon,
-  UserPlusIcon
+  UserPlusIcon,
+  ExclamationTriangleIcon,
+  ShieldExclamationIcon
 } from '@heroicons/react/24/outline';
 // Main menu for all user types (used as base for filtering)
 // Sidebar menu configs for each user type
@@ -52,14 +54,18 @@ const farmerMenuItems = [
     { name: 'Agri Shop (Fertilizers)', path: '/agrishop' },
   ] },
   { label: 'Alerts', icon: BellIcon, subcategories: [
-    { name: 'Pest Alerts', path: '/pestalert' },
-    { name: 'Weather Alerts', path: '/weatheralerts' },
+    { name: 'Pest Alerts', path: '/pestalert/view', icon: ExclamationTriangleIcon },
+    { name: 'Weather Alerts', path: '/weatheralerts', icon: BellIcon },
   ] },
 ];
 
 const farmerOrganizerMenuItems = [
   ...farmerMenuItems,
   { label: 'Organization Dashboard', icon: UserGroupIcon, path: '/verificationpanel' }, //use /organization
+  { label: 'Pest Alert Management', icon: ShieldExclamationIcon, subcategories: [
+    { name: 'View Pest Alerts', path: '/pestalert/view', icon: ExclamationTriangleIcon },
+    { name: 'Report Pest Alert', path: '/pestalert/upload', icon: PlusCircleIcon },
+  ] },
 ];
 
 const buyerMenuItems = [
@@ -97,6 +103,7 @@ const moderatorMenuItems = [
   { label: 'Create Article', icon: DocumentTextIcon, path: '/createarticle' },
   { label: 'My Article Requests', icon: BookOpenIcon, path: '/my-article-requests' },
   { label: 'Content Approval', icon: DocumentCheckIcon, path: '/conapproval' },
+  { label: 'Pest Alerts', icon: BellIcon, path: '/pestalert/view' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile' },
 ];
 
@@ -179,6 +186,30 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
         // Show all other items
         return item;
       }).filter(Boolean); // Remove null items
+      setFilteredMenu(menu);
+    } else if (userType === '1.1' || userType === 1.1) {
+      // Premium farmer/organizer - show all farmer menu items plus special features
+      const menu = farmerOrganizerMenuItems.map(item => {
+        // If this is the AI Features item, filter subcategories based on access
+        if (item.label === 'AI Features') {
+          const filteredSubcategories = item.subcategories.filter(sub => {
+            if (sub.name === 'Crop Recommendation') {
+              return hasCropRecommendationAccess;
+            }
+            if (sub.name === 'Price Forecast') {
+              return hasForecastAccess;
+            }
+            return true;
+          });
+          return filteredSubcategories.length > 0 ? { ...item, subcategories: filteredSubcategories } : null;
+        }
+        // Premium users always have access to pest alerts
+        if (item.label === 'Alerts' || item.label === 'Pest Alert Management') {
+          return item;
+        }
+        // Show all other items
+        return item;
+      }).filter(Boolean);
       setFilteredMenu(menu);
     } else if (userType === '3' || userType === 3) {
       // Re-filter shop menu items when subscription access changes
@@ -265,7 +296,7 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
           }
           setFilteredMenu(menu);
         }
-      } catch (e) {
+      } catch {
         if (isMounted) {
           setUserType(null);
           setFilteredMenu(menuItems);
@@ -274,7 +305,7 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
     }
     fetchUserType();
     return () => { isMounted = false; };
-  }, []);
+  }, [hasCropRecommendationAccess, hasAlertAccess, hasForecastAccess]);
 
   // Clear selected collapsed item when sidebar opens
   useEffect(() => {
@@ -289,8 +320,9 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   };
 
   const handleLogout = () => {
-    // Use AuthContext logout function
-    logout();
+    // Clear the auth token and redirect to login
+    localStorage.removeItem('authToken');
+    window.location.href = '/login';
     onClose(); // Close sidebar after logout
   };
 
@@ -738,7 +770,10 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
                               outline: 'none'
                             }}
                           >
-                            {sub.name}
+                            <div className="flex items-center space-x-2">
+                              {sub.icon && <sub.icon className="w-4 h-4 flex-shrink-0" />}
+                              <span>{sub.name}</span>
+                            </div>
                           </Link>
                         ))}
                       </div>

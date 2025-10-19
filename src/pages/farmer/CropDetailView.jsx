@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
-  // Use build-time env var for backend URL (must be inside component for browser)
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  User, 
-  Calendar, 
-  Leaf, 
-  Package, 
+import {
+  ArrowLeft,
+  MapPin,
+  User,
+  Calendar,
+  Leaf,
+  Package,
   DollarSign,
   Phone,
   Mail,
@@ -17,22 +15,26 @@ import {
   Camera,
   CheckCircle,
   Truck,
-  X
+  X,
+  Star,
+  Send,
+  ChevronRight
 } from 'lucide-react';
 import { cropService } from '../../services/cropService';
 import { useCart } from '../../hooks/useCart';
 import { useBuyerOrderLimits } from '../../hooks/useBuyerOrderLimits';
 
 import EditCropPost from './EditCropPost'; // Add this import at the top if not present
-import { Star } from 'lucide-react';
 import CartNotification from '../../components/CartNotification';
 import OrderLimitNotification from '../../components/OrderLimitNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAlert } from '../../contexts/AlertContext';
+import { io } from 'socket.io-client';
 
 const CropDetailView = () => {
   const { success, error, warning, info } = useAlert();
-  const { user, getAuthHeaders } = useAuth();
+  const { user, getAuthHeaders, token } = useAuth();
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
@@ -40,6 +42,420 @@ const CropDetailView = () => {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
+  const [showChatWindow, setShowChatWindow] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState(null);
+  const [sendingChatMessage, setSendingChatMessage] = useState(false);
+  // New state variables for enhanced chat functionality
+  const [buyersList, setBuyersList] = useState([]);
+  const [loadingBuyersList, setLoadingBuyersList] = useState(false);
+  const [selectedBuyer, setSelectedBuyer] = useState(null);
+  const [isBuyersListView, setIsBuyersListView] = useState(false);
+  const [deletingMessageId, setDeletingMessageId] = useState(null);
+  const socketRef = useRef(null);
+  const chatScrollRef = useRef(null);
+  
+  // We'll check if the user is the farmer inside each relevant function
+  // instead of defining it at the top level to avoid null references
+  const normalizeChatMessage = useCallback((message) => {
+    if (!message) return null;
+    const senderId = message.sender_id ?? message.senderId ?? message.user_id ?? message.userId ?? null;
+    const content = message.message ?? message.content ?? message.body ?? '';
+    const createdAt = message.created_at ?? message.createdAt ?? message.timestamp ?? new Date().toISOString();
+    
+    // Determine sender name based on who sent the message
+    let senderName;
+    if (message.sender_name || message.senderName) {
+      senderName = message.sender_name ?? message.senderName;
+    } else if (senderId === user?.id) {
+      senderName = 'You';
+    } else if (selectedBuyer && senderId === selectedBuyer.id) {
+      senderName = selectedBuyer.name || 'Buyer';
+    } else {
+      // Fallback: if not current user and not selected buyer, it might be another buyer or farmer
+      senderName = senderId === crop?.farmer_Id ? (crop?.farmerName || 'Farmer') : 'Buyer';
+    }
+    
+    return {
+      id: message.id ?? message.clientMessageId ?? `${senderId ?? 'unknown'}-${createdAt}`,
+      clientMessageId: message.clientMessageId,
+      senderId,
+      senderName,
+      content,
+      createdAt,
+      isOptimistic: message.isOptimistic || false
+    };
+  }, [crop?.farmerName, crop?.farmer_Id, user?.id, selectedBuyer]);
+  const formatChatTimestamp = (value) => {
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    } catch (err) {
+      return '';
+    }
+  };
+
+  useEffect(() => {
+    if (!showChatWindow || !crop?.id || !user?.id) {
+      return;
+    }
+    
+    // Skip loading chat history when in buyers list view
+    const isUserFarmer = user.id === crop.farmer_Id;
+    if (isBuyersListView && isUserFarmer) {
+      return;
+    }
+    
+    let isActive = true;
+    const loadChatHistory = async () => {
+      setChatLoading(true);
+      setChatError(null);
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        };
+        
+        // Determine which buyer ID to use
+        const buyerId = isUserFarmer && selectedBuyer ? selectedBuyer.id : user.id;
+        
+        const response = await fetch(
+          `${BACKEND_URL}/api/v1/crop-chats/${crop.id}?farmerId=${crop.farmer_Id}&buyerId=${buyerId}`,
+          {
+            headers
+          }
+        );
+        if (!response.ok) {
+          throw new Error('Unable to load chat history.');
+        }
+        const data = await response.json();
+        if (!isActive) {
+          return;
+        }
+        const rawMessages = Array.isArray(data?.messages)
+          ? data.messages
+          : Array.isArray(data)
+            ? data
+            : [];
+        const normalized = rawMessages
+          .map((msg) => normalizeChatMessage(msg))
+          .filter(Boolean);
+        setChatMessages(normalized);
+      } catch (err) {
+        if (isActive) {
+          setChatError(err.message || 'Unable to load chat history.');
+        }
+      } finally {
+        if (isActive) {
+          setChatLoading(false);
+        }
+      }
+    };
+
+    loadChatHistory();
+
+    return () => {
+      isActive = false;
+    };
+  }, [showChatWindow, crop?.id, crop?.farmer_Id, user?.id, token, BACKEND_URL, normalizeChatMessage, selectedBuyer, isBuyersListView]);
+
+  useEffect(() => {
+    if (!showChatWindow || !crop?.id || !user?.id) {
+      return;
+    }
+    
+    // Skip socket connection when in buyers list view
+    const isUserFarmer = user.id === crop.farmer_Id;
+    if (isBuyersListView && isUserFarmer) {
+      return;
+    }
+
+    const connection = io(BACKEND_URL, {
+      transports: ['websocket'],
+      auth: token ? { token } : undefined,
+      query: {
+        cropId: crop.id
+      }
+    });
+
+    socketRef.current = connection;
+
+    // Determine which buyer ID to use for the room - reuse isUserFarmer from above
+    const buyerId = isUserFarmer && selectedBuyer ? selectedBuyer.id : user.id;
+
+    const roomPayload = {
+      cropId: crop.id,
+      farmerId: crop.farmer_Id,
+      buyerId: buyerId
+    };
+
+    connection.emit('joinCropChat', roomPayload);
+
+    connection.on('cropChatMessage', (incoming) => {
+      const normalized = normalizeChatMessage(incoming);
+      if (!normalized) {
+        return;
+      }
+      setChatMessages((prev) => {
+        // Check if we already have this message by clientMessageId or id
+        if (normalized.clientMessageId) {
+          const existingByClientIdIdx = prev.findIndex(
+            (msg) => msg.clientMessageId && msg.clientMessageId === normalized.clientMessageId
+          );
+          if (existingByClientIdIdx !== -1) {
+            const updated = [...prev];
+            updated[existingByClientIdIdx] = { ...normalized, isOptimistic: false };
+            return updated;
+          }
+        }
+        
+        // Check if we have the message by its database ID
+        if (normalized.id) {
+          const existingByIdIdx = prev.findIndex((msg) => msg.id === normalized.id);
+          if (existingByIdIdx !== -1) {
+            return prev; // Already have this message, don't add it again
+          }
+        }
+        
+        // Check for possible duplicates by comparing content and timestamps
+        const isDuplicate = prev.some(
+          (msg) => 
+            msg.content === normalized.content && 
+            msg.senderId === normalized.senderId &&
+            Math.abs(new Date(msg.createdAt) - new Date(normalized.createdAt)) < 3000 // within 3 seconds
+        );
+        
+        if (isDuplicate) {
+          return prev; // Likely a duplicate, don't add
+        }
+        
+        return [...prev, { ...normalized, isOptimistic: false }];
+      });
+    });
+
+    connection.on('cropChatHistory', (history) => {
+      if (!Array.isArray(history)) {
+        return;
+      }
+      const normalized = history.map((msg) => normalizeChatMessage(msg)).filter(Boolean);
+      setChatMessages(normalized);
+    });
+
+    connection.on('cropChatError', (err) => {
+      setChatError(
+        typeof err === 'string' ? err : err?.message || 'Unable to connect to chat.'
+      );
+    });
+
+    connection.on('connect_error', (err) => {
+      setChatError(err?.message || 'Unable to connect to chat.');
+    });
+
+    // Listen for message deletion events
+    connection.on('messageDeleted', ({ messageId }) => {
+      setChatMessages(prev => prev.filter(message => message.id !== messageId));
+    });
+
+    return () => {
+      connection.disconnect();
+      socketRef.current = null;
+    };
+  }, [showChatWindow, crop?.id, crop?.farmer_Id, user?.id, token, BACKEND_URL, normalizeChatMessage, selectedBuyer, isBuyersListView]);
+
+  useEffect(() => {
+    if (showChatWindow && chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, showChatWindow]);
+
+  // Function to fetch list of buyers who messaged about this crop
+  const fetchBuyersList = async () => {
+    if (!crop?.id || !user?.id || user.id !== crop.farmer_Id) return;
+    
+    try {
+      setLoadingBuyersList(true);
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/crop-chats/${crop.id}/buyers`,
+        { headers }
+      );
+      if (!response.ok) {
+        throw new Error('Unable to load buyers list.');
+      }
+      const data = await response.json();
+      if (Array.isArray(data?.buyers)) {
+        setBuyersList(data.buyers);
+      } else {
+        setBuyersList([]);
+      }
+    } catch (error) {
+      console.error('Error fetching buyers list:', error);
+      setChatError('Failed to load buyers list. Please try again.');
+    } finally {
+      setLoadingBuyersList(false);
+    }
+  };
+  
+  const openChatWindow = () => {
+    if (!user || !crop) {
+      return;
+    }
+    setChatError(null);
+    setShowChatWindow(true);
+    
+    const isUserFarmer = user.id === crop.farmer_Id;
+    
+    if (isUserFarmer) {
+      // Farmer viewing their own crop - show buyers list
+      setIsBuyersListView(true);
+      fetchBuyersList();
+    } else {
+      // Buyer view - or farmer viewing someone else's crop
+      setIsBuyersListView(false);
+      setSelectedBuyer(null);
+      // Chat history will be loaded by the existing useEffect
+    }
+  };
+
+  const closeChatWindow = () => {
+    setShowChatWindow(false);
+    setChatInput('');
+    setSendingChatMessage(false);
+    setChatError(null);
+    setChatLoading(false);
+    // Reset chat-related state
+    setIsBuyersListView(false);
+    setSelectedBuyer(null);
+  };
+  
+  const selectBuyer = (buyer) => {
+    setSelectedBuyer(buyer);
+    setIsBuyersListView(false);
+    setChatMessages([]); // Clear current messages
+    setChatLoading(true);
+    
+    // Now load the conversation with this specific buyer
+    // The existing useEffect will handle loading the conversation
+  };
+
+  const handleSendChatMessage = async (event) => {
+    event.preventDefault();
+    if (!chatInput.trim() || !user || !crop) {
+      return;
+    }
+
+    const trimmed = chatInput.trim();
+    const clientMessageId = `client-${Date.now()}`;
+    const optimisticMessage = normalizeChatMessage({
+      clientMessageId,
+      sender_id: user.id,
+      message: trimmed,
+      created_at: new Date().toISOString(),
+      isOptimistic: true
+    });
+
+    if (optimisticMessage) {
+      setChatMessages((prev) => [...prev, optimisticMessage]);
+    }
+
+    setChatInput('');
+    setChatError(null);
+    setSendingChatMessage(true);
+
+    // Determine which buyer ID to use based on whether a farmer is viewing their own crop
+    // and has selected a specific buyer to chat with
+    const isUserFarmer = user.id === crop.farmer_Id;
+    const buyerId = isUserFarmer && selectedBuyer ? selectedBuyer.id : user.id;
+    
+    const payload = {
+      cropId: crop.id,
+      farmerId: crop.farmer_Id,
+      buyerId: buyerId,
+      senderId: user.id,
+      message: trimmed,
+      clientMessageId
+    };
+
+    try {
+      // Use only one method to send the message - preferably the socket
+      // as it's faster and will avoid duplication
+      if (socketRef.current) {
+        socketRef.current.emit('sendCropChatMessage', payload);
+      } else {
+        // Fallback to HTTP request only if socket is not available
+        const headers = {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        };
+
+        const response = await fetch(`${BACKEND_URL}/api/v1/crop-chats`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error('Unable to save message.');
+        }
+      }
+    } catch (err) {
+      setChatError(err.message || 'Unable to send message. Please try again.');
+      setChatMessages((prev) => prev.filter((msg) => msg.clientMessageId !== clientMessageId));
+      setChatInput(trimmed);
+    } finally {
+      setSendingChatMessage(false);
+    }
+  };
+
+  const handleDeleteChatMessage = async (messageId) => {
+    if (!messageId || deletingMessageId === messageId) return;
+
+    setDeletingMessageId(messageId);
+    setChatError(null);
+
+    try {
+      // Try socket first for real-time updates
+      if (socketRef.current) {
+        socketRef.current.emit('deleteCropChatMessage', { messageId });
+      }
+
+      // Also send HTTP request as backup
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/crop-chats/${messageId}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to delete message');
+      }
+
+      // If socket didn't work, remove the message from local state
+      if (!socketRef.current) {
+        setChatMessages(prev => prev.filter(message => message.id !== messageId));
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      setChatError('Unable to delete message. Please try again.');
+    } finally {
+      setDeletingMessageId(null);
+    }
+  };
   
   // Order limits for buyers
   const {
@@ -59,6 +475,20 @@ const CropDetailView = () => {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState('');
   const [reviewImages, setReviewImages] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+  const [orderedCropIds, setOrderedCropIds] = useState(() => new Set());
+
+  const clearReviewImages = () => {
+    setReviewImages((prev) => {
+      prev.forEach((img) => {
+        if (img?.preview?.startsWith('blob:')) {
+          URL.revokeObjectURL(img.preview);
+        }
+      });
+      return [];
+    });
+  };
   
   // For update and delete review functionality
   const [editingReview, setEditingReview] = useState(null);
@@ -72,6 +502,221 @@ const CropDetailView = () => {
   const [loadingTransporters, setLoadingTransporters] = useState(false);
   const [selectedTransporter, setSelectedTransporter] = useState(null);
   const [showTransportRequest, setShowTransportRequest] = useState(false);
+
+  const parseAttachmentList = (rawAttachments, reviewId) => {
+    if (!rawAttachments) return [];
+
+    const normalizeRaw = (input) => {
+      if (!input) return [];
+      if (Array.isArray(input)) return input;
+      if (typeof input === 'object') return [input];
+      if (typeof input === 'string') {
+        const trimmed = input.trim();
+        if (!trimmed) return [];
+
+        if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed;
+            if (parsed && typeof parsed === 'object') return [parsed];
+          } catch (err) {
+            try {
+              const parsedWithDQuotes = JSON.parse(trimmed.replace(/'/g, '"'));
+              if (Array.isArray(parsedWithDQuotes)) return parsedWithDQuotes;
+              if (parsedWithDQuotes && typeof parsedWithDQuotes === 'object') return [parsedWithDQuotes];
+            } catch (err2) {
+              try {
+                const relaxed = JSON.parse(trimmed.replace(/\\/g, '/'));
+                if (Array.isArray(relaxed)) return relaxed;
+                if (relaxed && typeof relaxed === 'object') return [relaxed];
+              } catch {
+                // ignore and fall through
+              }
+            }
+          }
+        }
+
+        if (trimmed.includes(',')) {
+          return trimmed.split(',').map((part) => part.trim()).filter(Boolean);
+        }
+
+        return [trimmed];
+      }
+      return [];
+    };
+
+    const resolveAttachmentUrl = (item) => {
+      if (!item) return null;
+
+      const coerceString = (value) => {
+        if (typeof value !== 'string') return null;
+        const sanitized = value.trim().replace(/\\/g, '/');
+        if (!sanitized) return null;
+        if (sanitized.startsWith('data:')) return sanitized;
+        if (sanitized.startsWith('blob:')) return sanitized;
+        if (sanitized.startsWith('http://') || sanitized.startsWith('https://')) return sanitized;
+        if (sanitized.startsWith('//')) {
+          const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+          return `${protocol}${sanitized}`;
+        }
+        if (sanitized.startsWith('/')) return `${BACKEND_URL}${sanitized}`;
+        if (sanitized.startsWith('uploads/')) return `${BACKEND_URL}/${sanitized}`;
+        if (sanitized.startsWith('api/')) return `${BACKEND_URL}/${sanitized}`;
+        if (sanitized.startsWith('v1/')) return `${BACKEND_URL}/${sanitized}`;
+        return `${BACKEND_URL}/${sanitized}`;
+      };
+
+      if (typeof item === 'string') {
+        return coerceString(item);
+      }
+
+      if (typeof item === 'object') {
+        const dataCandidates = [
+          item.data,
+          item.base64,
+          item.base64Data,
+          item.attachmentData,
+          item.blob
+        ];
+
+        for (const candidate of dataCandidates) {
+          if (typeof candidate === 'string' && candidate.trim()) {
+            const raw = candidate.trim();
+            if (raw.startsWith('data:')) {
+              return raw;
+            }
+
+            const mime = typeof item.mimetype === 'string' && item.mimetype.trim()
+              ? item.mimetype.trim()
+              : 'application/octet-stream';
+            const normalizedBase64 = raw.replace(/^data:[^,]+,/, '').replace(/\s+/g, '');
+            if (normalizedBase64) {
+              return `data:${mime};base64,${normalizedBase64}`;
+            }
+          }
+        }
+
+        const candidates = [
+          item.url,
+          item.secure_url,
+          item.Location,
+          item.location,
+          item.path,
+          item.filepath,
+          item.file_path,
+          item.previewUrl,
+          item.preview,
+          item.attachmentUrl,
+          item.attachment_url,
+          item.filename,
+          item.name,
+        ];
+
+        for (const candidate of candidates) {
+          const resolved = coerceString(candidate);
+          if (resolved) return resolved;
+        }
+      }
+
+      if (reviewId) {
+        return `${BACKEND_URL}/api/v1/crop-reviews/${reviewId}/attachment`;
+      }
+
+      return null;
+    };
+
+    const attachments = normalizeRaw(rawAttachments);
+    const unique = new Set();
+
+    attachments.forEach((entry) => {
+      const resolved = resolveAttachmentUrl(entry);
+      if (resolved) {
+        unique.add(resolved);
+      }
+    });
+
+    return Array.from(unique);
+  };
+
+  const normalizeReviewRecord = (review) => {
+    if (!review) return null;
+
+    const buyerId = review.buyer_id ?? review.buyerId ?? review.user_id ?? review.userId ?? null;
+    const nameCandidates = [
+      review.displayName,
+      review.buyer_name,
+      review.user,
+      review.user_name,
+      review.name,
+      review.author
+    ];
+    const displayName = nameCandidates.find((value) => typeof value === 'string' && value.trim())?.trim() || 'Anonymous';
+
+    const ratingValue = Number(review.rating ?? review.average_rating);
+    const rating = Number.isFinite(ratingValue) ? ratingValue : null;
+    const rawAttachmentSources = review.attachment_blobs ?? review.attachment_urls ?? review.attachments ?? review.images ?? review.review_images;
+    const attachments = parseAttachmentList(
+      rawAttachmentSources,
+      review.id
+    );
+
+    const createdAt = review.created_at ?? review.createdAt ?? review.updated_at ?? null;
+    const initial = displayName.charAt(0).toUpperCase() || 'A';
+
+    return {
+      id: review.id,
+      cropId: review.crop_id ?? review.cropId ?? null,
+      buyer_id: buyerId,
+      buyerId,
+      displayName,
+      rating,
+      comment: review.comment ?? '',
+      createdAt,
+      attachments,
+      attachmentMetadata: Array.isArray(review.attachment_blobs) ? review.attachment_blobs : undefined,
+      initial
+    };
+  };
+
+  const renderReviewStars = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return (
+        <div className="flex text-gray-300" aria-hidden="true">
+          {[...Array(5)].map((_, idx) => (
+            <Star key={idx} className="h-4 w-4" />
+          ))}
+        </div>
+      );
+    }
+
+    const rounded = Math.round(numeric);
+    return (
+      <div className="flex text-yellow-400" aria-hidden="true">
+        {[...Array(5)].map((_, idx) => (
+          <Star
+            key={idx}
+            className={`h-4 w-4 ${idx < rounded ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const formatReviewDate = (value) => {
+    if (!value) return 'Unknown date';
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'Unknown date';
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (err) {
+      return 'Unknown date';
+    }
+  };
 
 
   useEffect(() => {
@@ -189,51 +834,136 @@ const CropDetailView = () => {
 
   // Fetch reviews when crop data is loaded
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchReviews = async () => {
       if (!crop || !crop.id) return;
+
+      setReviewsLoading(true);
+      setReviewsError(null);
+
       try {
         const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews?crop_id=${crop.id}`);
-        if (response.ok) {
-          const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reviews: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!isCancelled) {
           if (data.success && Array.isArray(data.reviews)) {
-            // Map backend attachments (string or array) to images for frontend display
-            const formattedReviews = data.reviews.map(review => {
-              let images = [];
-              if (Array.isArray(review.attachments)) {
-                images = review.attachments;
-              } else if (typeof review.attachments === 'string' && review.attachments.trim() !== '') {
-                images = review.attachments.split(',').map(s => s.trim()).filter(Boolean);
-              } else if (Array.isArray(review.attachment_urls)) {
-                images = review.attachment_urls;
-              }
-              // Parse rating as number if it's a string like '3 Stars'
-              let rating = review.rating;
-              if (typeof rating === 'string') {
-                const match = rating.match(/(\d+)/);
-                rating = match ? parseInt(match[1], 10) : 0;
-              }
-              return {
-                id: review.id,
-                user: review.buyer_name || 'Anonymous',
-                rating,
-                comment: review.comment,
-                images,
-                created_at: review.created_at,
-                buyer_id: review.buyer_id
-              };
-            });
-            setReviews(formattedReviews);
-            console.log('Fetched reviews:', formattedReviews);
+            const normalized = data.reviews
+              .map((entry) => normalizeReviewRecord(entry))
+              .filter(Boolean);
+            setReviews(normalized);
+          } else {
+            setReviews([]);
           }
-        } else {
-          console.error('Failed to fetch reviews');
         }
       } catch (error) {
         console.error('Error fetching reviews:', error);
+        if (!isCancelled) {
+          setReviewsError('Unable to load reviews at this time.');
+          setReviews([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setReviewsLoading(false);
+        }
       }
     };
+
     fetchReviews();
-  }, [crop]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [BACKEND_URL, crop]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadOrders = async () => {
+      if (!user || !user.id) {
+        if (isActive) {
+          setOrderedCropIds(new Set());
+        }
+        return;
+      }
+
+      try {
+        const headers = getAuthHeaders ? getAuthHeaders() : {};
+        const response = await fetch(`${BACKEND_URL}/api/v1/orders`, {
+          headers: {
+            Accept: 'application/json',
+            ...headers,
+          },
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          if (isActive) {
+            setOrderedCropIds(new Set());
+          }
+          return;
+        }
+
+        const payload = await response.json().catch(() => ({}));
+        const orders = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : [];
+
+        const ids = new Set();
+        orders.forEach((order) => {
+          const items = Array.isArray(order.products)
+            ? order.products
+            : Array.isArray(order.items)
+              ? order.items
+              : [];
+
+          items.forEach((item) => {
+            const candidateIds = [
+              item.crop_id,
+              item.cropId,
+              item.product_id,
+              item.productId,
+              item.item_id,
+              item.itemId,
+              item.id,
+            ];
+
+            candidateIds.some((candidate) => {
+              const numeric = Number(candidate);
+              if (Number.isFinite(numeric)) {
+                ids.add(numeric);
+                return true;
+              }
+              return false;
+            });
+          });
+        });
+
+        if (isActive) {
+          setOrderedCropIds(new Set(ids));
+        }
+      } catch (err) {
+        if (isActive) {
+          setOrderedCropIds(new Set());
+        }
+      }
+    };
+
+    loadOrders();
+
+    return () => {
+      isActive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [BACKEND_URL, user]);
+
+  const hasOrderedThisCrop = crop?.id ? orderedCropIds.has(Number(crop.id)) : false;
+  const canSubmitReview = Boolean(user && crop && user.id !== crop.farmer_Id && hasOrderedThisCrop);
 
   // Function to handle updating a review
   const handleUpdateReview = async () => {
@@ -259,12 +989,8 @@ const CropDetailView = () => {
       formData.append('comment', editingReview.comment);
       
       // Append image files if any new ones are added
-      if (reviewImages.length > 0) {
-        reviewImages.forEach((img) => {
-          if (img.file) {
-            formData.append('attachments', img.file);
-          }
-        });
+      if (reviewImages.length > 0 && reviewImages[0]?.file) {
+        formData.append('attachments', reviewImages[0].file);
       }
       
       // Send data to server
@@ -280,16 +1006,21 @@ const CropDetailView = () => {
       if (response.ok) {
         const data = await response.json();
         
+        const updatedNormalized = normalizeReviewRecord({
+          ...editingReview,
+          rating: editingReview.rating,
+          comment: editingReview.comment,
+          attachment_urls: data.review?.attachment_urls ?? editingReview.attachments,
+          attachment_blobs: data.review?.attachment_blobs ?? editingReview.attachmentMetadata ?? [],
+          created_at: editingReview.createdAt ?? editingReview.created_at,
+          buyer_id: editingReview.buyer_id ?? editingReview.buyerId
+        });
+
         // Update the review in the state
         setReviews(prevReviews => 
           prevReviews.map(r => 
             r.id === editingReview.id 
-              ? { 
-                  ...r, 
-                  rating: editingReview.rating,
-                  comment: editingReview.comment,
-                  images: data.review?.attachment_urls || r.images
-                }
+              ? updatedNormalized 
               : r
           )
         );
@@ -298,9 +1029,9 @@ const CropDetailView = () => {
         success('Review updated successfully!');
         
         // Reset form and close modal
-        setEditingReview(null);
-        setShowUpdateReviewModal(false);
-        setReviewImages([]);
+  setEditingReview(null);
+  setShowUpdateReviewModal(false);
+  clearReviewImages();
       } else {
         const errorData = await response.json().catch(() => ({}));
         error(`${errorData.message || 'Failed to update review'}`);
@@ -394,10 +1125,13 @@ const CropDetailView = () => {
     // Optionally, show a notification or feedback here
   };
 
-  const handleContactFarmer = () => {
-    // Contact farmer logic
-    console.log('Contacting farmer');
-  };
+  // handleContactFarmer function removed
+
+  const reviewCount = reviews.length;
+  const ratedReviews = reviews.filter(review => Number.isFinite(Number(review.rating)) && Number(review.rating) > 0);
+  const averageRating = ratedReviews.length > 0
+    ? parseFloat((ratedReviews.reduce((sum, review) => sum + Number(review.rating), 0) / ratedReviews.length).toFixed(1))
+    : null;
 
   // Fetch available transporters
   const fetchTransporters = async () => {
@@ -677,13 +1411,16 @@ const CropDetailView = () => {
                     Add to Cart
                   </button>
                 )}
-                <button
-                  onClick={handleContactFarmer}
-                  className="flex items-center justify-center px-4 py-2 border border-agrovia-500 text-agrovia-600 rounded-lg hover:bg-agrovia-50 transition-colors text-sm font-medium"
-                >
-                  <MessageCircle className="w-4 h-4 mr-1" />
-                  Contact
-                </button>
+                {user && crop && user.id !== crop.farmer_Id && (
+                  <button
+                    onClick={openChatWindow}
+                    className="flex items-center justify-center px-4 py-2 border border-green-500 text-green-600 rounded-lg hover:bg-green-50 transition-colors text-sm font-medium"
+                  >
+                    <Send className="w-4 h-4 mr-1" />
+                    Chat with Farmer
+                  </button>
+                )}
+                {/* Contact button removed */}
           {user && crop && user.id !== crop.farmer_Id && (      
           <button
             onClick={() => {
@@ -1050,6 +1787,15 @@ const CropDetailView = () => {
                   Add to Cart
                 </button>
                 )}
+                {user && crop && (
+                <button
+                  onClick={openChatWindow}
+                  className="w-full flex items-center justify-center px-6 py-4 border-3 border-green-500 text-green-600 rounded-xl hover:bg-green-50 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
+                >
+                  <Send className="w-5 h-5 mr-2" />
+                  {user.id === crop.farmer_Id ? "View Messages" : "Chat with Farmer"}
+                </button>
+                )}
                 
                 {user && crop && user.id !== crop.farmer_Id && (
                 <button
@@ -1061,17 +1807,7 @@ const CropDetailView = () => {
                 </button>
                 )}
                 
-                {user && crop && user.id != crop.farmer_Id && (
-                  <>
-                <button
-                  onClick={handleContactFarmer}
-                  className="w-full flex items-center justify-center px-6 py-4 border-3 border-agrovia-500 text-agrovia-600 rounded-xl hover:bg-agrovia-50 transition-all duration-300 font-bold shadow-lg transform hover:scale-105"
-                >
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  Contact Farmer
-                </button>
-                </>
-                )}
+                {/* Contact Farmer button removed */}
                
                 
   {/* Delete Confirmation Modal */}
@@ -1158,6 +1894,174 @@ const CropDetailView = () => {
         quantity={notification.quantity}
         onClose={() => setNotification({ show: false, product: null, quantity: 0 })}
       />
+      {showChatWindow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 h-[520px] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div>
+                {user?.id === crop?.farmer_Id && selectedBuyer ? (
+                  <div className="flex items-center">
+                    <button 
+                      className="mr-2 text-gray-500 hover:text-agrovia-500"
+                      onClick={() => {
+                        setIsBuyersListView(true);
+                        setSelectedBuyer(null);
+                      }}
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Chat with {selectedBuyer.name || 'Buyer'}
+                    </h3>
+                  </div>
+                ) : (
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {isBuyersListView && user?.id === crop?.farmer_Id 
+                      ? "Messages from Buyers" 
+                      : `Chat with ${crop?.farmerName || 'Farmer'}`}
+                  </h3>
+                )}
+                <p className="text-xs text-gray-500">Crop: {crop?.cropName || ''}</p>
+              </div>
+              <button
+                onClick={closeChatWindow}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close chat"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Conditional rendering based on view type */}
+            {isBuyersListView && user?.id === crop?.farmer_Id ? (
+              // Buyers list view for farmers
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                {chatError && (
+                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    {chatError}
+                  </div>
+                )}
+                {loadingBuyersList && (
+                  <div className="flex justify-center py-6">
+                    <div className="h-6 w-6 border-2 border-agrovia-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {!loadingBuyersList && buyersList.length === 0 && !chatError && (
+                  <div className="text-sm text-gray-500 text-center mt-12">
+                    No buyers have messaged about this crop yet.
+                  </div>
+                )}
+                {buyersList.map((buyer) => (
+                  <div 
+                    key={buyer.id} 
+                    className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50"
+                    onClick={() => selectBuyer(buyer)}
+                  >
+                    <div className="flex-shrink-0 h-10 w-10 bg-agrovia-100 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-agrovia-500" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="font-medium text-gray-900">{buyer.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {buyer.lastMessage ? `${buyer.lastMessage.substr(0, 30)}${buyer.lastMessage.length > 30 ? '...' : ''}` : 'Click to view conversation'}
+                      </p>
+                    </div>
+                    <div className="ml-auto">
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Chat conversation view
+              <>
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" ref={chatScrollRef}>
+                  {chatError && (
+                    <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      {chatError}
+                    </div>
+                  )}
+                  {chatLoading && (
+                    <div className="flex justify-center py-6">
+                      <div className="h-6 w-6 border-2 border-agrovia-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {!chatLoading && chatMessages.length === 0 && !chatError && (
+                    <div className="text-sm text-gray-500 text-center mt-12">
+                      No messages yet. Say hello to start the chat.
+                    </div>
+                  )}
+                  {chatMessages.map((message) => {
+                    const isCurrentUser = message.senderId === user?.id;
+                    return (
+                      <div key={message.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} group`}>
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm relative ${
+                            isCurrentUser ? 'bg-agrovia-500 text-white' : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          <p className="text-xs font-semibold mb-1">
+                            {isCurrentUser ? 'You' : message.senderName}
+                          </p>
+                          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                          <span
+                            className={`block text-[10px] mt-1 ${
+                              isCurrentUser ? 'text-white/70' : 'text-gray-500'
+                            }`}
+                          >
+                            {formatChatTimestamp(message.createdAt)}
+                          </span>
+                          
+                          {/* Delete button - only show for current user's messages */}
+                          {isCurrentUser && (
+                            <button
+                              onClick={() => handleDeleteChatMessage(message.id)}
+                              disabled={deletingMessageId === message.id}
+                              className={`absolute -top-2 -right-2 w-6 h-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-xs ${
+                                isCurrentUser 
+                                  ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                  : 'bg-red-100 hover:bg-red-200 text-red-600'
+                              } ${deletingMessageId === message.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title="Delete message"
+                            >
+                              {deletingMessageId === message.id ? (
+                                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                '×'
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <form onSubmit={handleSendChatMessage} className="border-t border-gray-200 px-4 py-3">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Type your message..."
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-agrovia-400"
+                      disabled={sendingChatMessage}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim() || sendingChatMessage}
+                      className="flex items-center justify-center bg-agrovia-500 text-white rounded-lg px-3 py-2 hover:bg-agrovia-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Send className="w-4 h-4 mr-1" />
+                      Send
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          
+          </div>
+        </div>
+      )}
       {/* Review Modal */}
       {showReviewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -1175,20 +2079,30 @@ const CropDetailView = () => {
               <textarea value={newComment} onChange={e => setNewComment(e.target.value)} className="w-full p-2 border rounded" rows={3} />
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2">Upload Images:</label>
+              <label className="block text-sm font-semibold mb-2">Upload Image:</label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <input 
                   type="file" 
                   accept="image/*" 
-                  multiple 
                   onChange={(e) => {
-                    const files = Array.from(e.target.files);
-                    // Convert to array of file objects with preview URLs
-                    const imageFiles = files.map(file => ({
-                      file,
-                      preview: URL.createObjectURL(file)
-                    }));
-                    setReviewImages([...reviewImages, ...imageFiles]);
+                    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                    setReviewImages((prev) => {
+                      prev.forEach((img) => {
+                        if (img.preview?.startsWith('blob:')) {
+                          URL.revokeObjectURL(img.preview);
+                        }
+                      });
+
+                      if (!file) {
+                        return [];
+                      }
+
+                      const preview = URL.createObjectURL(file);
+                      return [{ file, preview }];
+                    });
+                    if (e.target.value) {
+                      e.target.value = '';
+                    }
                   }}
                   className="hidden"
                   id="review-images"
@@ -1197,14 +2111,14 @@ const CropDetailView = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="text-sm text-gray-600 font-medium">Click to upload photos of the crop</span>
+                  <span className="text-sm text-gray-600 font-medium">Click to upload a photo of the crop</span>
                   <span className="text-xs text-gray-500 mt-1">JPG, PNG, GIF up to 5MB</span>
                 </label>
               </div>
               {/* Preview uploaded images */}
               {reviewImages.length > 0 && (
                 <div className="mt-3">
-                  <div className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">Uploaded Image:</div>
                   <div className="flex flex-wrap gap-2">
                     {reviewImages.map((img, idx) => (
                       <div key={idx} className="relative group">
@@ -1215,9 +2129,11 @@ const CropDetailView = () => {
                         />
                         <button
                           onClick={() => {
-                            const newImages = [...reviewImages];
-                            newImages.splice(idx, 1);
-                            setReviewImages(newImages);
+                            const toRemove = reviewImages[idx];
+                            if (toRemove?.preview?.startsWith('blob:')) {
+                              URL.revokeObjectURL(toRemove.preview);
+                            }
+                            clearReviewImages();
                           }}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Remove image"
@@ -1234,7 +2150,7 @@ const CropDetailView = () => {
               <button
                 onClick={() => {
                   setShowReviewModal(false);
-                  setReviewImages([]);
+                  clearReviewImages();
                 }}
                 className="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors"
               >Cancel</button>
@@ -1256,11 +2172,9 @@ const CropDetailView = () => {
                       formData.append('comment', newComment);
                       
                       // Append all image files
-                      reviewImages.forEach((img, index) => {
-                        if (img.file) {
-                          formData.append(`attachments`, img.file);
-                        }
-                      });
+                      if (reviewImages.length > 0 && reviewImages[0]?.file) {
+                        formData.append('attachments', reviewImages[0].file);
+                      }
                       
                       // Send data to server
                       const response = await fetch('/api/v1/crop-reviews', {
@@ -1276,15 +2190,19 @@ const CropDetailView = () => {
                         const data = await response.json();
                         
                         // Update UI with the new review, showing buyer's name immediately
-                        const newReview = { 
+                        const newReviewNormalized = normalizeReviewRecord({
                           id: data.id,
-                          buyer_name: user?.full_name || user?.name || 'Anonymous',
+                          crop_id: crop.id,
                           buyer_id: user?.id,
-                          rating: newRating, 
+                          buyer_name: user?.full_name || user?.name || 'Anonymous',
+                          rating: newRating,
                           comment: newComment,
-                          images: data.review?.attachment_urls || [] 
-                        };
-                        setReviews(prevReviews => [newReview, ...prevReviews]);
+                          attachment_urls: data.review?.attachment_urls || [],
+                          attachment_blobs: data.review?.attachment_blobs || [],
+                          created_at: data.review?.created_at || new Date().toISOString()
+                        });
+
+                        setReviews(prevReviews => [newReviewNormalized, ...prevReviews]);
                         
                         // Show success message
                         success('Review submitted successfully!');
@@ -1298,7 +2216,7 @@ const CropDetailView = () => {
                     } finally {
                       setNewRating(0);
                       setNewComment('');
-                      setReviewImages([]);
+                      clearReviewImages();
                       setShowReviewModal(false);
                     }
                   } else {
@@ -1311,7 +2229,7 @@ const CropDetailView = () => {
             <button
               onClick={() => {
                 setShowReviewModal(false);
-                setReviewImages([]);
+                clearReviewImages();
               }}
               className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl font-bold"
               aria-label="Close"
@@ -1321,35 +2239,92 @@ const CropDetailView = () => {
       )}
 
       {/* Reviews & Ratings Section */}
-      <div className="max-w-5xl mx-auto mt-12 mb-8 p-6  bg-green-50 rounded-2xl shadow-xl border border-green-200">
-        <h2 className="text-2xl font-bold text-yellow-700 mb-4 flex items-center"><Star className="w-6 h-6 mr-2 text-yellow-500" /> Reviews & Ratings</h2>
-        {reviews.length === 0 ? (
-          <div className="text-gray-500 text-center">No reviews yet. Be the first to review!</div>
-        ) : (
-          <ul className="space-y-4">
-            {reviews.map((review, idx) => {
-              // Ensure rating is a valid, finite, non-negative integer
-              const safeRating = Number.isFinite(Number(review.rating)) && Number(review.rating) > 0 ? Math.floor(Number(review.rating)) : 0;
-              // Debug: print the review object to the console
-              console.log('Review object:', review);
-              return (
-                <li key={review.id || idx} className="border-b pb-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center">
-                      <span className="font-semibold text-gray-800">{review.user || review.buyer_name}</span>
-                      <span className="ml-4 text-xs text-gray-500">
-                        {review.created_at ? new Date(review.created_at).toLocaleDateString('en-US', {
-                          year: 'numeric', month: 'short', day: 'numeric'
-                        }) : ''}
-                      </span>
+      <div className="max-w-5xl mx-auto mt-12 mb-8 p-6 bg-green-50 rounded-2xl shadow-xl border border-green-200">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-yellow-700 flex items-center">
+                <Star className="w-6 h-6 mr-2 text-yellow-500" />
+                Customer Reviews
+              </h2>
+              {averageRating !== null && reviewCount > 0 && (
+                <div className="flex items-center gap-3 mt-2">
+                  {renderReviewStars(averageRating)}
+                  <span className="text-lg font-semibold text-gray-700">{averageRating.toFixed(1)}</span>
+                  <span className="text-sm text-gray-500">
+                    {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+                  </span>
+                </div>
+              )}
+              {averageRating === null && !reviewsLoading && reviewCount > 0 && (
+                <p className="mt-2 text-sm text-gray-500">
+                  {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+                </p>
+              )}
+              {!reviewsLoading && reviewCount === 0 && !reviewsError && (
+                <p className="mt-2 text-sm text-gray-500">
+                  No reviews yet. Be the first to share your experience!
+                </p>
+              )}
+            </div>
+
+            {canSubmitReview && (
+              <button
+                onClick={() => setShowReviewModal(true)}
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg shadow-md hover:from-yellow-600 hover:to-yellow-700 transition-all text-sm font-semibold"
+              >
+                <Star className="w-4 h-4 mr-2 text-white" />
+                Write a Review
+              </button>
+            )}
+          </div>
+
+          {reviewsLoading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="h-10 w-10 rounded-full border-4 border-yellow-500 border-t-transparent animate-spin mb-3" />
+              <p className="text-gray-500">Loading reviews...</p>
+            </div>
+          ) : reviewsError ? (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {reviewsError}
+            </div>
+          ) : reviewCount === 0 ? (
+            <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-500">
+              <p className="font-medium text-gray-700">No reviews yet</p>
+              <p className="text-sm text-gray-500 mt-1">Customers haven't left feedback for this crop.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="border border-green-100 bg-white rounded-xl p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-semibold uppercase">
+                        {review.initial}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-800">{review.displayName}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {renderReviewStars(review.rating)}
+                          {Number.isFinite(Number(review.rating)) && Number(review.rating) > 0 && (
+                            <span className="text-xs text-gray-500">
+                              {Number(review.rating).toFixed(1)}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400">•</span>
+                          <span className="text-xs text-gray-500">{formatReviewDate(review.createdAt)}</span>
+                        </div>
+                      </div>
                     </div>
-                    
-                    {/* Only show edit/delete buttons for the user's own reviews */}
+
                     {user && review.buyer_id === user.id && (
                       <div className="flex space-x-2">
                         <button
                           onClick={() => {
-                            setEditingReview({...review});
+                            setEditingReview({ ...review });
                             setShowUpdateReviewModal(true);
                           }}
                           className="text-blue-500 hover:text-blue-700 text-sm flex items-center"
@@ -1374,46 +2349,42 @@ const CropDetailView = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center mb-1 mt-1">
-                    {Array.from({ length: safeRating }).map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-yellow-400 mr-1 inline" />
-                    ))}
-                  </div>
-                  <div className="text-gray-700 mb-2">{review.comment}</div>
-                  {review.images && review.images.length > 0 && (
-                    <div className="mt-2">
-                      <div className="flex flex-wrap gap-2">
-                        {review.images.map((img, imgIdx) => {
-                          let imgPath = img;
-                          
-                          // Check if the image path is an absolute URL, a relative URL, or a direct API endpoint
-                          if (!img.startsWith('http') && !img.startsWith('/api/')) {
-                            // If it doesn't start with http or /api/, assume it's a path to an uploaded file
-                            imgPath = `/api/v1/crop-reviews/${review.id}/attachment`;
-                          }
-                          
-                          // Add BACKEND_URL for relative paths
-                          const imgUrl = imgPath.startsWith('http') ? imgPath : `${BACKEND_URL}${imgPath}`;
-                          // Debug: print the image URL to the console
-                          console.log('Review image URL:', imgUrl);
-                          return (
-                            <a key={imgIdx} href={imgUrl} target="_blank" rel="noopener noreferrer">
-                              <img
-                                src={imgUrl}
-                                alt={`Review image ${imgIdx + 1}`}
-                                className="w-32 h-32 object-cover rounded border border-gray-200 hover:border-yellow-400 transition-colors"
-                              />
-                            </a>
-                          );
-                        })}
+
+                  {review.comment && (
+                    <p className="mt-4 text-gray-700 leading-relaxed">{review.comment}</p>
+                  )}
+
+                  {Array.isArray(review.attachments) && review.attachments.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Attachments</p>
+                      <div className="flex flex-wrap gap-3">
+                        {review.attachments.map((attachment, index) => (
+                          <a
+                            key={`${review.id}-attachment-${index}`}
+                            href={attachment}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block w-24 h-24 rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+                          >
+                            <img
+                              src={attachment}
+                              alt={`Review attachment ${index + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = 'https://via.placeholder.com/96?text=Image';
+                              }}
+                            />
+                          </a>
+                        ))}
                       </div>
                     </div>
                   )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Transport Modal */}
@@ -1660,7 +2631,7 @@ const CropDetailView = () => {
                 onClick={() => {
                   setShowUpdateReviewModal(false);
                   setEditingReview(null);
-                  setReviewImages([]);
+                  clearReviewImages();
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1699,7 +2670,7 @@ const CropDetailView = () => {
               
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700">
-                  Add Images (optional)
+                  Add Image (optional)
                 </label>
                 <div className="flex items-center space-x-2">
                   <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
@@ -1707,17 +2678,30 @@ const CropDetailView = () => {
                       <svg className="w-8 h-8 mb-3 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
                       </svg>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Upload images</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Upload image</p>
                     </div>
                     <input 
                       type="file" 
                       className="hidden"
                       accept="image/*"
                       onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          const file = e.target.files[0];
+                        const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                        setReviewImages((prev) => {
+                          prev.forEach((img) => {
+                            if (img.preview?.startsWith('blob:')) {
+                              URL.revokeObjectURL(img.preview);
+                            }
+                          });
+
+                          if (!file) {
+                            return [];
+                          }
+
                           const preview = URL.createObjectURL(file);
-                          setReviewImages([...reviewImages, { preview, file }]);
+                          return [{ preview, file }];
+                        });
+                        if (e.target.value) {
+                          e.target.value = '';
                         }
                       }}
                     />
@@ -1732,7 +2716,11 @@ const CropDetailView = () => {
                       <button
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
                         onClick={() => {
-                          setReviewImages(reviewImages.filter((_, i) => i !== index));
+                          const toRemove = reviewImages[index];
+                          if (toRemove?.preview?.startsWith('blob:')) {
+                            URL.revokeObjectURL(toRemove.preview);
+                          }
+                          clearReviewImages();
                         }}
                       >
                         <X size={16} />
@@ -1747,7 +2735,7 @@ const CropDetailView = () => {
                   onClick={() => {
                     setShowUpdateReviewModal(false);
                     setEditingReview(null);
-                    setReviewImages([]);
+                    clearReviewImages();
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                 >

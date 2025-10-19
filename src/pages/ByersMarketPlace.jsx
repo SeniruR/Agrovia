@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X, Leaf, Award, Truck, Eye, Store, Clock, TrendingUp, Zap, Calendar, MapPin, Camera } from 'lucide-react';
 import { Trash } from 'lucide-react';
-import {Link, useNavigate} from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { cropService } from '../services/cropService';
 import { transportService } from '../services/transportService';
 import { useCart } from '../hooks/useCart';
@@ -22,6 +22,7 @@ const ByersMarketplace = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState({ show: false, product: null, quantity: 0 });
+  const [loadingReviews, setLoadingReviews] = useState(false);
 
   // Transport states
   const [showTransportModal, setShowTransportModal] = useState(false);
@@ -40,10 +41,73 @@ const ByersMarketplace = () => {
   const [showOrderLimitPopup, setShowOrderLimitPopup] = useState(false);
 
   // Fetch real data from database
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
   useEffect(() => {
+    let isCancelled = false;
+
+    const fetchReviewSummaries = async (items) => {
+      if (!items || items.length === 0) {
+        return [];
+      }
+
+      const results = [];
+      const chunkSize = 5;
+
+      for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize);
+        const chunkResults = await Promise.all(
+          chunk.map(async (product) => {
+            try {
+              const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews?crop_id=${product.id}`);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch reviews for crop ${product.id}`);
+              }
+
+              const payload = await response.json();
+              const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+              const rated = reviews
+                .map((entry) => Number(entry.rating))
+                .filter((value) => Number.isFinite(value));
+              const averageRating = rated.length > 0
+                ? parseFloat((rated.reduce((sum, current) => sum + current, 0) / rated.length).toFixed(1))
+                : null;
+              const reviewPreviews = reviews.slice(0, 2).map((entry) => ({
+                id: entry.id,
+                displayName: (entry.buyer_name || entry.user || entry.name || 'Anonymous').trim(),
+                rating: Number.isFinite(Number(entry.rating)) ? Number(entry.rating) : null,
+                comment: entry.comment || '',
+                createdAt: entry.created_at || entry.createdAt || null
+              }));
+
+              return {
+                productId: product.id,
+                averageRating,
+                reviewCount: reviews.length,
+                reviewPreviews
+              };
+            } catch (err) {
+              console.error('Error fetching crop reviews:', err);
+              return {
+                productId: product.id,
+                averageRating: null,
+                reviewCount: 0,
+                reviewPreviews: []
+              };
+            }
+          })
+        );
+
+        results.push(...chunkResults);
+      }
+
+      return results;
+    };
+
     const fetchProducts = async () => {
       try {
         setLoading(true);
+        setLoadingReviews(true);
         console.log('🌾 Fetching crops from database...');
         const response = await cropService.getAllEnhanced(1, 50); // Get more crops for marketplace
         
@@ -52,7 +116,11 @@ const ByersMarketplace = () => {
         if (response.success && response.data) {
           console.log(`✅ Successfully fetched ${response.data.length} crops`);
           // Map API response to marketplace format
-          const mappedProducts = response.data.map(crop => ({
+          const mappedProducts = response.data.map(crop => {
+            const backendAverageRating = Number(crop.average_rating ?? crop.rating);
+            const backendReviewCount = Number(crop.review_count ?? crop.reviews ?? 0);
+
+            return {
             id: crop.id,
             name: crop.crop_name,
             price: parseFloat(crop.price_per_unit),
@@ -60,8 +128,17 @@ const ByersMarketplace = () => {
             unit: crop.unit,
             farmer: crop.farmer_name || 'Unknown Farmer',
             location: crop.district || crop.location,
-            rating: 4.5 + (Math.random() * 0.5), // Generate realistic ratings
-            reviews: Math.floor(Math.random() * 30) + 5,
+            rating: Number.isFinite(backendAverageRating) && backendAverageRating > 0 ? parseFloat(backendAverageRating.toFixed(1)) : null,
+            reviews: Number.isFinite(backendReviewCount) && backendReviewCount > 0 ? backendReviewCount : 0,
+            reviewPreviews: Array.isArray(crop.recent_reviews)
+              ? crop.recent_reviews.slice(0, 2).map((entry) => ({
+                  id: entry.id,
+                  displayName: (entry.buyer_name || entry.user || entry.name || 'Anonymous').trim(),
+                  rating: Number.isFinite(Number(entry.rating)) ? Number(entry.rating) : null,
+                  comment: entry.comment || '',
+                  createdAt: entry.created_at || entry.createdAt || null
+                }))
+              : [],
             image: crop.images && crop.images.length > 0 ? crop.images[0] : null,
             category: crop.crop_category || 'Vegetables',
             discount: Math.floor(Math.random() * 15) + 5, // Random discount 5-20%
@@ -75,27 +152,68 @@ const ByersMarketplace = () => {
             trending: Math.random() > 0.7, // Random trending status
             // Keep original database fields for detail view
             _dbData: crop
-          }));
+          }});
           console.log('🔄 Mapped products:', mappedProducts);
-          setProducts(mappedProducts);
+          if (!isCancelled) {
+            setProducts(mappedProducts);
+            setLoading(false);
+          }
+
+          if (!isCancelled && mappedProducts.length > 0) {
+            const summaries = await fetchReviewSummaries(mappedProducts);
+            if (!isCancelled) {
+              const summaryMap = new Map();
+              summaries.forEach((entry) => summaryMap.set(entry.productId, entry));
+
+              setProducts((prevProducts) =>
+                prevProducts.map((product) => {
+                  const summary = summaryMap.get(product.id);
+                  if (!summary) {
+                    return product;
+                  }
+
+                  const mergedRating = summary.averageRating ?? product.rating ?? null;
+                  const mergedCount = summary.reviewCount ?? product.reviews ?? 0;
+                  const mergedPreviews = summary.reviewPreviews.length > 0
+                    ? summary.reviewPreviews
+                    : product.reviewPreviews;
+
+                  return {
+                    ...product,
+                    rating: mergedRating,
+                    reviews: mergedCount,
+                    reviewPreviews: mergedPreviews
+                  };
+                })
+              );
+            }
+          }
         } else {
           console.error('❌ API response failed:', response);
           throw new Error('Failed to fetch crops from database');
         }
       } catch (err) {
         console.error('💥 Error fetching crops:', err);
-        setError(err.message);
-        // Fallback to sample data if database fails
-        console.log('🔄 Using fallback data...');
-        setProducts(getFallbackProducts());
+        if (!isCancelled) {
+          setError(err.message);
+          // Fallback to sample data if database fails
+          console.log('🔄 Using fallback data...');
+          setProducts(getFallbackProducts());
+          setLoading(false);
+        }
       } finally {
-        setLoading(false);
-        console.log('🔚 Fetch complete. Loading state set to false.');
+        if (!isCancelled) {
+          setLoadingReviews(false);
+        }
+        console.log('🔚 Product and review fetch cycle complete.');
       }
     };
 
     fetchProducts();
-  }, []);
+    return () => {
+      isCancelled = true;
+    };
+  }, [BACKEND_URL]);
 
   // Add debug logging when products change
   useEffect(() => {
@@ -146,7 +264,11 @@ const ByersMarketplace = () => {
     )
     .sort((a, b) => {
       if (sortBy === 'price') return a.price - b.price;
-      if (sortBy === 'rating') return b.rating - a.rating;
+      if (sortBy === 'rating') {
+        const ratingA = Number.isFinite(Number(a.rating)) ? Number(a.rating) : -Infinity;
+        const ratingB = Number.isFinite(Number(b.rating)) ? Number(b.rating) : -Infinity;
+        return ratingB - ratingA;
+      }
       if (sortBy === 'farmer') return a.farmer.localeCompare(b.farmer);
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'date') return new Date(b.postedDate) - new Date(a.postedDate); // Latest first
@@ -239,7 +361,7 @@ const ByersMarketplace = () => {
     }
   };
 
-  const ProductCard = ({ product }) => {
+  const ProductCard = ({ product, reviewsLoading }) => {
     const [quantity, setQuantity] = useState(1);
     const [showQuantitySelector, setShowQuantitySelector] = useState(false);
 
@@ -279,8 +401,10 @@ const ByersMarketplace = () => {
       });
     };
 
-    return (
-    <div className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group hover:border-green-200">
+  const hasRating = Number.isFinite(Number(product.rating));
+
+  return (
+  <div className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group hover:border-green-200 flex flex-col h-full">
       <div className="relative">
         {product.image ? (
           <img 
@@ -345,17 +469,25 @@ const ByersMarketplace = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       </div>
       
-      <div className="p-4">
+  <div className="p-4 flex flex-col flex-1">
         {/* Rating and reviews */}
-        <Link to="/farmerreviews">
-          <div className="flex items-center gap-2 mb-3">  
-            <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-full border border-yellow-200">
-              <Star size={12} className="fill-yellow-400 text-yellow-400" />
-              <span className="text-xs font-semibold text-yellow-700">{product.rating.toFixed(1)}</span>
-            </div>
-            <span className="text-xs text-gray-500">({product.reviews} reviews)</span>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-full border border-yellow-200">
+            <Star size={12} className="fill-yellow-400 text-yellow-400" />
+            <span className="text-xs font-semibold text-yellow-700">
+              {reviewsLoading ? '…' : hasRating ? Number(product.rating).toFixed(1) : '—'}
+            </span>
           </div>
-        </Link>
+          <span className="text-xs text-gray-500">
+            {reviewsLoading
+              ? 'Loading reviews…'
+              : product.reviews > 0
+                ? `(${product.reviews} review${product.reviews === 1 ? '' : 's'})`
+                : '(No reviews yet)'}
+          </span>
+        </div>
+
+
 
         {/* Product name and farmer */}
         <h3 className="font-bold text-lg text-gray-800 mb-1">{product.name}</h3>
@@ -403,7 +535,7 @@ const ByersMarketplace = () => {
         </div>
         
         {/* Action buttons */}
-        <div className="space-y-3">
+  <div className="space-y-3 mt-auto">
           {/* Quantity Selector */}
           {showQuantitySelector && (
             <div className="bg-gray-50 rounded-lg p-3">
@@ -661,7 +793,7 @@ const ByersMarketplace = () => {
               : 'grid-cols-1'
           }`}>
             {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} reviewsLoading={loadingReviews} />
             ))}
           </div>
         )}

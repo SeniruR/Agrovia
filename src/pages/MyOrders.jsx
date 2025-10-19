@@ -17,6 +17,14 @@ const MyOrders = () => {
   const [collectingItems, setCollectingItems] = useState({});
   const [actionError, setActionError] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
+  const [showTransportReviewModal, setShowTransportReviewModal] = useState(false);
+  const [transportReviewTarget, setTransportReviewTarget] = useState(null);
+  const [transportReviewRating, setTransportReviewRating] = useState('');
+  const [transportReviewComment, setTransportReviewComment] = useState('');
+  const [loadingTransportReview, setLoadingTransportReview] = useState(false);
+  const [submittingTransportReview, setSubmittingTransportReview] = useState(false);
+  const [transportReviewStatus, setTransportReviewStatus] = useState({ error: null, success: null });
+  const [transportReviewCache, setTransportReviewCache] = useState({});
 
   function extractUserId(userData) {
     if (!userData || typeof userData !== 'object') return null;
@@ -60,6 +68,128 @@ const MyOrders = () => {
   };
 
   const isPickupProduct = (product) => !product?.transports || product.transports.length === 0;
+
+  const handleCloseTransportReview = () => {
+    setShowTransportReviewModal(false);
+    setTransportReviewTarget(null);
+    setTransportReviewRating('');
+    setTransportReviewComment('');
+    setLoadingTransportReview(false);
+    setSubmittingTransportReview(false);
+    setTransportReviewStatus({ error: null, success: null });
+  };
+
+  const handleOpenTransportReview = async (order, product) => {
+    if (!product || !product.transports || product.transports.length === 0) {
+      setTransportReviewStatus({ error: 'Transport details are not available for this item yet.', success: null });
+      setShowTransportReviewModal(true);
+      return;
+    }
+
+    const transport = product.transports[0];
+    if (!transport || !transport.transporter_id) {
+      setTransportReviewStatus({ error: 'Transporter assignment is missing for this item.', success: null });
+      setShowTransportReviewModal(true);
+      return;
+    }
+
+    const target = {
+      orderId: order.id,
+      orderItemId: product.id,
+      orderTransportId: transport.id || null,
+      transporterId: transport.transporter_id,
+      transporterName: transport.transporter_name || (transport.transporter_id ? `Transporter ${transport.transporter_id}` : 'Assigned transporter'),
+      transporterPhone: transport.transporter_phone || null
+    };
+
+    setTransportReviewTarget(target);
+    setTransportReviewStatus({ error: null, success: null });
+    setTransportReviewRating('');
+    setTransportReviewComment('');
+    setShowTransportReviewModal(true);
+    setLoadingTransportReview(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/transporter-reviews/order-item/${product.id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load existing transporter review.');
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      const existing = payload?.data || null;
+      setTransportReviewCache((prev) => ({ ...prev, [product.id]: existing }));
+      if (existing) {
+        setTransportReviewRating(existing.rating ? existing.rating.toString() : '');
+        setTransportReviewComment(existing.comment || '');
+      }
+    } catch (err) {
+      setTransportReviewStatus({ error: err.message || 'Could not load existing review.', success: null });
+    } finally {
+      setLoadingTransportReview(false);
+    }
+  };
+
+  const handleSubmitTransportReview = async (event) => {
+    event.preventDefault();
+    if (!transportReviewTarget) return;
+
+    const numericRating = Number(transportReviewRating);
+    if (!Number.isFinite(numericRating) || numericRating < 1 || numericRating > 5) {
+      setTransportReviewStatus({ error: 'Please select a rating between 1 and 5.', success: null });
+      return;
+    }
+
+    setSubmittingTransportReview(true);
+    setTransportReviewStatus({ error: null, success: null });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/transporter-reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          order_transport_id: transportReviewTarget.orderTransportId,
+          order_item_id: transportReviewTarget.orderItemId,
+          transporter_id: transportReviewTarget.transporterId,
+          reviewer_role: userRole,
+          rating: numericRating,
+          comment: transportReviewComment.trim() || null
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false) {
+        const message = payload?.message || payload?.error || 'Failed to submit review.';
+        throw new Error(message);
+      }
+
+      const savedReview = payload?.data || null;
+      if (savedReview) {
+        setTransportReviewRating(savedReview.rating ? savedReview.rating.toString() : transportReviewRating);
+        setTransportReviewComment(savedReview.comment || transportReviewComment);
+      }
+      setTransportReviewCache((prev) => ({ ...prev, [transportReviewTarget.orderItemId]: savedReview }));
+      setTransportReviewStatus({ error: null, success: 'Review saved successfully.' });
+      setActionSuccess('Transporter review saved successfully.');
+      setActionError(null);
+    } catch (err) {
+      const message = err.message || 'Failed to submit review.';
+      setTransportReviewStatus({ error: message, success: null });
+      setActionError(message);
+    } finally {
+      setSubmittingTransportReview(false);
+    }
+  };
 
   const handleMarkCollected = async (orderId, itemId) => {
     if (!orderId || !itemId) return;
@@ -156,6 +286,17 @@ const MyOrders = () => {
     }, 4000);
     return () => clearTimeout(timer);
   }, [actionError, actionSuccess]);
+
+  useEffect(() => {
+    if (!transportReviewStatus.error && !transportReviewStatus.success) return undefined;
+    const timer = setTimeout(() => {
+      setTransportReviewStatus((prev) => {
+        if (!prev.error && !prev.success) return prev;
+        return { error: null, success: null };
+      });
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [transportReviewStatus]);
 
   if (authLoading || loading) return <p>Loading orders...</p>;
   if (error) return <p className="text-red-600">Error: {error}</p>;
@@ -261,6 +402,10 @@ const MyOrders = () => {
       const pickupEligible = isPickupProduct(product);
       const canCollect = pickupEligible && !isCompleted && canUserCollectProduct(product, order);
       const collecting = Boolean(collectingItems[itemKey]);
+  const existingTransportReview = transportReviewCache[product.id];
+      const existingTransportReviewDate = existingTransportReview?.updated_at
+        ? new Date(existingTransportReview.updated_at).toLocaleDateString()
+        : null;
 
       return (
         <li key={product.id} className="mb-2 w-full">
@@ -291,14 +436,20 @@ const MyOrders = () => {
                           ) : null}
                           <button
                             type="button"
-                            onClick={() => navigate('/agrishop', { state: { openReviewForProductId: product.productId || product.product_id || null } })}
+                            onClick={() => handleOpenTransportReview(order, product)}
                             className="inline-flex items-center px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md text-sm"
                           >
-                            Submit review
+                            {existingTransportReview ? 'Edit transporter review' : 'Review transporter'}
                           </button>
                         </div>
                       </div>
                       <div className="text-xs text-gray-500 mt-3">Note: You can arrange transport dates according to your preference.</div>
+                      {existingTransportReview && (
+                        <div className="mt-2 text-xs font-medium text-blue-700">
+                          You rated this transporter {existingTransportReview.rating}/5
+                          {existingTransportReviewDate ? ` on ${existingTransportReviewDate}` : ''}
+                        </div>
+                      )}
                       {product.productFarmerName || product.productFarmerPhone || product.productLocation ? (
                         <div className="mt-3 bg-white border-l-4 border-gray-200 rounded-md p-3 shadow-sm">
                           <div className="text-xs text-gray-500">Farmer details</div>
@@ -394,102 +545,192 @@ const MyOrders = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-green-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-          <p className="text-gray-600">Track and manage your orders</p>
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b border-green-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
+            <p className="text-gray-600">Track and manage your orders</p>
+          </div>
         </div>
-      </div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-  {/* summary cards removed as requested */}
-        {/* Status Filter Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 items-center w-full">
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search orders or products..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
-                />
-              </div>
-              <div className="flex space-x-1 bg-gray-100 p-1 rounded-md">
-                {[
-                  { key: 'all', label: 'All' },
-                  { key: 'assigned', label: 'Assigned' },
-                  { key: 'not_assigned', label: 'Not assigned' }
-                ].map(tab => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setTransportFilter(tab.key)}
-                    className={`px-3 py-1 rounded text-sm font-medium transition-colors ${transportFilter === tab.key ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* summary cards removed as requested */}
+          {/* Status Filter Tabs */}
+          <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+              <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 items-center w-full">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search orders or products..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
+                  />
+                </div>
+                <div className="flex space-x-1 bg-gray-100 p-1 rounded-md">
+                  {[
+                    { key: 'all', label: 'All' },
+                    { key: 'assigned', label: 'Assigned' },
+                    { key: 'not_assigned', label: 'Not assigned' }
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setTransportFilter(tab.key)}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${transportFilter === tab.key ? 'bg-green-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        {/* Status Filter Tabs */}
-        {(actionError || actionSuccess) && (
-          <div className="mb-6 space-y-2">
-            {actionError ? (
-              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
-            ) : null}
-            {actionSuccess ? (
-              <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionSuccess}</div>
-            ) : null}
-          </div>
-        )}
-        {/* Status Filter Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
-          <div className="flex divide-x divide-gray-200">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`flex-1 px-4 py-2 text-center ${activeTab === 'all' ? 'text-green-800 bg-green-100' : 'text-gray-700'}`}
-            >All</button>
-            {statuses.map(status => (
+          {/* Status Filter Tabs */}
+          {(actionError || actionSuccess) && (
+            <div className="mb-6 space-y-2">
+              {actionError ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
+              ) : null}
+              {actionSuccess ? (
+                <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{actionSuccess}</div>
+              ) : null}
+            </div>
+          )}
+          {/* Status Filter Tabs */}
+          <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
+            <div className="flex divide-x divide-gray-200">
               <button
-                key={status}
-                onClick={() => setActiveTab(status)}
-                className={`flex-1 px-4 py-2 text-center ${activeTab === status ? 'text-green-800 bg-green-100' : 'text-gray-700'} capitalize`}
-              >{status}</button>
+                onClick={() => setActiveTab('all')}
+                className={`flex-1 px-4 py-2 text-center ${activeTab === 'all' ? 'text-green-800 bg-green-100' : 'text-gray-700'}`}
+              >All</button>
+              {statuses.map(status => (
+                <button
+                  key={status}
+                  onClick={() => setActiveTab(status)}
+                  className={`flex-1 px-4 py-2 text-center ${activeTab === status ? 'text-green-800 bg-green-100' : 'text-gray-700'} capitalize`}
+                >{status}</button>
+              ))}
+            </div>
+          </div>
+          {/* Orders List as Cards */}
+          <div className="space-y-6">
+            {filteredOrders.map(order => (
+              <div key={order.id} className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="font-semibold">Order ID: {order.externalOrderId}</div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+                    {getStatusIcon(order.status)}
+                    <span className="ml-2 capitalize">{order.status}</span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-gray-700">
+                  <div><span className="font-medium">Total:</span> {order.currency} {order.totalAmount}</div>
+                  <div><span className="font-medium">Date:</span> {new Date(order.createdAt).toLocaleString()}</div>
+                </div>
+                <div className="mt-4">
+                  <h3 className="font-medium text-gray-800">Products:</h3>
+                  <ul className="list-disc list-inside text-gray-700">
+                    {renderProducts(order)}
+                  </ul>
+                </div>
+              </div>
             ))}
+            {filteredOrders.length === 0 && <p className="text-gray-600">No orders in this category.</p>}
           </div>
         </div>
-        {/* Orders List as Cards */}
-        <div className="space-y-6">
-          {filteredOrders.map(order => (
-            <div key={order.id} className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div className="font-semibold">Order ID: {order.externalOrderId}</div>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}> 
-                  {getStatusIcon(order.status)}
-                  <span className="ml-2 capitalize">{order.status}</span>
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-gray-700">
-                <div><span className="font-medium">Total:</span> {order.currency} {order.totalAmount}</div>
-                <div><span className="font-medium">Date:</span> {new Date(order.createdAt).toLocaleString()}</div>
-              </div>
-              <div className="mt-4">
-                <h3 className="font-medium text-gray-800">Products:</h3>
-                <ul className="list-disc list-inside text-gray-700">
-                  {renderProducts(order)}
-                </ul>
-              </div>
-            </div>
-          ))}
-          {filteredOrders.length === 0 && <p className="text-gray-600">No orders in this category.</p>}
-        </div>
       </div>
-    </div>
+
+      {showTransportReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={handleCloseTransportReview}
+              disabled={submittingTransportReview}
+              className={`absolute right-4 top-4 text-gray-500 transition-colors hover:text-gray-700 ${submittingTransportReview ? 'cursor-not-allowed opacity-60' : ''}`}
+            >
+              ✕
+            </button>
+
+            <h2 className="text-2xl font-bold text-green-700">
+              {transportReviewTarget?.transporterName || 'Transporter review'}
+            </h2>
+            {transportReviewTarget?.transporterPhone && (
+              <p className="mt-1 text-sm text-gray-500">Phone: {transportReviewTarget.transporterPhone}</p>
+            )}
+            <p className="mt-2 text-sm text-gray-600">
+              Share feedback about your delivery experience to help others choose the best transport providers.
+            </p>
+
+            {transportReviewStatus.error && (
+              <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {transportReviewStatus.error}
+              </div>
+            )}
+            {transportReviewStatus.success && (
+              <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+                {transportReviewStatus.success}
+              </div>
+            )}
+
+            {loadingTransportReview ? (
+              <div className="py-8 text-center text-gray-600">Loading review details...</div>
+            ) : (
+              <form onSubmit={handleSubmitTransportReview} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Rating</label>
+                  <select
+                    value={transportReviewRating}
+                    onChange={(e) => setTransportReviewRating(e.target.value)}
+                    required
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Select rating</option>
+                    <option value="1">1 - Poor</option>
+                    <option value="2">2 - Fair</option>
+                    <option value="3">3 - Good</option>
+                    <option value="4">4 - Very good</option>
+                    <option value="5">5 - Excellent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Comment (optional)</label>
+                  <textarea
+                    value={transportReviewComment}
+                    onChange={(e) => setTransportReviewComment(e.target.value)}
+                    rows={4}
+                    placeholder="Describe punctuality, communication, cargo handling, etc."
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  ></textarea>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCloseTransportReview}
+                    disabled={submittingTransportReview}
+                    className={`flex-1 rounded-md border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-100 ${submittingTransportReview ? 'cursor-not-allowed opacity-70' : ''}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingTransportReview}
+                    className={`flex-1 rounded-md bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700 ${submittingTransportReview ? 'cursor-not-allowed opacity-80' : ''}`}
+                  >
+                    {submittingTransportReview ? 'Saving...' : 'Submit review'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

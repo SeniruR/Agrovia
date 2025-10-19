@@ -37,6 +37,7 @@ import BuyerEditProfile from "./pages/profiles/BuyerEditProfile";
 import ShopOwnerProfile from "./pages/profiles/ShopOwnerProfile";
 import ShopOwnerEditProfile from "./pages/profiles/ShopOwnerEditProfile";
 import TransporterProfile from "./pages/profiles/TransporterProfile";
+import TransporterEditProfile from "./pages/profiles/TransporterEditProfile";
 import ProfileRouter from "./components/ProfileRouter";
 import Footer from "./components/pages/Footer";
 import DriversMyList from "./pages/DriversMyList";
@@ -53,7 +54,7 @@ import FarmerReviews from "./pages/farmer/FarmersReviews";
 import FarmerViewOrders from "./pages/farmer/FarmerViewOrders";
 import FarmerViewOrderDetails from "./pages/farmer/FarmerViewOrderDetails";
 
-import TranspoartManagementDashboard from "./pages/transport/TranspoartManagementDashboard";
+import TranspoartManagementDashboard from "./pages/transport/TransportManagementDashboard";
 
 import ShopReviews from "./pages/shop/ShopReviews";
 
@@ -77,6 +78,8 @@ import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import OrganizationDashBoard from "./pages/organization/Oraganization";
 import FarmingPestAlerts from "./pages/PestAlert";
 import PestAlertInterface from "./pages/PestAlert";
+import UploadPestAlert from "./pages/UploadPestAlert";
+import ViewPestAlerts from "./pages/ViewPestAlerts";
 import TransportServicesReviews from "./pages/transport/TransportReviews";
 import DeliveryStatus from "./pages/transport/DeliveryStatus";
 import ShopItem from "./pages/shop/Items";
@@ -308,6 +311,12 @@ const App = () => {
          </Layout>
         }
       />
+      <Route path="/profile/transporter/edit" element={
+          <Layout>
+            <TransporterEditProfile />
+         </Layout>
+        }
+      />
 
       <Route path="/farmviewAllCrops" element={
           <Layout>
@@ -466,6 +475,18 @@ const App = () => {
        <Route path="/pestalert" element={
           <Layout>
             <PestAlertInterface/>
+          </Layout>
+        }
+      />
+      <Route path="/pestalert/upload" element={
+          <Layout>
+            <UploadPestAlert />
+          </Layout>
+        }
+      />
+      <Route path="/pestalert/view" element={
+          <Layout>
+            <ViewPestAlerts />
           </Layout>
         }
       />
