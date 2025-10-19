@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X, Leaf, Award, Truck, Eye, Store, Clock, TrendingUp, Zap, Calendar, MapPin, Camera } from 'lucide-react';
+import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X, Leaf, Award, Truck, Eye, Store, Clock, TrendingUp, Zap, Calendar, MapPin, Camera, Check } from 'lucide-react';
 import { Trash } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cropService } from '../services/cropService';
@@ -8,6 +8,12 @@ import { useCart } from '../hooks/useCart';
 import { useBuyerOrderLimits } from '../hooks/useBuyerOrderLimits';
 import CartNotification from '../components/CartNotification';
 import OrderLimitNotification from '../components/OrderLimitNotification';
+
+const toCoordinate = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
 
 const ByersMarketplace = () => {
   const navigate = useNavigate();
@@ -119,6 +125,27 @@ const ByersMarketplace = () => {
           const mappedProducts = response.data.map(crop => {
             const backendAverageRating = Number(crop.average_rating ?? crop.rating);
             const backendReviewCount = Number(crop.review_count ?? crop.reviews ?? 0);
+            const totalQuantity = Number(crop.available_quantity ?? crop.quantity ?? crop.remaining_quantity ?? crop.stock_quantity);
+            const hasTotalQuantity = Number.isFinite(totalQuantity) && totalQuantity > 0;
+            const resolvedMinimum = Number(crop.minimum_quantity_bulk ?? crop.minimum_order_quantity ?? crop.min_order_quantity);
+            const minOrderQuantity = Number.isFinite(resolvedMinimum) && resolvedMinimum > 0
+              ? resolvedMinimum
+              : hasTotalQuantity
+                ? Math.max(1, Math.min(totalQuantity, Math.ceil(totalQuantity * 0.1)))
+                : 1;
+            const maxCandidates = [
+              crop.maximum_order_quantity,
+              crop.max_order_quantity,
+              crop.order_limit,
+              crop.bulk_order_limit,
+              crop.maximum_quantity_bulk,
+              crop.maximum_quantity,
+              crop.available_quantity,
+              crop.quantity
+            ]
+              .map((value) => Number(value))
+              .filter((value) => Number.isFinite(value) && value > 0);
+            const maxOrderQuantity = maxCandidates.length > 0 ? Math.max(...maxCandidates) : null;
 
             return {
             id: crop.id,
@@ -143,13 +170,17 @@ const ByersMarketplace = () => {
             category: crop.crop_category || 'Vegetables',
             discount: Math.floor(Math.random() * 15) + 5, // Random discount 5-20%
             description: crop.description || 'Fresh quality produce directly from farmer',
-            availability: `${crop.quantity} ${crop.unit}`,
-            minOrder: crop.minimum_quantity_bulk ? `${crop.minimum_quantity_bulk} ${crop.unit}` : `${Math.ceil(crop.quantity * 0.1)} ${crop.unit}`,
+            availability: hasTotalQuantity ? `${totalQuantity} ${crop.unit}` : `—`,
+            minOrder: `${minOrderQuantity} ${crop.unit}`,
+            minOrderQuantity,
+            maxOrderQuantity,
             quality: crop.organic_certified ? "Organic Premium" : "Fresh Quality",
             organic: crop.organic_certified || false,
             postedDate: crop.created_at ? new Date(crop.created_at).toISOString().split('T')[0] : "2025-07-08",
             isLatest: crop.created_at ? (Date.now() - new Date(crop.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000) : false, // Within last 7 days
             trending: Math.random() > 0.7, // Random trending status
+            latitude: toCoordinate(crop.latitude ?? crop.farmer_latitude ?? crop.location_latitude ?? crop.lat),
+            longitude: toCoordinate(crop.longitude ?? crop.farmer_longitude ?? crop.location_longitude ?? crop.lng ?? crop.lon),
             // Keep original database fields for detail view
             _dbData: crop
           }});
@@ -241,6 +272,8 @@ const ByersMarketplace = () => {
       description: "Premium quality basmati rice with long grains and aromatic fragrance.",
       availability: "5,000 kg",
       minOrder: "25 kg",
+  minOrderQuantity: 25,
+  maxOrderQuantity: 5000,
       quality: "A+ Grade",
       organic: true,
       postedDate: "2025-07-03",
@@ -362,8 +395,65 @@ const ByersMarketplace = () => {
   };
 
   const ProductCard = ({ product, reviewsLoading }) => {
-    const [quantity, setQuantity] = useState(1);
+    const numericMinOrder = Number(product.minOrderQuantity);
+    const minOrderQty = Number.isFinite(numericMinOrder) && numericMinOrder > 0 ? numericMinOrder : 1;
+    const resolvedMaxOrder = (() => {
+      const candidates = [
+        product.maxOrderQuantity,
+        product._dbData?.maximum_order_quantity,
+        product._dbData?.max_order_quantity,
+        product._dbData?.order_limit,
+        product._dbData?.bulk_order_limit,
+        product._dbData?.available_quantity,
+        product._dbData?.quantity
+      ];
+      for (const candidate of candidates) {
+        const numeric = Number(candidate);
+        if (Number.isFinite(numeric) && numeric > 0) {
+          return numeric;
+        }
+      }
+      return null;
+    })();
+    const maxOrderQty = resolvedMaxOrder && resolvedMaxOrder < minOrderQty ? minOrderQty : resolvedMaxOrder;
+    const [quantity, setQuantity] = useState(() => minOrderQty);
     const [showQuantitySelector, setShowQuantitySelector] = useState(false);
+
+    const clampQuantity = (value) => {
+      if (!Number.isFinite(value)) {
+        return minOrderQty;
+      }
+      let nextValue = Math.max(minOrderQty, Math.floor(value));
+      if (maxOrderQty) {
+        nextValue = Math.min(maxOrderQty, nextValue);
+      }
+      return nextValue;
+    };
+
+    useEffect(() => {
+      setQuantity((current) => clampQuantity(current));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [minOrderQty, maxOrderQty]);
+
+    const canDecrease = quantity > minOrderQty;
+    const canIncrease = maxOrderQty ? quantity < maxOrderQty : true;
+
+    const handleDecrease = () => {
+      setQuantity((current) => clampQuantity(current - 1));
+    };
+
+    const handleIncrease = () => {
+      setQuantity((current) => clampQuantity(current + 1));
+    };
+
+    const handleQuantityInputChange = (event) => {
+      const rawValue = Number(event.target.value);
+      if (Number.isFinite(rawValue)) {
+        setQuantity(clampQuantity(rawValue));
+      } else if (event.target.value === '') {
+        setQuantity(minOrderQty);
+      }
+    };
 
     const handleAddToCart = () => {
       // Check order limits before adding to cart
@@ -373,32 +463,19 @@ const ByersMarketplace = () => {
       }
       
       if (showQuantitySelector) {
-        addToCart(product, quantity);
+        const finalQuantity = clampQuantity(quantity);
+        addToCart(product, finalQuantity);
         setNotification({
           show: true,
           product: product,
-          quantity: quantity
+          quantity: finalQuantity
         });
         setShowQuantitySelector(false);
-        setQuantity(1);
+        setQuantity(minOrderQty);
       } else {
+        setQuantity(minOrderQty);
         setShowQuantitySelector(true);
       }
-    };
-
-    const handleQuickAdd = () => {
-      // Check order limits before adding to cart
-      if (!canPlaceOrder()) {
-        setShowOrderLimitPopup(true);
-        return;
-      }
-      
-      addToCart(product, 1);
-      setNotification({
-        show: true,
-        product: product,
-        quantity: 1
-      });
     };
 
   const hasRating = Number.isFinite(Number(product.rating));
@@ -542,26 +619,36 @@ const ByersMarketplace = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Quantity:</label>
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  onClick={handleDecrease}
+                  disabled={!canDecrease}
+                  className={`px-3 py-2 ${canDecrease ? 'bg-gray-100 hover:bg-gray-200 text-gray-600' : 'bg-gray-50 text-gray-300 cursor-not-allowed'}`}
                 >
                   <Minus className="w-4 h-4" />
                 </button>
                 <input
                   type="number"
                   value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={handleQuantityInputChange}
                   className="flex-1 py-2 text-center border-x border-gray-300 focus:outline-none"
-                  min={1}
+                  min={minOrderQty}
+                  max={maxOrderQty ?? undefined}
                 />
                 <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  onClick={handleIncrease}
+                  disabled={!canIncrease}
+                  className={`px-3 py-2 ${canIncrease ? 'bg-gray-100 hover:bg-gray-200 text-gray-600' : 'bg-gray-50 text-gray-300 cursor-not-allowed'}`}
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              <div className="text-xs text-gray-500 mt-1 text-center">{product.unit}</div>
+              <div className="flex justify-between text-xs text-gray-500 mt-2">
+                <span>Min: {minOrderQty} {product.unit}</span>
+                {maxOrderQty ? (
+                  <span>Max: {maxOrderQty} {product.unit}</span>
+                ) : (
+                  <span>Available: {product.availability}</span>
+                )}
+              </div>
             </div>
           )}
 
@@ -572,11 +659,14 @@ const ByersMarketplace = () => {
                   onClick={handleAddToCart}
                   className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 px-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  <ShoppingCart className="w-4 h-4" />
-                  Add {quantity} {product.unit} to Cart
+                  <Check className="w-4 h-4" />
+                  Confirm {quantity} {product.unit}
                 </button>
                 <button
-                  onClick={() => setShowQuantitySelector(false)}
+                  onClick={() => {
+                    setShowQuantitySelector(false);
+                    setQuantity(minOrderQty);
+                  }}
                   className="px-4 py-3 border border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 transition-all duration-300"
                 >
                   <X className="w-4 h-4" />
@@ -600,13 +690,6 @@ const ByersMarketplace = () => {
                   title="Add to Cart"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleQuickAdd}
-                  className="bg-green-500 hover:bg-green-600 text-white p-3 rounded-xl transition-all duration-300 hover:shadow-md"
-                  title="Quick Add (1 unit)"
-                >
-                  <Plus className="w-4 h-4" />
                 </button>
               </>
             )}

@@ -8,6 +8,14 @@ import { useAuth } from '../contexts/AuthContext';
 import OrderLimitNotification from '../components/OrderLimitNotification';
 import md5 from 'crypto-js/md5';
 
+const parseRateValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return null;
+  return numeric;
+};
+
 const CartPage = () => {
   const [openTransportModalId, setOpenTransportModalId] = useState(null);
   const [transporters, setTransporters] = useState([]);
@@ -430,9 +438,9 @@ const CartPage = () => {
         const vehicle_type = t?.vehicle_type ?? t?.vehicleType ?? t?.vehicle ?? null;
         const vehicle_number = t?.vehicle_number ?? t?.vehicleNumber ?? t?.vehicle_no ?? null;
         const district = t?.district ?? t?.location ?? t?.area ?? null;
-        const baseRate = Number(t?.base_rate ?? t?.baseRate ?? t?.baseRateValue ?? 500);
-        const perKmRate = Number(t?.per_km_rate ?? t?.perKmRate ?? t?.perKmRateValue ?? 25);
-  // rating removed per UX request
+        const baseRate = parseRateValue(t?.base_rate ?? t?.baseRate ?? t?.baseRateValue);
+        const perKmRate = parseRateValue(t?.per_km_rate ?? t?.perKmRate ?? t?.perKmRateValue);
+        // rating removed per UX request
 
         return {
           ...t,
@@ -449,7 +457,7 @@ const CartPage = () => {
           district,
           baseRate,
           perKmRate,
-          perKm: perKmRate
+          perKm: perKmRate ?? null
         };
       };
 
@@ -1189,8 +1197,10 @@ const CartPage = () => {
                                             const vehicleNumber = transporter.vehicle_number ?? transporter.vehicleNumber ?? transporter.vehicleNo ?? null;
                                             // Prefer DB phone_no but include phone_number for backward compatibility
                                             const phoneNumber = transporter.phone_no ?? transporter.phone_number ?? transporter.phone ?? transporter.phoneNumber ?? null;
-                                            const baseRateVal = Number(transporter.base_rate ?? transporter.baseRate ?? transporter.baseRateValue ?? 500);
-                                            const perKmRateVal = Number(transporter.per_km_rate ?? transporter.perKmRate ?? transporter.perKmRateValue ?? 25);
+                                            const baseRateVal = parseRateValue(transporter.base_rate ?? transporter.baseRate ?? transporter.baseRateValue ?? transporter.baseRate);
+                                            const perKmRateVal = parseRateValue(transporter.per_km_rate ?? transporter.perKmRate ?? transporter.perKmRateValue ?? transporter.perKmRate);
+                                            const effectiveBaseRate = baseRateVal ?? 500;
+                                            const effectivePerKmRate = perKmRateVal ?? 25;
                                             const districtVal = transporter.district ?? transporter.location ?? transporter.area ?? null;
 
                                             // Compute distance and estimated cost if coordinates available
@@ -1200,7 +1210,7 @@ const CartPage = () => {
                                               calculatedDistance = Number(calculateDistance(safeUserLat, safeUserLon, safeItemLat, safeItemLon).toFixed(2));
                                               const estimatedWeight = item.quantity * (item.weightPerUnit || 1);
                                               const weightMultiplier = Math.max(1, estimatedWeight / 100);
-                                              transportCost = Number(((baseRateVal + (calculatedDistance * perKmRateVal)) * weightMultiplier).toFixed(2));
+                                              transportCost = Number(((effectiveBaseRate + (calculatedDistance * effectivePerKmRate)) * weightMultiplier).toFixed(2));
                                             }
 
                                             const payload = {
@@ -1215,8 +1225,8 @@ const CartPage = () => {
                                               // Include both names so backend that expects phone_no receives it
                                               phone_number: phoneNumber,
                                               phone_no: transporter.phone_no ?? phoneNumber,
-                                              base_rate: isNaN(baseRateVal) ? null : baseRateVal,
-                                              per_km_rate: isNaN(perKmRateVal) ? null : perKmRateVal,
+                                              base_rate: baseRateVal,
+                                              per_km_rate: perKmRateVal,
                                               // computed values
                                               calculated_distance: calculatedDistance,
                                               transport_cost: transportCost,

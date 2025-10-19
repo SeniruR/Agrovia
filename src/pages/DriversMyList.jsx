@@ -88,18 +88,37 @@ const DriverDeliveriesPage = () => {
   // Open Google Maps directions (prefers coordinates, falls back to addresses)
   const openGoogleMaps = (delivery) => {
     try {
-      // If transporter is in 'collecting' state, show route from transporter's current location to farmer pickup
+      const pickupLat = delivery.pickupLatitude || delivery.farmerLatitude || delivery.shopLatitude || null;
+      const pickupLon = delivery.pickupLongitude || delivery.farmerLongitude || delivery.shopLongitude || null;
+      const pickupAddress = delivery.pickupLocation || delivery.shopAddress || delivery.farmerAddress || '';
+      const buyerLat = delivery.buyerLatitude || null;
+      const buyerLon = delivery.buyerLongitude || null;
+      const buyerAddress = delivery.deliveryLocation || delivery.buyerAddress || '';
+
+      const pickupCoord = pickupLat && pickupLon ? `${pickupLat},${pickupLon}` : null;
+      const pickupEncoded = pickupAddress ? encodeURIComponent(pickupAddress) : '';
+      const buyerCoord = buyerLat && buyerLon ? `${buyerLat},${buyerLon}` : null;
+      const buyerEncoded = buyerAddress ? encodeURIComponent(buyerAddress) : '';
+
+      const destinationPickup = pickupCoord || pickupEncoded || null;
+      const destinationBuyer = buyerCoord || buyerEncoded || null;
+
+      const buildUrl = (origin, destination) => {
+        if (!origin || !destination) {
+          return 'https://www.google.com/maps';
+        }
+        return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+      };
+
+      // If transporter is in 'collecting' state, show route from transporter's current location to pickup point
       if (delivery.status === 'collecting') {
-        // Prefer device geolocation for real-time transporter location
         if (navigator && navigator.geolocation && typeof navigator.geolocation.getCurrentPosition === 'function') {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               try {
                 const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
-                const destination = delivery.farmerLatitude && delivery.farmerLongitude
-                  ? `${delivery.farmerLatitude},${delivery.farmerLongitude}`
-                  : encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
-                const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+                const destination = destinationPickup;
+                const url = buildUrl(origin, destination);
                 window.open(url, '_blank');
               } catch (err) {
                 console.error('Failed to open Google Maps from geolocation callback', err);
@@ -107,14 +126,14 @@ const DriverDeliveriesPage = () => {
               }
             },
             (err) => {
-              // If geolocation fails (permission denied, timeout), fall back to using pickup location as origin
-              console.warn('Geolocation failed, falling back to pickup->farmer route', err);
+              console.warn('Geolocation failed, falling back to pickup search', err);
               try {
-                const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
-                const destination = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
-                // If transporter position not available, show search for farmer pickup instead
-                const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
-                window.open(url, '_blank');
+                const query = destinationPickup || pickupEncoded || buyerEncoded || '';
+                if (query) {
+                  window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+                } else {
+                  window.open('https://www.google.com/maps', '_blank');
+                }
               } catch (err2) {
                 console.error('Fallback failed', err2);
                 window.open('https://www.google.com/maps', '_blank');
@@ -125,10 +144,12 @@ const DriverDeliveriesPage = () => {
           return;
         }
 
-        // If geolocation API is not available, fall back to using pickup location / farmer address
-        const fallbackOrigin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
-        const fallbackDestination = encodeURIComponent(delivery.farmerAddress || delivery.pickupLocation || '');
-        window.open(`https://www.google.com/maps/dir/?api=1&origin=${fallbackOrigin}&destination=${fallbackDestination}`, '_blank');
+        const query = destinationPickup || pickupEncoded || buyerEncoded || '';
+        if (query) {
+          window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+        } else {
+          window.open('https://www.google.com/maps', '_blank');
+        }
         return;
       }
 
@@ -139,10 +160,8 @@ const DriverDeliveriesPage = () => {
             (pos) => {
               try {
                 const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
-                const destination = delivery.buyerLatitude && delivery.buyerLongitude
-                  ? `${delivery.buyerLatitude},${delivery.buyerLongitude}`
-                  : encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
-                const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+                const destination = destinationBuyer;
+                const url = buildUrl(origin, destination);
                 window.open(url, '_blank');
               } catch (err) {
                 console.error('Failed to open Google Maps from geolocation callback', err);
@@ -150,19 +169,13 @@ const DriverDeliveriesPage = () => {
               }
             },
             (err) => {
-              console.warn('Geolocation failed, falling back to farmer->buyer route', err);
+              console.warn('Geolocation failed, falling back to pickup->buyer route', err);
               try {
-                const hasCoords = delivery.farmerLatitude && delivery.farmerLongitude && delivery.buyerLatitude && delivery.buyerLongitude;
-                let url = 'https://www.google.com/maps/dir/?api=1';
-                if (hasCoords) {
-                  url += `&origin=${delivery.farmerLatitude},${delivery.farmerLongitude}`;
-                  url += `&destination=${delivery.buyerLatitude},${delivery.buyerLongitude}`;
+                if (destinationPickup && destinationBuyer) {
+                  window.open(buildUrl(destinationPickup, destinationBuyer), '_blank');
                 } else {
-                  const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
-                  const destination = encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
-                  url += `&origin=${origin}&destination=${destination}`;
+                  window.open('https://www.google.com/maps', '_blank');
                 }
-                window.open(url, '_blank');
               } catch (err2) {
                 console.error('Fallback failed', err2);
                 window.open('https://www.google.com/maps', '_blank');
@@ -173,33 +186,20 @@ const DriverDeliveriesPage = () => {
           return;
         }
 
-        // geolocation not available -> fallback to farmer->buyer route
-        const hasCoords = delivery.farmerLatitude && delivery.farmerLongitude && delivery.buyerLatitude && delivery.buyerLongitude;
-        let url = 'https://www.google.com/maps/dir/?api=1';
-        if (hasCoords) {
-          url += `&origin=${delivery.farmerLatitude},${delivery.farmerLongitude}`;
-          url += `&destination=${delivery.buyerLatitude},${delivery.buyerLongitude}`;
+        if (destinationPickup && destinationBuyer) {
+          window.open(buildUrl(destinationPickup, destinationBuyer), '_blank');
         } else {
-          const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
-          const destination = encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
-          url += `&origin=${origin}&destination=${destination}`;
+          window.open('https://www.google.com/maps', '_blank');
         }
-        window.open(url, '_blank');
         return;
       }
 
-      // Default behavior: show route from farmer (pickup) to buyer (delivery)
-      const hasCoords = delivery.farmerLatitude && delivery.farmerLongitude && delivery.buyerLatitude && delivery.buyerLongitude;
-      let url = 'https://www.google.com/maps/dir/?api=1';
-      if (hasCoords) {
-        url += `&origin=${delivery.farmerLatitude},${delivery.farmerLongitude}`;
-        url += `&destination=${delivery.buyerLatitude},${delivery.buyerLongitude}`;
+      // Default behavior: show route from pickup to buyer
+      if (destinationPickup && destinationBuyer) {
+        window.open(buildUrl(destinationPickup, destinationBuyer), '_blank');
       } else {
-        const origin = encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
-        const destination = encodeURIComponent(delivery.deliveryLocation || delivery.buyerAddress || '');
-        url += `&origin=${origin}&destination=${destination}`;
+        window.open('https://www.google.com/maps', '_blank');
       }
-      window.open(url, '_blank');
     } catch (err) {
       console.error('Failed to open Google Maps', err);
       window.open('https://www.google.com/maps', '_blank');
@@ -210,20 +210,26 @@ const DriverDeliveriesPage = () => {
   const startDelivery = async (delivery) => {
     if (!delivery) return;
 
+    const pickupLabel = (delivery.productType || '').toLowerCase() === 'shop' ? 'shop' : 'farmer';
+    const pickupFriendly = pickupLabel === 'shop' ? 'the shop' : 'the farmer';
+    const pickupLat = delivery.pickupLatitude || delivery.farmerLatitude || delivery.shopLatitude || null;
+    const pickupLon = delivery.pickupLongitude || delivery.farmerLongitude || delivery.shopLongitude || null;
+    const pickupAddress = delivery.pickupLocation || delivery.shopAddress || delivery.farmerAddress || '';
+
     // Show confirmation before starting delivery
     showConfirm(
       'Start delivery',
-      'Are you sure you want to start this delivery and head to the farmer?',
+      `Are you sure you want to start this delivery and head to ${pickupFriendly}?`,
       async () => {
-        // On confirm: try to open directions from transporter's current location -> farmer
-        const openDirectionsToFarmer = async () => {
-          // Build destination (farmer) string
-          const destination = delivery.farmerLatitude && delivery.farmerLongitude
-            ? `${delivery.farmerLatitude},${delivery.farmerLongitude}`
-            : encodeURIComponent(delivery.pickupLocation || delivery.farmerAddress || '');
+
+        // On confirm: try to open directions from transporter's current location -> pickup
+        const openDirectionsToPickup = async () => {
+          const destination = pickupLat && pickupLon
+            ? `${pickupLat},${pickupLon}`
+            : (pickupAddress ? encodeURIComponent(pickupAddress) : '');
 
           if (!destination) {
-            alert('Farmer location not available');
+            alert('Pickup location not available');
             return;
           }
 
@@ -242,8 +248,8 @@ const DriverDeliveriesPage = () => {
             window.open(url, '_blank');
             return;
           } catch (err) {
-            // Geolocation failed or denied — fall back to showing farmer location only
-            console.warn('Geolocation unavailable or denied, falling back to farmer location', err);
+            // Geolocation failed or denied — fall back to showing pickup location only
+            console.warn('Geolocation unavailable or denied, falling back to pickup location', err);
             const url = `https://www.google.com/maps/search/?api=1&query=${destination}`;
             window.open(url, '_blank');
             return;
@@ -251,12 +257,12 @@ const DriverDeliveriesPage = () => {
         };
 
         try {
-          await openDirectionsToFarmer();
+          await openDirectionsToPickup();
         } catch (err) {
-          console.error('Failed to open directions to farmer', err);
+          console.error('Failed to open directions to pickup', err);
         }
 
-        await performStatusUpdate(delivery.id, 'collecting', 'Delivery started: collecting from farmer');
+        await performStatusUpdate(delivery.id, 'collecting', 'Delivery started: collecting from pickup location');
       }
     );
   };
@@ -264,12 +270,13 @@ const DriverDeliveriesPage = () => {
   // Mark that the transporter has collected from the farmer and is heading to buyer
   const markCollectedFromFarmer = async (delivery) => {
     if (!delivery) return;
+    const pickupLabel = (delivery.productType || '').toLowerCase() === 'shop' ? 'shop' : 'farmer';
     showConfirm(
       'Confirm collection',
-      'Have you collected the goods from the farmer?',
+      `Have you collected the goods from the ${pickupLabel}?`,
       async () => {
         // Persist as the canonical 'in-progress' status (driver has collected and is delivering)
-        await performStatusUpdate(delivery.id, 'in-progress', 'Marked as collected from farmer — heading to buyer');
+        await performStatusUpdate(delivery.id, 'in-progress', 'Marked as collected from pickup — heading to buyer');
       }
     );
   };
@@ -391,7 +398,18 @@ const DriverDeliveriesPage = () => {
     }
   };
 
-  const DeliveryCard = ({ delivery }) => (
+  const DeliveryCard = ({ delivery }) => {
+    const productType = (delivery.productType || '').toLowerCase();
+    const isShopDelivery = productType === 'shop';
+    const contactLabel = isShopDelivery ? 'Shop' : 'Farmer';
+    const contactName = delivery.farmerName || delivery.shopName || 'Not available';
+    const contactPhone = delivery.farmerPhone || delivery.shopPhone || null;
+    const contactAddress = delivery.pickupLocation || delivery.shopAddress || delivery.farmerAddress || 'Address not available';
+    const callContactLabel = isShopDelivery ? 'Call Shop' : 'Call Farmer';
+    const noContactLabel = isShopDelivery ? 'No shop phone' : 'No farmer phone';
+    const collectedButtonLabel = isShopDelivery ? 'Collected from Shop' : 'Collected from Farmer';
+
+    return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4 flex flex-col h-full">
       <div className="flex justify-between items-start mb-3">
           <div className="flex items-center space-x-2">
@@ -409,7 +427,7 @@ const DriverDeliveriesPage = () => {
   <div className="space-y-3 flex-1 flex flex-col">
         <div className="bg-green-50 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-green-800">Crop Details</span>
+            <span className="text-sm font-medium text-green-800">Item Details</span>
             <span className="text-lg font-bold text-green-700">{delivery.amount}</span>
           </div>
           <div className="text-green-700">
@@ -421,28 +439,28 @@ const DriverDeliveriesPage = () => {
           <div className="bg-gray-50 rounded-lg p-3 flex flex-col justify-between">
             <div className="flex items-center space-x-2 mb-2">
               <User className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-600">Farmer</span>
+              <span className="text-sm font-medium text-gray-600">{contactLabel}</span>
             </div>
-            <div className="text-gray-800 font-medium">{delivery.farmerName}</div>
+            <div className="text-gray-800 font-medium">{contactName}</div>
             <div className="flex items-center space-x-1 text-sm text-gray-600">
               <Phone className="w-3 h-3" />
-              <span>{delivery.farmerPhone}</span>
+              <span>{contactPhone || '—'}</span>
             </div>
             <div className="flex items-center space-x-1 text-sm text-gray-600 mt-1">
               <MapPin className="w-3 h-3" />
-              <span>{delivery.farmerAddress || delivery.pickupLocation || 'Address not available'}</span>
+              <span>{contactAddress}</span>
             </div>
             <div className="mt-3">
-              {delivery.farmerPhone ? (
+              {contactPhone ? (
                 <a
-                  href={`tel:${delivery.farmerPhone}`}
+                  href={`tel:${contactPhone}`}
                   className="inline-flex items-center gap-2 px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
                 >
                   <Phone className="w-4 h-4" />
-                  <span>Call Farmer</span>
+                  <span>{callContactLabel}</span>
                 </a>
               ) : (
-                <span className="text-xs text-gray-400">No farmer phone</span>
+                <span className="text-xs text-gray-400">{noContactLabel}</span>
               )}
             </div>
           </div>
@@ -550,7 +568,7 @@ const DriverDeliveriesPage = () => {
               onClick={() => markCollectedFromFarmer(delivery)}
               className="flex-1 bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors"
             >
-              Collected from Farmer
+              {collectedButtonLabel}
             </button>
           )}
 
@@ -579,6 +597,7 @@ const DriverDeliveriesPage = () => {
       </div>
     </div>
   );
+  };
 
   // Compute display list once to keep JSX simple
   const computeDisplayList = () => {

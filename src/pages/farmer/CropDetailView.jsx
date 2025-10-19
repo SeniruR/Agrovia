@@ -30,6 +30,12 @@ import OrderLimitNotification from '../../components/OrderLimitNotification';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAlert } from '../../contexts/AlertContext';
 
+const toCoordinate = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
 const CropDetailView = () => {
   const { success, error, warning, info } = useAlert();
   const { user, getAuthHeaders } = useAuth();
@@ -698,7 +704,9 @@ const CropDetailView = () => {
       farmer: crop.farmerName,
       district: crop.district,
       image: crop.images && crop.images.length > 0 ? crop.images[0] : null,
-      productType: 'crop' // Explicitly mark as crop
+      productType: 'crop', // Explicitly mark as crop
+      latitude: toCoordinate(crop.latitude ?? crop.farmerLatitude ?? crop.farmer_latitude ?? crop.location_latitude),
+      longitude: toCoordinate(crop.longitude ?? crop.farmerLongitude ?? crop.farmer_longitude ?? crop.location_longitude)
     }, quantity);
     setNotification({ show: true, product: {
       id: crop.id,
