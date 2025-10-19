@@ -89,7 +89,8 @@ import TransportServicesReviews from "./pages/transport/TransportReviews";
 import DeliveryStatus from "./pages/transport/DeliveryStatus";
 import ShopItem from "./pages/shop/Items";
 import EmailAlerts from "./pages/EmailAlerts";
-import WeatherNotifications from "./pages/WeatherAlerts"; 
+import ViewWeatherAlerts from "./pages/ViewWhetherAlert";
+import UploadWeatherAlert from "./pages/UploadWhetherAlert";
 import PriceForcasting from "./pages/PriceForcasting";
 import ContentApprovalDashboard from "./pages/ContentApproval";
 import FarmerVerificationPanel from "./pages/organization/farmerVerificationPanel";
@@ -524,6 +525,18 @@ const App = () => {
           </Layout>
         }
       />
+      <Route path="/weatheralert/upload" element={
+          <Layout>
+            <UploadWeatherAlert />
+          </Layout>
+        }
+      />
+      <Route path="/weatheralert/view" element={
+          <Layout>
+            <ViewWeatherAlerts />
+          </Layout>
+        }
+      />
       <Route path="/subscriptionmanagement" element={
         <Layout>
           <SubscriptionManagement />
@@ -609,9 +622,9 @@ const App = () => {
           </Layout>
         }
       />
- <Route path="/weatheralerts" element={
+      <Route path="/weatheralerts" element={
           <Layout>
-            <WeatherNotifications/>
+            <ViewWeatherAlerts />
           </Layout>
         }
       />

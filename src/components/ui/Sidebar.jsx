@@ -36,6 +36,7 @@ const adminMenuItems = [
   { label: 'Manage Users', icon: UserGroupIcon, path: '/usermanagement' },
   { label: 'Manage Shops', icon: ShoppingBagIcon, path: '/admin/shop' },
   { label: 'Manage Complaints', icon: ChatBubbleLeftRightIcon, path: '/complaintHandling' },
+  { label: 'Weather Alerts', icon: BellIcon, path: '/weatheralerts' },
   { label: 'Subscription Tiers', icon: CreditCardIcon, path: '/admin/shop-subscriptions' },  
 ];
 
@@ -101,6 +102,7 @@ const moderatorMenuItems = [
   { label: 'My Article Requests', icon: BookOpenIcon, path: '/my-article-requests' },
   { label: 'Content Approval', icon: DocumentCheckIcon, path: '/conapproval' },
   { label: 'Pest Alerts', icon: BellIcon, path: '/pestalert/view' },
+  { label: 'Weather Alerts', icon: ShieldExclamationIcon, path: '/weatheralerts' },
   { label: 'Profile', icon: UserGroupIcon, path: '/profile' },
 ];
 
