@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CheckCircle, Truck, Package, Clock, AlertCircle, Search, Phone } from 'lucide-react';
@@ -25,6 +25,14 @@ const MyOrders = () => {
   const [submittingTransportReview, setSubmittingTransportReview] = useState(false);
   const [transportReviewStatus, setTransportReviewStatus] = useState({ error: null, success: null });
   const [transportReviewCache, setTransportReviewCache] = useState({});
+  const [showSellerReviewModal, setShowSellerReviewModal] = useState(false);
+  const [sellerReviewTarget, setSellerReviewTarget] = useState(null);
+  const [sellerReviewRating, setSellerReviewRating] = useState('');
+  const [sellerReviewComment, setSellerReviewComment] = useState('');
+  const [loadingSellerReview, setLoadingSellerReview] = useState(false);
+  const [submittingSellerReview, setSubmittingSellerReview] = useState(false);
+  const [sellerReviewStatus, setSellerReviewStatus] = useState({ error: null, success: null });
+  const [sellerReviewCache, setSellerReviewCache] = useState({});
 
   function extractUserId(userData) {
     if (!userData || typeof userData !== 'object') return null;
@@ -48,9 +56,183 @@ const MyOrders = () => {
     return Number.isNaN(numeric) ? null : numeric;
   };
 
+  const deriveUserDisplayName = (userData) => {
+    if (!userData || typeof userData !== 'object') return 'Anonymous reviewer';
+
+    const nameCandidates = [];
+
+    if (userData.first_name || userData.last_name) {
+      nameCandidates.push([userData.first_name, userData.last_name].filter(Boolean).join(' '));
+    }
+    if (userData.firstName || userData.lastName) {
+      nameCandidates.push([userData.firstName, userData.lastName].filter(Boolean).join(' '));
+    }
+
+    nameCandidates.push(
+      userData.full_name,
+      userData.fullName,
+      userData.displayName,
+      userData.name,
+      userData.username
+    );
+
+    if (typeof userData.email === 'string' && userData.email.includes('@')) {
+      nameCandidates.push(userData.email.split('@')[0]);
+    }
+
+    const resolved = nameCandidates.find((value) => value && value.toString().trim());
+    return resolved ? resolved.toString().trim() : 'Anonymous reviewer';
+  };
+
+  const getProductListingId = (product) => {
+    const candidateKeys = [
+      product?.productId,
+      product?.product_id,
+      product?.productID,
+      product?.cropId,
+      product?.crop_id,
+      product?.listingId,
+      product?.listing_id
+    ];
+
+    for (const candidate of candidateKeys) {
+      const normalized = normalizeId(candidate);
+      if (normalized !== null) {
+        return normalized;
+      }
+    }
+
+    return null;
+  };
+
+  const getSellerTypeForProduct = (product) => {
+    const raw = (product?.productType ?? product?.product_type ?? product?.type ?? '').toString().toLowerCase();
+    if (raw.includes('shop')) return 'shop';
+    if (raw.includes('store')) return 'shop';
+    return 'farmer';
+  };
+
+  const getSellerReviewCacheKey = (type, listingId) => {
+    if (!type || listingId === null || listingId === undefined) return null;
+    return `${type}-${listingId}`;
+  };
+
+  const normalizeRatingSelection = (value) => {
+    if (value === null || value === undefined) return '';
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return '';
+    const clamped = Math.min(Math.max(Math.round(numeric), 1), 5);
+    return clamped.toString();
+  };
+
+  const parseRatingValue = (value) => {
+    if (value === null || value === undefined) return null;
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      const direct = Number(trimmed);
+      if (Number.isFinite(direct)) {
+        return direct;
+      }
+
+      const match = trimmed.match(/(\d+(?:\.\d+)?)/);
+      if (match) {
+        const parsed = Number(match[1]);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+
+      const wordMap = {
+        one: 1,
+        two: 2,
+        three: 3,
+        four: 4,
+        five: 5
+      };
+
+      const lower = trimmed.toLowerCase();
+      for (const [word, numeric] of Object.entries(wordMap)) {
+        if (lower.includes(word)) {
+          return numeric;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const normalizeReviewPayload = (review) => {
+    if (!review || typeof review !== 'object') return null;
+
+    const ratingSource = review.rating ?? review.rating_value ?? review.score ?? review.stars ?? review.value;
+    const parsedRating = parseRatingValue(ratingSource);
+    const rating = Number.isFinite(parsedRating) ? parsedRating : null;
+
+    if (rating === null) {
+      return { ...review, rating: null };
+    }
+
+    return { ...review, rating };
+  };
+
   const currentUserId = normalizeId(extractUserId(user));
+
   const userRole = ((user && (user.role ?? user.user_type)) || '').toString().toLowerCase();
   const isPrivilegedRole = ['admin', 'moderator', 'main_moderator'].includes(userRole);
+
+  const fetchSellerReviewForListing = useCallback(async (type, listingId) => {
+    if (!listingId || currentUserId === null) return null;
+
+    try {
+      const authHeaders = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
+      const headers = {
+        ...authHeaders,
+        'Content-Type': 'application/json'
+      };
+
+      const endpoint = type === 'shop'
+        ? `${API_BASE_URL}/api/v1/shop-reviews?shop_id=${listingId}`
+        : `${API_BASE_URL}/api/v1/crop-reviews?crop_id=${listingId}`;
+
+      const response = await fetch(endpoint, {
+        headers,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load existing review.');
+      }
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (type === 'shop') {
+        const reviews = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data) ? payload.data : [];
+
+        const match = reviews.find((entry) =>
+          normalizeId(entry?.farmer_id ?? entry?.reviewer_id ?? entry?.user_id ?? entry?.buyer_id) === currentUserId
+        ) || null;
+        return normalizeReviewPayload(match);
+      }
+
+      const reviews = Array.isArray(payload?.reviews) ? payload.reviews : [];
+      const match = reviews.find((entry) =>
+        normalizeId(entry?.buyer_id ?? entry?.user_id ?? entry?.farmer_id ?? entry?.reviewer_id) === currentUserId
+      ) || null;
+      return normalizeReviewPayload(match);
+    } catch (err) {
+      console.error('Error fetching seller review:', err);
+      return null;
+    }
+  }, [currentUserId, getAuthHeaders]);
 
   const getOrderBuyerId = (order) => normalizeId(order?.userId ?? order?.user_id ?? order?.buyerId ?? order?.customerId);
   const getProductFarmerId = (product) => normalizeId(product?.productFarmerId ?? product?.farmerId ?? product?.farmer_id);
@@ -191,6 +373,225 @@ const MyOrders = () => {
     }
   };
 
+  const handleCloseSellerReview = () => {
+    setShowSellerReviewModal(false);
+    setSellerReviewTarget(null);
+    setSellerReviewRating('');
+    setSellerReviewComment('');
+    setLoadingSellerReview(false);
+    setSubmittingSellerReview(false);
+    setSellerReviewStatus({ error: null, success: null });
+  };
+
+  const handleOpenSellerReview = async (order, product) => {
+    const listingId = getProductListingId(product);
+    if (!listingId) {
+      setSellerReviewStatus({ error: 'We could not determine which listing this item belongs to.', success: null });
+      setShowSellerReviewModal(true);
+      return;
+    }
+
+    if (currentUserId === null) {
+      setSellerReviewStatus({ error: 'You need to be signed in to leave a review.', success: null });
+      setShowSellerReviewModal(true);
+      return;
+    }
+
+    const type = getSellerTypeForProduct(product);
+    const isShopItem = type === 'shop';
+    const sellerName = isShopItem
+      ? (product?.productShopName || product?.productFarmerName || 'Shop owner')
+      : (product?.productFarmerName || product?.productShopName || 'Farmer');
+    const sellerPhone = isShopItem
+      ? (product?.productShopPhone || product?.productFarmerPhone || null)
+      : (product?.productFarmerPhone || product?.productShopPhone || null);
+
+    const target = {
+      orderId: order?.id ?? null,
+      orderItemId: product?.id ?? null,
+      listingId,
+      type,
+      productName: product?.productName || product?.name || 'Product',
+      sellerName,
+      sellerPhone
+    };
+
+    setSellerReviewTarget(target);
+    setSellerReviewStatus({ error: null, success: null });
+    setSellerReviewRating('');
+    setSellerReviewComment('');
+    setShowSellerReviewModal(true);
+    setLoadingSellerReview(true);
+
+    try {
+      const cacheKey = getSellerReviewCacheKey(type, listingId);
+      let existingReview = cacheKey ? sellerReviewCache[cacheKey] : undefined;
+
+      if (existingReview === undefined) {
+        existingReview = await fetchSellerReviewForListing(type, listingId);
+      }
+
+      const normalizedReview = existingReview
+        ? (typeof existingReview.rating === 'number'
+          ? existingReview
+          : (normalizeReviewPayload(existingReview) || existingReview))
+        : null;
+
+      if (cacheKey) {
+        setSellerReviewCache((prev) => {
+          const prevValue = prev[cacheKey];
+          const nextValue = normalizedReview ?? null;
+          if (prevValue === nextValue) return prev;
+
+          if (prevValue && nextValue) {
+            const prevRating = parseRatingValue(prevValue.rating);
+            const nextRating = parseRatingValue(nextValue.rating);
+            const prevComment = (prevValue.comment ?? '').trim();
+            const nextComment = (nextValue.comment ?? '').trim();
+            const prevId = prevValue.id ?? null;
+            const nextId = nextValue.id ?? null;
+            if (prevRating === nextRating && prevComment === nextComment && prevId === nextId) {
+              return prev;
+            }
+          }
+
+          return { ...prev, [cacheKey]: nextValue };
+        });
+      }
+
+      const normalizedRating = normalizedReview ? normalizeRatingSelection(normalizedReview.rating) : '';
+      setSellerReviewRating(normalizedRating);
+      setSellerReviewComment(normalizedReview?.comment ?? '');
+    } catch (err) {
+      setSellerReviewStatus({ error: err.message || 'Could not load existing review.', success: null });
+    } finally {
+      setLoadingSellerReview(false);
+    }
+  };
+
+  const handleSubmitSellerReview = async (event) => {
+    event.preventDefault();
+    if (!sellerReviewTarget) return;
+
+    if (currentUserId === null) {
+      setSellerReviewStatus({ error: 'You need to be signed in to leave a review.', success: null });
+      return;
+    }
+
+    const numericRating = Number(sellerReviewRating);
+    if (!Number.isFinite(numericRating) || numericRating < 1 || numericRating > 5) {
+      setSellerReviewStatus({ error: 'Please select a rating between 1 and 5.', success: null });
+      return;
+    }
+
+    const cacheKey = getSellerReviewCacheKey(sellerReviewTarget.type, sellerReviewTarget.listingId);
+    const existingReview = cacheKey ? sellerReviewCache[cacheKey] : null;
+    const authHeaders = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
+    const headers = { ...authHeaders };
+    Object.keys(headers).forEach((key) => {
+      if (key.toLowerCase() === 'content-type') {
+        delete headers[key];
+      }
+    });
+
+    const formData = new FormData();
+    formData.append('rating', numericRating);
+    formData.append('comment', sellerReviewComment.trim());
+
+    let endpoint = '';
+    let method = 'POST';
+
+    if (sellerReviewTarget.type === 'shop') {
+      formData.append('shop_id', sellerReviewTarget.listingId);
+      formData.append('farmer_id', currentUserId);
+      formData.append('farmer_name', deriveUserDisplayName(user));
+
+      if (existingReview?.id) {
+        endpoint = `${API_BASE_URL}/api/v1/shop-reviews/${existingReview.id}`;
+        method = 'PUT';
+      } else {
+        endpoint = `${API_BASE_URL}/api/v1/shop-reviews`;
+      }
+    } else {
+      formData.append('crop_id', sellerReviewTarget.listingId);
+      formData.append('buyer_id', currentUserId);
+
+      if (existingReview?.id) {
+        endpoint = `${API_BASE_URL}/api/v1/crop-reviews/${existingReview.id}`;
+        method = 'PUT';
+      } else {
+        endpoint = `${API_BASE_URL}/api/v1/crop-reviews`;
+      }
+    }
+
+    setSubmittingSellerReview(true);
+    setSellerReviewStatus({ error: null, success: null });
+
+    try {
+      const response = await fetch(endpoint, {
+        method,
+        headers,
+        credentials: 'include',
+        body: formData
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload?.success === false || payload?.error) {
+        const message = payload?.message || payload?.error || 'Failed to submit review.';
+        throw new Error(message);
+      }
+
+      let savedReview = null;
+
+      if (sellerReviewTarget.type === 'shop') {
+        const reviewPayload = payload?.review || payload;
+        savedReview = {
+          ...(existingReview || {}),
+          ...(reviewPayload && typeof reviewPayload === 'object' ? reviewPayload : {}),
+          id: reviewPayload?.id ?? existingReview?.id ?? payload?.id ?? null,
+          rating: reviewPayload?.rating ?? numericRating,
+          comment: reviewPayload?.comment ?? sellerReviewComment.trim(),
+          farmer_id: currentUserId
+        };
+      } else {
+        const reviewPayload = payload?.review || payload?.data || payload;
+        savedReview = {
+          ...(existingReview || {}),
+          ...(reviewPayload && typeof reviewPayload === 'object' ? reviewPayload : {}),
+          id: reviewPayload?.id ?? existingReview?.id ?? payload?.id ?? null,
+          rating: reviewPayload?.rating ?? numericRating,
+          comment: reviewPayload?.comment ?? sellerReviewComment.trim(),
+          buyer_id: currentUserId
+        };
+      }
+
+      const normalizedSavedReview = (() => {
+        if (!savedReview) return null;
+        const normalized = normalizeReviewPayload(savedReview);
+        if (normalized) return normalized;
+        const parsed = parseRatingValue(savedReview.rating);
+        return { ...savedReview, rating: Number.isFinite(parsed) ? parsed : null };
+      })();
+
+      if (cacheKey) {
+        setSellerReviewCache((prev) => ({ ...prev, [cacheKey]: normalizedSavedReview }));
+      }
+
+      setSellerReviewStatus({ error: null, success: 'Review saved successfully.' });
+      setActionSuccess('Review saved successfully.');
+      setActionError(null);
+      setSellerReviewRating(normalizeRatingSelection((normalizedSavedReview?.rating ?? numericRating)));
+      setSellerReviewComment(normalizedSavedReview?.comment ?? sellerReviewComment.trim());
+    } catch (err) {
+      const message = err.message || 'Failed to submit review.';
+      setSellerReviewStatus({ error: message, success: null });
+      setActionError(message);
+    } finally {
+      setSubmittingSellerReview(false);
+    }
+  };
+
   const handleMarkCollected = async (orderId, itemId) => {
     if (!orderId || !itemId) return;
 
@@ -298,6 +699,70 @@ const MyOrders = () => {
     return () => clearTimeout(timer);
   }, [transportReviewStatus]);
 
+  useEffect(() => {
+    if (!sellerReviewStatus.error && !sellerReviewStatus.success) return undefined;
+    const timer = setTimeout(() => {
+      setSellerReviewStatus((prev) => {
+        if (!prev.error && !prev.success) return prev;
+        return { error: null, success: null };
+      });
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [sellerReviewStatus]);
+
+  useEffect(() => {
+    if (authLoading || loading) return;
+    if (currentUserId === null) return;
+
+    const uniqueEntries = [];
+    const seenKeys = new Set();
+
+    orders.forEach((order) => {
+      (order.products || []).forEach((product) => {
+        const listingId = getProductListingId(product);
+        if (listingId === null) return;
+        const type = getSellerTypeForProduct(product);
+        const key = getSellerReviewCacheKey(type, listingId);
+        if (!key || seenKeys.has(key)) return;
+        seenKeys.add(key);
+
+        if (Object.prototype.hasOwnProperty.call(sellerReviewCache, key)) {
+          return;
+        }
+
+        uniqueEntries.push({ key, type, listingId });
+      });
+    });
+
+    if (uniqueEntries.length === 0) return;
+
+    let cancelled = false;
+
+    const loadReviews = async () => {
+      for (const entry of uniqueEntries) {
+        if (cancelled) break;
+        const review = await fetchSellerReviewForListing(entry.type, entry.listingId);
+        if (cancelled) break;
+
+        if (review || review === null) {
+          setSellerReviewCache((prev) => {
+            if (cancelled) return prev;
+            if (Object.prototype.hasOwnProperty.call(prev, entry.key)) {
+              return prev;
+            }
+            return { ...prev, [entry.key]: review || null };
+          });
+        }
+      }
+    };
+
+    loadReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, loading, orders, currentUserId, sellerReviewCache, fetchSellerReviewForListing]);
+
   if (authLoading || loading) return <p>Loading orders...</p>;
   if (error) return <p className="text-red-600">Error: {error}</p>;
 
@@ -402,10 +867,19 @@ const MyOrders = () => {
       const pickupEligible = isPickupProduct(product);
       const canCollect = pickupEligible && !isCompleted && canUserCollectProduct(product, order);
       const collecting = Boolean(collectingItems[itemKey]);
-  const existingTransportReview = transportReviewCache[product.id];
+      const existingTransportReview = transportReviewCache[product.id];
       const existingTransportReviewDate = existingTransportReview?.updated_at
         ? new Date(existingTransportReview.updated_at).toLocaleDateString()
         : null;
+
+      const sellerType = getSellerTypeForProduct(product);
+      const listingId = getProductListingId(product);
+      const sellerCacheKey = getSellerReviewCacheKey(sellerType, listingId);
+      const existingSellerReview = sellerCacheKey ? sellerReviewCache[sellerCacheKey] : null;
+      const sellerReviewDateRaw = existingSellerReview?.updated_at || existingSellerReview?.created_at || null;
+      const sellerReviewDate = sellerReviewDateRaw ? new Date(sellerReviewDateRaw).toLocaleDateString() : null;
+      const sellerLabel = sellerType === 'shop' ? 'shop' : 'farmer';
+      const sellerReviewButtonLabel = existingSellerReview ? `Edit ${sellerLabel} review` : `Review ${sellerLabel}`;
 
       const rawProductType = (product.productType || product.product_type || '').toString().toLowerCase();
       const isShopItem = rawProductType === 'shop';
@@ -469,6 +943,12 @@ const MyOrders = () => {
                           {existingTransportReviewDate ? ` on ${existingTransportReviewDate}` : ''}
                         </div>
                       )}
+                      {existingSellerReview && (
+                        <div className="mt-2 text-xs font-medium text-emerald-700">
+                          You rated this {sellerLabel} {existingSellerReview.rating}/5
+                          {sellerReviewDate ? ` on ${sellerReviewDate}` : ''}
+                        </div>
+                      )}
                       {hasContactInfo ? (
                         <div className="mt-3 bg-white border-l-4 border-gray-200 rounded-md p-3 shadow-sm">
                           <div className="text-xs text-gray-500">{pickupContactLabel}</div>
@@ -478,14 +958,23 @@ const MyOrders = () => {
                             {pickupLocationText ? (<div className="col-span-2 text-sm text-gray-700">Location: <span className="font-medium">{pickupLocationText}</span></div>) : null}
                             {pickupDistrictText ? (<div className="col-span-2 text-xs text-gray-600">District: {pickupDistrictText}</div>) : null}
                           </div>
-                          {pickupContactPhone ? (
-                            <div className="mt-3">
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {pickupContactPhone ? (
                               <a href={`tel:${pickupContactPhone}`} className="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm">
                                 <Phone className="w-4 h-4 mr-2" />
                                 {callContactLabel}
                               </a>
-                            </div>
-                          ) : null}
+                            ) : null}
+                            {listingId !== null ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenSellerReview(order, product)}
+                                className="inline-flex items-center px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm"
+                              >
+                                {sellerReviewButtonLabel}
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                       ) : null}
                       <div className="text-sm text-gray-700 mt-2">Amount: {product.quantity} {product.productUnit || product.unit || product.productUnitName || ''}</div>
@@ -514,19 +1003,15 @@ const MyOrders = () => {
                       )}
                       <div className="text-sm text-gray-700 mt-2">Amount: {product.quantity} {product.productUnit || product.unit || product.productUnitName || ''}</div>
                       <div className="mt-3 flex flex-wrap items-center gap-3">
-                        {pickupContactPhone ? (
-                          <a href={`tel:${pickupContactPhone}`} className="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white rounded-md text-sm">
-                            <Phone className="w-4 h-4 mr-2" />
-                            {callContactLabel}
-                          </a>
+                        {listingId !== null && !hasContactInfo ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSellerReview(order, product)}
+                            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            {sellerReviewButtonLabel}
+                          </button>
                         ) : null}
-                        <button
-                          type="button"
-                          onClick={() => navigate('/agrishop', { state: { openReviewForProductId: product.productId || product.product_id || null } })}
-                          className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700"
-                        >
-                          Submit review
-                        </button>
                         {canCollect ? (
                           <button
                             type="button"
@@ -551,6 +1036,12 @@ const MyOrders = () => {
                           <span className="text-xs text-gray-500">Only the buyer, farmer, shop owner, or moderators can mark this collected.</span>
                         ) : null}
                       </div>
+                      {existingSellerReview && (
+                        <div className="mt-2 text-xs font-medium text-emerald-700">
+                          You rated this {sellerLabel} {existingSellerReview.rating}/5
+                          {sellerReviewDate ? ` on ${sellerReviewDate}` : ''}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -741,6 +1232,95 @@ const MyOrders = () => {
                     className={`flex-1 rounded-md bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700 ${submittingTransportReview ? 'cursor-not-allowed opacity-80' : ''}`}
                   >
                     {submittingTransportReview ? 'Saving...' : 'Submit review'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+      {showSellerReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={handleCloseSellerReview}
+              disabled={submittingSellerReview}
+              className={`absolute right-4 top-4 text-gray-500 transition-colors hover:text-gray-700 ${submittingSellerReview ? 'cursor-not-allowed opacity-60' : ''}`}
+            >
+              ✕
+            </button>
+
+            <h2 className="text-2xl font-bold text-emerald-700">
+              {sellerReviewTarget?.sellerName || (sellerReviewTarget?.type === 'shop' ? 'Shop review' : 'Farmer review')}
+            </h2>
+            {sellerReviewTarget?.productName && (
+              <p className="mt-1 text-sm text-gray-500">Product: {sellerReviewTarget.productName}</p>
+            )}
+            <p className="mt-2 text-sm text-gray-600">
+              Share your experience with this {sellerReviewTarget?.type === 'shop' ? 'shop owner' : 'farmer'} to help others make informed choices.
+            </p>
+
+            {sellerReviewStatus.error && (
+              <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {sellerReviewStatus.error}
+              </div>
+            )}
+            {sellerReviewStatus.success && (
+              <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+                {sellerReviewStatus.success}
+              </div>
+            )}
+
+            {loadingSellerReview ? (
+              <div className="py-8 text-center text-gray-600">Loading review details...</div>
+            ) : (
+              <form onSubmit={handleSubmitSellerReview} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Rating</label>
+                  <select
+                    value={sellerReviewRating}
+                    onChange={(e) => setSellerReviewRating(e.target.value)}
+                    required
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    disabled={submittingSellerReview}
+                  >
+                    <option value="">Select rating</option>
+                    <option value="1">1 - Poor</option>
+                    <option value="2">2 - Fair</option>
+                    <option value="3">3 - Good</option>
+                    <option value="4">4 - Very good</option>
+                    <option value="5">5 - Excellent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Comment (optional)</label>
+                  <textarea
+                    value={sellerReviewComment}
+                    onChange={(e) => setSellerReviewComment(e.target.value)}
+                    rows={4}
+                    placeholder="Highlight product quality, communication, punctuality, etc."
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    disabled={submittingSellerReview}
+                  ></textarea>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCloseSellerReview}
+                    disabled={submittingSellerReview}
+                    className={`flex-1 rounded-md border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-100 ${submittingSellerReview ? 'cursor-not-allowed opacity-70' : ''}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingSellerReview}
+                    className={`flex-1 rounded-md bg-emerald-600 px-4 py-2 font-medium text-white transition-colors hover:bg-emerald-700 ${submittingSellerReview ? 'cursor-not-allowed opacity-80' : ''}`}
+                  >
+                    {submittingSellerReview ? 'Saving...' : 'Submit review'}
                   </button>
                 </div>
               </form>
