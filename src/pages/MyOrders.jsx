@@ -844,7 +844,7 @@ const MyOrders = () => {
   const getTransportStatusLabel = (status) => {
     if (!status) return '';
     switch (status) {
-  case 'pending': return 'not yet started collecting';
+  case 'pending': return 'ready for your pickup';
   case 'collecting': return 'going to pick up from farmer';
   case 'in-progress': return 'on the way to you';
   case 'completed': return 'delivery completed';
