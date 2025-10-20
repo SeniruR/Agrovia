@@ -21,6 +21,63 @@ import io from 'socket.io-client';
 import useForecastAccess from '../../hooks/useForecastAccess';
 import CartPopup from '../CartPopup';
 
+const normalizeToLower = (value) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+  return String(value).trim().toLowerCase();
+};
+
+const parseBoolean = (value) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 'yes';
+  }
+  return false;
+};
+
+const isFarmerAccount = (userData) => {
+  if (!userData) {
+    return false;
+  }
+
+  const sources = [
+    userData.role,
+    userData.user_type,
+    userData.type,
+    userData.role_name,
+    userData.user_type_name,
+  ];
+
+  const normalizedValues = sources
+    .map(normalizeToLower)
+    .filter(Boolean);
+
+  if (normalizedValues.some((entry) => entry.includes('transport'))) {
+    return false;
+  }
+
+  if (normalizedValues.some((entry) => entry.includes('farmer'))) {
+    return true;
+  }
+
+  if (normalizedValues.some((entry) => entry === '1' || entry === '1.0' || entry === '1.1')) {
+    return true;
+  }
+
+  if (normalizedValues.includes('4')) {
+    return true;
+  }
+
+  return false;
+};
+
 const Navigation = ({ onSidebarToggle }) => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -30,12 +87,15 @@ const Navigation = ({ onSidebarToggle }) => {
   const [notifications, setNotifications] = useState([]);
   const [hasPestAlertAccess, setHasPestAlertAccess] = useState(true);
   const [pestAccessMessage, setPestAccessMessage] = useState('');
+  const [isFarmerUser, setIsFarmerUser] = useState(false);
+  const [isPremiumUser, setIsPremiumUser] = useState(false);
   const socketRef = useRef(null);
   const hasPestAlertAccessRef = useRef(true);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showCartPopup, setShowCartPopup] = useState(false);
   const { getCartItemCount } = useCart();
   const { hasAccess: hasForecastAccess } = useForecastAccess();
+  const shouldShowSubscriptionPrompt = !hasPestAlertAccess && isFarmerUser && !isPremiumUser;
 
   const createNotificationAlertMapping = useCallback((notificationId, alertId) => {
     if (!notificationId || !alertId) return;
@@ -105,6 +165,7 @@ const Navigation = ({ onSidebarToggle }) => {
           } catch (jsonErr) {
             console.warn('Navigation: failed to parse subscription error payload', jsonErr);
           }
+          setIsPremiumUser(false);
           setHasPestAlertAccess(false);
           setPestAccessMessage(errorPayload?.message || 'Pest alerts are available with an active premium subscription.');
           setNotifications([]);
@@ -130,12 +191,14 @@ const Navigation = ({ onSidebarToggle }) => {
       setHasPestAlertAccess(hasAccess);
 
       if (!hasAccess) {
+        setIsPremiumUser(false);
         setPestAccessMessage(data?.message || 'Pest alerts are available with an active premium subscription.');
         setNotifications([]);
         setNotificationCount(0);
         return;
       }
 
+      setIsPremiumUser(true);
       setPestAccessMessage('');
       const notificationsPayload = Array.isArray(data)
         ? data
@@ -194,10 +257,19 @@ const Navigation = ({ onSidebarToggle }) => {
         try {
           const userObj = JSON.parse(userStr);
           setUserEmail(userObj.email || "");
+          setIsFarmerUser(isFarmerAccount(userObj));
+          setIsPremiumUser(parseBoolean(
+            userObj?.premium ??
+            userObj?.hasPremium ??
+            userObj?.isPremium ??
+            userObj?.is_premium
+          ));
           // load notifications for logged in user
           fetchNotifications();
         } catch {
           setUserEmail("");
+          setIsFarmerUser(false);
+          setIsPremiumUser(false);
         }
         setHasPestAlertAccess(true);
         setPestAccessMessage('');
@@ -205,6 +277,8 @@ const Navigation = ({ onSidebarToggle }) => {
       } else {
         setIsLoggedIn(false);
         setUserEmail("");
+        setIsFarmerUser(false);
+        setIsPremiumUser(false);
         setHasPestAlertAccess(true);
         setPestAccessMessage('');
         setNotificationCount(0);
@@ -330,6 +404,8 @@ const Navigation = ({ onSidebarToggle }) => {
     localStorage.removeItem('authToken'); // for cleanup if present
     setIsLoggedIn(false);
     setUserEmail("");
+    setIsFarmerUser(false);
+    setIsPremiumUser(false);
     window.dispatchEvent(new Event('userChanged'));
     window.location.href = "/"; // redirect to home after logout
   };
@@ -447,7 +523,7 @@ const Navigation = ({ onSidebarToggle }) => {
                     </button>
                   </div>
                   <div className="max-h-80 overflow-y-auto divide-y divide-green-50">
-                    {!hasPestAlertAccess ? (
+                    {shouldShowSubscriptionPrompt ? (
                       <div className="p-6 text-center text-slate-600">
                         <p className="text-sm font-medium text-green-800 mb-3">
                           {pestAccessMessage || 'Pest alerts are available with an active premium subscription.'}
@@ -506,6 +582,7 @@ const Navigation = ({ onSidebarToggle }) => {
                                 } catch (jsonErr) {
                                   console.warn('Navigation: failed to parse mark-read access payload', jsonErr);
                                 }
+                                setIsPremiumUser(false);
                                 setHasPestAlertAccess(false);
                                 setPestAccessMessage(forbiddenPayload?.message || 'Pest alerts are available with an active premium subscription.');
                                 setNotifications([]);
@@ -529,6 +606,7 @@ const Navigation = ({ onSidebarToggle }) => {
                                   updatedUnreadCount = result.unreadCount;
                                 }
                                 if (result?.hasAccess === false) {
+                                  setIsPremiumUser(false);
                                   setHasPestAlertAccess(false);
                                   setPestAccessMessage(result.message || 'Pest alerts are available with an active premium subscription.');
                                   setNotifications([]);
@@ -603,25 +681,27 @@ const Navigation = ({ onSidebarToggle }) => {
                       </div>
                     ))}
                   </div>
-                  <div className="p-3 text-center border-t border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 rounded-b-2xl">
-                    {hasPestAlertAccess ? (
-                      <Link
-                        to="/notifications"
-                        className="text-green-700 font-semibold hover:underline"
-                        onClick={() => setShowNotificationPopup(false)}
-                      >
-                        View all notifications
-                      </Link>
-                    ) : (
-                      <Link
-                        to="/subscription-management"
-                        className="text-green-700 font-semibold hover:underline"
-                        onClick={() => setShowNotificationPopup(false)}
-                      >
-                        Upgrade subscription
-                      </Link>
-                    )}
-                  </div>
+                  {(hasPestAlertAccess || shouldShowSubscriptionPrompt) && (
+                    <div className="p-3 text-center border-t border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 rounded-b-2xl">
+                      {hasPestAlertAccess ? (
+                        <Link
+                          to="/notifications"
+                          className="text-green-700 font-semibold hover:underline"
+                          onClick={() => setShowNotificationPopup(false)}
+                        >
+                          View all notifications
+                        </Link>
+                      ) : (
+                        <Link
+                          to="/subscription-management"
+                          className="text-green-700 font-semibold hover:underline"
+                          onClick={() => setShowNotificationPopup(false)}
+                        >
+                          Upgrade subscription
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
