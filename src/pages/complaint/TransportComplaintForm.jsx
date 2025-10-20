@@ -14,8 +14,7 @@ const TransportComplaintForm = ({ onSubmit, onBack, onNavigate }) => {
     location: '',
     category: '',
     orderNumber: '',
-    deliveryDate: '',
-    trackingNumber: ''
+    deliveryDate: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -78,7 +77,6 @@ const TransportComplaintForm = ({ onSubmit, onBack, onNavigate }) => {
       formPayload.append('category', formData.category);
       formPayload.append('orderNumber', formData.orderNumber || '');
       formPayload.append('deliveryDate', formData.deliveryDate || '');
-      formPayload.append('trackingNumber', formData.trackingNumber || '');
       attachments.forEach(file => formPayload.append('attachments', file));
       const headers = getAuthHeaders ? getAuthHeaders() : {};
       const response = await fetch('/api/v1/transport-complaints', {
@@ -90,7 +88,7 @@ const TransportComplaintForm = ({ onSubmit, onBack, onNavigate }) => {
       if (response.ok) {
         setSuccess(true);
         setFormData({
-          title: '', description: '', submittedBy: user && user.full_name ? user.full_name : '', priority: 'medium', transportCompany: '', location: '', category: '', orderNumber: '', deliveryDate: '', trackingNumber: ''
+          title: '', description: '', submittedBy: user && user.full_name ? user.full_name : '', priority: 'medium', transportCompany: '', location: '', category: '', orderNumber: '', deliveryDate: ''
         });
         setAttachments([]);
   // navigate back to complaint dashboard when parent provides callback
@@ -345,19 +343,6 @@ const TransportComplaintForm = ({ onSubmit, onBack, onNavigate }) => {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Tracking Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.trackingNumber}
-                    onChange={(e) => handleInputChange('trackingNumber', e.target.value)}
-                    className="w-full bg-white px-4 py-3 rounded-xl border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-colors"
-                    placeholder="Package tracking number"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Expected/Scheduled Delivery Date
                   </label>
                   <input
@@ -365,7 +350,7 @@ const TransportComplaintForm = ({ onSubmit, onBack, onNavigate }) => {
                     value={formData.deliveryDate}
                     onChange={(e) => handleInputChange('deliveryDate', e.target.value)}
                     className="w-full bg-white px-4 py-3 rounded-xl border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-colors"
-                    min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
+                    max={new Date().toISOString().split('T')[0]}
                   />
                 </div>
               </div>
