@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "../../contexts/AuthContext";
-import FilterBar from "../../components/pages/farmer/FarmFilterBar";
-import CropCard from "../../components/pages/farmer/FarmCropCard";
+import FilterBar from "../../components/pages/Farmer/FarmFilterBar";
+import CropCard from "../../components/pages/Farmer/FarmCropCard";
 import { cropService } from "../../services/cropService";
 import { useMonthlyCropLimit } from "../../hooks/useMonthlyCropLimit";
-import FarmStatsCard from "../../components/pages/farmer/FarmStatsCard";
+import FarmStatsCard from "../../components/pages/Farmer/FarmStatsCard";
 import { Package } from 'lucide-react';
 
 const parseRatingValue = (value) => {
