@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import FullScreenLoader from './FullScreenLoader';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { userService } from '../../services/userService';
 import { useSubscriptionAccess } from '../../hooks/useSubscriptionAccess';
 import { useAlertAccess } from '../../hooks/useAlertAccess';
 import useForecastAccess from '../../hooks/useForecastAccess';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   ChevronDownIcon, 
   ChevronRightIcon,
@@ -34,6 +35,7 @@ const adminMenuItems = [
   { label: 'Organization Approval', icon: DocumentCheckIcon, path: '/admin/organization-approval' },
   { label: 'Manage Users', icon: UserGroupIcon, path: '/usermanagement' },
   { label: 'Manage Shops', icon: ShoppingBagIcon, path: '/admin/shop' },
+  { label: 'Contact Inbox', icon: ChatBubbleLeftRightIcon, path: '/admin/contact' },
   { label: 'Manage Complaints', icon: ChatBubbleLeftRightIcon, path: '/complaintHandling' },
   { label: 'Weather Alerts', icon: BellIcon, path: '/weatheralerts' },
   { label: 'Subscription Tiers', icon: CreditCardIcon, path: '/admin/shop-subscriptions' },  
@@ -142,6 +144,8 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   const [filteredMenu, setFilteredMenu] = useState(menuItems);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout: authLogout } = useAuth();
 
   // Check if user has access to crop recommendation (option_id = 1)
   const { hasAccess: hasCropRecommendationAccess } = useSubscriptionAccess('1');
@@ -318,10 +322,9 @@ const ModernSidebar = ({ isOpen, onClose, onOpen }) => {
   };
 
   const handleLogout = () => {
-    // Clear the auth token and redirect to login
-    localStorage.removeItem('authToken');
-    window.location.href = '/login';
-    onClose(); // Close sidebar after logout
+    authLogout();
+    onClose();
+    navigate('/login');
   };
 
   const handleToggle = (index) => {

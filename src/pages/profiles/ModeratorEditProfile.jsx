@@ -91,6 +91,40 @@ const ModeratorEditProfile = () => {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const isPasswordValid = (password) => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return passwordRegex.test(password);
+  };
+
+  const handlePasswordChange = async (token, newPassword) => {
+    const passwordData = {
+      password: newPassword
+    };
+
+    let apiUrl = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/api/v1/users/change-password`
+      : (import.meta.env.DEV
+          ? 'http://localhost:5000/api/v1/users/change-password'
+          : '/api/v1/users/change-password');
+
+    const response = await fetch(apiUrl, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(passwordData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to change password');
+    }
+
+    return await response.json();
+  };
+
   // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
@@ -273,9 +307,25 @@ const ModeratorEditProfile = () => {
     
     setIsSaving(true);
     try {
+      setError(null);
       const token = localStorage.getItem('authToken');
       if (!token) {
         throw new Error('No authentication token found');
+      }
+
+      const trimmedPassword = profile.password?.trim();
+      const trimmedConfirmPassword = profile.confirmPassword?.trim();
+      const wantsPasswordChange = Boolean(trimmedPassword);
+
+      if (wantsPasswordChange) {
+        if (!isPasswordValid(trimmedPassword)) {
+          setError('Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.');
+          return;
+        }
+        if (trimmedPassword !== trimmedConfirmPassword) {
+          setError('Passwords do not match');
+          return;
+        }
       }
 
       const formData = new FormData();
@@ -293,11 +343,6 @@ const ModeratorEditProfile = () => {
       
       if (profile.profileImage) {
         formData.append('profileImage', profile.profileImage);
-      }
-
-      // Password fields (only if provided)
-      if (profile.password) {
-        formData.append('password', profile.password);
       }
 
       // Skill demonstration fields
@@ -339,6 +384,33 @@ const ModeratorEditProfile = () => {
         // Update original profile to reflect saved state
         setOriginalProfile(JSON.parse(JSON.stringify(profile)));
         
+        if (wantsPasswordChange) {
+          try {
+            const passwordResult = await handlePasswordChange(token, trimmedPassword);
+            console.log('Moderator password change result:', passwordResult);
+
+            try {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('token');
+              sessionStorage.removeItem('token');
+              sessionStorage.removeItem('authToken');
+            } catch (storageErr) {
+              console.warn('Error clearing auth storage:', storageErr);
+            }
+
+            navigate('/login', {
+              state: {
+                message: 'Password updated successfully. Please log in with your new credentials.'
+              }
+            });
+            return;
+          } catch (passwordErr) {
+            console.error('Moderator password change error:', passwordErr);
+            setError(passwordErr.message || 'Failed to change password');
+            return;
+          }
+        }
+
         // Navigate back to moderator profile immediately with success message
         navigate('/profile/moderator', { 
           state: { message: 'Profile updated successfully!' } 

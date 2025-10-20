@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, Filter, Grid, List, ShoppingCart, Heart, Phone, MessageCircle, Star, Plus, Minus, X, Leaf, Award, Truck, Eye, Store, Clock, TrendingUp, Zap, Calendar, MapPin, Camera, Check } from 'lucide-react';
 import { Trash } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,126 @@ import { useCart } from '../hooks/useCart';
 import { useBuyerOrderLimits } from '../hooks/useBuyerOrderLimits';
 import CartNotification from '../components/CartNotification';
 import OrderLimitNotification from '../components/OrderLimitNotification';
+
+const ITEMS_PER_PAGE = 12;
+
+const getFallbackProducts = () => [
+  {
+    id: 1,
+    name: "Premium Basmati Rice",
+    price: 180,
+    originalPrice: 200,
+    unit: "kg",
+    farmer: "Kamal Perera",
+    location: "Anuradhapura",
+    rating: 4.8,
+    reviews: 24,
+    image: "https://i.pinimg.com/736x/d3/a5/60/d3a5604bcd9b4397d8b9f3365dbe2581.jpg",
+    category: "Rice",
+    discount: 10,
+    description: "Premium quality basmati rice with long grains and aromatic fragrance.",
+    availability: "5,000 kg",
+    minOrder: "25 kg",
+    minOrderQuantity: 25,
+    maxOrderQuantity: 5000,
+    quality: "A+ Grade",
+    organic: true,
+    postedDate: "2025-07-03",
+    isLatest: true,
+    trending: true
+  }
+];
+
+const mapCropToProduct = (crop) => {
+  const backendAverageRating = parseRatingValue(crop?.average_rating ?? crop?.rating);
+  const backendReviewCount = Number(crop?.review_count ?? crop?.reviews ?? 0);
+  const totalQuantity = Number(
+    crop?.available_quantity ??
+    crop?.quantity ??
+    crop?.remaining_quantity ??
+    crop?.stock_quantity
+  );
+  const hasTotalQuantity = Number.isFinite(totalQuantity) && totalQuantity > 0;
+  const resolvedMinimum = Number(
+    crop?.minimum_quantity_bulk ??
+    crop?.minimum_order_quantity ??
+    crop?.min_order_quantity
+  );
+  const minOrderQuantity = Number.isFinite(resolvedMinimum) && resolvedMinimum > 0
+    ? resolvedMinimum
+    : hasTotalQuantity
+      ? Math.max(1, Math.min(totalQuantity, Math.ceil(totalQuantity * 0.1)))
+      : 1;
+  const maxCandidates = [
+    crop?.maximum_order_quantity,
+    crop?.max_order_quantity,
+    crop?.order_limit,
+    crop?.bulk_order_limit,
+    crop?.maximum_quantity_bulk,
+    crop?.maximum_quantity,
+    crop?.available_quantity,
+    crop?.quantity
+  ]
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const maxOrderQuantity = maxCandidates.length > 0 ? Math.max(...maxCandidates) : null;
+
+  const images = Array.isArray(crop?.images) ? crop.images : [];
+
+  return {
+    id: crop?.id,
+    name: crop?.crop_name,
+    price: Number.parseFloat(crop?.price_per_unit),
+    originalPrice: Number.parseFloat(crop?.price_per_unit) * 1.1,
+    unit: crop?.unit,
+    farmer: crop?.farmer_name || 'Unknown Farmer',
+    location: crop?.district || crop?.location,
+    rating: Number.isFinite(backendAverageRating) && backendAverageRating > 0
+      ? Number.parseFloat(backendAverageRating.toFixed(1))
+      : null,
+    reviews: Number.isFinite(backendReviewCount) && backendReviewCount > 0 ? backendReviewCount : 0,
+    reviewPreviews: Array.isArray(crop?.recent_reviews)
+      ? crop.recent_reviews.slice(0, 2).map((entry) => ({
+          id: entry.id,
+          displayName: (entry.buyer_name || entry.user || entry.name || 'Anonymous').trim(),
+          rating: parseRatingValue(entry.rating),
+          comment: entry.comment || '',
+          createdAt: entry.created_at || entry.createdAt || null
+        }))
+      : [],
+    image: images.length > 0 ? images[0] : null,
+    category: crop?.crop_category || 'Vegetables',
+    discount: Math.floor(Math.random() * 15) + 5,
+    description: crop?.description || 'Fresh quality produce directly from farmer',
+    availability: hasTotalQuantity ? `${totalQuantity} ${crop?.unit}` : '—',
+    minOrder: `${minOrderQuantity} ${crop?.unit}`,
+    minOrderQuantity,
+    maxOrderQuantity,
+    quality: crop?.organic_certified ? 'Organic Premium' : 'Fresh Quality',
+    organic: Boolean(crop?.organic_certified),
+    postedDate: crop?.created_at
+      ? new Date(crop.created_at).toISOString().split('T')[0]
+      : '2025-07-08',
+    isLatest: crop?.created_at
+      ? (Date.now() - new Date(crop.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000)
+      : false,
+    trending: Math.random() > 0.7,
+    latitude: toCoordinate(
+      crop?.latitude ??
+      crop?.farmer_latitude ??
+      crop?.location_latitude ??
+      crop?.lat
+    ),
+    longitude: toCoordinate(
+      crop?.longitude ??
+      crop?.farmer_longitude ??
+      crop?.location_longitude ??
+      crop?.lng ??
+      crop?.lon
+    ),
+    _dbData: crop
+  };
+};
 
 const toCoordinate = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -66,12 +186,19 @@ const ByersMarketplace = () => {
   const [favorites, setFavorites] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('All');
-  const [sortBy, setSortBy] = useState('name');
+  const [sortBy, setSortBy] = useState('default');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState({ show: false, product: null, quantity: 0 });
   const [loadingReviews, setLoadingReviews] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+  const sentinelRef = useRef(null);
+  const currentPageRef = useRef(0);
+  const isFetchingRef = useRef(false);
+  const requestIdRef = useRef(0);
 
   // Transport states
   const [showTransportModal, setShowTransportModal] = useState(false);
@@ -93,201 +220,242 @@ const ByersMarketplace = () => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
   useEffect(() => {
-    let isCancelled = false;
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-    const fetchReviewSummaries = async (items) => {
-      if (!items || items.length === 0) {
-        return [];
-      }
+  const fetchReviewSummaries = useCallback(async (items) => {
+    if (!items || items.length === 0) {
+      return [];
+    }
 
-      const results = [];
-      const chunkSize = 5;
+    const results = [];
+    const chunkSize = 5;
 
-      for (let i = 0; i < items.length; i += chunkSize) {
-        const chunk = items.slice(i, i + chunkSize);
-        const chunkResults = await Promise.all(
-          chunk.map(async (product) => {
-            try {
-              const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews?crop_id=${product.id}`);
-              if (!response.ok) {
-                throw new Error(`Failed to fetch reviews for crop ${product.id}`);
-              }
-
-              const payload = await response.json();
-              const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
-              const rated = reviews
-                .map((entry) => parseRatingValue(entry.rating))
-                .filter((value) => Number.isFinite(value));
-              const averageRating = rated.length > 0
-                ? parseFloat((rated.reduce((sum, current) => sum + current, 0) / rated.length).toFixed(1))
-                : null;
-              const reviewPreviews = reviews.slice(0, 2).map((entry) => ({
-                id: entry.id,
-                displayName: (entry.buyer_name || entry.user || entry.name || 'Anonymous').trim(),
-                rating: parseRatingValue(entry.rating),
-                comment: entry.comment || '',
-                createdAt: entry.created_at || entry.createdAt || null
-              }));
-
-              return {
-                productId: product.id,
-                averageRating,
-                reviewCount: reviews.length,
-                reviewPreviews
-              };
-            } catch (err) {
-              console.error('Error fetching crop reviews:', err);
-              return {
-                productId: product.id,
-                averageRating: null,
-                reviewCount: 0,
-                reviewPreviews: []
-              };
+    for (let i = 0; i < items.length; i += chunkSize) {
+      const chunk = items.slice(i, i + chunkSize);
+      const chunkResults = await Promise.all(
+        chunk.map(async (product) => {
+          try {
+            const response = await fetch(`${BACKEND_URL}/api/v1/crop-reviews?crop_id=${product.id}`);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch reviews for crop ${product.id}`);
             }
-          })
-        );
 
-        results.push(...chunkResults);
-      }
-
-      return results;
-    };
-
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setLoadingReviews(true);
-        console.log('🌾 Fetching crops from database...');
-        const response = await cropService.getAllEnhanced(1, 50); // Get more crops for marketplace
-        
-        console.log('📡 API Response:', response);
-        
-        if (response.success && response.data) {
-          console.log(`✅ Successfully fetched ${response.data.length} crops`);
-          // Map API response to marketplace format
-          const mappedProducts = response.data.map(crop => {
-            const backendAverageRating = parseRatingValue(crop.average_rating ?? crop.rating);
-            const backendReviewCount = Number(crop.review_count ?? crop.reviews ?? 0);
-            const totalQuantity = Number(crop.available_quantity ?? crop.quantity ?? crop.remaining_quantity ?? crop.stock_quantity);
-            const hasTotalQuantity = Number.isFinite(totalQuantity) && totalQuantity > 0;
-            const resolvedMinimum = Number(crop.minimum_quantity_bulk ?? crop.minimum_order_quantity ?? crop.min_order_quantity);
-            const minOrderQuantity = Number.isFinite(resolvedMinimum) && resolvedMinimum > 0
-              ? resolvedMinimum
-              : hasTotalQuantity
-                ? Math.max(1, Math.min(totalQuantity, Math.ceil(totalQuantity * 0.1)))
-                : 1;
-            const maxCandidates = [
-              crop.maximum_order_quantity,
-              crop.max_order_quantity,
-              crop.order_limit,
-              crop.bulk_order_limit,
-              crop.maximum_quantity_bulk,
-              crop.maximum_quantity,
-              crop.available_quantity,
-              crop.quantity
-            ]
-              .map((value) => Number(value))
-              .filter((value) => Number.isFinite(value) && value > 0);
-            const maxOrderQuantity = maxCandidates.length > 0 ? Math.max(...maxCandidates) : null;
+            const payload = await response.json();
+            const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+            const rated = reviews
+              .map((entry) => parseRatingValue(entry.rating))
+              .filter((value) => Number.isFinite(value));
+            const averageRating = rated.length > 0
+              ? Number.parseFloat((rated.reduce((sum, current) => sum + current, 0) / rated.length).toFixed(1))
+              : null;
+            const reviewPreviews = reviews.slice(0, 2).map((entry) => ({
+              id: entry.id,
+              displayName: (entry.buyer_name || entry.user || entry.name || 'Anonymous').trim(),
+              rating: parseRatingValue(entry.rating),
+              comment: entry.comment || '',
+              createdAt: entry.created_at || entry.createdAt || null
+            }));
 
             return {
-            id: crop.id,
-            name: crop.crop_name,
-            price: parseFloat(crop.price_per_unit),
-            originalPrice: parseFloat(crop.price_per_unit) * 1.1, // Add 10% as original price for discount effect
-            unit: crop.unit,
-            farmer: crop.farmer_name || 'Unknown Farmer',
-            location: crop.district || crop.location,
-            rating: Number.isFinite(backendAverageRating) && backendAverageRating > 0 ? parseFloat(backendAverageRating.toFixed(1)) : null,
-            reviews: Number.isFinite(backendReviewCount) && backendReviewCount > 0 ? backendReviewCount : 0,
-            reviewPreviews: Array.isArray(crop.recent_reviews)
-              ? crop.recent_reviews.slice(0, 2).map((entry) => ({
-                  id: entry.id,
-                  displayName: (entry.buyer_name || entry.user || entry.name || 'Anonymous').trim(),
-                  rating: parseRatingValue(entry.rating),
-                  comment: entry.comment || '',
-                  createdAt: entry.created_at || entry.createdAt || null
-                }))
-              : [],
-            image: crop.images && crop.images.length > 0 ? crop.images[0] : null,
-            category: crop.crop_category || 'Vegetables',
-            discount: Math.floor(Math.random() * 15) + 5, // Random discount 5-20%
-            description: crop.description || 'Fresh quality produce directly from farmer',
-            availability: hasTotalQuantity ? `${totalQuantity} ${crop.unit}` : `—`,
-            minOrder: `${minOrderQuantity} ${crop.unit}`,
-            minOrderQuantity,
-            maxOrderQuantity,
-            quality: crop.organic_certified ? "Organic Premium" : "Fresh Quality",
-            organic: crop.organic_certified || false,
-            postedDate: crop.created_at ? new Date(crop.created_at).toISOString().split('T')[0] : "2025-07-08",
-            isLatest: crop.created_at ? (Date.now() - new Date(crop.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000) : false, // Within last 7 days
-            trending: Math.random() > 0.7, // Random trending status
-            latitude: toCoordinate(crop.latitude ?? crop.farmer_latitude ?? crop.location_latitude ?? crop.lat),
-            longitude: toCoordinate(crop.longitude ?? crop.farmer_longitude ?? crop.location_longitude ?? crop.lng ?? crop.lon),
-            // Keep original database fields for detail view
-            _dbData: crop
-          }});
-          console.log('🔄 Mapped products:', mappedProducts);
-          if (!isCancelled) {
-            setProducts(mappedProducts);
-            setLoading(false);
+              productId: product.id,
+              averageRating,
+              reviewCount: reviews.length,
+              reviewPreviews
+            };
+          } catch (err) {
+            console.error('Error fetching crop reviews:', err);
+            return {
+              productId: product.id,
+              averageRating: null,
+              reviewCount: 0,
+              reviewPreviews: []
+            };
           }
+        })
+      );
 
-          if (!isCancelled && mappedProducts.length > 0) {
-            const summaries = await fetchReviewSummaries(mappedProducts);
-            if (!isCancelled) {
-              const summaryMap = new Map();
-              summaries.forEach((entry) => summaryMap.set(entry.productId, entry));
+      results.push(...chunkResults);
+    }
 
-              setProducts((prevProducts) =>
-                prevProducts.map((product) => {
-                  const summary = summaryMap.get(product.id);
-                  if (!summary) {
-                    return product;
-                  }
-
-                  const mergedRating = parseRatingValue(summary.averageRating ?? product.rating ?? null);
-                  const mergedCount = summary.reviewCount ?? product.reviews ?? 0;
-                  const mergedPreviews = summary.reviewPreviews.length > 0
-                    ? summary.reviewPreviews
-                    : product.reviewPreviews;
-
-                  return {
-                    ...product,
-                    rating: mergedRating,
-                    reviews: mergedCount,
-                    reviewPreviews: mergedPreviews
-                  };
-                })
-              );
-            }
-          }
-        } else {
-          console.error('❌ API response failed:', response);
-          throw new Error('Failed to fetch crops from database');
-        }
-      } catch (err) {
-        console.error('💥 Error fetching crops:', err);
-        if (!isCancelled) {
-          setError(err.message);
-          // Fallback to sample data if database fails
-          console.log('🔄 Using fallback data...');
-          setProducts(getFallbackProducts());
-          setLoading(false);
-        }
-      } finally {
-        if (!isCancelled) {
-          setLoadingReviews(false);
-        }
-        console.log('🔚 Product and review fetch cycle complete.');
-      }
-    };
-
-    fetchProducts();
-    return () => {
-      isCancelled = true;
-    };
+    return results;
   }, [BACKEND_URL]);
+
+  const loadProducts = useCallback(async ({ reset = false } = {}) => {
+    if (isFetchingRef.current && !reset) {
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    const pageToLoad = reset ? 1 : currentPageRef.current + 1;
+
+    if (reset) {
+  currentPageRef.current = 0;
+      setProducts([]);
+      setHasMore(true);
+      setError(null);
+      setLoading(true);
+  setLoadingMore(false);
+    } else {
+      setLoadingMore(true);
+    }
+
+    setLoadingReviews(true);
+    isFetchingRef.current = true;
+
+    try {
+      console.log(`🌾 Fetching crops page ${pageToLoad}...`);
+      const filters = {};
+
+      if (selectedCategory !== 'All Products' && selectedCategory !== 'Latest Crops') {
+        filters.category = selectedCategory;
+      }
+
+      if (selectedLocation !== 'All') {
+        filters.district = selectedLocation;
+      }
+
+      if (debouncedSearchTerm?.trim()) {
+        filters.search = debouncedSearchTerm.trim();
+      }
+
+      const response = await cropService.getAllEnhanced(pageToLoad, ITEMS_PER_PAGE, filters);
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      if (!(response?.success && Array.isArray(response?.data))) {
+        console.error('❌ API response failed:', response);
+        throw new Error(response?.message || 'Failed to fetch crops from database');
+      }
+
+      const mappedProducts = response.data
+        .map(mapCropToProduct)
+        .filter((product) => Boolean(product?.id));
+
+      console.log(`✅ Received ${mappedProducts.length} crops (page ${pageToLoad})`);
+
+      setProducts((prevProducts) => {
+        if (reset) {
+          return mappedProducts;
+        }
+
+        const existingIds = new Set(prevProducts.map((item) => item.id));
+        const merged = [...prevProducts];
+        mappedProducts.forEach((item) => {
+          if (!existingIds.has(item.id)) {
+            merged.push(item);
+            existingIds.add(item.id);
+          }
+        });
+        return merged;
+      });
+
+  currentPageRef.current = pageToLoad;
+
+      const pagination = response?.pagination;
+      const moreAvailable = pagination
+        ? pageToLoad < Number(pagination.total_pages ?? 0)
+        : mappedProducts.length === ITEMS_PER_PAGE;
+      setHasMore(moreAvailable);
+
+      if (mappedProducts.length > 0) {
+        const summaries = await fetchReviewSummaries(mappedProducts);
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        if (summaries.length > 0) {
+          const summaryMap = new Map();
+          summaries.forEach((entry) => summaryMap.set(entry.productId, entry));
+
+          setProducts((prevProducts) =>
+            prevProducts.map((product) => {
+              const summary = summaryMap.get(product.id);
+              if (!summary) {
+                return product;
+              }
+
+              const mergedRating = parseRatingValue(summary.averageRating ?? product.rating ?? null);
+              const mergedCount = summary.reviewCount ?? product.reviews ?? 0;
+              const mergedPreviews = summary.reviewPreviews.length > 0
+                ? summary.reviewPreviews
+                : product.reviewPreviews;
+
+              return {
+                ...product,
+                rating: mergedRating,
+                reviews: mergedCount,
+                reviewPreviews: mergedPreviews
+              };
+            })
+          );
+        }
+      }
+    } catch (err) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      console.error('💥 Error fetching crops:', err);
+      setError(err.message);
+
+      if (reset) {
+        console.log('🔄 Using fallback data...');
+        setProducts(getFallbackProducts());
+        setHasMore(false);
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        setLoadingMore(false);
+        setLoadingReviews(false);
+        isFetchingRef.current = false;
+      }
+      console.log('🔚 Product and review fetch cycle complete.');
+    }
+  }, [debouncedSearchTerm, fetchReviewSummaries, selectedCategory, selectedLocation]);
+
+  useEffect(() => {
+    loadProducts({ reset: true });
+  }, [loadProducts]);
+
+  useEffect(() => {
+    if (!hasMore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (firstEntry?.isIntersecting && !loading && !loadingMore) {
+          loadProducts({ reset: false });
+        }
+      },
+      {
+        rootMargin: '200px 0px',
+        threshold: 0
+      }
+    );
+
+    const sentinel = sentinelRef.current;
+    if (sentinel) {
+      observer.observe(sentinel);
+    }
+
+    return () => {
+      if (sentinel) {
+        observer.unobserve(sentinel);
+      }
+      observer.disconnect();
+    };
+  }, [hasMore, loadProducts, loading, loadingMore]);
 
   // Add debug logging when products change
   useEffect(() => {
@@ -297,61 +465,83 @@ const ByersMarketplace = () => {
     });
   }, [products]);
 
-  // Fallback products for when database is unavailable
-  const getFallbackProducts = () => [
-    {
-      id: 1,
-      name: "Premium Basmati Rice",
-      price: 180,
-      originalPrice: 200,
-      unit: "kg",
-      farmer: "Kamal Perera",
-      location: "Anuradhapura",
-      rating: 4.8,
-      reviews: 24,
-      image: "https://i.pinimg.com/736x/d3/a5/60/d3a5604bcd9b4397d8b9f3365dbe2581.jpg",
-      category: "Rice",
-      discount: 10,
-      description: "Premium quality basmati rice with long grains and aromatic fragrance.",
-      availability: "5,000 kg",
-      minOrder: "25 kg",
-  minOrderQuantity: 25,
-  maxOrderQuantity: 5000,
-      quality: "A+ Grade",
-      organic: true,
-      postedDate: "2025-07-03",
-      isLatest: true,
-      trending: true
-    }
-  ];
-
   const categories = ['All Products', 'Latest Crops', 'Rice', 'Vegetables', 'Grains'];
   const locations = ['All', ...new Set(products.map(p => p.location))];
 
-  const filteredProducts = products
-    .filter(product =>
-      (selectedCategory === 'All Products' || 
-       selectedCategory === 'Latest Crops' && product.isLatest ||
-       product.category === selectedCategory) &&
-      (selectedLocation === 'All' || product.location === selectedLocation) &&
-      (product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       product.farmer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       product.location.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
-    .sort((a, b) => {
-      if (sortBy === 'price') return a.price - b.price;
-      if (sortBy === 'rating') {
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    const filtered = products.filter((product) => {
+      const matchesCategory =
+        selectedCategory === 'All Products' ||
+        (selectedCategory === 'Latest Crops' && product.isLatest) ||
+        product.category === selectedCategory;
+
+      if (!matchesCategory) {
+        return false;
+      }
+
+      const matchesLocation =
+        selectedLocation === 'All' || product.location === selectedLocation;
+
+      if (!matchesLocation) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const name = (product.name || '').toLowerCase();
+      const farmer = (product.farmer || '').toLowerCase();
+      const location = (product.location || '').toLowerCase();
+
+      return (
+        name.includes(normalizedSearch) ||
+        farmer.includes(normalizedSearch) ||
+        location.includes(normalizedSearch)
+      );
+    });
+
+    if (sortBy === 'default') {
+      return filtered;
+    }
+
+    const sorted = [...filtered];
+
+    if (sortBy === 'price') {
+      sorted.sort((a, b) => a.price - b.price);
+      return sorted;
+    }
+
+    if (sortBy === 'rating') {
+      sorted.sort((a, b) => {
         const ratingA = parseRatingValue(a.rating);
         const ratingB = parseRatingValue(b.rating);
         const safeA = Number.isFinite(ratingA) ? ratingA : -Infinity;
         const safeB = Number.isFinite(ratingB) ? ratingB : -Infinity;
         return safeB - safeA;
-      }
-      if (sortBy === 'farmer') return a.farmer.localeCompare(b.farmer);
-      if (sortBy === 'name') return a.name.localeCompare(b.name);
-      if (sortBy === 'date') return new Date(b.postedDate) - new Date(a.postedDate); // Latest first
-      return 0; // Default (no sorting)
-    });
+      });
+      return sorted;
+    }
+
+    if (sortBy === 'farmer') {
+      sorted.sort((a, b) => a.farmer.localeCompare(b.farmer));
+      return sorted;
+    }
+
+    if (sortBy === 'name') {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      return sorted;
+    }
+
+    if (sortBy === 'date') {
+      sorted.sort((a, b) => new Date(b.postedDate) - new Date(a.postedDate));
+      return sorted;
+    }
+
+    return sorted;
+  }, [products, searchTerm, selectedCategory, selectedLocation, sortBy]);
 
   const toggleFavorite = (productId) => {
     const newFavorites = new Set(favorites);
@@ -846,6 +1036,7 @@ const ByersMarketplace = () => {
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
             >
+              <option value="default">Default order</option>
               <option value="name">Sort by Name</option>
               <option value="price">Sort by Price</option>
               <option value="rating">Sort by Rating</option>
@@ -934,6 +1125,20 @@ const ByersMarketplace = () => {
             <h3 className="text-xl font-semibold text-gray-600 mb-2">No products found</h3>
             <p className="text-gray-500">Try adjusting your search terms or filters</p>
           </div>
+        )}
+
+        <div ref={sentinelRef} className="h-1" />
+
+        {loadingMore && (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500"></div>
+          </div>
+        )}
+
+        {!loading && !loadingMore && products.length > 0 && !hasMore && (
+          <p className="text-center text-sm text-gray-400 mt-6">
+            You&apos;ve reached the end of the marketplace listings.
+          </p>
         )}
       </div>
 

@@ -1,10 +1,57 @@
-import React, { useState } from 'react';
-import { Star, User, ThumbsUp, ThumbsDown, MessageSquare, Edit3, Truck, Clock, Shield, MapPin, Phone, Mail } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Star, User, Truck, MapPin, Phone, Mail } from 'lucide-react';
+import { transportService } from '../../services/transportService';
+
+const roleDisplayMap = {
+  buyer: 'Buyer',
+  farmer: 'Farmer',
+  shop_owner: 'Shop Owner',
+  moderator: 'Moderator',
+  transporter: 'Transporter'
+};
+
+const formatDate = (value) => {
+  if (!value) {
+    return '';
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleDateString();
+};
+
+const StarRating = ({ rating, size = 'w-5 h-5', interactive = false, onRatingChange = null }) => {
+  const handleClick = (star) => {
+    if (!interactive || !onRatingChange) {
+      return;
+    }
+
+    onRatingChange(star);
+  };
+
+  return (
+    <div className="flex items-center space-x-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`${size} ${
+            star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+          } ${interactive ? 'cursor-pointer hover:text-yellow-400 transition-colors' : ''}`}
+          onClick={() => handleClick(star)}
+        />
+      ))}
+    </div>
+  );
+};
 
 const TransportServicesReviews = () => {
   const [selectedService, setSelectedService] = useState('all');
   const [showWriteReview, setShowWriteReview] = useState(false);
   const [reviewForService, setReviewForService] = useState('');
+  const [selectedTransporter, setSelectedTransporter] = useState(null);
   const [newReview, setNewReview] = useState({
     name: '',
     rating: 0,
@@ -14,225 +61,241 @@ const TransportServicesReviews = () => {
     route: '',
     quantity: ''
   });
+  const [transporters, setTransporters] = useState([]);
+  const [summaries, setSummaries] = useState({});
+  const [reviewsByTransporter, setReviewsByTransporter] = useState({});
+  const [loadingTransporters, setLoadingTransporters] = useState(true);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [error, setError] = useState(null);
 
-  const transportServices = [
-    {
-      id: 'lanka_cargo',
-      name: 'Lanka Cargo Express',
-      logo: '🚛',
-      rating: 4.8,
-      totalReviews: 124,
-      specialties: ['Rice', 'Vegetables', 'Fruits'],
-      coverage: 'Island-wide',
-      phone: '+94 11 234 5678',
-      email: 'info@lankacargoexpress.lk',
-      features: ['GPS Tracking', 'Cold Storage', 'Insurance Coverage', '24/7 Support']
-    },
-    {
-      id: 'green_transport',
-      name: 'Green Valley Transport',
-      logo: '🌿',
-      rating: 4.6,
-      totalReviews: 89,
-      specialties: ['Organic Vegetables', 'Rice', 'Spices'],
-      coverage: 'Western & Central Provinces',
-      phone: '+94 81 456 7890',
-      email: 'contact@greenvalleytransport.lk',
-      features: ['Eco-friendly Fleet', 'Temperature Control', 'Fast Delivery', 'Bulk Transport']
-    },
-    {
-      id: 'royal_logistics',
-      name: 'Royal Logistics Lanka',
-      logo: '👑',
-      rating: 4.7,
-      totalReviews: 156,
-      specialties: ['Premium Rice', 'Export Vegetables', 'Coconut Products'],
-      coverage: 'All Provinces',
-      phone: '+94 77 123 4567',
-      email: 'service@royallogistics.lk',
-      features: ['Premium Fleet', 'Export Documentation', 'Quality Assurance', 'Refrigerated Transport']
-    },
-    {
-      id: 'farmer_connect',
-      name: 'Farmer Connect Transport',
-      logo: '🌾',
-      rating: 4.5,
-      totalReviews: 78,
-      specialties: ['Paddy', 'Vegetables', 'Direct Market'],
-      coverage: 'North Central & Eastern Provinces',
-      phone: '+94 25 789 0123',
-      email: 'hello@farmerconnect.lk',
-      features: ['Farm to Market', 'Competitive Rates', 'Local Network', 'Quick Loading']
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTransportersAndReviews = async () => {
+      setLoadingTransporters(true);
+      setLoadingReviews(true);
+      setError(null);
+
+      try {
+        const response = await transportService.getAllTransporters();
+
+        if (!response?.success) {
+          throw new Error(response?.message || 'Failed to load transport services');
+        }
+
+        const transporterList = Array.isArray(response.data) ? response.data : [];
+        if (!isMounted) {
+          return;
+        }
+
+        setTransporters(transporterList);
+
+        if (transporterList.length === 0) {
+          setSummaries({});
+          setReviewsByTransporter({});
+          return;
+        }
+
+        const results = await Promise.all(
+          transporterList.map(async (transporter) => {
+            const [summaryResp, reviewsResp] = await Promise.all([
+              transportService.getTransporterReviewSummary(transporter.id),
+              transportService.getTransporterReviews(transporter.id)
+            ]);
+
+            return {
+              transporterId: transporter.id,
+              summary: summaryResp?.success ? summaryResp.data : null,
+              reviews: reviewsResp?.success && Array.isArray(reviewsResp.data) ? reviewsResp.data : []
+            };
+          })
+        );
+
+        if (!isMounted) {
+          return;
+        }
+
+        const summaryEntries = {};
+        const reviewEntries = {};
+
+        results.forEach(({ transporterId, summary, reviews }) => {
+          summaryEntries[transporterId] = summary;
+          reviewEntries[transporterId] = reviews;
+        });
+
+        setSummaries(summaryEntries);
+        setReviewsByTransporter(reviewEntries);
+      } catch (err) {
+        if (!isMounted) {
+          return;
+        }
+        console.error('Failed to load transport services:', err);
+        setError(err.message || 'Failed to load transport services');
+        setTransporters([]);
+        setSummaries({});
+        setReviewsByTransporter({});
+      } finally {
+        if (isMounted) {
+          setLoadingTransporters(false);
+          setLoadingReviews(false);
+        }
+      }
+    };
+
+    loadTransportersAndReviews();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const transportersWithStats = useMemo(() => {
+    return transporters.map((transporter) => {
+      const summary = summaries[transporter.id] || null;
+      const rawReviews = reviewsByTransporter[transporter.id] || [];
+
+      const reviews = rawReviews
+        .map((review) => {
+          const createdAt = review.created_at ? new Date(review.created_at) : null;
+          const reviewerRole = review.reviewer_role || 'buyer';
+
+          return {
+            id: review.id,
+            transporterId: review.transporter_id,
+            reviewerId: review.reviewer_id,
+            reviewerRole,
+            rating: Number(review.rating) || 0,
+            comment: review.comment || '',
+            createdAt,
+            createdAtRaw: review.created_at || '',
+            createdAtFormatted: formatDate(review.created_at),
+            reviewerLabel: `${roleDisplayMap[reviewerRole] || 'Reviewer'} #${review.reviewer_id}`
+          };
+        })
+        .sort((a, b) => {
+          const timeA = a.createdAt ? a.createdAt.getTime() : 0;
+          const timeB = b.createdAt ? b.createdAt.getTime() : 0;
+          return timeB - timeA;
+        });
+
+      let averageRating = null;
+      if (summary && summary.average_rating !== null && summary.average_rating !== undefined) {
+        averageRating = Number(summary.average_rating);
+      } else if (reviews.length > 0) {
+        averageRating = reviews.reduce((sum, current) => sum + (current.rating || 0), 0) / reviews.length;
+      }
+
+      if (!Number.isFinite(averageRating)) {
+        averageRating = 0;
+      }
+
+      const reviewCount = summary && summary.review_count !== undefined && summary.review_count !== null
+        ? Number(summary.review_count)
+        : reviews.length;
+
+      const specialties = transporter.additional_info
+        ? transporter.additional_info
+            .split(/[;,]/)
+            .map((item) => item.trim())
+            .filter(Boolean)
+            .slice(0, 4)
+        : [];
+
+      const features = [
+        transporter.vehicle_type ? `Vehicle: ${transporter.vehicle_type}` : null,
+        transporter.vehicle_capacity ? `Capacity: ${transporter.vehicle_capacity} ${transporter.capacity_unit || ''}` : null,
+        transporter.base_rate ? `Base Rate: Rs. ${transporter.base_rate}` : null,
+        transporter.per_km_rate ? `Per KM: Rs. ${transporter.per_km_rate}` : null
+      ].filter(Boolean);
+
+      const initials = transporter.full_name
+        ? transporter.full_name.trim().charAt(0).toUpperCase()
+        : 'T';
+
+      return {
+        id: transporter.id,
+        userId: transporter.user_id,
+        name: transporter.full_name || `Transporter ${transporter.id}`,
+        initials,
+        district: transporter.district || 'Not specified',
+        address: transporter.address || '',
+        phone: transporter.phone_number || '',
+        email: transporter.email || '',
+        vehicleType: transporter.vehicle_type || 'Not specified',
+        vehicleCapacity: transporter.vehicle_capacity,
+        capacityUnit: transporter.capacity_unit,
+        licenseNumber: transporter.license_number || '',
+        licenseExpiry: transporter.license_expiry,
+        additionalInfo: transporter.additional_info || '',
+        baseRate: transporter.base_rate,
+        perKmRate: transporter.per_km_rate,
+        coverage: transporter.district || 'Not specified',
+        specialties,
+        features,
+        summary: {
+          averageRating: Number(Number.isFinite(averageRating) ? averageRating.toFixed(1) : 0),
+          reviewCount
+        },
+        reviews,
+        topReview: reviews[0] || null
+      };
+    });
+  }, [transporters, summaries, reviewsByTransporter]);
+
+  const filteredReviews = useMemo(() => {
+    if (selectedService === 'all') {
+      return transportersWithStats
+        .flatMap((service) =>
+          service.reviews.map((review) => ({
+            ...review,
+            transporterName: service.name
+          }))
+        )
+        .sort((a, b) => {
+          const timeA = a.createdAt ? a.createdAt.getTime() : 0;
+          const timeB = b.createdAt ? b.createdAt.getTime() : 0;
+          return timeB - timeA;
+        });
     }
-  ];
 
-  const reviews = [
-    {
-      id: 1,
-      serviceId: 'lanka_cargo',
-      serviceName: 'Lanka Cargo Express',
-      name: "Sunil Perera",
-      rating: 5,
-      date: "2024-06-20",
-      title: "Excellent service for basmati rice transport",
-      content: "Transported 200 bags of basmati rice from Anuradhapura to Colombo. The team was very professional and the GPS tracking helped me monitor the shipment. Rice arrived in perfect condition without any damage.",
-      helpful: 18,
-      verified: true,
-      transportType: "Rice",
-      route: "Anuradhapura to Colombo",
-      quantity: "200 bags"
-    },
-    {
-      id: 2,
-      serviceId: 'green_transport',
-      serviceName: 'Green Valley Transport',
-      name: "Kamala Silva",
-      rating: 4,
-      date: "2024-06-18",
-      title: "Good vegetable transport with cold storage",
-      content: "Used their refrigerated trucks for transporting organic vegetables from Nuwara Eliya to Galle. The vegetables stayed fresh and the pricing was reasonable. Only minor delay due to weather but they informed us in advance.",
-      helpful: 12,
-      verified: true,
-      transportType: "Vegetables",
-      route: "Nuwara Eliya to Galle",
-      quantity: "1.5 tons"
-    },
-    {
-      id: 3,
-      serviceId: 'royal_logistics',
-      serviceName: 'Royal Logistics Lanka',
-      name: "Mahinda Fernando",
-      rating: 5,
-      date: "2024-06-15",
-      title: "Premium service for export quality rice",
-      content: "I've been using Royal Logistics for 3 years for my premium rice exports. Their quality control and documentation services are excellent. They handle everything from farm pickup to port delivery professionally.",
-      helpful: 25,
-      verified: true,
-      transportType: "Rice",
-      route: "Polonnaruwa to Colombo Port",
-      quantity: "5 tons"
-    },
-    {
-      id: 4,
-      serviceId: 'farmer_connect',
-      serviceName: 'Farmer Connect Transport',
-      name: "Priyanka Jayawardena",
-      rating: 4,
-      date: "2024-06-12",
-      title: "Reliable service for local market delivery",
-      content: "Good service for transporting vegetables from my farm in Kurunegala to Manning Market. They understand the local market timing and ensure early morning delivery. Fair pricing for small farmers like us.",
-      helpful: 9,
-      verified: true,
-      transportType: "Vegetables",
-      route: "Kurunegala to Colombo (Manning Market)",
-      quantity: "800 kg"
-    },
-    {
-      id: 5,
-      serviceId: 'lanka_cargo',
-      serviceName: 'Lanka Cargo Express',
-      name: "Rohan Wickramasinghe",
-      rating: 5,
-      date: "2024-06-10",
-      title: "Best choice for mixed cargo transport",
-      content: "Transported both red rice and mixed vegetables in the same trip. Their team efficiently organized the loading and used proper separation methods. Excellent customer service and tracking system.",
-      helpful: 21,
-      verified: true,
-      transportType: "Mixed",
-      route: "Matara to Kandy",
-      quantity: "3 tons"
-    },
-    {
-      id: 6,
-      serviceId: 'green_transport',
-      serviceName: 'Green Valley Transport',
-      name: "Sandya Kumari",
-      rating: 4,
-      date: "2024-06-08",
-      title: "Eco-friendly transport for organic produce",
-      content: "Appreciated their commitment to eco-friendly transport. Used their service to move organic carrots and cabbage from Badulla to Negombo. The vegetables maintained their freshness throughout the journey.",
-      helpful: 14,
-      verified: true,
-      transportType: "Vegetables",
-      route: "Badulla to Negombo",
-      quantity: "1 ton"
-    },
-    {
-      id: 7,
-      serviceId: 'royal_logistics',
-      serviceName: 'Royal Logistics Lanka',
-      name: "Chaminda Rathnayake",
-      rating: 5,
-      date: "2024-06-05",
-      title: "Premium service worth every rupee",
-      content: "Used their premium service for transporting samba rice to international buyers. The quality documentation and temperature-controlled transport ensured our rice met export standards. Highly professional team.",
-      helpful: 19,
-      verified: true,
-      transportType: "Rice",
-      route: "Ampara to Colombo Port",
-      quantity: "10 tons"
-    },
-    {
-      id: 8,
-      serviceId: 'farmer_connect',
-      serviceName: 'Farmer Connect Transport',
-      name: "Nimal Gunawardena",
-      rating: 4,
-      date: "2024-06-03",
-      title: "Great support for small-scale farmers",
-      content: "As a small farmer, I appreciate their flexible scheduling and reasonable rates. Transported my paddy harvest from Polonnaruwa to the rice mill in Dambulla. They understand farmers' needs very well.",
-      helpful: 11,
-      verified: true,
-      transportType: "Rice",
-      route: "Polonnaruwa to Dambulla",
-      quantity: "50 bags"
+    const matcher = transportersWithStats.find((service) => String(service.id) === String(selectedService));
+    if (!matcher) {
+      return [];
     }
-  ];
 
-  const filteredReviews = selectedService === 'all' 
-    ? reviews 
-    : reviews.filter(review => review.serviceId === selectedService);
-
-  const StarRating = ({ rating, size = 'w-5 h-5', interactive = false, onRatingChange = null }) => {
-    return (
-      <div className="flex items-center space-x-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`${size} ${
-              star <= rating 
-                ? 'text-yellow-400 fill-current' 
-                : 'text-gray-300'
-            } ${interactive ? 'cursor-pointer hover:text-yellow-400 transition-colors' : ''}`}
-            onClick={() => interactive && onRatingChange && onRatingChange(star)}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  const getTransportIcon = (type) => {
-    switch(type) {
-      case 'Rice': return '🌾';
-      case 'Vegetables': return '🥬';
-      case 'Mixed': return '🚚';
-      default: return '📦';
-    }
-  };
+    return matcher.reviews.map((review) => ({
+      ...review,
+      transporterName: matcher.name
+    }));
+  }, [selectedService, transportersWithStats]);
 
   const handleWriteReview = (serviceId) => {
-    setReviewForService(serviceId);
+    setReviewForService(String(serviceId));
     setShowWriteReview(true);
   };
 
+  const handleCardClick = (service) => {
+    if (!service) {
+      return;
+    }
+
+    setSelectedService(String(service.id));
+    setSelectedTransporter(service);
+  };
+
+  const handleCloseProfile = () => {
+    setSelectedTransporter(null);
+  };
+
+  const transporterReviews = selectedTransporter ? selectedTransporter.reviews : [];
+
   const handleSubmitReview = () => {
     if (newReview.name && newReview.rating && newReview.title && newReview.content && reviewForService) {
-      // Review submission logic would go here
-      setNewReview({ 
-        name: '', 
-        rating: 0, 
-        title: '', 
-        content: '', 
+      setNewReview({
+        name: '',
+        rating: 0,
+        title: '',
+        content: '',
         transportType: 'Rice',
         route: '',
         quantity: ''
@@ -242,236 +305,426 @@ const TransportServicesReviews = () => {
     }
   };
 
+  const reviewTarget = reviewForService
+    ? transportersWithStats.find((service) => String(service.id) === String(reviewForService))
+    : null;
+
+  const selectedServiceDetails = selectedService !== 'all'
+    ? transportersWithStats.find((service) => String(service.id) === String(selectedService))
+    : null;
+
+  const loadingState = loadingTransporters || loadingReviews;
+
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 bg-white">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center space-x-3 mb-4">
-          <Truck className="w-8 h-8 text-green-600" />
-          <h1 className="text-3xl md:text-4xl font-bold text-green-800">
-            Agrovia Transport Services
-          </h1>
+    <div className="max-w-7xl mx-auto bg-white p-4 md:p-6">
+      <div className="mb-8 text-center">
+        <div className="mb-4 flex items-center justify-center space-x-3">
+          <Truck className="h-8 w-8 text-green-600" />
+          <h1 className="text-3xl font-bold text-green-800 md:text-4xl">Agrovia Transport Services</h1>
         </div>
-        <p className="text-gray-600 text-lg max-w-3xl mx-auto">
+        <p className="mx-auto max-w-3xl text-lg text-gray-600">
           Compare and review the best rice and vegetable transport services across Sri Lanka
         </p>
       </div>
 
-      {/* Transport Services Cards */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-green-800 mb-6">Featured Transport Services</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {transportServices.map((service) => (
-            <div key={service.id} className="bg-gradient-to-br from-green-50 to-white border border-green-200 rounded-2xl p-6 hover:shadow-lg transition-all duration-200">
-              <div className="text-center mb-4">
-                <div className="text-4xl mb-2">{service.logo}</div>
-                <h3 className="font-bold text-lg text-green-800 mb-1">{service.name}</h3>
-                <div className="flex items-center justify-center space-x-2 mb-2">
-                  <StarRating rating={Math.round(service.rating)} size="w-4 h-4" />
-                  <span className="text-sm text-gray-600">
-                    {service.rating} ({service.totalReviews} reviews)
-                  </span>
-                </div>
-              </div>
-              
-              <div className="space-y-3 mb-4">
-                <div>
-                  <p className="text-xs font-semibold text-gray-700 mb-1">Specialties:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {service.specialties.map((specialty, idx) => (
-                      <span key={idx} className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
-                        {specialty}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-700">Coverage: <span className="font-normal">{service.coverage}</span></p>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                {service.features.slice(0, 2).map((feature, idx) => (
-                  <div key={idx} className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-xs text-gray-600">{feature}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setSelectedService(service.id)}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2 px-3 rounded-lg transition-colors"
-                >
-                  View Reviews
-                </button>
-                <button
-                  onClick={() => handleWriteReview(service.id)}
-                  className="flex-1 border border-green-600 text-green-600 hover:bg-green-50 text-sm py-2 px-3 rounded-lg transition-colors"
-                >
-                  Write Review
-                </button>
-              </div>
-            </div>
-          ))}
+      {error && (
+        <div className="mb-8 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+          {error}
         </div>
+      )}
 
-        {/* Service Filter */}
-        <div className="flex flex-wrap gap-2 justify-center">
-          <button
-            onClick={() => setSelectedService('all')}
-            className={`px-4 py-2 rounded-full font-medium transition-colors ${
-              selectedService === 'all'
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            All Services
-          </button>
-          {transportServices.map((service) => (
-            <button
-              key={service.id}
-              onClick={() => setSelectedService(service.id)}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                selectedService === service.id
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {service.name}
-            </button>
-          ))}
+      {loadingState ? (
+        <div className="mb-10 flex items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 p-12 text-gray-600">
+          Loading transport services…
         </div>
-      </div>
+      ) : transportersWithStats.length === 0 ? (
+        <div className="mb-10 rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-center text-yellow-800">
+          No transport services available yet.
+        </div>
+      ) : (
+        <>
+          <div className="mb-8">
+            <h2 className="mb-6 text-2xl font-bold text-green-800">Featured Transport Services</h2>
+            <div className="mb-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {transportersWithStats.map((service) => {
+                const ratingValue = Number.isFinite(service.summary.averageRating)
+                  ? service.summary.averageRating
+                  : 0;
+                const reviewCount = service.summary.reviewCount || 0;
+                const topReview = service.topReview;
 
-      {/* Reviews Section */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-bold text-green-800">
-            Customer Reviews 
-            {selectedService !== 'all' && (
-              <span className="text-lg font-normal text-gray-600 ml-2">
-                for {transportServices.find(s => s.id === selectedService)?.name}
-              </span>
-            )}
-          </h3>
-          <div className="text-sm text-gray-600">
-            Showing {filteredReviews.length} review{filteredReviews.length !== 1 ? 's' : ''}
-          </div>
-        </div>
-        
-        {filteredReviews.map((review) => (
-          <div key={review.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-4">
-              <div className="flex items-start space-x-4 mb-4 lg:mb-0 flex-1">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="w-6 h-6 text-green-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-1">
-                    <h4 className="font-semibold text-gray-900">{review.name}</h4>
-                    {review.verified && (
-                      <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium inline-block mt-1 sm:mt-0">
-                        Verified Customer
-                      </span>
+                return (
+                  <div
+                    key={service.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleCardClick(service)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleCardClick(service);
+                      }
+                    }}
+                    className="flex cursor-pointer flex-col rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-white p-6 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                  >
+                    <div className="mb-4 text-center">
+                      <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-green-600 text-lg font-semibold text-white">
+                        {service.initials}
+                      </div>
+                      <h3 className="mb-1 text-lg font-bold text-green-800">{service.name}</h3>
+                      <div className="mb-2 flex items-center justify-center space-x-2">
+                        <StarRating rating={ratingValue} size="w-4 h-4" />
+                        <span className="text-sm text-gray-600">
+                          {ratingValue.toFixed(1)} ({reviewCount} review{reviewCount === 1 ? '' : 's'})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mb-4 space-y-3">
+                      {service.specialties.length > 0 && (
+                        <div>
+                          <p className="mb-1 text-xs font-semibold text-gray-700">Specialties:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {service.specialties.map((specialty) => (
+                              <span
+                                key={specialty}
+                                className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700"
+                              >
+                                {specialty}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700">
+                          Coverage: <span className="font-normal">{service.coverage}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {service.features.length > 0 && (
+                      <div className="mb-4 space-y-2">
+                        {service.features.slice(0, 2).map((feature) => (
+                          <div key={feature} className="flex items-center space-x-2">
+                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <span className="text-xs text-gray-600">{feature}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mb-2">
-                    <div className="flex items-center space-x-2">
-                      <StarRating rating={review.rating} size="w-4 h-4" />
-                      <span className="text-sm text-gray-500">{review.date}</span>
+
+                    {topReview && (
+                      <div className="mb-4 rounded-xl border border-green-100 bg-white/70 p-3 text-left">
+                        <p className="mb-1 text-xs text-gray-500">Latest review</p>
+                        <p className="mb-1 text-sm text-gray-600 line-clamp-3">
+                          {topReview.comment || 'No review text provided.'}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                          <span>{topReview.reviewerLabel}</span>
+                          <span>{topReview.createdAtFormatted}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-auto space-y-2">
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleCardClick(service);
+                        }}
+                        className="w-full rounded-lg border border-green-200 bg-white px-3 py-2.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-50"
+                      >
+                        View Transporter Profile
+                      </button>
                     </div>
-                    <div className="text-sm font-medium text-green-600 mt-1 sm:mt-0">
-                      {review.serviceName}
-                    </div>
                   </div>
-                </div>
-              </div>
-              
-              {/* Transport Details */}
-              <div className="flex flex-wrap gap-2 lg:ml-4">
-                <span className="bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-full flex items-center space-x-1">
-                  <span>{getTransportIcon(review.transportType)}</span>
-                  <span>{review.transportType}</span>
-                </span>
-                {review.quantity && (
-                  <span className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full">
-                    {review.quantity}
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => setSelectedService('all')}
+                className={`rounded-full px-4 py-2 font-medium transition-colors ${
+                  selectedService === 'all'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Services
+              </button>
+              {transportersWithStats.map((service) => (
+                <button
+                  key={service.id}
+                  onClick={() => setSelectedService(String(service.id))}
+                  className={`rounded-full px-4 py-2 font-medium transition-colors ${
+                    String(selectedService) === String(service.id)
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {service.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-bold text-green-800">
+                Customer Reviews
+                {selectedServiceDetails && (
+                  <span className="ml-2 text-lg font-normal text-gray-600">
+                    for {selectedServiceDetails.name}
                   </span>
                 )}
+              </h3>
+              <div className="text-sm text-gray-600">
+                Showing {filteredReviews.length} review{filteredReviews.length === 1 ? '' : 's'}
               </div>
             </div>
 
-            <h5 className="font-semibold text-gray-900 mb-3 text-lg">{review.title}</h5>
-            <p className="text-gray-700 mb-4 leading-relaxed">{review.content}</p>
-            
-            {review.route && (
-              <div className="flex items-center space-x-2 mb-4 text-sm text-gray-600">
-                <MapPin className="w-4 h-4 flex-shrink-0" />
-                <span>Route: {review.route}</span>
+            {filteredReviews.length === 0 ? (
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-8 text-center text-gray-600">
+                No reviews yet for this selection.
               </div>
+            ) : (
+              filteredReviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow duration-200 hover:shadow-md"
+                >
+                  <div className="mb-4 flex flex-col justify-between lg:flex-row lg:items-start">
+                    <div className="mb-4 flex flex-1 items-start space-x-4 lg:mb-0">
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-green-100">
+                        <User className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                          <h4 className="font-semibold text-gray-900">{review.reviewerLabel}</h4>
+                        </div>
+                        <div className="mb-2 flex flex-col sm:flex-row sm:items-center sm:space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <StarRating rating={review.rating} size="w-4 h-4" />
+                            <span className="text-sm text-gray-500">{review.createdAtFormatted}</span>
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-green-600 sm:mt-0">
+                            {review.transporterName}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 lg:ml-4">
+                      <span className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+                        {roleDisplayMap[review.reviewerRole] || 'Reviewer'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-gray-700">
+                    {review.comment || 'No review text provided.'}
+                  </p>
+                </div>
+              ))
             )}
-
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <div className="flex items-center space-x-4">
-                <button className="flex items-center space-x-1 text-gray-500 hover:text-green-600 transition-colors">
-                  <ThumbsUp className="w-4 h-4" />
-                  <span className="text-sm">Helpful ({review.helpful})</span>
-                </button>
-                <button className="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors">
-                  <MessageSquare className="w-4 h-4" />
-                  <span className="text-sm">Reply</span>
-                </button>
-              </div>
-            </div>
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
-      {/* Write Review Modal */}
+      {selectedTransporter && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+          onClick={handleCloseProfile}
+        >
+          <div
+            className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {(() => {
+              const ratingValue = Number.isFinite(selectedTransporter.summary.averageRating)
+                ? selectedTransporter.summary.averageRating
+                : 0;
+              const reviewCount = selectedTransporter.summary.reviewCount || 0;
+              const modalReviews = transporterReviews.slice(0, 3);
+
+              return (
+                <>
+                  <div className="relative bg-gradient-to-r from-green-600 via-green-700 to-emerald-800 px-8 py-8 text-white">
+                    <button
+                      onClick={handleCloseProfile}
+                      className="absolute right-4 top-4 text-2xl leading-none text-white/80 transition-colors hover:text-white"
+                      aria-label="Close profile view"
+                    >
+                      ×
+                    </button>
+                    <div className="flex flex-col gap-8 md:flex-row md:items-center">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-3xl font-semibold">
+                          {selectedTransporter.initials}
+                        </div>
+                        <div>
+                          <h2 className="text-3xl font-bold">{selectedTransporter.name}</h2>
+                          <p className="mt-1 text-sm text-white/80">{selectedTransporter.address || selectedTransporter.coverage}</p>
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/90">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-4 w-4" />
+                              {selectedTransporter.district}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Truck className="h-4 w-4" />
+                              {selectedTransporter.vehicleType}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="ml-auto text-right">
+                        <div className="inline-flex flex-col items-center justify-center rounded-2xl bg-white/15 px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <Star className="h-5 w-5 fill-current text-yellow-300" />
+                            <span className="text-2xl font-bold">{ratingValue.toFixed(1)}</span>
+                          </div>
+                          <span className="mt-1 text-xs text-white/80">
+                            {reviewCount} review{reviewCount === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-8 px-8 py-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <h3 className="mb-3 text-sm font-semibold text-gray-800">Contact Information</h3>
+                        <div className="space-y-2 text-sm text-gray-700">
+                          {selectedTransporter.phone && (
+                            <p className="flex items-center gap-2">
+                              <Phone className="h-4 w-4 text-green-600" />
+                              {selectedTransporter.phone}
+                            </p>
+                          )}
+                          {selectedTransporter.email && (
+                            <p className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-green-600" />
+                              {selectedTransporter.email}
+                            </p>
+                          )}
+                          {selectedTransporter.address && (
+                            <p className="flex items-start gap-2">
+                              <MapPin className="h-4 w-4 text-green-600" />
+                              {selectedTransporter.address}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <h3 className="mb-3 text-sm font-semibold text-gray-800">Fleet Details</h3>
+                        <ul className="space-y-2 text-sm text-gray-700">
+                          <li>Vehicle Type: {selectedTransporter.vehicleType}</li>
+                          <li>
+                            Capacity:{' '}
+                            {selectedTransporter.vehicleCapacity
+                              ? `${selectedTransporter.vehicleCapacity} ${selectedTransporter.capacityUnit || ''}`
+                              : 'Not specified'}
+                          </li>
+                          <li>License: {selectedTransporter.licenseNumber || 'Not specified'}</li>
+                          {selectedTransporter.licenseExpiry && (
+                            <li>License Expiry: {formatDate(selectedTransporter.licenseExpiry)}</li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {selectedTransporter.additionalInfo && (
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <h3 className="mb-3 text-sm font-semibold text-gray-800">About this Transporter</h3>
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {selectedTransporter.additionalInfo}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-gray-800">Recent Reviews</h3>
+                        <span className="text-xs text-gray-500">
+                          Showing {modalReviews.length} of {transporterReviews.length}
+                        </span>
+                      </div>
+                      {modalReviews.length === 0 ? (
+                        <p className="text-sm text-gray-600">No reviews available yet for this transporter.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {modalReviews.map((review) => (
+                            <div key={review.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <StarRating rating={review.rating} size="w-4 h-4" />
+                                  <span className="text-sm font-semibold text-gray-800">{review.reviewerLabel}</span>
+                                </div>
+                                <span className="text-xs text-gray-500">{review.createdAtFormatted}</span>
+                              </div>
+                              <p className="text-sm text-gray-700 leading-relaxed">
+                                {review.comment || 'No review text provided.'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {showWriteReview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-6 flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-bold text-green-800">Write a Review</h3>
                 <p className="text-gray-600">
-                  for {transportServices.find(s => s.id === reviewForService)?.name}
+                  {reviewTarget ? `for ${reviewTarget.name}` : 'Select a transporter'}
                 </p>
               </div>
               <button
                 onClick={() => setShowWriteReview(false)}
-                className="text-gray-500 hover:text-gray-700 text-3xl leading-none"
+                className="text-3xl leading-none text-gray-500 transition-colors hover:text-gray-700"
+                aria-label="Close review form"
               >
                 ×
               </button>
             </div>
 
             <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Your Name *
                   </label>
                   <input
                     type="text"
                     value={newReview.name}
-                    onChange={(e) => setNewReview({...newReview, name: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    onChange={(event) => setNewReview({ ...newReview, name: event.target.value })}
+                    className="w-full rounded-lg border border-gray-300 p-3 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     placeholder="Enter your name"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Transport Type *
                   </label>
                   <select
                     value={newReview.transportType}
-                    onChange={(e) => setNewReview({...newReview, transportType: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    onChange={(event) => setNewReview({ ...newReview, transportType: event.target.value })}
+                    className="w-full rounded-lg border border-gray-300 p-3 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     required
                   >
                     <option value="Rice">Rice Transport</option>
@@ -481,91 +734,91 @@ const TransportServicesReviews = () => {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Transport Route
                   </label>
                   <input
                     type="text"
                     value={newReview.route}
-                    onChange={(e) => setNewReview({...newReview, route: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    onChange={(event) => setNewReview({ ...newReview, route: event.target.value })}
+                    className="w-full rounded-lg border border-gray-300 p-3 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     placeholder="e.g., Colombo to Kandy"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Quantity Transported
                   </label>
                   <input
                     type="text"
                     value={newReview.quantity}
-                    onChange={(e) => setNewReview({...newReview, quantity: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    onChange={(event) => setNewReview({ ...newReview, quantity: event.target.value })}
+                    className="w-full rounded-lg border border-gray-300 p-3 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     placeholder="e.g., 50 bags, 2 tons"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Your Rating *
                 </label>
                 <div className="flex items-center space-x-2">
-                  <StarRating 
-                    rating={newReview.rating} 
-                    size="w-8 h-8" 
-                    interactive={true}
-                    onRatingChange={(rating) => setNewReview({...newReview, rating})}
+                  <StarRating
+                    rating={newReview.rating}
+                    size="w-8 h-8"
+                    interactive
+                    onRatingChange={(rating) => setNewReview({ ...newReview, rating })}
                   />
-                  <span className="text-sm text-gray-600 ml-2">
-                    {newReview.rating > 0 && `${newReview.rating} star${newReview.rating !== 1 ? 's' : ''}`}
+                  <span className="ml-2 text-sm text-gray-600">
+                    {newReview.rating > 0 && `${newReview.rating} star${newReview.rating === 1 ? '' : 's'}`}
                   </span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Review Title *
                 </label>
                 <input
                   type="text"
                   value={newReview.title}
-                  onChange={(e) => setNewReview({...newReview, title: e.target.value})}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={(event) => setNewReview({ ...newReview, title: event.target.value })}
+                  className="w-full rounded-lg border border-gray-300 p-3 focus:border-transparent focus:ring-2 focus:ring-green-500"
                   placeholder="Summarize your transport experience"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Your Review *
                 </label>
                 <textarea
                   value={newReview.content}
-                  onChange={(e) => setNewReview({...newReview, content: e.target.value})}
+                  onChange={(event) => setNewReview({ ...newReview, content: event.target.value })}
                   rows={4}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                  placeholder="Tell us about your transport experience - delivery time, handling quality, communication, etc..."
+                  className="w-full resize-none rounded-lg border border-gray-300 p-3 focus:border-transparent focus:ring-2 focus:ring-green-500"
+                  placeholder="Tell us about delivery time, handling quality, communication, etc."
                   required
                 />
               </div>
 
-              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+              <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-4">
                 <button
                   type="button"
                   onClick={() => setShowWriteReview(false)}
-                  className="flex-1 py-3 px-6 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="flex-1 rounded-lg border border-gray-300 py-3 px-6 font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleSubmitReview}
-                  className="flex-1 py-3 px-6 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold shadow-md hover:shadow-lg"
+                  className="flex-1 rounded-lg bg-green-600 py-3 px-6 font-semibold text-white shadow-md transition-colors hover:bg-green-700 hover:shadow-lg"
                 >
                   Submit Review
                 </button>

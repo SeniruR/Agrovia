@@ -17,6 +17,7 @@ import {
 import logo from '../../assets/images/agrovia.png';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
+import { useAuth } from '../../contexts/AuthContext';
 import io from 'socket.io-client';
 import useForecastAccess from '../../hooks/useForecastAccess';
 import CartPopup from '../CartPopup';
@@ -80,6 +81,7 @@ const isFarmerAccount = (userData) => {
 
 const Navigation = ({ onSidebarToggle }) => {
   const navigate = useNavigate();
+  const { logout: authLogout } = useAuth();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [notificationCount, setNotificationCount] = useState(3);
@@ -400,8 +402,7 @@ const Navigation = ({ onSidebarToggle }) => {
   }, [hasPestAlertAccess]);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('authToken'); // for cleanup if present
+    authLogout();
     setIsLoggedIn(false);
     setUserEmail("");
     setIsFarmerUser(false);
@@ -849,14 +850,6 @@ const Navigation = ({ onSidebarToggle }) => {
                     <Link to="/profile" className="flex items-center gap-3 px-4 py-3 text-sm text-green-700 hover:text-green-800 hover:bg-green-50 transition-all duration-200">
                       <PersonOutlined className="!w-4 !h-4" />
                       My Profile
-                    </Link>
-                    <Link to="/emailalerts" className="flex items-center gap-3 px-4 py-3 text-sm text-green-700 hover:text-green-800 hover:bg-green-50 transition-all duration-200">
-                      <EmailIcon className="!w-4 !h-4" />
-                      Email Alerts
-                    </Link>
-                    <Link to="/settings" className="flex items-center gap-3 px-4 py-3 text-sm text-green-700 hover:text-green-800 hover:bg-green-50 transition-all duration-200">
-                      <GlobeAltIcon className="w-4 h-4" />
-                      Settings
                     </Link>
                     <hr className="my-2 border-green-200" />
                     <button

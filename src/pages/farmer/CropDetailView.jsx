@@ -425,18 +425,24 @@ const CropDetailView = () => {
   };
 
   const handleDeleteChatMessage = async (messageId) => {
+    // Don't allow deleting the same message multiple times or invalid message IDs
     if (!messageId || deletingMessageId === messageId) return;
+
+    // Don't allow deleting optimistic messages that haven't been saved yet
+    if (typeof messageId === 'string' && messageId.startsWith('client-')) {
+      setChatError('Cannot delete message that is still being sent.');
+      return;
+    }
 
     setDeletingMessageId(messageId);
     setChatError(null);
 
-    try {
-      // Try socket first for real-time updates
-      if (socketRef.current) {
-        socketRef.current.emit('deleteCropChatMessage', { messageId });
-      }
+    // Optimistically remove the message from UI immediately
+    const messageToRestore = chatMessages.find(msg => msg.id === messageId);
+    setChatMessages(prev => prev.filter(message => message.id !== messageId));
 
-      // Also send HTTP request as backup
+    try {
+      // Use HTTP request as primary method (more reliable than socket for delete operations)
       const headers = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -448,16 +454,33 @@ const CropDetailView = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Unable to delete message');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Unable to delete message');
       }
 
-      // If socket didn't work, remove the message from local state
-      if (!socketRef.current) {
-        setChatMessages(prev => prev.filter(message => message.id !== messageId));
-      }
+      // Message successfully deleted, no need to do anything as we already removed it optimistically
+      
     } catch (error) {
       console.error('Error deleting message:', error);
-      setChatError('Unable to delete message. Please try again.');
+      
+      // Restore the message since deletion failed
+      if (messageToRestore) {
+        setChatMessages(prev => {
+          // Insert the message back in its original position
+          const index = prev.findIndex(msg => 
+            new Date(msg.createdAt) > new Date(messageToRestore.createdAt)
+          );
+          const newMessages = [...prev];
+          if (index === -1) {
+            newMessages.push(messageToRestore);
+          } else {
+            newMessages.splice(index, 0, messageToRestore);
+          }
+          return newMessages;
+        });
+      }
+      
+      setChatError(error.message || 'Unable to delete message. Please try again.');
     } finally {
       setDeletingMessageId(null);
     }
@@ -2044,7 +2067,7 @@ const CropDetailView = () => {
                     </div>
                   )}
                   {chatMessages.map((message) => {
-                    const isCurrentUser = message.senderId === user?.id;
+                    const isCurrentUser = Number(message.senderId) === Number(user?.id);
                     return (
                       <div key={message.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} group`}>
                         <div
@@ -2064,16 +2087,12 @@ const CropDetailView = () => {
                             {formatChatTimestamp(message.createdAt)}
                           </span>
                           
-                          {/* Delete button - only show for current user's messages */}
+                          {/* Delete button - only show for current user's messages that have a real database ID */}
                           {isCurrentUser && (
                             <button
                               onClick={() => handleDeleteChatMessage(message.id)}
                               disabled={deletingMessageId === message.id}
-                              className={`absolute -top-2 -right-2 w-6 h-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-xs ${
-                                isCurrentUser 
-                                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                                  : 'bg-red-100 hover:bg-red-200 text-red-600'
-                              } ${deletingMessageId === message.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              className={`absolute -top-2 -right-2 w-6 h-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-xs bg-red-500 hover:bg-red-600 text-white ${deletingMessageId === message.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                               title="Delete message"
                             >
                               {deletingMessageId === message.id ? (
