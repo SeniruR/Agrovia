@@ -4,7 +4,7 @@ import FilterBar from "../../components/pages/Farmer/FarmFilterBar";
 import CropCard from "../../components/pages/Farmer/FarmCropCard";
 import { cropService } from "../../services/cropService";
 import { useMonthlyCropLimit } from "../../hooks/useMonthlyCropLimit";
-
+import FarmStatsCard from "../../components/pages/Farmer/FarmStatsCard";
 import { Package } from 'lucide-react';
 
 const parseRatingValue = (value) => {
