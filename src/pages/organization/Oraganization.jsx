@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Dashboard from './Dashboard';
+import Dashboard from './DashBoard.jsx';
 import FarmerDetailsList from './FarmerDetailsList';
 import FarmerDetails from './FarmerDetails';
 
