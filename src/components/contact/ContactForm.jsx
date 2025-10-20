@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, User, Mail, Phone, MessageSquare, AlertCircle, CheckCircle, Leaf } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ContactForm = ({ onSubmit }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -14,6 +16,119 @@ const ContactForm = ({ onSubmit }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('idle');
+  const [submittedDetails, setSubmittedDetails] = useState(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const deriveFullName = (u) => {
+      if (!u) return '';
+      const nameCandidates = [
+        u.full_name,
+        u.name,
+        [u.first_name, u.last_name].filter(Boolean).join(' ').trim(),
+        u.username
+      ].filter(Boolean);
+      return nameCandidates.find(Boolean) || '';
+    };
+
+    const derivePhone = (u) => {
+      const phoneCandidates = [
+        u.phone_number,
+        u.phone,
+        u.mobile,
+        u.contact_number,
+        u.telephone
+      ].filter(Boolean);
+      return phoneCandidates.find(Boolean) || '';
+    };
+
+    const deriveUserType = (u) => {
+      if (!u) return null;
+      const rawValues = [
+        u.user_type,
+        u.user_type_name,
+        u.role,
+        u.role_name,
+        u.type
+      ]
+        .filter((val) => val !== undefined && val !== null)
+        .map((val) => val.toString().toLowerCase().trim());
+
+      if (!rawValues.length) return null;
+
+      const matches = (...patterns) => rawValues.some((val) =>
+        patterns.some((pattern) => {
+          if (pattern instanceof RegExp) {
+            return pattern.test(val);
+          }
+          return val === pattern;
+        })
+      );
+
+      if (matches('1', '1.0', 'farmer')) return 'farmer';
+      if (matches('1.1', 'farmer (organizer)', 'farmer organizer', 'organizer', 'farmer_organizer')) return 'organization';
+      if (matches('2', 'buyer', 'bulk buyer')) return 'buyer';
+      if (matches('3', 'shop owner', 'shop_owner', 'shopowner', 'seller')) return 'supplier';
+      if (matches('supplier', 'vendor', 'merchant')) return 'supplier';
+      if (matches('4', 'logistics provider', 'logistics', 'transport', 'transport provider')) return 'logistics';
+      if (matches('organization', 'farmer organization', 'cooperative', 'co-op')) return 'organization';
+      if (matches('0', 'admin', 'administrator', '5', '5.0', '5.1', 'moderator', 'main moderator')) return 'other';
+
+      if (rawValues.some((val) => val.includes('farmer'))) return 'farmer';
+      if (rawValues.some((val) => val.includes('buyer'))) return 'buyer';
+      if (rawValues.some((val) => val.includes('supplier') || val.includes('vendor') || val.includes('shop'))) return 'supplier';
+      if (rawValues.some((val) => val.includes('logistic') || val.includes('transport'))) return 'logistics';
+      if (rawValues.some((val) => val.includes('organ'))) return 'organization';
+
+      return null;
+    };
+
+    const nextName = deriveFullName(user);
+    const nextEmail = user.email || '';
+    const nextPhone = derivePhone(user);
+    const nextType = deriveUserType(user);
+
+    setFormData((prev) => {
+      let changed = false;
+      const updated = { ...prev };
+
+      if (nextName && !prev.name) {
+        updated.name = nextName;
+        changed = true;
+      }
+
+      if (nextEmail && !prev.email) {
+        updated.email = nextEmail;
+        changed = true;
+      }
+
+      if (nextPhone && !prev.phone) {
+        updated.phone = nextPhone;
+        changed = true;
+      }
+
+      if (nextType && (prev.userType === 'farmer' || !prev.userType)) {
+        updated.userType = nextType;
+        changed = true;
+      }
+
+      if (!changed) return prev;
+
+      setErrors((prevErrors) => ({
+        ...prevErrors,
+        name: nextName ? undefined : prevErrors.name,
+        email: nextEmail ? undefined : prevErrors.email,
+        phone: nextPhone ? undefined : prevErrors.phone
+      }));
+
+      if (submitStatus !== 'idle') {
+        setSubmitStatus('idle');
+      }
+
+      return updated;
+    });
+  }, [user, submitStatus]);
 
   const userTypes = [
     { value: 'farmer', label: 'Farmer' },
@@ -68,21 +183,25 @@ const ContactForm = ({ onSubmit }) => {
 
     setIsSubmitting(true);
     setSubmitStatus('idle');
+    setSubmittedDetails(null);
 
     try {
-      await onSubmit(formData);
-      setSubmitStatus('success');
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
+  const result = await onSubmit(formData);
+  setSubmitStatus('success');
+  setSubmittedDetails(result || null);
+      setFormData(prev => ({
+        ...prev,
         subject: '',
-        message: '',
-        userType: 'farmer'
-      });
-      setErrors({});
+        message: ''
+      }));
+      setErrors(prevErrors => ({
+        ...prevErrors,
+        subject: undefined,
+        message: undefined
+      }));
     } catch {
       setSubmitStatus('error');
+      setSubmittedDetails(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -98,6 +217,7 @@ const ContactForm = ({ onSubmit }) => {
     
     if (submitStatus !== 'idle') {
       setSubmitStatus('idle');
+      setSubmittedDetails(null);
     }
   };
 
@@ -119,7 +239,9 @@ const ContactForm = ({ onSubmit }) => {
             <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
             <div>
               <p className="text-green-800 font-medium">Message sent successfully!</p>
-              <p className="text-green-700 text-sm">Thank you for contacting us. We'll respond soon.</p>
+              <p className="text-green-700 text-sm">
+                {submittedDetails?.id ? `Support request #${submittedDetails.id} has been received.` : 'Thank you for contacting us. We\'ll respond soon.'}
+              </p>
             </div>
           </div>
         </div>

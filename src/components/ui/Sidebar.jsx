@@ -35,6 +35,7 @@ const adminMenuItems = [
   { label: 'Organization Approval', icon: DocumentCheckIcon, path: '/admin/organization-approval' },
   { label: 'Manage Users', icon: UserGroupIcon, path: '/usermanagement' },
   { label: 'Manage Shops', icon: ShoppingBagIcon, path: '/admin/shop' },
+  { label: 'Contact Inbox', icon: ChatBubbleLeftRightIcon, path: '/admin/contact' },
   { label: 'Manage Complaints', icon: ChatBubbleLeftRightIcon, path: '/complaintHandling' },
   { label: 'Weather Alerts', icon: BellIcon, path: '/weatheralerts' },
   { label: 'Subscription Tiers', icon: CreditCardIcon, path: '/admin/shop-subscriptions' },  
