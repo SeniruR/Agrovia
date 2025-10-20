@@ -75,6 +75,7 @@ import AdminOrganizationApproval from "./pages/admin/AdminOrganizationApproval";
 import AdminShop from "./pages/admin/AdminShop";
 import AdminShopSubscriptions from "./pages/admin/AdminShopSubscriptions";
 import AdminAccountApproval  from "./pages/admin/AdminAccountApproval";
+import AdminContactMessages from "./pages/admin/AdminContactMessages";
 
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
@@ -147,6 +148,11 @@ const App = () => {
       <Route path="/admin/dashboard" element={
         <Layout>
           <AdminDashboard />
+        </Layout>
+      } />
+      <Route path="/admin/contact" element={
+        <Layout>
+          <AdminContactMessages />
         </Layout>
       } />
       <Route path="/discover-more" element={

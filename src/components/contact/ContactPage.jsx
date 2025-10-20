@@ -2,20 +2,33 @@ import React from 'react';
 import { Leaf, Mail, Phone, MapPin, Users, Heart, Shield, Zap } from 'lucide-react';
 import ContactForm from './ContactForm';
 import ContactInfo from './ContactInfo';
+import { contactService } from '../../services/contactService';
 
 const ContactPage = () => {
   const handleFormSubmit = async (formData) => {
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Mock successful submission
-        console.log('Contact form submitted:', formData);
-        resolve();
-        
-        // Uncomment the line below to test error handling
-        // reject(new Error('Failed to send message'));
-      }, 2000);
-    });
+    const payload = {
+      type: 'support',
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      category: formData.subject || formData.userType,
+      message: [
+        `User Type: ${formData.userType}`,
+        formData.phone ? `Phone: ${formData.phone}` : null,
+        '',
+        formData.message.trim()
+      ].filter(Boolean).join('\n'),
+      anonymous: false,
+      source: 'contact-page'
+    };
+
+    const response = await contactService.submitMessage(payload);
+
+    if (!response?.success) {
+      throw new Error(response?.message || 'Failed to submit contact message');
+    }
+
+    return response.data;
   };
 
   const features = [
