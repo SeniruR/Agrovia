@@ -164,6 +164,40 @@ const Profile = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isPasswordValid = (password) => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return passwordRegex.test(password);
+  };
+
+  const handlePasswordChange = async (token, newPassword) => {
+    const passwordData = {
+      password: newPassword
+    };
+
+    let apiUrl = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/api/v1/users/change-password`
+      : (import.meta.env.DEV
+          ? 'http://localhost:5000/api/v1/users/change-password'
+          : '/api/v1/users/change-password');
+
+    const response = await fetch(apiUrl, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(passwordData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to change password');
+    }
+
+    return await response.json();
+  };
+
   // Helper: map backend data to form fields
   const mapBackendToProfile = (data) => {
     const user = data.user || {};
@@ -405,6 +439,26 @@ const Profile = () => {
     try {
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("No authentication token found.");
+      const wantsPasswordChange = Boolean(profile.password);
+      const trimmedPassword = profile.password?.trim();
+
+      if (wantsPasswordChange) {
+        if (!trimmedPassword) {
+          setError('Password cannot be empty');
+          setLoading(false);
+          return;
+        }
+        if (!isPasswordValid(trimmedPassword)) {
+          setError('Password must meet security requirements');
+          setLoading(false);
+          return;
+        }
+        if (trimmedPassword !== profile.confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+      }
       let apiUrl = import.meta.env.VITE_API_URL
         ? `${import.meta.env.VITE_API_URL}/api/v1/auth/profile-full`
         : (import.meta.env.DEV
@@ -512,6 +566,33 @@ const Profile = () => {
       setOriginalProfile(mapped);
 
       // Navigate back to farmer profile page with a success message
+      if (wantsPasswordChange) {
+        try {
+          const passwordResult = await handlePasswordChange(token, trimmedPassword);
+          console.log('Password change result:', passwordResult);
+
+          try {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('token');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('authToken');
+          } catch (storageError) {
+            console.warn('Error clearing auth storage:', storageError);
+          }
+
+          navigate('/login', {
+            state: {
+              message: 'Password updated successfully. Please log in with your new credentials.'
+            }
+          });
+          return;
+        } catch (passwordError) {
+          console.error('Password change error:', passwordError);
+          setError(passwordError.message || 'Failed to change password');
+          return;
+        }
+      }
+
       try {
         navigate('/profile/farmer', { state: { successMessage: 'Profile updated successfully!' } });
         return; // stop further local UI updates on this page
