@@ -775,7 +775,7 @@ const Navigation = ({ onSidebarToggle }) => {
                       background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%)',
                       boxShadow: 'inset 0 0 0 1px rgba(34, 197, 94, 0.1)'
                     }}
-                    title="Community Chat"
+                    title="Contact Us"
                   >
                     <ChatBubbleLeftRightIcon className="w-5 h-5 transform group-hover:scale-110 transition-transform duration-200" />
                     <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-400/15 to-green-600/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
